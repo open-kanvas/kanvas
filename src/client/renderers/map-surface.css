@@ -1,0 +1,119 @@
+/* Leaflet's pane z-indices belong to the map, not to sibling truth labels. */
+.map-content {
+  isolation: isolate;
+  --map-edge-top: max(10px, env(safe-area-inset-top, 0px));
+  --map-edge-left: max(10px, env(safe-area-inset-left, 0px));
+  --map-edge-right: max(10px, env(safe-area-inset-right, 0px));
+  --map-edge-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+}
+
+/* These are map overlays, not a footer or a reserved strip of canvas. Route
+   qualification and loading/failure text wrap together above the map. */
+.map-content > .map-notices {
+  position: absolute;
+  z-index: 500;
+  top: var(--map-edge-top);
+  left: var(--map-edge-left);
+  right: calc(var(--map-edge-right) + var(--map-display-menu-space, 0px));
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.map-content.has-map-controls > .map-notices {
+  left: calc(var(--map-edge-left) + 56px);
+}
+
+.map-content > .map-notices > :is(.map-geometry-note, .map-status) {
+  position: static;
+  max-width: 100%;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.map-content > .map-notices > .map-geometry-note {
+  color: #50554d;
+  background: #fcfff4ed;
+}
+
+.render-surface.template-map.is-live .leaflet-top.leaflet-left {
+  top: var(--map-edge-top);
+  left: var(--map-edge-left);
+}
+
+.render-surface.template-map.is-live .leaflet-control-zoom {
+  margin: 0;
+}
+
+.render-surface.template-map.is-live .leaflet-control-zoom a {
+  width: 44px;
+  height: 44px;
+  line-height: 44px;
+}
+
+.render-surface.template-map.is-live .map-recenter {
+  top: calc(var(--map-edge-top) + 100px);
+  left: var(--map-edge-left);
+  width: 44px;
+  height: 44px;
+}
+
+.render-surface.template-map.is-live .leaflet-bottom.leaflet-right {
+  right: var(--map-edge-right);
+  bottom: var(--map-edge-bottom);
+  max-width: calc(100% - var(--map-edge-left) - var(--map-edge-right));
+}
+
+.render-surface.template-map.is-live .leaflet-control-attribution {
+  margin: 0;
+  max-width: 100%;
+  font-size: 14px;
+  line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Only an actual illustrative qualification needs a separate horizontal lane.
+   Both labels can grow vertically without colliding or covering each other. */
+.render-surface.template-map.is-live:has(> .view-qualification) .leaflet-bottom.leaflet-right {
+  max-width: calc(50% - var(--map-edge-right) - 8px);
+}
+
+.render-surface.template-map.is-live > .view-qualification {
+  left: max(12px, env(safe-area-inset-left, 0px));
+  bottom: max(10px, env(safe-area-inset-bottom, 0px));
+  max-width: calc(50% - max(12px, env(safe-area-inset-left, 0px)) - 8px);
+  overflow-wrap: anywhere;
+}
+
+/* A map slide keeps the deck's existing navigation row, including its actual
+   safe-area padding; this adds no navigation or footer to a standalone map. */
+.render-surface.template-presentation.is-live:has(> .render-body > .presentation-content > .presentation-slide > .template-map.is-live) > .render-body > .presentation-content > .presentation-controls {
+  padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+}
+
+/* The shared display menu must not sit on Leaflet's legal attribution. The
+   live-leaf selector also covers maps inside presentations, but not previews. */
+.viewer-shell:has(> .viewer-candidate .template-map.is-live) {
+  --map-display-menu-space: 56px;
+}
+
+.viewer-shell:has(> .viewer-candidate .template-map.is-live) > .viewer-menu-toggle {
+  top: max(12px, env(safe-area-inset-top, 0px));
+  right: max(12px, env(safe-area-inset-right, 0px));
+  bottom: auto;
+  width: 44px;
+  height: 44px;
+}
+
+.viewer-shell:has(> .viewer-candidate .template-map.is-live) > .viewer-menu {
+  top: calc(max(12px, env(safe-area-inset-top, 0px)) + 52px);
+  right: max(12px, env(safe-area-inset-right, 0px));
+  bottom: auto;
+  max-height: min(60%, calc(100% - max(12px, env(safe-area-inset-top, 0px)) - max(12px, env(safe-area-inset-bottom, 0px)) - 128px));
+  overflow: auto;
+  overscroll-behavior: contain;
+}

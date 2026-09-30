@@ -1,0 +1,6 @@
+.viewer-source-status{position:absolute;z-index:16;top:max(12px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 100px);border:1px solid #e7b45a55;background:var(--surface,#20242b);color:var(--text,#fafafa);padding:8px 14px;border-radius:12px;font-size:.8rem;line-height:1.4;box-shadow:0 4px 24px #0002;pointer-events:none}
+.viewer-source-status time{display:block;font-size:.7rem;opacity:.7}
+.viewer-monitoring{padding:12px 0;border-top:1px solid #8884;margin-top:10px;overflow-wrap:anywhere}
+.viewer-monitoring p{font-size:.8rem;opacity:.75;margin:6px 0}
+.viewer-menu .viewer-monitoring button{width:100%;justify-content:center}
+@media(max-width:500px){.viewer-source-status{left:12px;transform:none;max-width:calc(100% - 84px);font-size:.75rem}}

@@ -1,0 +1,21 @@
+.reports-panel { min-width: 0; }
+.report-list { display: grid; gap: 1rem; margin-top: 1.2rem; }
+.report-item, .report-compose { min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: clamp(1rem, 3vw, 1.6rem); }
+.report-compose { margin: 1rem 0; }
+.report-heading { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.report-heading h4 { margin: 0 auto 0 0; font-size: 1.08rem; overflow-wrap: anywhere; }
+.report-item p, .report-item li, .report-item dd { overflow-wrap: anywhere; }
+.report-text { white-space: pre-wrap; line-height: 1.6; margin: .8rem 0; }
+.report-item small { color: var(--muted); }
+.report-item details { margin: 1rem 0; }
+.report-item summary { cursor: pointer; font-weight: 600; }
+.report-item dl { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(0, 3fr); gap: .5rem; font-size: .85rem; }
+.report-item dd { margin: 0; }
+.report-review { margin-top: 1rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+.report-compose .field, .report-review .field { margin-bottom: 1rem; }
+.reports-panel textarea { width: 100%; resize: vertical; }
+@media (max-width: 600px) {
+  .reports-panel .panel-heading { align-items: flex-start; flex-direction: column; }
+  .reports-panel .form-actions { flex-wrap: wrap; }
+  .report-item dl { grid-template-columns: 1fr; }
+}

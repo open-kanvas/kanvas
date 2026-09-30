@@ -1,0 +1,52 @@
+/* Table content is a reading surface. Long cells wrap, wider column sets scroll
+   inside this region, and pagination navigates the complete supplied dataset. */
+.table-surface.table-content{flex:1;min-width:0;max-width:100%;width:100%;height:100%;font-size:1rem;overflow:hidden}
+.table-surface .table-scroll{min-width:0;max-width:100%;min-height:0;flex:1;overflow:auto;overscroll-behavior:contain;scroll-padding-top:4rem}
+.table-surface.table-content table{width:100%;min-width:calc(var(--table-columns,1) * 10rem);table-layout:fixed;border-collapse:separate;border-spacing:0;font-size:inherit}
+.table-surface.table-content :is(th,td){white-space:break-spaces;overflow-wrap:anywhere;word-break:normal;tab-size:4;vertical-align:top;text-align:start;padding:14px 16px;border-bottom:1px solid var(--line);line-height:1.5}
+.table-surface.table-content th{color:var(--muted);font-weight:550;position:sticky;top:0;z-index:1;background:var(--surface)}
+.table-surface.table-content th>span{display:block}
+.table-surface.table-content th>button{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;min-height:44px;width:100%;padding:0;border:0;font:inherit;text-align:inherit;color:inherit;white-space:inherit;overflow-wrap:inherit}
+.table-surface.table-content th>button>span:first-child{min-width:0}
+.table-surface .table-sort-indicator{flex:none;color:var(--muted)}
+.table-surface.table-content :is(th,td):first-child{padding-inline-start:0}
+.table-surface.table-content :is(th,td):last-child{padding-inline-end:0}
+.table-surface .table-null{font-style:normal}
+.table-surface td[style*="background"]{padding-inline:16px}
+.table-surface td[style*="background"] .table-null{color:inherit;opacity:.75}
+.table-indicator{display:inline-flex;align-items:center;justify-content:center;vertical-align:-.15em;flex:none;margin-inline-end:.55em}
+.table-indicator-dot{width:.65em;height:.65em;border-radius:50%;box-shadow:0 0 0 1px currentColor,0 0 0 2px color-mix(in srgb,currentColor 15%,transparent)}
+.table-indicator-image{display:inline-flex;vertical-align:middle;width:1.3em;height:1.3em;margin-inline-end:.55em}
+.table-indicator-image img{width:100%;height:100%;object-fit:contain}
+.table-indicator-image .media-unavailable{min-width:0;min-height:0;padding:0}
+.table-indicator-image .media-unavailable :is(p,small,span,a){display:none}
+.table-surface .table-toolbar{gap:10px;flex-wrap:wrap;flex-shrink:0;margin-bottom:12px}
+.table-surface .table-toolbar>label{flex:1;min-width:min(160px,100%);max-width:none}
+.table-surface .table-toolbar input{min-width:0;width:100%;font-size:1rem;line-height:1.5;padding:10px 4px}
+.table-surface .table-toolbar>span{font-size:1rem;line-height:1.5}
+.table-surface .table-reset{min-height:44px;padding:8px 12px;font:inherit;color:var(--text);border:1px solid var(--line);border-radius:6px}
+.table-surface .table-pages{gap:8px;flex-shrink:0;min-width:0;padding-top:10px;font-size:1rem;line-height:1.4}
+.table-surface .table-pages>span{text-align:center;overflow-wrap:anywhere;min-width:0}
+.table-surface .table-pages>button{flex:none;min-height:44px;padding:8px 0;font:inherit;white-space:nowrap}
+.table-surface .table-empty{margin:0;padding:24px 0;color:var(--muted);font-size:1rem;line-height:1.5}
+.table-surface .table-source-summary{flex-shrink:0;max-height:25%;overflow:auto;overflow-wrap:anywhere;margin:12px 0 0;font-size:1rem;line-height:1.5}
+/* A real qualification follows the reading surface instead of covering its
+   Previous button. Unqualified tables do not acquire a footer or extra row. */
+.render-surface.template-table.is-live>.view-qualification{position:relative;left:auto;bottom:auto;align-self:flex-start;flex-shrink:0;margin-top:8px}
+/* Absolute viewer stages do not inherit shell padding. Apply device insets
+   once, to the standalone table or the outer presentation containing it. */
+.viewer-shell>.viewer-candidate>.browsing-root>.render-surface.template-table.is-live{padding:max(var(--live-padding),env(safe-area-inset-top,0px)) max(var(--live-padding),env(safe-area-inset-right,0px)) max(var(--live-padding),env(safe-area-inset-bottom,0px)) max(var(--live-padding),env(safe-area-inset-left,0px))}
+.viewer-shell>.viewer-candidate>.browsing-root>.render-surface.template-presentation.is-live.is-full-bleed:has(.template-table.is-live){padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+/* Keep the existing display menu beside pagination, not over Next. Only the
+   pager gives up horizontal space; the table keeps its full reading width and
+   no permanent bottom strip is reserved. Active presentation leaves count,
+   but workspace previews and retained background frames do not. */
+.viewer-shell:has(>.viewer-candidate .template-table.is-live){--table-menu-right:max(12px,env(safe-area-inset-right,0px));--table-menu-bottom:max(12px,env(safe-area-inset-bottom,0px))}
+.viewer-shell:has(>.viewer-candidate .template-table.is-live)>.viewer-menu-toggle{right:var(--table-menu-right);bottom:var(--table-menu-bottom);width:44px;height:44px}
+.viewer-shell:has(>.viewer-candidate .template-table.is-live)>.viewer-menu{right:var(--table-menu-right);bottom:calc(var(--table-menu-bottom) + 52px);max-width:calc(100% - var(--table-menu-right) - max(12px,env(safe-area-inset-left,0px)));max-height:calc(100% - var(--table-menu-bottom) - max(12px,env(safe-area-inset-top,0px)) - 60px);overflow:auto;overscroll-behavior:contain}
+.viewer-shell>.viewer-candidate .template-table.is-live .table-pages{padding-right:max(0px,calc(var(--table-menu-right) + 52px - max(var(--live-padding),env(safe-area-inset-right,0px))))}
+.is-preview .table-surface.table-content{font-size:clamp(.45rem,2.5cqw,.65rem)}
+.is-preview .table-surface.table-content table{min-width:calc(var(--table-columns,1) * 4rem);font-size:inherit}
+.is-preview .table-surface.table-content :is(th,td){padding:7px 6px}
+.is-preview .table-surface.table-content th>button{font-size:inherit;min-height:0}
+.is-preview .table-surface .table-source-summary{font-size:inherit;margin-top:6px}

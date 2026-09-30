@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src",
+    "scripts/backup-postgres.ts",
+    "scripts/migrate-sqlite.ts",
+    "scripts/create-user.ts",
+    "vite.config.ts",
+    "tsup.config.ts"
+  ]
+}

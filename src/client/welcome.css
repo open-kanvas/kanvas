@@ -1,0 +1,2 @@
+.kanvas-welcome{max-width:780px;margin:auto;padding:clamp(24px,6vw,80px);display:flex;flex-direction:column;gap:20px;min-height:100dvh;justify-content:center;background:var(--surface);color:var(--text)}.kanvas-welcome h1{font-size:clamp(34px,6vw,60px);line-height:1.12}.kanvas-welcome p{font-size:20px;line-height:1.6}.kanvas-welcome .welcome-access{font-size:15px;opacity:.8}
+.kanvas-welcome>button{font:inherit;border:1px solid #8887;border-radius:8px;padding:10px 15px;min-height:44px}

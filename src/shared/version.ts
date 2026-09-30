@@ -1,0 +1,2 @@
+/** Running application version shared by HTTP and MCP responses. */
+export const KANVAS_VERSION = '0.20.0';

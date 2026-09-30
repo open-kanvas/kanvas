@@ -1,0 +1,85 @@
+import { z } from 'zod';
+import { viewSchema } from '../shared/view-schemas.js';
+import { feedbackSubmitSchema, errorReportSchema, reportsReadSchema, reportUpdateSchema } from '../shared/reports.js';
+import { AppError } from './store.js';
+import { COUNTDOWN_TARGET_TIME_RULE, timerValidationRule } from '../shared/timer.js';
+
+export interface ValidationIssue { path: string; problem: string; maximum?: number; actual?: number; unit?: 'characters' | 'items' | 'bytes' }
+
+// Only schema-defined property names may reach a diagnostic. Dynamic record
+// keys, received values and Zod messages can contain private source material.
+const publicFields = new Set(['requestId', 'sessionId', 'displayId', 'displayIds', 'context', 'intent', 'datasetId', 'assetIds', 'templateHint', 'view', 'config', 'expectedRevision', 'direction', 'revision', 'commandId', 'action', 'time', 'value', 'fullscreen', 'accessMode', 'topic']);
+function fields(value: unknown, names = publicFields): void {
+  if (!value || typeof value !== 'object') return;
+  if ('properties' in value && value.properties && typeof value.properties === 'object') {
+    for (const name of Object.keys(value.properties)) names.add(name);
+  }
+  for (const child of Object.values(value)) fields(child, names);
+}
+fields(z.toJSONSchema(viewSchema, { unrepresentable: 'any' }));
+for (const schema of [feedbackSubmitSchema, errorReportSchema, reportsReadSchema, reportUpdateSchema]) fields(z.toJSONSchema(schema, { unrepresentable: 'any', io: 'input' }));
+
+const toolFields = new WeakMap<z.ZodType, Set<string>>();
+function fieldsFor(schema?: z.ZodType): Set<string> {
+  if (!schema) return publicFields;
+  let names = toolFields.get(schema);
+  if (!names) {
+    names = new Set(publicFields);
+    fields(z.toJSONSchema(schema, { unrepresentable: 'any', io: 'input' }), names);
+    toolFields.set(schema, names);
+  }
+  return names;
+}
+
+type Issue = z.ZodError['issues'][number];
+const samePath = (left: readonly PropertyKey[], right: readonly PropertyKey[]) => left.length === right.length && left.every((part, index) => part === right[index]);
+/** A size refinement after a type failure can describe an array bound as a
+ * string bound in Zod. Report the type error, not that misleading refinement.
+ * For a union, retain a uniquely type-compatible branch's useful errors. */
+function relevantIssues(issues: readonly Issue[], depth = 0): Issue[] {
+  const expanded = issues.flatMap(issue => {
+    if (issue.code !== 'invalid_union' || depth >= 3) return [issue];
+    // Zod's alternative paths are relative to the union's own path.
+    const branches = issue.errors.map(branch => branch.map(child => ({ ...child, path: [...issue.path, ...child.path] })));
+    const compatible = branches.filter(branch => !branch.some(child => child.code === 'invalid_type' && samePath(child.path, issue.path)));
+    return compatible.length === 1 ? relevantIssues(compatible[0], depth + 1) : [issue];
+  });
+  const wrongTypes = expanded.filter(issue => issue.code === 'invalid_type');
+  return expanded.filter(issue => issue.code === 'invalid_type' || !wrongTypes.some(parent => parent.path.every((part, index) => part === issue.path[index])));
+}
+
+const safeTypes = new Set(['array', 'object', 'string', 'number', 'boolean', 'int', 'null']);
+export function validationIssues(error: z.ZodError, prefix = '', submitted?: unknown, trimStrings = false, schema?: z.ZodType): ValidationIssue[] {
+  const names = fieldsFor(schema);
+  return relevantIssues(error.issues).slice(0, 6).flatMap((issue): ValidationIssue[] => {
+    let received = submitted;
+    for (const part of issue.path) received = received && typeof received === 'object' && Object.hasOwn(received, part) ? (received as Record<PropertyKey, unknown>)[part] : undefined;
+    const actual = typeof received === 'string' ? (trimStrings ? received.trim() : received).length : Array.isArray(received) ? received.length : undefined;
+    const size = issue.code === 'too_big' && (issue.origin === 'string' || issue.origin === 'array') ? { maximum: Number(issue.maximum), ...(actual === undefined ? {} : { actual }), unit: issue.origin === 'string' ? 'characters' as const : 'items' as const } : undefined;
+    const path = [prefix, ...issue.path.slice(0, 8).map(part => typeof part === 'number' ? '[item]' : names.has(String(part)) ? String(part) : '[field]')].filter(Boolean).join('.') || 'input';
+    const expected = issue.code === 'invalid_type' && safeTypes.has(issue.expected) ? issue.expected : undefined;
+    const unionTypes = issue.code === 'invalid_union' ? [...new Set(issue.errors.flatMap(branch => branch.flatMap(child => child.code === 'invalid_type' && child.path.length === 0 && safeTypes.has(child.expected) ? [child.expected] : [])))] : [];
+    // One deliberately named, public alias is safe to explain. All other
+    // unknown keys stay redacted, even when they contain source text.
+    if (issue.code === 'unrecognized_keys' && issue.keys.includes('targetTime')) return [{ path: `${path}.targetTime`, problem: COUNTDOWN_TARGET_TIME_RULE }, ...(issue.keys.length > 1 ? [{ path, problem: 'Contains other unsupported fields. Use the documented tool or template schema.' }] : [])];
+    if (issue.code === 'unrecognized_keys' && issue.keys.includes('displayId') && schema && Object.hasOwn((z.toJSONSchema(schema,{unrepresentable:'any',io:'input'}) as {properties?:object}).properties??{},'displayIds')) return [{path:'displayId',problem:'Unsupported singular field for this operation. Use displayIds: [the intended display ID], an array.'},...(issue.keys.length>1?[{path,problem:'Contains other unsupported fields. Use the documented tool schema.'}]:[])];
+    return [{
+    path,
+    problem: timerValidationRule(issue) ?? (issue.code === 'invalid_type' ? expected ? `${received === undefined ? 'Required' : 'Expected'} ${expected}${expected === 'boolean' ? ' (true or false)' : ''}.` : 'A required field is missing or has the wrong type.'
+      : issue.code === 'invalid_union' && unionTypes.length > 1 ? `Expected ${unionTypes.join(' or ')}.`
+      : issue.code === 'unrecognized_keys' ? 'Contains unsupported fields. Use the documented tool or template schema.'
+      : issue.code === 'too_big' ? `Maximum ${String(issue.maximum)}${issue.origin === 'string' ? ' characters' : issue.origin === 'array' ? ' items' : ''}${actual === undefined ? '' : `; submitted ${actual}`}.`
+      : issue.code === 'too_small' ? `Is below the supported minimum (${String(issue.minimum)}${issue.origin === 'string' ? ' characters' : issue.origin === 'array' ? ' items' : ''}).`
+      : issue.code === 'invalid_value' && issue.values.length === 1 && typeof issue.values[0] === 'boolean' ? `Must be ${String(issue.values[0])}${path === 'confirm' ? ' only after the owner confirms the intended browser' : ''}.`
+      : issue.code === 'invalid_value' && issue.values.length <= 32 && issue.values.every(value => typeof value === 'string' && /^[a-zA-Z0-9_.:-]{1,80}$/.test(value)) ? `Choose one of: ${issue.values.join(', ')}.`
+      : 'Does not match the documented format or template constraints.'),
+    ...(size ?? {}),
+  }]; }).slice(0, 6);
+}
+
+/** Contains only server-selected guidance, never the original exception text. */
+export class InputError extends AppError {
+  constructor(public readonly issues: ValidationIssue[] = [], public readonly template?: string, public readonly guidance?: { schemaTool: 'kanvas_guide' | 'kanvas_template_get'; topic?: string }) {
+    super('INVALID_ARGUMENT', issues.length ? `Invalid arguments: ${issues.slice(0, 3).map(issue => `${issue.path}: ${issue.problem}`).join(' ')}` : 'Invalid arguments. Check the tool schema and current state.');
+  }
+}

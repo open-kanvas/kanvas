@@ -1,0 +1,2 @@
+import { invitationSchema } from '../../shared/invitations.js';
+export const invitationTools=[{name:'kanvas_invite_create',description:'Create a general onboarding invitation or, with groupId, a single-use member invitation for an administered group. Explicit acceptance follows account verification. Creates an artifact only; sends no message and grants no session access.',schema:invitationSchema,idempotent:true}];

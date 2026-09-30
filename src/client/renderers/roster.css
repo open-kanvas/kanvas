@@ -1,0 +1,57 @@
+/* Shift roster and coverage. Scoped to .roster-content; fits the display. */
+.roster-content{--roster-bg:transparent;--roster-text:var(--text);--roster-muted:var(--muted);--roster-line:var(--line);--roster-cell:color-mix(in srgb,var(--text) 5%,transparent);--roster-weekend:color-mix(in srgb,var(--text) 11%,transparent);--roster-met:#16a34a;--roster-under:#dc2626;--roster-over:#d97706;width:100%;height:100%;min-height:0;display:flex;flex-direction:column;gap:clamp(6px,1.2cqh,16px);overflow:hidden;color:var(--roster-text);background:var(--roster-bg);font-size:clamp(11px,calc(.45cqw + .6cqh),22px)}
+.roster-content[data-appearance="light"]{--roster-bg:#f1f5f9;--roster-text:#0f172a;--roster-muted:#64748b;--roster-line:#cbd5e1;--roster-cell:#ffffff;--roster-weekend:#e2e8f0;padding:clamp(8px,1.4cqw,20px);border-radius:12px}
+.roster-caption{flex:none;display:flex;flex-wrap:wrap;align-items:baseline;gap:.35em 1.2em;color:var(--roster-muted)}
+.roster-caption strong{color:var(--roster-text);font-size:1.15em;font-weight:650}
+.roster-calendar{flex:1;min-height:0;display:grid;grid-template-columns:max-content repeat(7,minmax(0,1fr));grid-template-rows:auto repeat(var(--roster-rows,5),minmax(0,1fr));gap:clamp(1px,.25cqh,4px) clamp(2px,.3cqw,5px)}
+.roster-weekday{text-align:center;font-size:.85em;font-weight:600;color:var(--roster-muted);padding-bottom:.2em;white-space:nowrap;overflow:hidden}
+.roster-weekday.is-weekend{color:var(--roster-text)}
+.roster-month{display:flex;align-items:center;justify-content:center;padding-inline-end:.35em;margin-inline-end:.1em;border-inline-end:2px solid var(--roster-line);overflow:hidden;min-height:0}
+.roster-month>span{writing-mode:vertical-rl;transform:rotate(180deg);font-weight:650;font-size:.9em;white-space:nowrap;letter-spacing:.02em}
+.roster-slot{min-width:0;min-height:0;display:flex}
+.roster-cell{position:relative;flex:1;min-width:0;min-height:0;display:flex;border-radius:5px;overflow:hidden;background:var(--roster-cell)}
+.roster-cell.is-weekend{background:var(--roster-weekend)}
+.roster-cell.is-outside,.roster-cell.is-outside.is-weekend{background:transparent}
+.roster-cell.is-today{outline:2px solid var(--accent);outline-offset:-2px}
+.roster-date{position:absolute;top:.12em;left:.3em;z-index:1;font-size:.7em;font-weight:650;line-height:1;color:var(--roster-text);opacity:.7;font-variant-numeric:tabular-nums;pointer-events:none}
+.roster-segs{flex:1;display:flex;min-width:0}
+.roster-seg{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;gap:.2em;color:var(--roster-muted)}
+.roster-seg>.roster-icon{opacity:.35}
+.roster-seg.seg-morning{background:color-mix(in srgb,#38bdf8 10%,transparent)}
+.roster-seg.seg-evening{background:color-mix(in srgb,#fb923c 10%,transparent)}
+.roster-seg.seg-night{background:color-mix(in srgb,#4338ca 13%,transparent)}
+.roster-seg.is-on,.roster-whole.is-on{background:linear-gradient(135deg,var(--shift-color),var(--shift-deep));color:var(--shift-ink)}
+.roster-seg.is-on>.roster-icon{opacity:.9}
+.roster-whole{flex:1;display:flex;align-items:center;justify-content:center}
+.roster-seg b,.roster-whole b{font-weight:750;font-size:1.05em;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.roster-icon{width:1.05em;height:1.05em;flex:none}
+@container (max-width:700px){.roster-seg:not(.is-on)>.roster-icon{display:none}.roster-seg.is-on>.roster-icon{display:none}}
+.roster-legend{flex:none;list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:.45em 1.4em;align-items:center}
+.roster-legend li{display:flex;align-items:center;gap:.45em;min-width:0}
+.roster-legend b{font-variant-numeric:tabular-nums;color:var(--roster-muted);font-weight:600}
+.roster-chip{display:inline-flex;align-items:center;justify-content:center;min-width:1.9em;height:1.5em;padding:0 .35em;border-radius:4px;font-weight:750;background:linear-gradient(135deg,var(--shift-color),var(--shift-deep));color:var(--shift-ink)}
+.roster-chip.is-free{background:var(--roster-cell);border:1px solid var(--roster-line)}
+.roster-team{flex:1;min-height:0;display:grid;grid-template-columns:max-content repeat(var(--roster-days,7),minmax(0,1fr)) max-content;grid-template-rows:auto auto repeat(var(--roster-people,1),minmax(0,1fr));gap:2px}
+.roster-team-month{font-weight:650;font-size:.85em;padding-bottom:.15em;border-bottom:2px solid var(--roster-line);white-space:nowrap;overflow:hidden}
+.roster-team-day{display:flex;flex-direction:column;align-items:center;font-size:.72em;color:var(--roster-muted);line-height:1.15;border-radius:4px;overflow:hidden}
+.roster-team-day.is-weekend{color:var(--roster-text);background:var(--roster-weekend)}
+.roster-person{align-self:center;padding-inline-end:.6em;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:16em}
+.roster-team-total{align-self:center;padding-inline-start:.5em;font-variant-numeric:tabular-nums;color:var(--roster-muted);font-size:.85em;text-align:end}
+.roster-mode-team .roster-icon{display:none}
+.roster-cov{--cov:var(--roster-met);flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.1em;padding:1.05em .15em .2em;line-height:1.1;background:color-mix(in srgb,var(--cov) 20%,transparent);border-top:3px solid var(--cov)}
+.roster-cov.is-under{--cov:var(--roster-under);background:color-mix(in srgb,var(--cov) 30%,transparent)}
+.roster-cov.is-over{--cov:var(--roster-over)}
+.roster-cov+.roster-cov{border-inline-start:1px solid var(--roster-line)}
+.roster-cov b{font-weight:750}
+.roster-cov-count{font-variant-numeric:tabular-nums;font-size:.85em;white-space:nowrap}
+.roster-cov-count>i{font-style:normal;margin-inline-end:.15em;color:var(--cov)}
+.roster-cov-roles{display:flex;flex-direction:column;align-items:flex-start;gap:.1em;font-size:.72em;max-width:100%;margin-top:.2em}
+.roster-cov-roles>span{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.roster-cov-roles>.is-under{color:color-mix(in srgb,var(--roster-under) 80%,var(--roster-text));font-weight:650}
+.roster-cov-roles>.is-over{color:color-mix(in srgb,var(--roster-over) 80%,var(--roster-text))}
+.roster-cov-summary{display:flex;flex-wrap:wrap;gap:.4em 1em;font-variant-numeric:tabular-nums}
+.roster-cov-key{font-weight:600}
+.roster-cov-key.is-met{color:var(--roster-met)}.roster-cov-key.is-under{color:var(--roster-under)}.roster-cov-key.is-over{color:var(--roster-over)}
+.roster-gaps{flex:none;margin:0;padding-inline-start:1.3em;font-size:.88em;columns:2 26em;column-gap:2em;max-height:24cqh;overflow:hidden}
+.roster-gaps>li{break-inside:avoid}
+.roster-gaps-more{list-style:none;color:var(--roster-muted)}

@@ -1,0 +1,8 @@
+/* Time remains proportionally spaced; variable-height cards never share a row. */
+.timeline-natural-rows{padding-bottom:20px}
+.timeline-natural-rows .timeline-track{position:relative;top:auto;margin:16px 0 26px}
+.timeline-natural-rows .timeline-event{position:relative;top:auto;left:auto;margin:28px 0 20px var(--offset);width:min(320px,calc(100% - var(--offset)));padding:8px 12px;font-size:1rem;overflow-wrap:anywhere}
+.timeline-natural-rows .timeline-event time{display:block;line-height:1.5;font-variant-numeric:tabular-nums}
+.timeline-natural-rows .timeline-event p{max-height:none;overflow:visible;line-height:1.6}
+.timeline-natural-rows .timeline-event h3{line-height:1.4}
+.web-trust-label{font-size:.78rem;line-height:1.35;opacity:.7;margin:0 0 10px}

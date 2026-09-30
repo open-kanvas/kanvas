@@ -1,0 +1,32 @@
+/** Independent inventory of later operations. Domain state/authorization coverage
+ * lives in drafting-ops, planner-ops, display-sync, window-invitations and
+ * account-home; real SDK coverage lives in workflows-http/event-feedback-http. */
+export const CURRENT_MAPPING = [
+  ['kanvas_pointing_read','kanvas_inspect','pointing.read'],
+  ['kanvas_autoplay_read','kanvas_inspect','autoplay.read'],
+  ['kanvas_tool_log_read','kanvas_inspect','tool-log.read'],
+  ['kanvas_account_inventory','kanvas_inspect','account.inventory'],
+  ['kanvas_draft_read','kanvas_inspect','draft.read'],
+  ['kanvas_planner_read','kanvas_inspect','planner.read'],
+  ['kanvas_displays_sync_read','kanvas_inspect','displays.sync.read'],
+  ['kanvas_display_rename','kanvas_session','display.rename'],
+  ['kanvas_tool_log_append','kanvas_publish','tool-log.append'],
+  ['kanvas_draft_edit','kanvas_publish','draft.edit'],
+  ['kanvas_draft_suggest','kanvas_publish','draft.suggest'],
+  ['kanvas_draft_review','kanvas_publish','draft.review'],
+  ['kanvas_planner_edit','kanvas_publish','planner.edit'],
+  ['kanvas_planner_propose','kanvas_publish','planner.propose'],
+  ['kanvas_planner_review','kanvas_publish','planner.review'],
+  ['kanvas_planner_finalize','kanvas_publish','planner.finalize'],
+  ['kanvas_autoplay_control','kanvas_control','autoplay.control'],
+  ['kanvas_scoreboard_control','kanvas_control','scoreboard.control'],
+  ['kanvas_window_present','kanvas_control','window.present'],
+  ['kanvas_connection_redirect','kanvas_control','connection.redirect'],
+  ['kanvas_displays_sync','kanvas_control','displays.sync'],
+  ['kanvas_live_push','kanvas_monitor','push'],
+  ['kanvas_pointing_configure','kanvas_access','pointing.configure'],
+  ['kanvas_session_public_access','kanvas_access','session.public'],
+  ['kanvas_invite_accept','kanvas_access','invite.accept'],
+  ['kanvas_invite_revoke','kanvas_access','invite.revoke'],
+  ['kanvas_pairing_revoke','kanvas_access','pairing.revoke'],
+] as const;

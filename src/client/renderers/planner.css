@@ -1,0 +1,90 @@
+.planner{display:flex;flex-direction:column;gap:.6em;height:100%;min-height:0;font-size:clamp(12px,.5vw + .75vh,19px);color:var(--text)}
+.planner-banner{display:flex;flex-wrap:wrap;align-items:baseline;gap:.3em 1em;padding:.45em .8em;border:1px dashed var(--line);border-radius:10px}
+.planner-banner.is-committed{border-style:solid;border-color:color-mix(in srgb,#22c55e 55%,var(--line));background:color-mix(in srgb,#22c55e 9%,transparent)}
+.planner-status{font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:.8em}
+.planner-counts,.planner-period{color:var(--muted)}
+.planner-period{margin-inline-start:auto}
+.planner-main{display:flex;gap:.8em;flex:1;min-height:0}
+.planner-calendar{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;gap:.4em}
+.planner-side{flex:0 0 min(34%,24em);display:flex;flex-direction:column;gap:.6em;min-height:0;overflow:auto}
+@media (max-width:760px){.planner-main{flex-direction:column}.planner-side{flex:0 1 auto;max-height:45%}}
+.planner-grid,.planner-month{display:flex;flex-direction:column;flex:1;min-height:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.planner-row{display:grid;grid-template-columns:3.4em repeat(var(--planner-days),minmax(0,1fr))}
+.planner-heads,.planner-allday-row{border-bottom:1px solid var(--line)}
+.planner-day-head{display:flex;gap:.35em;align-items:baseline;justify-content:center;padding:.3em 0;font-size:.9em;color:var(--muted)}
+.planner-day-head strong{font-size:1.15em;color:var(--text)}
+.planner-day-head.is-weekend,.planner-column.is-weekend,.planner-cell.is-weekend{background:color-mix(in srgb,var(--text) 3%,transparent)}
+.planner-allday{display:flex;flex-direction:column;gap:2px;min-width:0;padding:2px;border-left:1px solid var(--line)}
+.planner-gutter{padding:.25em .35em;font-size:.72em;text-align:end;color:var(--muted)}
+.planner-body{flex:1;min-height:0}
+.planner-hours{position:relative;padding:0}
+.planner-hours span{position:absolute;right:.4em;transform:translateY(-50%)}
+.planner-hours span:first-child{transform:none}
+.planner-column{position:relative;min-width:0;border-left:1px solid var(--line)}
+.planner-hour-line{position:absolute;left:0;right:0;border-top:1px solid color-mix(in srgb,var(--line) 55%,transparent)}
+.planner-block{--planner-color:var(--accent);box-sizing:border-box;display:flex;flex-direction:column;gap:.1em;min-width:0;overflow:hidden;padding:.15em .4em;border:1px solid var(--surface,transparent);border-left:4px solid var(--planner-color);border-radius:6px;background:color-mix(in srgb,var(--planner-color) 24%,var(--surface,transparent));font-size:.85em;line-height:1.2}
+.planner-column>.planner-block{position:absolute;min-height:1.5em}
+.planner-block strong{overflow:hidden;font-weight:600;white-space:nowrap;text-overflow:ellipsis}
+.planner-time{font-size:.85em;white-space:nowrap;color:var(--muted)}
+.planner-reason{font-size:.82em;opacity:.85}
+.planner-badge{align-self:flex-start;padding:0 .45em;border:1px solid currentColor;border-radius:999px;font-size:.7em;font-weight:700;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+.planner-block.is-struck{opacity:.5;background:transparent;border-left-style:dotted}
+.planner-block.is-struck strong,.planner-block.is-struck .planner-time{text-decoration:line-through}
+.planner-block.is-proposed{z-index:2;border:2px dashed var(--accent);background:color-mix(in srgb,var(--accent) 16%,var(--surface,transparent))}
+.planner-block.is-proposed .planner-badge{color:var(--accent)}
+.planner-block.is-conflict{border-color:var(--warning,#f59e0b);box-shadow:inset 0 0 0 1px var(--warning,#f59e0b);background:color-mix(in srgb,var(--warning,#f59e0b) 20%,var(--surface,transparent))}
+.planner-warn,.planner-warning,.planner-conflicts li{color:var(--warning,#f59e0b)}
+.planner-month-head,.planner-week-row{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.planner-month-head span{padding:.3em 0;border-bottom:1px solid var(--line);font-size:.85em;text-align:center;color:var(--muted)}
+.planner-weeks{display:grid;flex:1;min-height:0}
+.planner-cell{display:flex;flex-direction:column;gap:2px;min-width:0;min-height:0;overflow:hidden;padding:.2em;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.planner-cell.is-outside{background:color-mix(in srgb,var(--text) 4%,transparent)}
+.planner-cell-date{font-size:.8em;color:var(--muted)}
+.planner-cell .planner-block{flex:0 0 auto;padding:0 .3em;font-size:.76em}
+.planner-block.is-compact{flex-direction:row;align-items:baseline;gap:.35em}
+.planner-more{font-size:.74em;color:var(--muted)}
+.planner-proposals,.planner-conflicts{padding:.55em .75em;border:1px solid var(--line);border-radius:10px}
+.planner-proposals h3,.planner-conflicts h3{margin:0 0 .45em;font-size:.8em;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.planner-proposals ol,.planner-conflicts ul{display:flex;flex-direction:column;gap:.7em;margin:0;padding:0;list-style:none}
+.planner-proposal-head{display:flex;align-items:center;gap:.5em}
+.planner-proposal-when{display:flex;flex-wrap:wrap;gap:.15em .6em;font-size:.9em}
+.planner-proposal-when del{color:var(--muted)}
+.planner-proposal-when ins{font-weight:600;text-decoration:none;color:var(--accent)}
+.planner-proposal p{margin:.2em 0;font-size:.9em}
+.planner-actions{display:flex;flex-wrap:wrap;gap:.4em;margin-top:.35em}
+.planner-actions button{padding:.3em .8em;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--text);font:inherit;font-size:.85em;cursor:pointer}
+.planner-actions button:first-child{border-color:var(--accent);background:var(--accent);color:var(--accent-contrast,#0b0f0d)}
+.planner-actions button.is-quiet{border-style:dashed}
+.planner-actions button:disabled{opacity:.5;cursor:default}
+.planner-conflicts li{font-size:.9em}
+.planner-legend{display:flex;flex-wrap:wrap;gap:.3em 1em;font-size:.78em;color:var(--muted)}
+.planner-legend i{display:inline-block;width:1.1em;height:.75em;margin-inline-end:.35em;border-radius:3px;background:var(--accent);vertical-align:baseline}
+.planner-legend i.is-proposed{border:2px dashed var(--accent);background:transparent}
+.planner-legend i.is-struck{border:1px dotted var(--muted);background:transparent}
+.planner-legend i.is-conflict{background:var(--warning,#f59e0b)}
+.planner-message{margin:.4em 0 0;font-size:.85em;color:var(--muted)}
+.planner-invalid{align-items:center;justify-content:center;color:var(--muted)}
+
+.planner-column>.planner-block.is-compact{align-items:center;min-height:1.6em;gap:.5em}
+.planner-column>.planner-block.is-compact .planner-time{order:-1;flex:none}
+.planner-column>.planner-block.is-compact strong{min-width:0;flex:1}
+.planner-weather{position:absolute;inset:0 0 0 auto;width:5.7em;border-left:1px solid var(--line);font-size:.8em;pointer-events:none}
+.planner-weather>span{position:absolute;left:.25em;white-space:nowrap;line-height:1.2}
+.planner-weather small{margin-left:.3em;color:var(--muted)}
+
+
+.planner-body{--weather-width:4.8rem}
+/* Weather shares the fixed-height day grid; it must never size the time axis. */
+.planner-weather{width:var(--weather-width);font-size:14px;background:color-mix(in srgb,var(--accent) 7%,var(--surface));border-inline:2px solid var(--line);z-index:1}
+.planner-weather>.weather-point,.planner-weather>.weather-solar{left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:1px;line-height:1.15;white-space:normal;text-align:center}
+.planner-weather .weather-icon{font-size:25px;line-height:1.1}.planner-weather .is-sun{color:#f5b700}.planner-weather small{font-size:12px;margin:0}.weather-point>span{font-size:15px;font-weight:600}.weather-solar{background:var(--surface);border:1px solid var(--line)}.weather-solar b{font-size:21px}
+.planner-week-row{position:relative;min-height:0;grid-template-rows:minmax(0,1fr)}
+.planner-week-row>.planner-cell{grid-row:1}.planner-cell-entries{margin-top:calc(var(--span-lanes,0) * 1.5em);min-height:0;overflow:hidden}
+.planner-span{grid-row:1;align-self:start;z-index:2;margin:calc(1.45em + var(--span-lane) * 1.5em) 2px 0;min-width:0;font-size:.76em}.planner-span>.planner-block{height:1.45em;padding:0 .3em}
+@container (max-width:600px){.planner-body{--weather-width:3.7rem}.planner-weather{font-size:12px}.planner-weather .weather-icon{font-size:23px}.planner-weather small{font-size:10px}.weather-point>span{font-size:12px}.planner-row{grid-template-columns:2.6em repeat(var(--planner-days),minmax(0,1fr))}}
+.planner-grid.with-weather.view-week{overflow-x:auto;overflow-y:hidden}.planner-grid.with-weather.view-week>.planner-row{min-width:calc(3.4em + 7 * 100px)}
+.planner-weather .weather-wind{white-space:nowrap;font-size:10px;letter-spacing:-.025em}.planner-weather{box-sizing:border-box;max-width:65%}.planner-column{--weather-width:min(4.8rem,65%)}
+@container(max-width:600px){.planner-column{--weather-width:min(3.7rem,65%)}.planner-weather .weather-wind{font-size:9px}}
+.planner-month{font-size:clamp(14px,1.35cqw,20px)}.planner-span{font-size:.9em}
+/* On narrow multi-day columns, a time range must not consume the event title. */
+@container(max-width:600px){.planner-column>.planner-block.is-compact{flex-direction:column;align-items:flex-start;gap:0}.planner-column>.planner-block.is-compact strong{flex:none;width:100%;order:-1}.planner-column>.planner-block.is-compact .planner-time{max-width:100%;overflow:hidden;font-size:.7em}}

@@ -1,0 +1,4 @@
+Browser logos identify the connecting browser. Chrome, Firefox, Edge, Safari and Opera marks belong to their respective owners; use here does not imply endorsement.
+Source: https://github.com/alrra/browser-logos
+Individual source URLs and file digests: sources.json
+

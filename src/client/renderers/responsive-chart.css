@@ -1,0 +1,18 @@
+/* Legacy plot coordinates are CSS pixels measured from this flex child. SVG
+   intrinsic sizing must not feed back into either the viewport or label size. */
+.legacy-chart.chart-content{flex:1;min-width:0;justify-content:flex-start}
+.legacy-chart .legacy-chart-plot{flex:1 1 0;min-width:0;min-height:0;overflow:auto;overscroll-behavior:contain}
+.legacy-chart .legacy-chart-plot>.chart-svg{display:block;flex:none;max-width:none;max-height:none;min-height:0;overflow:hidden}
+.legacy-chart .chart-svg text{font-family:inherit;font-weight:400;letter-spacing:normal}
+.legacy-chart .chart-legend{max-height:25%;overflow:auto;flex-shrink:0}
+.legacy-chart .chart-readout{overflow-wrap:anywhere}
+.legacy-chart .chart-point-detail{position:absolute;top:8px;right:8px;z-index:2;max-width:calc(100% - 16px);max-height:45%;overflow:auto;margin:0;padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:var(--panel,var(--surface));box-shadow:var(--shadow);font-size:1rem;line-height:1.5;pointer-events:none}
+.legacy-chart .legacy-category-key{flex:0 1 auto;min-height:0;max-height:min(25%,160px);overflow:auto;overscroll-behavior:contain;margin-top:8px;padding:4px 8px;color:var(--muted);font-size:1rem;line-height:1.45;overflow-wrap:anywhere}
+.legacy-chart .legacy-category-key ol{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr));gap:6px 26px;margin:0;padding:0 0 0 1.7em}
+.legacy-chart .legacy-category-key li{margin:0;padding:0;min-width:0}
+.legacy-chart .legacy-category-key li::marker{font-variant-numeric:tabular-nums;color:var(--text)}
+.is-preview .legacy-chart .legacy-category-key{font-size:7px;max-height:25%;padding:0 2px;margin-top:3px}
+.is-preview .legacy-chart .legacy-category-key ol{gap:3px 12px;grid-template-columns:repeat(auto-fit,minmax(min(90px,100%),1fr))}
+.is-preview .legacy-chart .chart-point-detail{font-size:8px;padding:4px}
+
+.legacy-chart .legacy-chart-plot{contain:size layout;scrollbar-gutter:stable}

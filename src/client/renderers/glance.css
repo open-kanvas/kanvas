@@ -1,0 +1,125 @@
+/* One useful visual beat. Metadata does not reserve space unless requested.
+   Live surfaces and nested workspace thumbnails have independent fit rules. */
+.render-surface.is-live:not(.is-preview){--live-padding:clamp(16px,min(2.6cqw,3.2cqh),48px);--content-pad:var(--live-padding);padding:var(--live-padding)}
+.render-surface.is-live:not(.is-preview)[data-density=compact]{--live-padding:clamp(12px,min(2cqw,2.5cqh),32px)}
+.render-surface.is-live:not(.is-preview).is-full-bleed{padding:0}
+.render-surface.is-live>.render-body{overflow:auto;overscroll-behavior:contain;align-items:stretch}
+.render-surface.is-live[data-surface-mode=media]>.render-body{overflow:hidden}
+.render-surface.is-live>.view-heading{flex-shrink:0;max-height:none;min-height:min-content;min-width:0;overflow:visible;overflow-wrap:anywhere;padding-block:1px}
+.render-surface.is-live.is-full-bleed>.view-heading{position:static;padding:var(--live-padding);margin:0;background:var(--surface)}
+.render-surface.is-live>.view-actions{max-height:40%;overflow:auto;overscroll-behavior:contain}
+.render-surface.is-live.is-full-bleed>.view-actions{padding:12px var(--live-padding)}
+.render-surface.is-live>.render-body>:is(.product-content,.profile-content,.recipe-content,.menu-content,.itinerary-content,.health-content,.kpi-content,.leaderboard-content,.quote-content,.timeline-content){padding:0;min-width:0;min-height:0;max-width:100%}
+.render-surface.is-live>.render-body>:is(.fact-content,.number-content,.quote-content){justify-content:safe center;overflow:auto;overscroll-behavior:contain}
+.render-surface.is-live>.render-body>.fact-content>*{flex-shrink:0}
+.render-surface.is-live>.render-body>.number-content{align-items:center;text-align:center}
+.render-surface.is-live>.render-body>.number-content>*{flex-shrink:0}
+.render-surface.is-live>.render-body>.number-content .number-value{justify-content:center;flex-wrap:wrap;row-gap:.12em;width:100%;font-size:clamp(2rem,calc(140cqw / (var(--value-length,6) + var(--unit-width,0))),38cqh)}
+.render-surface.is-live>.render-body>.number-content .number-value:has(.number-unit){--unit-width:2}
+.render-surface.is-live>.render-body>.number-content .number-unit{max-width:100%;flex-shrink:1;overflow-wrap:anywhere}
+.render-surface.is-live>.render-body>.quote-content{display:flex;flex-direction:column;margin:0}
+.render-surface.is-live>.render-body>.quote-content>*{flex-shrink:0}
+.render-surface.is-live>.render-body>.quote-content .quote-mark{font-size:clamp(3rem,8cqh,7rem)}
+.render-surface.is-live>.render-body>.quote-content figcaption{font-size:clamp(1rem,2cqw,1.5rem);line-height:1.5}
+.render-surface.is-live>.render-body>:is(.product-content,.profile-content,.recipe-content,.itinerary-content,.health-content){overflow-wrap:anywhere}
+.render-surface.is-live>.render-body>.product-content .product-intro>div,.render-surface.is-live>.render-body>.profile-content>div,.render-surface.is-live>.render-body>.recipe-content>header>div{min-width:0}
+.render-surface.is-live>.render-body>.itinerary-content>section{min-width:min(100%,260px)}
+.render-surface.is-live>.render-body>.kpi-content>article:only-child{grid-column:1/-1;text-align:center;border:0}
+.render-surface.is-live>.render-body>.kpi-content>article:only-child strong{font-size:clamp(2rem,calc(145cqw / var(--value-length,6)),32cqh)}
+.render-surface.is-live>.render-body>.kpi-content h2{font-size:clamp(1.125rem,2cqw,1.75rem);line-height:1.4}
+.render-surface.is-live>.render-body>.health-content{display:flex;flex-direction:column;justify-content:safe center;gap:12px}
+.render-surface.is-live>.render-body>.health-content .health-grid:has(>article:only-child){flex:1;min-height:0}
+.render-surface.is-live>.render-body>.health-content .health-grid>article:only-child{min-height:0;align-items:center;text-align:center}
+.render-surface.is-live>.render-body>.health-content .health-grid>article:only-child strong{font-size:clamp(2rem,8cqw,14cqh);font-weight:450;overflow-wrap:anywhere}
+.render-surface.is-live>.render-body>.custom-visual{min-height:0;display:block;flex:1}
+.render-surface.is-live>.render-body>:is(.map-content,.whiteboard-content),.render-surface.is-live>.render-body>.video-content .video-frame{border-radius:0}
+.render-surface.is-live>.render-body>.presentation-content .presentation-controls{padding:8px 16px;gap:20px}
+.render-surface:not(.is-preview)>.view-heading{margin-bottom:clamp(14px,2.5cqh,28px)}
+.render-surface:not(.is-preview)>.view-heading h1{font-size:clamp(1.25rem,2.5cqw,2.3rem);line-height:1.3;letter-spacing:-.025em}
+.render-surface:not(.is-preview) .content-eyebrow:not(.is-preview *){font-size:clamp(1rem,1.5cqw,1.2rem);letter-spacing:.05em;text-transform:none}
+.render-surface:not(.is-preview) :is(.content-summary,.source-identity,.document-location,.chart-legend,.chart-readout,.table-toolbar>span,.table-pages,.image-grid figcaption,.video-content figcaption,.code-toolbar,.code-toolbar button,.notification-meta,.transcription-heading,.transcript-meta,.schedule-heading,.action-status,.media-readiness,.inline-error):not(.is-preview *){font-size:1rem;line-height:1.5}
+.render-surface:not(.is-preview) :is(.translated-label,.checklist-summary,.checklist-content li>div>p,.number-comparison,.notification-item p):not(.is-preview *){font-size:clamp(1rem,1.7cqw,1.4rem);line-height:1.5}
+.render-surface:not(.is-preview) :is(.view-actions>button,.view-actions form>button,.view-actions fieldset button,.view-actions input,.view-actions legend,.quiet-control,.table-pages button,.gallery-controls button):not(.is-preview *){font-size:1rem;min-height:44px}
+.render-surface:not(.is-preview) .table-content table:not(.is-preview *){font-size:clamp(1rem,1.5cqw,1.4rem)}
+.render-surface:not(.is-preview) .table-content th button:not(.is-preview *){font-size:1em;min-height:44px}
+.render-surface:not(.is-preview) .comparison-content :is(tbody th,td ul,.muted):not(.is-preview *){font-size:1rem;line-height:1.5}
+.render-surface:not(.is-preview) .code-scroll pre:not(.is-preview *){font-size:clamp(1rem,1.4cqw,1.35rem);line-height:1.65}
+.render-surface:not(.is-preview) .code-toolbar:not(.is-preview *){flex-wrap:wrap;row-gap:8px}
+.render-surface:not(.is-preview) .leaflet-control-attribution:not(.is-preview *){font-size:14px;line-height:1.4;max-width:90%;padding:3px 6px}
+.render-surface:not(.is-preview) :is(.map-status,.map-geometry-note,.map-location-tooltip):not(.is-preview *){font-size:1rem;line-height:1.45}
+.render-surface:not(.is-preview) .procedure-controls p:not(.is-preview *){font-size:1rem}
+.render-surface:not(.is-preview) .chart-readout:not(.is-preview *){flex-wrap:wrap;min-height:1.5em}
+.render-surface:not(.is-preview) .chart-legend:not(.is-preview *){gap:12px 22px;flex-wrap:wrap;flex-shrink:0}
+.render-surface:not(.is-preview) :is(.kpi-cell>small,.leaderboard-content small,.timeline-content time,.menu-content small):not(.is-preview *){font-size:clamp(1rem,1.7cqw,1.3rem);line-height:1.45}
+.render-surface:not(.is-preview) :is(.code-toolbar>span,.code-toolbar>div,.board-zoom>span,.board-save-status,.presentation-controls>span,.video-info,.video-info button,.notification-filter,.notification-filter button,.schedule-event p,.schedule-event-time,.poll-count,.poll-results-status,.participation-hint,.procedure-header>span,.overview-card-caption,.overview-preview-label,.surface-settings .field-label,.surface-settings p,.surface-settings button,.extended-details dt):not(.is-preview *){font-size:1rem;line-height:1.5}
+.render-surface:not(.is-preview) :is(.document-context>button,.board-zoom>button,.presentation-controls button,.video-info button,.notification-filter button):not(.is-preview *){font-size:1rem;min-width:44px;min-height:44px}
+.render-surface:not(.is-preview) .code-toolbar>span:not(.is-preview *){white-space:normal;overflow-wrap:anywhere}
+.render-surface:not(.is-preview) .code-toolbar>div:not(.is-preview *){flex-wrap:wrap}
+.render-surface:not(.is-preview) .video-info:not(.is-preview *){gap:12px;flex-wrap:wrap}
+.render-surface:not(.is-preview) .board-save-status:not(.is-preview *){top:64px;bottom:auto;left:auto;right:12px}
+/* The display menu overlays the canvas. Keep live board controls above its
+   40px touch target plus a 12px gap; this does not reserve a canvas footer. */
+.render-surface.is-live>.render-body>.whiteboard-content{--board-edge-left:max(12px,env(safe-area-inset-left,0px));--board-edge-right:max(12px,env(safe-area-inset-right,0px));--board-controls-bottom:calc(max(15px,env(safe-area-inset-bottom,0px)) + 52px)}
+.render-surface.is-live>.render-body>.whiteboard-content>.board-zoom{right:var(--board-edge-right);bottom:var(--board-controls-bottom)}
+.render-surface.is-live>.render-body>.whiteboard-content>.board-style{left:var(--board-edge-left);bottom:var(--board-controls-bottom);max-width:calc(100% - var(--board-edge-left) - var(--board-edge-right))}
+.render-surface.is-live>.render-body>.whiteboard-content:has(>.board-zoom)>.board-style{max-width:calc(100% - var(--board-edge-left) - var(--board-edge-right) - 240px)}
+.render-surface:not(.is-preview) .kpi-content:not(.is-preview *){align-content:center;gap:28px}
+.render-surface:not(.is-preview) .health-grid article:not(.is-preview *){display:flex;flex-direction:column;justify-content:center;gap:16px;min-height:230px}
+.render-surface:not(.is-preview) .health-grid strong:not(.is-preview *){font-size:clamp(1.5rem,3cqw,2.5rem);line-height:1.25}
+.render-surface:not(.is-preview) .health-grid h2:not(.is-preview *){font-size:clamp(1.25rem,2cqw,1.75rem)}
+.render-surface:not(.is-preview) :is(.leaflet-tooltip,.source-domain,.web-trust-label,.overview-card-caption>span,.overview-card-caption>time,.checklist-summary>span,.line-number):not(.is-preview *){font-size:1rem;line-height:1.5}
+
+/* Secondary supplied details stay available, without competing with the focal content. */
+.supplementary-details{width:100%;max-width:100%;font-size:clamp(1rem,1.6cqw,1.35rem);line-height:1.6}
+.supplementary-details>summary{display:list-item;width:fit-content;max-width:100%;min-height:44px;padding:10px 3px;cursor:pointer;color:var(--muted)}
+.supplementary-details[open]>summary{color:var(--text);margin-bottom:12px}
+.supplementary-details :is(ol,ul,dl){text-align:start}
+.recipe-full{grid-column:1/-1}.recipe-full>summary{margin-inline:auto}.recipe-full .recipe-columns{margin-top:20px}
+.join-surface .supplementary-details{max-width:32ch;text-align:center}.join-surface .supplementary-details>summary{margin-inline:auto}
+.join-surface .supplementary-details p{font-size:1rem;line-height:1.5;margin:10px 0}
+.countdown-detail>summary,.fact-details>summary{margin-inline:auto}.countdown-detail time{overflow-wrap:anywhere}
+.fact-details .fact-items{font-size:clamp(1rem,2cqw,1.6rem);line-height:1.55}
+
+/* Opt-in provenance takes only its actual space. Its panel opens above the
+   control; default surfaces contain neither a trigger nor an invisible footer. */
+.view-information{position:relative;align-self:flex-start;flex-shrink:0;margin-top:12px;z-index:20;max-width:100%;color:var(--text);font-size:1rem;line-height:1.5}
+.render-surface.is-live.is-full-bleed>.view-information{margin:8px var(--live-padding);max-width:calc(100% - 2 * var(--live-padding))}
+.view-information>summary{display:flex;align-items:center;gap:10px;flex-wrap:wrap;list-style:none;min-height:44px;padding:9px 14px;border:1px solid var(--line);border-radius:24px;background:var(--surface);cursor:pointer;box-shadow:0 2px 12px #0000000a}
+.view-information>summary::-webkit-details-marker{display:none}.view-information>summary:hover{background:var(--panel)}
+.view-information[open]>summary{border-color:var(--text)}
+.view-information .illustrative-label{font-size:1rem;line-height:1.5;text-transform:none;letter-spacing:0;font-weight:600;border:0;padding:0}.illustrative-label:after{content:'·';font-weight:400;margin-left:10px}
+.view-information-panel{position:absolute;left:0;bottom:calc(100% + 10px);width:min(460px,calc(100cqw - 32px));max-height:calc(100cqh - 100px);overflow:auto;overscroll-behavior:contain;padding:24px;background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 12px 40px #0003;overflow-wrap:anywhere}
+.view-information-panel h2{font-size:1.25rem;line-height:1.4;padding-right:30px;margin-bottom:16px}
+.view-information-panel :is(p,a){font-size:1rem;line-height:1.6;display:block;margin-top:12px}
+.view-information-panel a{text-decoration:underline;text-underline-offset:3px}
+.view-information-panel .information-close{position:absolute;right:8px;top:8px;width:44px;height:44px;font-size:1.6rem;line-height:1;border-radius:10px}
+.information-close:hover{background:var(--panel-alt)}.information-illustrative{font-weight:600}
+.information-caption{margin-top:16px}.information-caption h3{font-size:1rem;font-weight:600}.information-caption p{white-space:pre-wrap}
+.view-information.view-information-menu{position:relative;align-self:stretch;margin:0;max-width:100%;width:100%;z-index:auto}
+.view-information-menu>summary{border:0;box-shadow:none;border-radius:8px;padding:12px 10px}
+.view-information-menu>.view-information-panel{position:relative;left:auto;bottom:auto;width:100%;max-height:none;box-shadow:none;border:0;border-radius:8px;padding:16px 10px}
+.view-information-menu .information-close{right:0}
+.render-surface.template-weather.has-view-information{background:#0e1929}
+.template-weather>.view-information{--surface:#14283c;--panel:#19334b;--panel-alt:#29485e;--text:#f0f7ff;--line:#668ba66b}
+@container(max-width:600px){
+  .render-surface.is-live>.render-body>.product-content .product-intro,.render-surface.is-live>.render-body>.profile-content,.render-surface.is-live>.render-body>.recipe-content>header{flex-direction:column;align-items:stretch;gap:20px}
+  .render-surface.is-live>.render-body>.product-content .product-intro>.extended-photo,.render-surface.is-live>.render-body>.recipe-content>header>.extended-photo{width:100%;max-height:32cqh;object-fit:contain}
+  .render-surface.is-live>.render-body>.profile-content>.extended-photo{width:min(100%,280px);max-height:32cqh;align-self:center}
+  .render-surface.is-live>.render-body>.recipe-content .recipe-columns{grid-template-columns:minmax(0,1fr);gap:24px}
+  /* A 44px zoom target, its 10px frame and a 12px gap form a separate row. */
+  .render-surface.is-live>.render-body>.whiteboard-content:has(>.board-zoom)>.board-style{bottom:calc(var(--board-controls-bottom) + 66px);max-width:calc(100% - var(--board-edge-left) - var(--board-edge-right))}
+}
+@container(max-width:500px){
+  .view-information{font-size:1rem}
+  .view-information>summary{gap:6px;padding:8px 12px}.illustrative-label:after{margin-left:6px}
+  .view-information-panel{width:calc(100cqw - 24px);padding:22px 18px}
+  .render-surface:not(.is-preview) .kpi-content:not(.is-preview *){grid-template-columns:1fr;gap:18px;overflow:auto;align-content:safe center}
+  .render-surface:not(.is-preview) .code-toolbar>span:not(.is-preview *){flex:1 1 100%}
+  .render-surface:not(.is-preview) .code-toolbar>div:not(.is-preview *){width:100%;justify-content:space-between}
+}
+@media print{.view-information{position:static;max-width:100%;margin-top:20px}.view-information-panel{position:static;display:block!important;width:auto;max-height:none;box-shadow:none}.view-information summary,.information-close{display:none}}
+/* A truth qualification is not decorative source chrome. Gallery previews have
+ * their own surrounding label; published illustrative content retains this cue. */
+.view-qualification{position:absolute;left:12px;bottom:10px;z-index:2;pointer-events:none;font-size:12px;line-height:1.3;padding:3px 7px;border-radius:6px;background:var(--surface,#20242b);color:var(--text,#fafafa);opacity:.85}
+
+.presenter-preview-controls{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.6em;padding:.5em;font-size:.85rem}.presenter-preview-controls button{padding:.4em .8em;border:1px solid var(--line);border-radius:6px}

@@ -1,0 +1,67 @@
+/* Video's native transport controls and occasional gesture-recovery actions
+   occupy the bottom edge. Keep the independent display menu at the top, as an
+   overlay: the video still receives the whole frame when no feedback is shown. */
+.video-embed-frame { width: 100%; min-width: 0; min-height: 200px; position: relative; }
+.video-embed-frame iframe { width: 100%; height: 100%; min-height: 200px; border: 0; display: block; }
+.is-preview .video-embed-frame { pointer-events: none; }
+.viewer-shell:has(> .viewer-candidate .template-video) > .viewer-menu-toggle {
+  top: max(12px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+  bottom: auto;
+  width: 44px;
+  height: 44px;
+}
+
+.viewer-shell:has(> .viewer-candidate .template-video) > .viewer-menu {
+  top: calc(max(12px, env(safe-area-inset-top)) + 52px);
+  right: max(12px, env(safe-area-inset-right));
+  bottom: auto;
+  max-height: calc(100% - max(12px, env(safe-area-inset-top)) - 76px);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+/* A requested title may wrap alongside the top-right display control. */
+.render-surface.template-video.is-live.is-full-bleed > .view-heading {
+  padding-right: max(var(--live-padding), calc(max(12px, env(safe-area-inset-right)) + 56px));
+}
+
+/* Keep the truth qualification over the upper-left video pixels, not its native
+   transport. Ordering it after an optional heading follows that heading's real
+   height; the negative margin cancels its own line and padding, so no footer or
+   blank row is reserved. Explicit source information keeps its existing flow. */
+.render-surface.template-video.is-live:has(> .view-qualification) > .render-body {
+  order: 1;
+}
+
+.render-surface.template-video.is-live:has(> .view-qualification) > .view-actions {
+  order: 2;
+}
+
+.render-surface.template-video.is-live > .view-qualification {
+  position: relative;
+  align-self: flex-start;
+  flex-shrink: 0;
+  top: max(12px, env(safe-area-inset-top));
+  left: max(12px, env(safe-area-inset-left));
+  bottom: auto;
+  margin-bottom: calc(-1lh - 6px);
+}
+
+/* Feedback is conditional content, never a permanent empty footer. Its real
+   buttons keep their hit area even when the explanatory text wraps on phones. */
+.render-surface.template-video:not(.is-preview) .video-control-feedback {
+  flex-shrink: 0;
+  min-width: 0;
+  padding: 12px;
+  font-size: 16px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.render-surface.template-video:not(.is-preview) .video-control-feedback button {
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 16px;
+  line-height: 1.4;
+}

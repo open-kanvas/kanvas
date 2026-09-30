@@ -1,0 +1,4 @@
+.invitation-intro{min-height:180px;width:100%;resize:vertical}
+.owner-notices{position:fixed;z-index:90;right:16px;bottom:16px;width:min(380px,calc(100vw - 32px));display:grid;gap:8px;pointer-events:none}
+.owner-notices article{position:relative;pointer-events:auto;background:var(--surface,#181d25);color:var(--text,#f5f5f5);border:1px solid var(--border,#445);border-radius:12px;padding:12px 36px 12px 16px;box-shadow:0 6px 28px #0003;font-size:14px;overflow-wrap:anywhere}
+.owner-notices p{margin:0 0 8px}.owner-notices a{color:inherit;text-decoration:underline}.owner-notices time{font-size:12px;opacity:.7;margin-left:14px}.owner-notices button{position:absolute;right:6px;top:6px;background:transparent;color:inherit;border:0;font-size:22px;min-width:30px;min-height:30px}

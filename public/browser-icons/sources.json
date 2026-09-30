@@ -1,0 +1,32 @@
+[
+  {
+    "name": "chrome",
+    "source": "https://github.com/alrra/browser-logos/tree/main/src/chrome/chrome.svg",
+    "sha256": "98045c791131de00b7c81c5e4bd1ce686891661c0e2c821d588c351a5add919d",
+    "bytes": 1065
+  },
+  {
+    "name": "firefox",
+    "source": "https://github.com/alrra/browser-logos/tree/main/src/firefox/firefox.svg",
+    "sha256": "3f3742d1e78c0db6c2d3531250f70c30675ee5310de32fa89befaf738c54efd0",
+    "bytes": 7488
+  },
+  {
+    "name": "edge",
+    "source": "https://github.com/alrra/browser-logos/tree/main/src/edge/edge.svg",
+    "sha256": "3b6f52dce2b57af664b63dadb3b61efd5a896fb0f98abe5d85fe312fa6a93228",
+    "bytes": 2886
+  },
+  {
+    "name": "safari",
+    "source": "https://github.com/alrra/browser-logos/tree/main/src/safari/safari.svg",
+    "sha256": "80fd72ca5eb8545f1981277b31f4f92951d469d4efebd078e4086b676fe517dc",
+    "bytes": 5254
+  },
+  {
+    "name": "opera",
+    "source": "https://github.com/alrra/browser-logos/tree/main/src/opera/opera.svg",
+    "sha256": "c44ee714df96334b0c31509841b156e920b45549b392a40e255f63e5b5fca383",
+    "bytes": 1020
+  }
+]

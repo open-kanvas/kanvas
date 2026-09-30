@@ -1,0 +1,17 @@
+node_modules/
+dist/
+data/
+.env
+.env.*
+!.env.example
+playwright-report/
+test-results/
+coverage/
+*.log
+.local/
+/.kanvas/
+/.kanvas-e2e/
+/backups/
+
+__pycache__/
+*.pyc

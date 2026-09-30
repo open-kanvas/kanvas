@@ -1,0 +1,37 @@
+# Build-input allowlist. Runtime databases, backups, credentials, .git and local
+# caches never enter the Docker build context, even when untracked by Git.
+**
+!Dockerfile
+!package.json
+!package-lock.json
+!tsconfig.json
+!tsconfig.build.json
+!vite.config.ts
+!tsup.config.ts
+!vitest.config.ts
+!playwright.config.ts
+!index.html
+!src/
+!src/**
+!public/
+!public/**
+!tests/
+!tests/**
+!scripts/
+!scripts/sqlite-snapshot.ts
+!scripts/backup-postgres.ts
+!scripts/migrate-sqlite.ts
+!scripts/create-user.ts
+
+# Exclude private/local artifacts even if put under an allowed source directory.
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*.sqlite
+**/*.sqlite-*
+**/*.db
+**/*.db-*
+**/node_modules
+**/test-results
+**/playwright-report

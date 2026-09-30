@@ -50,7 +50,10 @@ export interface OAuthDiagnostic {
 }
 export interface AppOptions {
   serviceAdmins?: string[];
+  consoleUrl?:string;
+  /** Compatibility alias for older deployments. */
   adminUrl?:string;
+  docsUrl?:string;
   pairingFailedLimit?:number;
   pairingLabel?:()=>string;
   websitePreviewOptions?:WebsitePreviewOptions;
@@ -92,8 +95,9 @@ export async function createApp(options: AppOptions = {}) {
   if (!['https:', 'http:'].includes(publicAddress.protocol) || publicAddress.username || publicAddress.password || publicAddress.pathname !== '/' || publicAddress.search || publicAddress.hash) throw new Error('KANVAS public URL must be an HTTP(S) origin without credentials, path, query or fragment.');
   if (publicAddress.protocol !== 'https:' && !['127.0.0.1', 'localhost', '[::1]'].includes(publicAddress.hostname)) throw new Error('A non-loopback KANVAS public URL must use HTTPS.');
   const publicUrl = publicAddress.origin;
-  const adminAddress=options.adminUrl?new URL(options.adminUrl):undefined;
-  if(adminAddress&&(adminAddress.protocol!=='https:'||adminAddress.username||adminAddress.password||adminAddress.pathname!=='/'||adminAddress.search||adminAddress.hash))throw new Error('The admin URL must be a credential-free HTTPS origin.');
+  const consoleUrl=options.consoleUrl??options.adminUrl;
+  const adminAddress=consoleUrl?new URL(consoleUrl):undefined;
+  if(adminAddress&&(adminAddress.protocol!=='https:'||adminAddress.username||adminAddress.password||adminAddress.pathname!=='/'||adminAddress.search||adminAddress.hash))throw new Error('The console URL must be a credential-free HTTPS origin.');
   const adminOrigin=adminAddress?.origin;
   const origins = new Set([publicUrl,...(adminOrigin?[adminOrigin]:[]), ...(options.allowedOrigins ?? [])]);
   const allowedHosts = [...new Set([publicAddress.hostname,...(adminAddress?[adminAddress.hostname]:[]), '127.0.0.1', 'localhost', '[::1]'])];
@@ -181,7 +185,7 @@ export async function createApp(options: AppOptions = {}) {
   mountInvitations(app,service.invitations,browser);
   mountPublicImages(app,new PublicImages(service,options.publicImageOptions),browser);
   mountWebsitePreview(app,new WebsitePreview(service,options.websitePreviewOptions),browser);
-  mountPublicDocs(app,service.publicUrl,profile);
+  mountPublicDocs(app,service.publicUrl,profile,options.docsUrl);
   mountEmailSignin(app,auth,publicUrl,options.signinMailer,async userId=>{(await service.devices.provision({userId}));(await service.accounts.audit('account.registered',{actorId:userId,subjectId:userId}));},adminOrigin,async userId=>(await service.accounts.audit('account.signed-in',{actorId:userId,subjectId:userId})));
   app.get('/api/start', async (req,res)=>send(res,(await service.startPage((await account(req)),z.coerce.number().int().min(0).max(10000).parse(req.query.offset??0)))));
   app.post('/api/sessions/:id/rename',operation('kanvas_session_rename',sessionArgs));
@@ -345,9 +349,12 @@ export async function createApp(options: AppOptions = {}) {
   const staticDirectory = resolve(options.staticDirectory ?? 'dist/client');
   if (existsSync(resolve(staticDirectory, 'index.html'))) {
     app.use(express.static(staticDirectory, { index: false, dotfiles: 'deny', etag: false, cacheControl: false }));
-    app.get('/admin',(req,res,next)=>{if(adminOrigin&&req.hostname!==adminAddress!.hostname)return res.redirect(302,`${adminOrigin}/admin${req.originalUrl.slice('/admin'.length)}`);next();});
-    app.get('/',(req,res,next)=>{if(adminAddress&&req.hostname===adminAddress.hostname)return res.redirect(302,`/admin${req.url.slice(1)}`);if(typeof req.query.session==='string'&&/^[A-Za-z0-9_-]+$/.test(req.query.session))return res.redirect(302,`${adminOrigin??''}/admin?session=${req.query.session}`);next();});
-    app.get(['/', '/admin', '/start', '/session/:sessionId', '/view/:sessionId/:displayId', '/join/:shareId','/welcome/:invitationId'], (_req, res) => res.sendFile('index.html', { root: staticDirectory, dotfiles: 'deny' }));
+    // Keep old bookmarks working; the user dashboard is now Console. A separate
+    // console host serves it at /, while single-origin installations use /console.
+    app.get('/admin',(req,res)=>res.redirect(302,`${adminOrigin?`${adminOrigin}/`:'/console'}${req.originalUrl.slice('/admin'.length)}`));
+    app.get('/console',(req,res,next)=>{if(adminOrigin)return res.redirect(302,`${adminOrigin}/${req.originalUrl.slice('/console'.length)}`);next();});
+    app.get('/',(req,res,next)=>{if(adminAddress&&req.hostname===adminAddress.hostname)return next();if(typeof req.query.session==='string'&&/^[A-Za-z0-9_-]+$/.test(req.query.session))return res.redirect(302,`${adminOrigin?`${adminOrigin}/`:'/console'}?session=${req.query.session}`);next();});
+    app.get(['/', '/console', '/start', '/session/:sessionId', '/view/:sessionId/:displayId', '/join/:shareId','/welcome/:invitationId'], (_req, res) => res.sendFile('index.html', { root: staticDirectory, dotfiles: 'deny' }));
   }
   app.use((_req, _res, next) => next(new AppError('NOT_FOUND', 'This endpoint is unavailable.', 404)));
   app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {

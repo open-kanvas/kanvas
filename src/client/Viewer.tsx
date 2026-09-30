@@ -239,7 +239,7 @@ export function Viewer({ sessionId, displayId }: ViewerRoute) {
         <button onClick={() => void hold()}><Icon name={display?.held ? 'play' : 'pause'} size={17} />{display?.held ? 'Resume updates' : 'Hold this view'}</button>
       </>}
       <button onClick={() => { state.reconnect(); setMenu(false); }}><Icon name="refresh" size={17} />Refresh connection</button>
-      {!auth.viewOnly && <a href={`/admin?session=${encodeURIComponent(sessionId)}`}><Icon name="layers" size={17} />Open administration</a>}
+      {!auth.viewOnly && <a href={`/console?session=${encodeURIComponent(sessionId)}`}><Icon name="layers" size={17} />Open console</a>}
       <button onClick={() => void auth.logout().catch(e => setNotice(errorMessage(e)))}><Icon name="logout" size={17} />Sign out of this screen</button>
     </div>}
     {!auth.captureOnly && <IdentifyOverlay sessionId={sessionId} displayId={displayId}/>}

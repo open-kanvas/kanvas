@@ -12,9 +12,10 @@ import { canonicalToolDefinitions } from './mcp/canonical.js';
 const escape=(value:string)=>value.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 /** Only authored product guidance and public schemas are served. No repository
  * filesystem route, reports, environment, session data or deployment records. */
-export function mountPublicDocs(app:Express,publicUrl:string,profile:McpProfile='domains'){
+export function mountPublicDocs(app:Express,publicUrl:string,profile:McpProfile='domains',docsUrl?:string){
   const grouped:McpProfile=isGrouped(profile)?profile:'twelve',tools=listToolDefinitions(grouped),formerTools=grouped==='twelve'?[]:listToolDefinitions('twelve');
-  const base=`${publicUrl.replace(/\/$/,'')}/docs/`,canonical=canonicalToolDefinitions();
+  if(docsUrl){const address=new URL(docsUrl);if(address.protocol!=='https:'||address.username||address.password||address.pathname!=='/'||address.search||address.hash)throw new Error('The documentation URL must be a credential-free HTTPS origin.');}
+  const base=`${(docsUrl??publicUrl).replace(/\/$/,'')}/docs/`,canonical=canonicalToolDefinitions();
   const entries=HELP_TOPICS.map(topic=>({topic,title:HELP_PAGES[topic].title,description:HELP_PAGES[topic].description,version:KANVAS_VERSION,url:`${base}${topic}`,markdown:`${base}${topic}.md`}));
   app.get('/docs/index.json',(_req,res)=>res.json({title:'Kanvas Help and public documentation',version:KANVAS_VERSION,primary:base,topics:entries,reference:{url:`${base}reference`,markdown:`${base}reference.md`},profile:grouped,tools:tools.map(x=>({name:x.name,url:`${base}operations/${x.name}.json`})),templates:TEMPLATE_IDS.map(template=>({template,title:templateNames[template],url:`${base}templates/${template}.json`}))}));
   app.get('/docs/operations/:name.json',(req,res)=>{const definition=tools.find(x=>x.name===req.params.name)??formerTools.find(x=>x.name===req.params.name);if(!definition){res.status(404).json({error:'Unknown public tool'});return;}res.json({version:KANVAS_VERSION,...definition});});

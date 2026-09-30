@@ -22,7 +22,7 @@ interface Challenge {id:string;email:string;returnTo:string;expiresAt:number;cre
 interface PendingSignin {id:string;code:string;device:string;createdAt:string;expiresAt:number;status:'pending'|'approved'|'denied'|'transferred';userId?:string;returnTo?:string}
 function requestingDevice(ua:string){const browser=/Edg\//.test(ua)?'Edge':/Firefox\//.test(ua)?'Firefox':/Chrome\//.test(ua)?'Chrome':/Safari\//.test(ua)?'Safari':'Browser';const device=/Tesla/i.test(ua)?'Tesla display':/iPhone/i.test(ua)?'iPhone':/iPad/i.test(ua)?'iPad':/Android/i.test(ua)?'Android device':/Windows/i.test(ua)?'Windows device':/Macintosh/i.test(ua)?'Mac':/Linux/i.test(ua)?'Linux device':'Unknown device';return `${device} · ${browser}`;}
 const emailSchema=z.string().trim().toLowerCase().email().max(254);
-function returnPath(value:string){return /^\/(?:start|admin|(?:session|welcome|play)\/[A-Za-z0-9_-]+|view\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\/?|\?(?:authorize|session)=[A-Za-z0-9_-]+)?$/.test(value)?value:'/';}
+function returnPath(value:string){return /^\/(?:start|console|admin|(?:session|welcome|play)\/[A-Za-z0-9_-]+|view\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\/?|\?(?:authorize|session)=[A-Za-z0-9_-]+)?$/.test(value)?value:'/';}
 export function mountEmailSignin(app:Express,auth:Auth,origin:string,mailer?:SigninMailer,onCreated?:(userId:string)=>unknown,adminOrigin?:string,onSignedIn?:(userId:string)=>unknown){
   const pendingCookie=auth.secure?'__Host-kanvas-email-origin':'kanvas-email-origin';
   const cookieOptions={httpOnly:true,secure:auth.secure,sameSite:'strict' as const,path:'/',maxAge:10*60000};

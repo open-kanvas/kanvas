@@ -22,6 +22,6 @@ export function AccountOverview(props:RendererProps){
     </article>)}</div>
     {data&&data.total>10&&<nav aria-label="Session pages"><button disabled={!page} onClick={()=>setPage(Math.max(0,page-10))}>Newer sessions</button><button disabled={data.nextOffset===undefined} onClick={()=>setPage(data.nextOffset!)}>Older sessions</button></nav>}
     {data?.canCreate&&<form onSubmit={e=>{e.preventDefault();void create();}}><label>New session name<input value={name} onChange={e=>setName(e.target.value)} maxLength={160} required/></label><button disabled={!name.trim()||busy}>{busy?'Creating…':'Create new session'}</button></form>}
-    {data&&<footer><button onClick={()=>void auth.logout().catch(e=>setError(errorMessage(e)))}>Sign out of this browser</button><a href="/docs/" target="_blank" rel="noopener noreferrer">Kanvas Help</a><a href={data.adminUrl} target="_blank" rel="noopener noreferrer">Administration</a></footer>}
+    {data&&<footer><button onClick={()=>void auth.logout().catch(e=>setError(errorMessage(e)))}>Sign out of this browser</button><a href="/docs/" target="_blank" rel="noopener noreferrer">Kanvas Help</a><a href={data.adminUrl} target="_blank" rel="noopener noreferrer">Console</a></footer>}
   </section>;
 }

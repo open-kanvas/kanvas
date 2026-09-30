@@ -38,3 +38,27 @@ Backups, service units, credentials, host-specific notes and production content 
 ## Third-party data and notices
 
 Keep third-party notices when distributing builds, including `public/browser-icons/`. The `geoip-lite` library uses Apache-2.0, but its GeoLite database has separate MaxMind/data terms and update requirements. Check the installed package’s LICENSE and README and the current data provider terms before redistributing a container or updating the database. Do not treat the application’s eventual license as a license for those datasets. Provision any update credentials outside source and command-line arguments.
+
+## Console and documentation domains
+
+The user dashboard is **Console**. A single-origin deployment serves it at
+`/console`; old `/admin` bookmarks redirect there. Set `KANVAS_CONSOLE_URL` to an
+HTTPS **origin** such as `https://console.example.com` to serve Console at that
+host's root. Route both the public and console hosts to the same backend while
+preserving the request host. `KANVAS_ADMIN_URL` remains a compatibility alias;
+`KANVAS_CONSOLE_URL` takes precedence. The start response exposes `consoleUrl`
+and retains `adminUrl` for older clients. Internal service administration remains
+permission-restricted; this naming change does not grant administrative access.
+
+Browser cookies are host-scoped. Signing in on the console does not create a
+browser session on the canvas/MCP origin; sign in there or use the explicit
+pairing/OAuth flows when needed. Do not broaden the cookie Domain to bypass this.
+
+An optional `KANVAS_DOCS_URL=https://docs.example.com` sets the origin used by
+public documentation links and canonical URLs. At the reverse proxy, redirect
+that host's `/` to `/docs/`, forward only `/docs` and `/docs/*` to the backend with
+the configured public Host, and return 404 for other paths. Never expose arbitrary
+application APIs on the documentation host. This does not publish source code.
+
+Keep MCP, OAuth, authenticated APIs and event streams uncached. Reverse proxies
+must flush streaming responses promptly and preserve OAuth discovery headers.

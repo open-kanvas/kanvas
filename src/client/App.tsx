@@ -41,7 +41,7 @@ function Router() {
   if (authorize) return <ConsentScreen requestId={authorize} />;
   // The root URL is the account home (sessions, new session, account). Screens
   // and installed apps use the live start page, /start.
-  if(window.location.pathname==='/admin'||window.location.pathname==='/')return <Workspace/>;
+  if(window.location.pathname==='/console'||window.location.pathname==='/')return <Workspace/>;
   if(window.location.pathname==='/start')return <LiveEntry/>;
   if (window.location.pathname !== '/') return <main className="app-loading"><Wordmark /><h1>This page is not here.</h1><a href="/">Return to your workspace</a></main>;
   return <Workspace />;

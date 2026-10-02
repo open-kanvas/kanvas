@@ -11,7 +11,7 @@ describe('navigation, saved pins and task-focused Help',()=>{
   let h:Harness,owner:Browser,s:string,d:string,p:AuthPrincipal;
   const path=()=>`/api/sessions/${s}/displays/${d}`;
   beforeEach(async()=>{h=await startHarness();owner=await h.account();s=(await owner.session()).id;d=(await owner.display(s)).id;p={userId:owner.user!.id};});
-  afterEach(async()=>{await h?.close();});
+  afterEach(async()=>{delete process.env.KANVAS_MAX_VIEWS_PER_SESSION;await h?.close();});
   const call=async (name:string,args:unknown)=>(await h.runtime.service.execute(name,args,p));
   const nav=async(navigation:unknown,extra:Record<string,unknown>={})=>(await call('kanvas_navigation_control',{sessionId:s,displayId:d,expectedRevision:1,requestId:randomUUID(),navigation,...extra})) as Promise<{commandId:string;version:number;state:{page:number;query:string}}>;
   const browserState=async(browser:Browser,tabId:string)=>success(await browser.request<NavigationSnapshot>('GET',`${path()}/navigation?tabId=${tabId}`));
@@ -51,7 +51,8 @@ describe('navigation, saved pins and task-focused Help',()=>{
     for(const action of [{action:'search',query:'secret'},{action:'scroll',y:1},{action:'highlight',text:'remote'},{action:'focus',text:'remote',zoom:2}])await expect(nav(action)).rejects.toMatchObject({code:'NAVIGATION_UNAVAILABLE'});
     denied(await h.browser().request('POST',`${path()}/navigation`,{tabId:'fake',requestId:randomUUID(),expectedRevision:1,navigation:{action:'page',page:1}}),[401]);
   });
-  it('recalls an exact labelled pin after linear history has pruned the original, with hold, revision, scope and retry checks',async()=>{
+  it('recalls an exact labelled pin after linear history has archived the original, with hold, revision, scope and retry checks',async()=>{
+    process.env.KANVAS_MAX_VIEWS_PER_SESSION='100';
     await owner.submit(s,[d],fact('Pinned source\n9007199254740993.001'));
     const args={sessionId:s,displayId:d,requestId:randomUUID(),label:'Exact reference'};
     const pin=await call('kanvas_pin_save',args) as {id:string};expect(await call('kanvas_pin_save',args)).toEqual(pin);

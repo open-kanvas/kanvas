@@ -29,7 +29,15 @@ function expandLocalReferences(value: unknown, root: Record<string, unknown>, an
       const shared=expanded.properties as Record<string,unknown>;
       for(const branch of branches){
         const props=branch.properties as Record<string,unknown>;
-        for(const [key,value]of Object.entries(shared)){expect(props[key]).toEqual(expanded.unevaluatedProperties===false?undefined:{});props[key]=value;}
+        for(const [key,value]of Object.entries(shared)){
+          if(expanded.unevaluatedProperties===false&&props[key]!==undefined){
+            // A shared array upper bound intersects a tighter per-branch bound.
+            const {maxItems:branchLimit,...branchSchema}=props[key] as Record<string,unknown>;
+            const {maxItems:sharedLimit,...sharedSchema}=value as Record<string,unknown>;
+            expect(branchSchema).toEqual(sharedSchema);expect(typeof branchLimit).toBe('number');expect(typeof sharedLimit).toBe('number');
+            expect(branchLimit as number).toBeLessThanOrEqual(sharedLimit as number);
+          }else{expect(props[key]).toEqual(expanded.unevaluatedProperties===false?undefined:{});props[key]=value;}
+        }
         if(expanded.unevaluatedProperties===false)branch.additionalProperties=false;
         branch.type='object';if(expanded.required!==undefined)branch.required=expanded.required;
       }

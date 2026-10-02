@@ -33,15 +33,20 @@ export class DisplayHistory {
     return this.store.atomic(async () => { (await this.timeline(display));
     });
   }
+  /** Bound the live navigation list without permanently deleting retained source. */
+  private async archiveEntry(key: string): Promise<void> {
+    const entry = await this.store.get<Entry>('display-history', key, true);
+    if (entry && !entry.archivedAt) { entry.archivedAt = new Date().toISOString(); await this.store.put('display-history', entry); }
+  }
   private async append(display: HistoricalDisplay, reason: string, timeline: Timeline): Promise<Awaited<void>> {
-    for (const key of timeline.entries.splice(timeline.cursor + 1)) (await this.store.delete('display-history', key));
+    for (const key of timeline.entries.splice(timeline.cursor + 1)) await this.archiveEntry(key);
     const limit=usageLimits().views;
     if(display.view&&(await this.store.list<Entry>('display-history',display.sessionId,true)).filter(e=>e.view).length>=limit)throw new AppError('LIMIT_REACHED',`Free session view limit (${limit}) reached. Existing views remain available. Contact the administrator about upgrading. Archived views still count.`,429);
     const entry: Entry = { id: id(), sessionId: display.sessionId, displayId: display.id, revision: display.revision, view: structuredClone(display.view), createdAt: display.updatedAt, reason, interactionEpoch: display.interactionEpoch };
     (await this.store.put('display-history', entry)); timeline.entries.push(entry.id); timeline.cursor = timeline.entries.length - 1;
     const size = async () => (await asyncReduce(timeline.entries, async (total, key) => total + Buffer.byteLength(JSON.stringify((await this.store.get<Entry>('display-history', key)) ?? {})), 0));
     while (timeline.entries.length > 1 && (timeline.entries.length > MAX_ENTRIES || (await size()) > MAX_BYTES)) {
-      (await this.store.delete('display-history', timeline.entries.shift()!)); timeline.cursor--;
+      await this.archiveEntry(timeline.entries.shift()!); timeline.cursor--;
     }
     (await this.store.put('display-timeline', timeline));
   }

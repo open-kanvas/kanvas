@@ -18,6 +18,41 @@ describe('platform feedback safeguards',()=>{
  await h.runtime.service.archive.manage(p,{resource:'display',sessionId:s.id,targetId:d.id});await expect(h.runtime.service.display(p,s.id,d.id)).rejects.toMatchObject({code:'NOT_FOUND'});await h.runtime.service.archive.manage(p,{action:'restore',resource:'display',sessionId:s.id,targetId:d.id});
  await h.runtime.service.archive.manage(p,{resource:'session',sessionId:s.id});expect((await h.runtime.service.sessions(p)).some(x=>x.id===s.id)).toBe(false);expect((await h.runtime.service.archive.list(p,{})).items).toHaveLength(1);await h.runtime.service.archive.manage(p,{action:'restore',resource:'session',sessionId:s.id});expect((await h.runtime.service.sessions(p)).some(x=>x.id===s.id)).toBe(true);
  });
+ it('archives the currently navigated historical view without destroying forward history',async()=>{
+   h=await startHarness();const owner=await h.account(),p=await principal(owner),s=await owner.session(),d=await owner.display(s.id);
+   for(const text of ['A','B','C'])await owner.submit(s.id,[d.id],fact(text));
+   let display=await h.runtime.service.display(p,s.id,d.id);
+   const entries=(await h.runtime.service.history.list(display)).entries;
+   const b=entries.find(e=>e.revision===2)!,c=entries.find(e=>e.revision===3)!;
+   await h.runtime.service.navigate(p,{sessionId:s.id,displayIds:[d.id],requestId:randomUUID(),expectedRevisions:{[d.id]:display.revision},direction:'back'});
+   display=await h.runtime.service.display(p,s.id,d.id);expect(display.view?.data.text).toBe('B');expect(display.revision).not.toBe(b.revision);
+   await h.runtime.service.archive.manage(p,{resource:'view',sessionId:s.id,targetId:b.id});
+   expect((await h.runtime.service.display(p,s.id,d.id)).view).toBeNull();
+   expect(await h.runtime.store.get('display-history',c.id,true)).toMatchObject({view:{data:{text:'C'}},archivedAt:expect.any(String)});
+   expect((await h.runtime.service.archive.list(p,{})).items.map(x=>x.targetId)).toEqual(expect.arrayContaining([b.id,c.id]));
+   await h.runtime.service.archive.manage(p,{action:'restore',resource:'view',sessionId:s.id,targetId:c.id});
+   expect((await h.runtime.service.history.list(await h.runtime.service.display(p,s.id,d.id))).entries.some(e=>e.id===c.id)).toBe(true);
+ });
+ it.each(['display','session'] as const)('archives a current retained view beneath an archived %s',async(parent)=>{
+   h=await startHarness();const owner=await h.account(),p=await principal(owner),s=await owner.session(),d=await owner.display(s.id);
+   await owner.submit(s.id,[d.id],fact('Retained content'));
+   const frame=(await h.runtime.service.history.list(await h.runtime.service.display(p,s.id,d.id))).entries.find(e=>e.template==='fact')!;
+   await h.runtime.service.archive.manage(p,{resource:parent,sessionId:s.id,...(parent==='display'?{targetId:d.id}:{})});
+   await h.runtime.service.archive.manage(p,{resource:'view',sessionId:s.id,targetId:frame.id});
+   await h.runtime.service.archive.manage(p,{action:'restore',resource:parent,sessionId:s.id,...(parent==='display'?{targetId:d.id}:{})});
+   expect((await h.runtime.service.display(p,s.id,d.id)).view).toBeNull();
+   expect(await h.runtime.store.get('display-history',frame.id,true)).toMatchObject({view:{data:{text:'Retained content'}},archivedAt:expect.any(String)});
+ });
+ it('keeps live-history overflow recoverable rather than permanently pruning source',async()=>{
+   h=await startHarness();const owner=await h.account(),p=await principal(owner),s=await owner.session(),d=await owner.display(s.id);
+   process.env.KANVAS_MAX_VIEWS_PER_SESSION='100';
+   const display=await h.runtime.service.display(p,s.id,d.id);await h.runtime.service.history.ensure(display);
+   for(let i=1;i<=62;i++){display.revision=i;display.view=fact(`Retained ${i}`);await h.runtime.service.history.record(display,'test');}
+   const retained=await h.runtime.store.list<{view:unknown;archivedAt?:string}>('display-history',s.id,true);
+   expect(retained.filter(e=>e.view)).toHaveLength(62);
+   expect(retained.some(e=>e.view&&e.archivedAt)).toBe(true);
+   expect((await h.runtime.service.history.list(display)).entries).toHaveLength(60);
+ });
  it('requires an unexpired target-bound one-use visual code for permanent deletion',async()=>{h=await startHarness();const owner=await h.account(),p=await principal(owner),s=await owner.session(),d=await owner.display(s.id);const input={resource:'display',sessionId:s.id,targetId:d.id,confirmationDisplayId:d.id} as const;const challenge:any=await h.runtime.service.archive.manage(p,{...input,action:'request-delete'});expect(challenge.words).toBeUndefined();const row:any=await h.runtime.store.get('delete-challenge',challenge.challengeId);const toast:any=await h.runtime.store.get('toast',row.toastId);expect(toast.text).toContain('cannot be undone');expect(toast.ownerId).toBe(p.userId);const words=/seconds: (.+)\. Otherwise/.exec(toast.text)![1];
  const wrong:any=await h.runtime.service.archive.manage(p,{...input,action:'confirm-delete',challengeId:challenge.challengeId,words:'wrong words'});expect(wrong.deleted).toBe(false);row.expiresAt=Date.now()-1;await h.runtime.store.put('delete-challenge',row);await expect(h.runtime.service.archive.manage(p,{...input,action:'confirm-delete',challengeId:challenge.challengeId,words})).rejects.toMatchObject({code:'CONFIRMATION_EXPIRED'});
  const fresh:any=await h.runtime.service.archive.manage(p,{...input,action:'request-delete'});const r:any=await h.runtime.store.get('delete-challenge',fresh.challengeId),t:any=await h.runtime.store.get('toast',r.toastId);const code=/seconds: (.+)\. Otherwise/.exec(t.text)![1];expect(await h.runtime.service.archive.manage(p,{...input,action:'confirm-delete',challengeId:fresh.challengeId,words:code})).toMatchObject({deleted:true,recoverable:false});expect(await h.runtime.store.get('display',d.id,true)).toBeUndefined();await expect(h.runtime.service.archive.manage(p,{...input,action:'confirm-delete',challengeId:fresh.challengeId,words:code})).rejects.toBeDefined();

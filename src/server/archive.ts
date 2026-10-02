@@ -84,7 +84,17 @@ export class Archive {
  });}
  private async detachView(p:AuthPrincipal,sessionId:string,target:Target){
    const store=this.service.store,display=await store.get<DisplayRecord>('display',target.displayId!,true);
-   if(display&&display.revision===target.revision&&display.view)await this.service.clear(p,sessionId,[display.id],id());
+   const before=await store.get<{entries:string[];cursor:number}>('display-timeline',target.displayId!,true);
+   const current=before?before.entries[before.cursor]===target.id:display?.revision===target.revision;
+   if(display&&current&&display.view){
+     // The caller already proved ownership, including archived parent resources.
+     // Normal clear() excludes archived parents; clear the retained display atomically here.
+     const historical=display as DisplayRecord & {interactionEpoch?:string};
+     historical.view=null;historical.revision++;historical.generation++;historical.interactionEpoch=id();delete historical.targetAgentId;
+     historical.updatedAt=now();historical.delivery={revision:historical.revision,status:'pending',updatedAt:now()};
+     await store.put('display',historical);await this.service.history.record(historical,'archive');
+     this.service.emit({type:'display',sessionId,displayId:historical.id,revision:historical.revision});
+   }
    const timeline=await store.get<{id:string;sessionId:string;entries:string[];cursor:number}>('display-timeline',target.displayId!,true);
    if(timeline){const current=timeline.entries[timeline.cursor];timeline.entries=timeline.entries.filter(key=>key!==target.id);timeline.cursor=Math.max(0,timeline.entries.indexOf(current));await store.put('display-timeline',timeline);}
  }

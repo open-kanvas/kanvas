@@ -321,7 +321,7 @@ function requestFallbackMetadata(value:unknown):any {
 function forgiving(tool:Definition):Definition {
   const schema=tool.schema;
   if(tool.readOnly || !(schema instanceof z.ZodObject) || !schema.shape.requestId)return tool;
-  return {...tool,idempotent:false,schema:schema.safeExtend({requestId:schema.shape.requestId.optional().transform((value:string|undefined)=>value??randomUUID()).describe('Required for retry safety: supply a stable requestId. Omission generates a fresh ID; retries without it are NOT deduplicated.')}).meta(requestFallbackMetadata(schema.meta()??{}))};
+  return {...tool,idempotent:false,schema:schema.safeExtend({requestId:schema.shape.requestId.optional().transform((value:string|undefined)=>value??randomUUID()).describe('Stable ID deduplicates retries; omission creates a fresh ID per call.')}).meta(requestFallbackMetadata(schema.meta()??{}))};
 }
 export const CANONICAL_TOOLS: readonly Definition[] = definitions.map(forgiving).map(tool => Object.hasOwn(VIEWER_LINK_TOOL_GUIDANCE, tool.name)
   ? { ...tool, description: `${tool.description} First use: provide the actual literal, clickable, copyable URL as text, including in voice mode; do not repeat it after every update. ${VIEWER_LINK_TOOL_GUIDANCE[tool.name as keyof typeof VIEWER_LINK_TOOL_GUIDANCE]}` }

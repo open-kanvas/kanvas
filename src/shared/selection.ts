@@ -4,7 +4,7 @@ import type { ViewSpec } from './types.js';
 
 const scalar=z.union([z.string().max(4000),z.number().finite(),z.boolean(),z.null()]);
 const field=z.string().max(200).refine(x=>!x.split('.').some(p=>['__proto__','prototype','constructor'].includes(p)),'Reserved field path.');
-const condition=z.object({field,op:z.enum(['eq','ne','contains','lt','lte','gt','gte']),value:scalar,type:z.enum(['auto','text','number']).default('auto').describe('auto compares numeric values/numeric strings numerically when the condition value is a number; text preserves lexical comparisons. Currency-formatted strings are not parsed; target their numeric source field.')}).strict();
+const condition=z.object({field,op:z.enum(['eq','ne','contains','lt','lte','gt','gte']),value:scalar,type:z.enum(['auto','text','number']).default('auto').describe('auto compares numeric condition values numerically, including decimal strings; text is lexical. No currency parsing.')}).strict();
 export const selectionSchema=z.object({where:z.array(condition).max(8).default([]),match:z.enum(['all','any']).default('all'),sort:z.array(z.object({field,direction:z.enum(['asc','desc']).default('asc'),type:z.enum(['text','number']).default('text')}).strict()).max(4).default([]),highlight:z.array(condition).max(8).default([])}).strict();
 export type Selection=z.infer<typeof selectionSchema>;
 export const collectionKey:Partial<Record<ViewSpec['template'],string>>={table:'rows',list:'items',log:'entries',cards:'items',inbox:'items',email:'messages',chat:'messages',bookmarks:'items','tool-inventory':'groups','tool-detail':'parameters',operations:'items',developer:'items'};

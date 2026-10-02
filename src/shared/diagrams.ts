@@ -1,8 +1,9 @@
 import { z } from 'zod';
 const id=z.string().min(1).max(64).regex(/^[A-Za-z0-9_.:-]+$/);
 const color=z.string().regex(/^#[0-9a-fA-F]{6}$/);
+const image=z.string().url().refine(v=>/^https:\/\//i.test(v),'Use an HTTPS image URL');
 const point=z.number().finite().min(0).max(1);
-export const diagramNodeSchema=z.object({id,label:z.string().min(1).max(80),detail:z.string().max(160).optional(),parentId:id.optional(),shape:z.enum(['box','decision','terminal']).default('box'),color:color.optional(),x:point.optional(),y:point.optional()}).strict();
+export const diagramNodeSchema=z.object({id,label:z.string().min(1).max(80),detail:z.string().max(160).optional(),parentId:id.optional(),icon:z.enum(['person','team','engineering','sales','support','service','database','api','queue','cache','external','client','load-balancer']).optional(),image:image.optional(),shape:z.enum(['box','decision','terminal']).default('box'),color:color.optional(),x:point.optional(),y:point.optional()}).strict();
 const edge=z.object({from:id,to:id,label:z.string().max(60).optional(),directed:z.boolean().default(true)}).strict();
 const graph=z.object({nodes:z.array(diagramNodeSchema).min(1).max(60),edges:z.array(edge).max(120).default([]),layout:z.enum(['top-down','left-right','circular']).default('top-down')}).strict();
 function validate(data:z.infer<typeof graph>,ctx:z.RefinementCtx,hierarchy=false){
@@ -15,6 +16,7 @@ function validate(data:z.infer<typeof graph>,ctx:z.RefinementCtx,hierarchy=false
 }
 export const orgChartDataSchema=graph.extend({layout:z.enum(['top-down','left-right']).default('top-down')}).superRefine((d,c)=>{validate(d,c,true);if(d.edges.length)c.addIssue({code:'custom',path:['edges'],message:'Org charts use parentId; use network for arbitrary relationships'});});
 export const flowchartDataSchema=graph.superRefine((d,c)=>validate(d,c));
+export const architectureDataSchema=graph.extend({nodes:z.array(diagramNodeSchema.extend({type:z.enum(['service','database','api','queue','cache','external','client','load-balancer'])})).min(1).max(60)}).superRefine((d,c)=>validate(d,c));
 export const networkDataSchema=graph.extend({layout:z.enum(['top-down','left-right','circular']).default('circular')}).superRefine((d,c)=>validate(d,c));
 export const sportsLineupDataSchema=z.object({sport:z.literal('soccer').default('soccer'),team:z.string().min(1).max(100),formation:z.string().max(40).optional(),players:z.array(z.object({id,name:z.string().min(1).max(60),number:z.number().int().min(0).max(999).optional(),role:z.string().max(40).optional(),x:point,y:point}).strict()).min(1).max(23),bench:z.array(z.string().min(1).max(80)).max(30).optional(),kitColor:color.optional()}).strict().superRefine((d,c)=>{if(new Set(d.players.map(p=>p.id)).size!==d.players.length)c.addIssue({code:'custom',path:['players'],message:'Player ids must be unique'});});
 export type DiagramData=z.infer<typeof graph>;
@@ -22,7 +24,7 @@ export type SportsLineupData=z.infer<typeof sportsLineupDataSchema>;
 
 /** Wrap all supplied text; no truncation or invented labels. */
 export function diagramLines(value:string,width=25){const words=value.split(/\s+/),result:string[]=[];let line='';for(const word of words){if(line.length+word.length+1>width){if(line)result.push(line);line='';}for(let i=0;i<word.length;i+=width){const part=word.slice(i,i+width);if(i+width<word.length)result.push(part);else line+=(line?' ':'')+part;}}if(line)result.push(line);return result;}
-export function diagramNodeHeight(node:DiagramData['nodes'][number]){const text=diagramLines(node.label,node.shape==='decision'?18:24).length*20+diagramLines(node.detail??'',node.shape==='decision'?22:29).length*17;return Math.max(128,text*(node.shape==='decision'?1.8:1)+32);}
+export function diagramNodeHeight(node:DiagramData['nodes'][number]){const text=diagramLines(node.label,node.shape==='decision'?18:24).length*20+diagramLines(node.detail??'',node.shape==='decision'?22:29).length*17;return Math.max(60,text*(node.shape==='decision'?1.8:1)+24);}
 /** Deterministic supplied-relationship layout. Narrow receivers stack readable
  * nodes vertically and route long/back edges beside them instead of clipping roots. */
 export function diagramLayout(data:DiagramData,hierarchy=false,availableWidth=Infinity){
@@ -35,7 +37,7 @@ export function diagramLayout(data:DiagramData,hierarchy=false,availableWidth=In
   }
   const narrow=availableWidth<600,circular=data.layout==='circular'&&!narrow,horizontal=data.layout==='left-right'&&!narrow;
   const rows=new Map<number,string[]>();for(const node of data.nodes){const level=levels.get(node.id)!;rows.set(level,[...(rows.get(level)??[]),node.id]);}
-  const maxRow=Math.max(...[...rows.values()].map(r=>r.length)),maxHeight=Math.max(...data.nodes.map(diagramNodeHeight)),step=maxHeight+80;
+  const maxRow=Math.max(...[...rows.values()].map(r=>r.length)),maxHeight=Math.max(...data.nodes.map(diagramNodeHeight)),step=maxHeight+40;
   const width=narrow?Math.max(320,availableWidth):circular?Math.max(660,data.nodes.length*70):horizontal?Math.max(660,rows.size*320):Math.max(660,maxRow*280);
   const height=narrow?Math.max(400,data.nodes.length*step):circular?Math.max(width,maxHeight*3):horizontal?Math.max(400,maxRow*step):Math.max(400,rows.size*step);
   const nodes=data.nodes.map((node,index)=>{

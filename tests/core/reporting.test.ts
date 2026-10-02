@@ -49,9 +49,10 @@ describe.each(['modern', 'legacy'] as const)('%s MCP publication contracts and p
       const result = await p.call('kanvas_template_get', { template });
       expect(result.isError, `${template}: ${JSON.stringify(result.structuredContent?.error)}`).not.toBe(true);
       expect(result.structuredContent?.truncated, `${template} must return its complete schema`).not.toBe(true);
-      const contract = value<{ schema: unknown; example: unknown }>(result);
+      const contract = value<{ schema: unknown; example?: unknown; note?: string }>(result);
       expect(contract.schema).toHaveProperty('type', 'object');
-      expect(validateView(contract.example).template).toBe(template);
+      if(contract.example!==undefined)expect(validateView(contract.example).template).toBe(template);
+      else { expect(template).toBe('presentation');expect(contract.note).toContain('Complete view schema'); }
     }
     const accepted = value<UpdateRecord>(await p.call('kanvas_submit', { sessionId: session.id, displayIds: [display.id], requestId: 'repaired-fact', view: fact('Contract recovered') }));
     expect(accepted.status).toBe('accepted');

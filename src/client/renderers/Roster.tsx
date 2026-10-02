@@ -78,10 +78,11 @@ function Calendar({ start, end, cell }: { start: string; end: string; cell: (dat
 }
 
 function TeamGrid({ data, days, shifts, today }: { data: RosterData; days: string[]; shifts: Map<string, RosterShift>; today: string }) {
-  const people = data.people ?? [], cells = new Map<string, Assignment[]>(), perPerson = new Map<string, number>();
+  const people = data.people ?? [], cells = new Map<string, Assignment[]>(), perPerson = new Map<string, number>(), dayCounts=new Map<string,number>();
   for (const entry of data.assignments) {
     const key = `${entry.person}\u0000${entry.date}`, list = cells.get(key);
     if (list) list.push(entry); else cells.set(key, [entry]);
+    dayCounts.set(`${entry.date}:${entry.shift}`,(dayCounts.get(`${entry.date}:${entry.shift}`)??0)+1);
     perPerson.set(entry.person ?? '', (perPerson.get(entry.person ?? '') ?? 0) + 1);
   }
   const months: { key: string; start: number; count: number }[] = [];
@@ -96,6 +97,7 @@ function TeamGrid({ data, days, shifts, today }: { data: RosterData; days: strin
       {days.map((date, index) => <div key={date} className="roster-slot" style={{ gridRow: row + 3, gridColumn: index + 2 }}><DayCell date={date} entries={cells.get(`${person.id}\u0000${date}`) ?? []} shifts={shifts} today={today} compact/></div>)}
       <span className="roster-team-total" style={{ gridRow: row + 3, gridColumn: days.length + 2 }}>{perPerson.get(person.id) ?? 0}</span>
     </Fragment>)}
+    {data.showDayCounts && data.shifts.map((shift,si)=><Fragment key={shift.id}><span className="roster-person roster-day-count" role="rowheader" style={{gridRow:people.length+3+si,gridColumn:1}}>{shift.label}</span>{days.map((date,i)=><span key={date} className="roster-day-count" role="gridcell" aria-label={`${date}: ${shift.label} ${dayCounts.get(`${date}:${shift.id}`)??0}`} style={{gridRow:people.length+3+si,gridColumn:i+2}}>{dayCounts.get(`${date}:${shift.id}`)??0}</span>)}</Fragment>)}
   </div>;
 }
 

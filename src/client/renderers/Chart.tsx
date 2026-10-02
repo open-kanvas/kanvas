@@ -1,3 +1,4 @@
+import { pointEmphasis } from '../../shared/emphasis';
 import { useRegional } from './Regional';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AdvancedChartRenderer } from './AdvancedCharts';
@@ -164,7 +165,7 @@ function LegacyChartRenderer({ data, showControls = false, showSource = false }:
   const compact = viewport.width < 600;
   const fontSize = viewport.fontSize, lineHeight = fontSize * 1.25;
   const W = Math.max(fontSize === 7 ? 120 : 240, viewport.width);
-  const yValues = all.flatMap(point => data.kind === 'box' ? [point.low, point.q1, point.median, point.q3, point.high].filter(numeric) : numeric(point.y) ? [point.y] : []);
+  const yValues = [...(data.referenceLines??[]).map(l=>l.value),...all.flatMap(point => data.kind === 'box' ? [point.low, point.q1, point.median, point.q3, point.high].filter(numeric) : numeric(point.y) ? [point.y] : [])];
   const xNumbers = labels.map(value => typeof value === 'number' ? value : /^\d{4}-\d{2}-\d{2}/u.test(value) ? Date.parse(value) : NaN);
   const xMin = Math.min(...xNumbers), xMax = Math.max(...xNumbers);
   const continuous = (data.kind === 'line' || data.kind === 'scatter') && xNumbers.every(Number.isFinite) && xMax > xMin;
@@ -196,12 +197,15 @@ function LegacyChartRenderer({ data, showControls = false, showSource = false }:
   const y = (value: number) => bottom - (value - lo) / (hi - lo) * ph;
   const yStride = Math.max(1, Math.ceil(lineHeight * 1.5 / (ph / Math.max(1, yTicks.length - 1))));
   const visibleYTicks = yTicks.filter((_, index) => index % yStride === 0 || index === yTicks.length - 1 && (yTicks.length - 1) % yStride >= yStride / 2);
-  const pointEvents = (name: string, point: ChartPoint) => ({
+  const pointIndices = new Map(data.series.flatMap(series=>series.points.map((point,index)=>[point,index] as const)));
+  const pointEvents = (name: string, point: ChartPoint) => { const emphasis=pointEmphasis(data.emphasis,name,pointIndices.get(point)??-1); return {
+    'data-emphasis':Boolean(emphasis)||undefined,
+    style:emphasis?{stroke:emphasis.color??'var(--text)',strokeWidth:4,filter:'drop-shadow(0 0 3px var(--accent))'}:undefined,
     'data-chart-series': name, 'data-chart-x': scalarText(sourceX(point)), 'data-chart-y': scalarText(sourceY(point)),
     onMouseEnter: () => setSelected({ series: name, point }), onFocus: () => setSelected({ series: name, point }), onClick: () => setSelected({ series: name, point }),
     onMouseLeave: () => setSelected(null), onBlur: () => setSelected(null), tabIndex: 0, role: 'img' as const,
-    'aria-label': chartPointDescription(data.kind, name, point, data.unit),
-  });
+    'aria-label': [chartPointDescription(data.kind, name, point, data.unit),emphasis?.label].filter(Boolean).join(' · '),
+  }; };
   if (!all.length) return <div className="content-empty">No observations supplied.</div>;
   if ((data.kind !== 'heatmap' && !Number.isFinite(hi - lo)) || (continuous && !Number.isFinite(xMax - xMin))) return <p className="content-summary">These values exceed the chart’s numeric range.</p>;
   return <div className={`chart-content legacy-chart ${compact ? 'chart-portrait' : ''}`} data-chart-kind={data.kind}>
@@ -214,10 +218,11 @@ function LegacyChartRenderer({ data, showControls = false, showSource = false }:
           {visibleYTicks.map((value, i) => <g key={i} className="chart-axis"><line x1={left} x2={W - right} y1={y(value)} y2={y(value)} /><text data-chart-axis="y" style={{ fontSize }} x={left - 10} y={y(value) + fontSize * .35} textAnchor="end">{format(value)}</text></g>)}
           {ticks.ticks.map(tick => <ChartTick key={tick.index} tick={tick} baseline={bottom + 12 + fontSize} lineHeight={lineHeight} fontSize={fontSize} />)}
           {xCaption.length > 0 && <AxisCaption label={data.xLabel!} lines={xCaption} x={left + pw / 2} baseline={bottom + 12 + tickHeight + 12 + fontSize} lineHeight={lineHeight} fontSize={fontSize} axis="x" />}
+          {data.referenceLines?.map((line,i)=><g key={`reference-${i}`} className="chart-reference"><line x1={left} x2={W-right} y1={y(line.value)} y2={y(line.value)} stroke={line.color??'var(--text)'} strokeWidth={2} strokeDasharray="6 4"/><text x={W-right-4} y={y(line.value)-6} textAnchor="end" fill={line.color??'var(--text)'}>{line.label??format(line.value)}</text></g>)}
           {data.series.map((series, si) => {
             const color = seriesColor(si, data.series.length), valid = series.points.filter(point => numeric(point.y));
             const groupWidth = pw / Math.max(1, labels.length) * .76, barWidth = groupWidth / data.series.length;
-            const title = (point: ChartPoint) => chartPointDescription(data.kind, series.name, point, data.unit);
+            const title = (point: ChartPoint) => [chartPointDescription(data.kind, series.name, point, data.unit),pointEmphasis(data.emphasis,series.name,pointIndices.get(point)??-1)?.label].filter(Boolean).join(' · ');
             if (data.kind === 'line') {
               let started = false;
               const path = series.points.map(point => { if (!numeric(point.y)) { started = false; return ''; } const command = started ? 'L' : 'M'; started = true; return `${command}${x(point.x)},${y(point.y)}`; }).join(' ');
@@ -240,7 +245,7 @@ function LegacyChartRenderer({ data, showControls = false, showSource = false }:
 }
 
 function Heatmap({ data, select, viewport, measure }: { data: ChartData; select: (value: { series: string; point: ChartPoint } | null) => void; viewport: { width: number; height: number; fontSize: number }; measure: ChartTextMeasure }) {
-  const points = data.series.flatMap(series => series.points.map(point => ({ point, name: series.name })));
+  const points = data.series.flatMap(series => series.points.map((point,pointIndex) => ({ point, name: series.name, pointIndex })));
   const xs = unique(points.map(({ point }) => point.x)), ys = unique(points.map(({ point }) => point.y));
   const xLabels = xs.map(value => scalarText(sourceX(points.find(({ point }) => point.x === value)!.point)));
   const yLabels = ys.map(value => scalarText(sourceY(points.find(({ point }) => point.y === value)!.point)));
@@ -266,11 +271,11 @@ function Heatmap({ data, select, viewport, measure }: { data: ChartData; select:
       {yCaption.length > 0 && <AxisCaption label={yLabel} lines={yCaption} x={8} baseline={fontSize} lineHeight={lineHeight} fontSize={fontSize} anchor="start" axis="y" />}
       {yLabels.map((label, index) => <text key={index} className="chart-tick" data-chart-axis="y" data-chart-tick-label={label} aria-label={label} style={{ fontSize }} x={left - 10} y={top + (index + .5) * ch - (yLines[index].length - 1) * lineHeight / 2 + fontSize * .35} textAnchor="end"><title>{label}</title>{yLines[index].map((line, i) => <tspan key={i} x={left - 10} dy={i ? lineHeight : 0}>{line}</tspan>)}</text>)}
       {ticks.ticks.map(tick => <ChartTick key={tick.index} tick={tick} baseline={bottom + 12 + fontSize} lineHeight={lineHeight} fontSize={fontSize} />)}
-      {points.map(({ point, name }, index) => {
+      {points.map(({ point, name, pointIndex }, index) => {
         const value = values[index], weight = (value / magnitude - min / magnitude) / (max / magnitude - min / magnitude || 1);
         const description = chartPointDescription('heatmap', name, point, data.unit);
-        const cellLabel = format(value);
-        return <g key={index} className="chart-point" data-chart-series={name} data-chart-x={scalarText(sourceX(point))} data-chart-y={scalarText(sourceY(point))} tabIndex={0} role="img" aria-label={description} onMouseEnter={() => select({ series: name, point })} onMouseLeave={() => select(null)} onFocus={() => select({ series: name, point })} onBlur={() => select(null)} onClick={() => select({ series: name, point })}>
+        const cellLabel = format(value), emphasis=pointEmphasis(data.emphasis,name,pointIndex);
+        return <g key={index} className="chart-point" data-emphasis={Boolean(emphasis)||undefined} style={emphasis?{stroke:emphasis.color??'var(--text)',strokeWidth:3}:undefined} data-chart-series={name} data-chart-x={scalarText(sourceX(point))} data-chart-y={scalarText(sourceY(point))} tabIndex={0} role="img" aria-label={description} onMouseEnter={() => select({ series: name, point })} onMouseLeave={() => select(null)} onFocus={() => select({ series: name, point })} onBlur={() => select(null)} onClick={() => select({ series: name, point })}>
           <rect x={left + xs.indexOf(point.x) * cw} y={top + ys.indexOf(point.y) * ch} width={Math.max(1, cw - 3)} height={Math.max(1, ch - 3)} rx="3" fill="var(--accent)" fillOpacity={.12 + weight * .88} />
           {measure(cellLabel) + 10 <= cw && <text className="chart-cell-value" x={left + (xs.indexOf(point.x) + .5) * cw} y={top + (ys.indexOf(point.y) + .5) * ch + fontSize * .35} textAnchor="middle" style={{ fontSize }} fill={weight > .55 ? 'var(--accent-ink)' : 'var(--text)'}>{cellLabel}</text>}
           <title>{description}</title>

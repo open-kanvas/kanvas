@@ -7,7 +7,7 @@ const value = z.union([text, z.number().finite(), z.boolean(), z.null()]);
 export const productSchema = z.object({
   name: label, description: text.optional(),
   image: z.object({ url: z.string().refine(isSafeUrl), alt: label }).strict().optional(),
-  layout: z.enum(['image-led', 'compact', 'comparison']).default('image-led'),
+  layout: z.enum(['image-led', 'compact', 'multi-vendor', 'comparison']).default('image-led').describe('One product offered by several sellers: use multi-vendor. comparison is a legacy alias. For distinct items use the standalone comparison template.'),
   offers: z.array(z.object({
     vendor: label, price: label, availability: text.optional(), sizes: text.optional(),
     hours: label.optional(), distance: label.optional(), shipping: text.optional(),

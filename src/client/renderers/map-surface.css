@@ -117,3 +117,5 @@
   overflow: auto;
   overscroll-behavior: contain;
 }
+
+.itinerary-stop-icon span{display:flex;width:36px;height:36px;align-items:center;justify-content:center;border:2px solid white;border-radius:50%;color:white;font-size:12px;font-weight:700;box-shadow:0 2px 5px #0005}

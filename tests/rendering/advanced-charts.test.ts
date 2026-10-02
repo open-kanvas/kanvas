@@ -83,7 +83,7 @@ describe('individual advanced chart contracts', () => {
   it('preserves polygon holes and multipolygons, rejecting holes outside the exterior', () => {
     const outer = [[0, 0], [5, 0], [5, 5], [0, 5], [0, 0]], hole = [[1, 1], [1, 2], [2, 2], [2, 1], [1, 1]];
     const value = { kind: 'choropleth', regions: [{ id: 'A', value: null, geometry: { type: 'MultiPolygon', coordinates: [[outer, hole], [[[6, 0], [7, 0], [7, 1], [6, 1], [6, 0]]]] } }] };
-    expect(chartDataSchema.parse(value).regions![0].geometry.coordinates).toEqual(value.regions[0].geometry.coordinates);
+    expect(chartDataSchema.parse(value).regions![0].geometry!.coordinates).toEqual(value.regions[0].geometry.coordinates);
     value.regions[0].geometry.coordinates[0][1] = hole.map(([x, y]) => [x + 10, y]); expect(chartDataSchema.safeParse(value).success).toBe(false);
   });
   it('validates native graph and region payloads during source preflight', () => {

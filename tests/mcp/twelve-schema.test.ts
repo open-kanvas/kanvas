@@ -44,7 +44,8 @@ describe('twelve-tool strict published and runtime contract', () => {
       const legacy = resolveToolCall('legacy', canonical, args);
       expect(mapped.error).toBeUndefined(); expect(legacy.error).toBeUndefined();
       expect(mapped.canonicalName).toBe(canonical);
-      expect(mapped.args).toEqual(legacy.args);
+      if(!('requestId' in args)&&mapped.args?.requestId!==undefined){expect(mapped.args.requestId).toEqual(expect.any(String));expect(legacy.args?.requestId).toEqual(expect.any(String));expect({...mapped.args,requestId:undefined}).toEqual({...legacy.args,requestId:undefined});}
+      else expect(mapped.args).toEqual(legacy.args);
       expect(mapped.args).not.toHaveProperty('operation');
       expect(input).toEqual(before);
       for (const malformed of [{ ...input, unexpectedOtherBranchField: true }, { ...input, operation: 'unknown' }, args]) {

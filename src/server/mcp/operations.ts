@@ -14,7 +14,7 @@ export const isGrouped = (profile: McpProfile): profile is GroupedProfile => pro
 
 /** Reviewed, exhaustive registry. Do not synthesize handler names from input. */
 export const OPERATION_REGISTRY = {
-  kanvas_inspect: {
+  kanvas_inspect: { 'archive.list':'kanvas_archive_list',
     'pointing.read':'kanvas_pointing_read','autoplay.read':'kanvas_autoplay_read','tool-log.read':'kanvas_tool_log_read',
     'profile.read':'kanvas_profile_read','groups.list':'kanvas_groups_list','group.read':'kanvas_group_read',
     'group-access.read':'kanvas_group_access_read','session-context.read':'kanvas_session_context_read',
@@ -67,7 +67,7 @@ export const OPERATION_REGISTRY = {
   kanvas_capture: { snapshot: 'kanvas_display_snapshot' },
   kanvas_monitor: { start: 'kanvas_monitoring_start', update: 'kanvas_monitoring_update', stop: 'kanvas_monitoring_stop', push: 'kanvas_live_push' },
   kanvas_access: {'pointing.configure':'kanvas_pointing_configure','session.public':'kanvas_session_public_access','group.create':'kanvas_group_create','group.member.set':'kanvas_group_member_set','group-access.set':'kanvas_group_access_set','invite.create':'kanvas_invite_create','invite.accept':'kanvas_invite_accept','invite.revoke':'kanvas_invite_revoke', 'share.create': 'kanvas_share_create', 'pairing.revoke':'kanvas_pairing_revoke', 'pairing.decide': 'kanvas_pairing_decide', 'member.add': 'kanvas_member_add', 'member.remove': 'kanvas_member_remove' },
-  kanvas_remove: { 'display.clear': 'kanvas_clear', 'session.end': 'kanvas_session_end', 'dataset.delete': 'kanvas_dataset_delete', 'asset.delete': 'kanvas_asset_delete' },
+  kanvas_remove: { 'archive.manage':'kanvas_archive_manage', 'display.clear': 'kanvas_clear', 'session.end': 'kanvas_session_end', 'dataset.delete': 'kanvas_dataset_delete', 'asset.delete': 'kanvas_asset_delete' },
 } as const;
 
 /** Resource/domain grouping (reports #13/#27). Every canonical operation
@@ -78,6 +78,7 @@ export const DOMAIN_REGISTRY = {
   kanvas_account: { start: 'kanvas_start_read', inventory: 'kanvas_account_inventory', activity: 'kanvas_activity_read', analytics: 'kanvas_analytics_read' },
   kanvas_profile: { read: 'kanvas_profile_read', update: 'kanvas_profile_update', 'preferences.read': 'kanvas_preferences_get', 'preferences.update': 'kanvas_preferences_update', 'styles.list': 'kanvas_styles_list' },
   kanvas_session_history: { list: 'kanvas_sessions_list' },
+  kanvas_archive: { list:'kanvas_archive_list', manage:'kanvas_archive_manage' },
   kanvas_session: { create: 'kanvas_session_create', rename: 'kanvas_session_rename', state: 'kanvas_session_state', log: 'kanvas_session_log', 'settings.update': 'kanvas_config_update', 'context.read': 'kanvas_session_context_read', 'context.set': 'kanvas_session_context_set', participants: 'kanvas_participants_read' },
   kanvas_session_end: { end: 'kanvas_session_end' },
   kanvas_session_gallery: { read: 'kanvas_session_overview' },

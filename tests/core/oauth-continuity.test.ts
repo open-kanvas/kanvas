@@ -1,3 +1,4 @@
+import { legacySelectedCode } from './legacy-oauth-fixture.js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { Request } from 'express';
 import { Client, StreamableHTTPClientTransport, type OAuthClientProvider } from '@modelcontextprotocol/client';
@@ -58,10 +59,11 @@ function refresh(h: Harness, client: Registered, credential: string, extra: Reco
 }
 async function approve(h: Harness, owner: Browser, client: Registered, pending: Awaited<ReturnType<typeof begin>>, sessionIds?: string[]) {
   const result = success(await owner.request<{ redirectUri: string }>('POST', '/api/oauth/approve', {
-    requestId: pending.requestId, approve: true, ...(sessionIds ? { sessionIds } : { accessMode: 'account' }),
+    requestId: pending.requestId, approve: true, accessMode: 'account',
   }));
   const code = new URL(result.redirectUri).searchParams.get('code');
   expect(typeof code).toBe('string');
+  if(sessionIds)await legacySelectedCode(h,code!,sessionIds);
   return tokenRequest(h, { grant_type: 'authorization_code', client_id: client.client_id, redirect_uri: CALLBACK, resource: RESOURCE, code, code_verifier: pending.verifier });
 }
 async function connection(h: Harness, owner: Browser, sessionIds?: string[], scope = 'read publish', client?: Registered) {

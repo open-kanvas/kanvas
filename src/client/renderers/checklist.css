@@ -1,0 +1,26 @@
+/* Row-major DOM/grid order keeps keyboard and reading order identical.
+   Single-column prose uses the same scroller; nothing is truncated. */
+.checklist-content.checklist-adaptive > ul {
+  display: grid;
+  align-content: start;
+  column-gap: clamp(16px, 2cqw, 28px);
+}
+.checklist-content.checklist-adaptive li > div { min-width: 0; overflow-wrap: anywhere; }
+.checklist-content.checklist-adaptive li > div > span { white-space: pre-wrap; }
+.render-surface:not(.is-preview) .checklist-content.checklist-adaptive li:not(.is-preview *) {
+  gap: clamp(13px, 2.125cqw, 30px);
+  padding-block: clamp(12px, 2.38cqh, 28px);
+}
+.render-surface:not(.is-preview) .checklist-content.checklist-adaptive li > div > span:not(.is-preview *) {
+  font-size: clamp(1rem, 2.55cqw, 3.4cqh);
+}
+.render-surface:not(.is-preview) .checklist-content.checklist-adaptive .checklist-checkbox:not(.is-preview *) {
+  width: clamp(24px, 2.975cqw, 37px);
+  height: clamp(24px, 2.975cqw, 37px);
+  min-width: 24px;
+}
+.checklist-content.checklist-adaptive .checklist-checkbox svg { width: 80%; height: 80%; }
+@media (max-width: 600px) {
+  .render-surface:not(.is-preview) .checklist-content.checklist-adaptive li:not(.is-preview *) { padding-block: 17px; gap: 13px; }
+  .render-surface:not(.is-preview) .checklist-content.checklist-adaptive li > div > span:not(.is-preview *) { font-size: clamp(1rem, 4.675cqw, 2.465cqh); }
+}

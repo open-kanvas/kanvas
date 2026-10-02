@@ -1,3 +1,5 @@
+import { geographyCodes } from './geography/codes.js';
+import { emphasisSchema } from './emphasis.js';
 import { z } from 'zod';
 
 /** Browser-safe chart/source contracts. No dependency on the encompassing view schema. */
@@ -72,9 +74,9 @@ const geometrySchema = z.discriminatedUnion('type', [
 ]);
 export type ChartGeometry = z.infer<typeof geometrySchema>;
 export const chartRegionSchema = z.object({
-  id: nodeId, label: short.optional(), geometry: geometrySchema, value: finite.nullable().optional(),
+  id: nodeId, label: short.optional(), geometry: geometrySchema.optional(), countryCode:z.string().min(2).max(5).refine(v=>Boolean(geographyCodes[v.toUpperCase()]), 'Code not covered by built-in Natural Earth 110m; supply GeoJSON instead').optional().describe('ISO alpha-2/alpha-3 country or US-XX state. Built-in Natural Earth 110m; small territories may need GeoJSON.'), value: finite.nullable().optional(),
   sourceRows: sourceRows.optional(), raw: rawCells.optional(), rawValues: z.array(cellSchema).max(rowLimit).optional(),
-}).strict();
+}).strict().refine(v=>Boolean(v.geometry)!==Boolean(v.countryCode),'Supply exactly one of geometry or countryCode');
 export type ChartRegion = z.infer<typeof chartRegionSchema>;
 export const radarAxisSchema = z.object({ key: label, label: short.optional(), min: finite, max: finite, unit: z.string().max(80).optional() }).strict()
   .refine(value => value.max > value.min && Number.isFinite(value.max - value.min), 'Radar axis requires a finite increasing min/max range');
@@ -175,6 +177,8 @@ function validatePolygon(rings: Position[][]): string | undefined {
 }
 
 export const chartDataSchema = z.object({
+  emphasis:emphasisSchema.optional(),
+  referenceLines:z.array(z.object({value:finite,label:short.optional(),color:z.string().regex(/^#[0-9a-fA-F]{6}$/).optional()}).strict()).max(8).optional().describe('Supplied y-axis targets for Cartesian line/bar/scatter/histogram/box charts.'),
   kind: z.enum(CHART_KINDS).default('line'),
   series: z.array(z.object({ name: label, points: z.array(chartPointSchema).max(pointLimit) }).strict()).max(4).default([]),
   nodes: z.array(chartNodeSchema).max(200).optional(), links: z.array(chartLinkSchema).max(500).optional(), directed: z.boolean().optional(),
@@ -182,6 +186,9 @@ export const chartDataSchema = z.object({
   xLabel: short.optional(), yLabel: short.optional(), unit: z.string().max(80).optional(), binding: datasetBindingSchema.optional(), summary: summarySchema.optional(),
 }).strict().superRefine((data, ctx) => {
   const issue = (message: string, path: (string | number)[] = []) => ctx.addIssue({ code: 'custom', message, path });
+  if(data.referenceLines?.length&&!['line','bar','scatter','histogram','box'].includes(data.kind))issue('Reference lines require a Cartesian line/bar/scatter/histogram/box chart');
+  if(data.emphasis?.length&&!['line','bar','scatter','histogram','box','heatmap'].includes(data.kind))issue('Point emphasis supports Cartesian and heatmap charts');
+  for(const e of data.emphasis??[])if(e.row!==undefined||e.column!==undefined||e.point===undefined||((!data.binding||data.series.length>0)&&!data.series.some(s=>(e.series===undefined||s.name===e.series)&&e.point!<s.points.length)))issue('Chart emphasis targets an existing series and zero-based point index',['emphasis']);
   const points = data.series.flatMap(series => series.points);
   const graphKind = ['network', 'sankey', 'treemap'].includes(data.kind);
   if (!data.binding && !points.length && !(graphKind && data.nodes?.length) && !(data.kind === 'choropleth' && data.regions?.length)) issue('Chart requires points, source geometry/structure, or a dataset binding');
@@ -324,9 +331,10 @@ export const chartDataSchema = z.object({
     }
   }
   if (data.kind === 'choropleth') {
-    if (!data.regions?.length) issue('Choropleth requires supplied Polygon/MultiPolygon region geometry; place names are not geocoded', ['regions']);
+    if (!data.regions?.length) issue('Choropleth requires regions with geometry or a supported countryCode; place names are not geocoded', ['regions']);
     else {
       if (new Set(data.regions.map(region => region.id)).size !== data.regions.length) issue('Region IDs must be unique', ['regions']);
+      const countryKeys=data.regions.flatMap(region=>region.countryCode?[geographyCodes[region.countryCode.toUpperCase()]]:[]);if(new Set(countryKeys).size!==countryKeys.length)issue('Country code aliases must not repeat the same built-in region',['regions']);
       const values = data.regions.flatMap(region => typeof region.value === 'number' ? [region.value] : []);
       if (values.length && !Number.isFinite(Math.max(...values) - Math.min(...values))) issue('Region values exceed finite color-scale precision');
       let vertices = 0;
@@ -334,6 +342,7 @@ export const chartDataSchema = z.object({
         if (!data.binding && region.value === undefined) issue('Each region needs its supplied value or explicit null for no data', ['regions', index, 'value']);
         if (region.raw?.value !== undefined && (region.raw.value === null ? region.value !== null : decimalProjection(region.raw.value) !== region.value)) issue('Raw region values must preserve numeric projections or explicit no-data', ['regions', index]);
         if (region.rawValues && region.sourceRows && region.rawValues.length !== region.sourceRows.length) issue('Raw region observations and sourceRows must remain aligned', ['regions', index]);
+        if(!region.geometry)continue; // Licensed built-in boundaries resolve in the browser, never inflate caller payload.
         const polygons = region.geometry.type === 'Polygon' ? [region.geometry.coordinates] : region.geometry.coordinates;
         for (const coordinates of polygons) { vertices += coordinates.reduce((total, ring) => total + ring.length, 0); if (vertices <= 20_000) { const error = validatePolygon(coordinates); if (error) issue(error, ['regions', index, 'geometry']); } }
       }

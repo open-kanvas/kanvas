@@ -93,6 +93,17 @@ describe('revision-bound partial view patches', () => {
   beforeEach(async () => { f = new Fixture(); (await f.seed()); });
   afterEach(async () => { (await f.store.close()); });
 
+  it('patches roster assignments atomically by semantic identity and preserves unrelated data',async()=>{
+    await f.seed({version:1,template:'roster',data:{start:'2026-10-01',end:'2026-10-02',people:[{id:'a',name:'A'},{id:'b',name:'B'}],shifts:[{id:'d',label:'Day'},{id:'v',label:'Vacation'}],assignments:[{date:'2026-10-01',person:'a',shift:'d'},{date:'2026-10-01',person:'b',shift:'d',note:'Untouched'}]}});
+    const request=await f.request([{op:'roster',action:'remove',date:'2026-10-01',person:'a',shift:'d'},{op:'roster',action:'add',date:'2026-10-01',person:'a',shift:'v',value:{note:'Leave'}}]);
+    const first=await f.engine.patch(owner,request);expect(await f.engine.patch(owner,request)).toEqual(first);
+    expect((await f.read()).view!.data.assignments).toEqual([{date:'2026-10-01',person:'b',shift:'d',note:'Untouched'},{date:'2026-10-01',person:'a',shift:'v',note:'Leave'}]);
+    await f.patch([{op:'roster',action:'update',date:'2026-10-01',person:'a',shift:'v',value:{note:null,code:'V'}}]);
+    const before=await f.read();await errorCode(()=>f.patch([{op:'roster',action:'remove',date:'2026-10-01',person:'a',shift:'v'},{op:'roster',action:'update',date:'2026-10-02',person:'a',shift:'d',value:{note:'Missing'}}]),'PATCH_PATH_CONFLICT');expect(await f.read()).toEqual(before);
+    await expect(f.patch([{op:'roster',action:'add',date:'2026-10-02',person:'missing',shift:'d'}])).rejects.toThrow();expect(await f.read()).toEqual(before);
+    await errorCode(()=>f.engine.patch(owner,{...request,requestId:'stale-roster'}),'REVISION_CONFLICT');
+  });
+
   it('patches checklist IDs atomically, retains siblings, deduplicates retries and enforces CAS', async()=>{
     await f.seed({version:1,template:'checklist',data:{items:[{id:'a',text:'Exact A',detail:'Keep A'},{id:'b',text:'Exact B',checked:true}]}});
     const request=await f.request([{op:'checklist',action:'update',itemId:'a',value:{checked:true}},{op:'checklist',action:'add',itemId:'c',value:{text:'New C'},beforeId:'b'}]);

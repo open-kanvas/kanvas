@@ -112,6 +112,17 @@ function assertPatchTarget(view: ViewSpec, parts: string[]): void {
 }
 
 function applyOperation(view: ViewSpec, operation: ViewPatchOperation): void {
+  if(operation.op==='roster') {
+    if(view.template!=='roster'||view.data.mode==='coverage')unsupported('Roster assignment operations require individual mode.');
+    const assignments=view.data.assignments as {date:string;shift:string;person?:string;code?:string;note?:string}[];
+    const index=assignments.findIndex(a=>a.date===operation.date&&a.shift===operation.shift&&a.person===operation.person);
+    if(operation.action==='add'?index>=0:index<0)pathConflict();
+    if(operation.action==='remove'){if(operation.value)unsupported('remove does not accept value');assignments.splice(index,1);return;}
+    if(operation.action==='update'&&(!operation.value||!Object.keys(operation.value).length))unsupported('update requires code or note');
+    const item=operation.action==='add'?{date:operation.date,shift:operation.shift,...(operation.person?{person:operation.person}:{})}:{...assignments[index]};
+    for(const field of ['code','note'] as const){const value=operation.value?.[field];if(value===null)delete item[field];else if(value!==undefined)item[field]=value;}
+    if(operation.action==='add')assignments.push(item);else assignments[index]=item;return;
+  }
   if (operation.op === 'checklist') {
     if (view.template !== 'checklist') unsupported('Item operations require a checklist view.');
     const items = view.data.items as {id:string;text:string;detail?:string;checked?:boolean}[];

@@ -1,3 +1,4 @@
+import { cellEmphasis, type Emphasis } from '../../shared/emphasis';
 import { useSelection } from './Selection';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { Cell, DatasetBinding } from '../../shared/chart-contract';
@@ -14,7 +15,7 @@ export interface TableSummary {
   downsampled?: boolean; precisionNote?: string; excludedRows?: number;
 }
 export interface TableData {
-  columns: string[]; rows: Record<string, Cell>[]; pageSize?: number; binding?: DatasetBinding; summary?: TableSummary;
+  showHeaders?: boolean; emphasis?: Emphasis; columns: string[]; rows: Record<string, Cell>[]; pageSize?: number; binding?: DatasetBinding; summary?: TableSummary;
   rowStyles?:TableRowStyle[];cellStyles?:TableCellStyle[];
 }
 function Indicator({indicator}:{indicator:TableIndicator}){
@@ -114,14 +115,15 @@ export function TableRenderer({ data, showControls = false, showSource = false }
     </div>}
     <div className="table-scroll" ref={scroll} tabIndex={0} role="region" aria-label="Scrollable data table">
       <table aria-label="Data table" style={{ '--table-columns': Math.max(1, data.columns.length) } as CSSProperties}>
-        <thead><tr>{data.columns.map(column => <th key={column} scope="col" aria-sort={showControls ? current.sort?.key === column ? current.sort.direction : 'none' : undefined}>
+        {data.showHeaders !== false && <thead><tr>{data.columns.map(column => <th key={column} scope="col" aria-sort={showControls ? current.sort?.key === column ? current.sort.direction : 'none' : undefined}>
           {showControls ? <button type="button" onClick={() => changeSort(column)} aria-label={`Sort by ${column}`}><span>{column}</span><span className="table-sort-indicator" aria-hidden="true">{current.sort?.key === column ? current.sort.direction === 'ascending' ? '↑' : '↓' : '↕'}</span></button> : <span>{column}</span>}
-        </th>)}</tr></thead>
+        </th>)}</tr></thead>}
         <tbody>{page.rows.map(({ row, sourceIndex }) => <tr key={sourceIndex} data-source-row={selection.indices?.[sourceIndex]??sourceIndex} className={selection.highlights.includes(sourceIndex)?'agent-highlight':undefined}>{data.columns.map(column => {
           const value = row[column];
           const originalIndex=selection.indices?.[sourceIndex]??sourceIndex,rowStyle=rowStyles.get(originalIndex),cellStyle=cellStyles.get(JSON.stringify([originalIndex,column]));
+          const emphasis=cellEmphasis(data.emphasis, originalIndex, column);
           const backgroundColor=cellStyle?.background??rowStyle?.background,color=cellStyle?.color??(cellStyle?.background?tableForeground(cellStyle.background):rowStyle?.color??(backgroundColor?tableForeground(backgroundColor):undefined));
-          return <td key={column} data-cell-type={cellKind(value)} className={typeof value === 'number' ? 'numeric' : ''} aria-label={value === ''&&!cellStyle?.indicator ? 'Empty string' : undefined} style={backgroundColor||color?{backgroundColor,color}:undefined}>
+          return <td key={column} data-cell-type={cellKind(value)} data-emphasis={Boolean(emphasis) || undefined} title={emphasis?.label} className={`${typeof value === 'number' ? 'numeric' : ''}${emphasis ? ' cell-emphasis' : ''}`} aria-label={value === ''&&!cellStyle?.indicator ? 'Empty string' : undefined} style={backgroundColor||color||emphasis?{backgroundColor,color,...(emphasis?{boxShadow:`inset 0 0 0 2px ${emphasis.color??'var(--accent)'}`}:{})}:undefined}>
             {cellStyle?.indicator&&<Indicator indicator={cellStyle.indicator}/>}
             {value === null || value === undefined ? <span className="muted table-null" aria-label={value === null ? 'Null value' : 'No supplied value'}>—</span> : typeof value==='number'?regionalNumber(value,regional):cellText(value)}
           </td>;

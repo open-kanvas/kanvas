@@ -42,7 +42,7 @@ const interactiveTemplates = new Set<string>(['json', 'session-topology', 'form'
  * scroll region; it is never truncated or globally scaled down to fake a fit. */
 export function liveSurfaceLayout(view: ViewSpec): LiveSurfaceLayout {
   if (mediaTemplates.has(view.template)) return { mode: 'media', fullBleed: true };
-  if (view.template === 'product' && view.data.layout === 'comparison') return {mode:'reading',fullBleed:false};
+  if (view.template === 'product' && ['comparison','multi-vendor'].includes(String(view.data.layout))) return {mode:'reading',fullBleed:false};
   if (view.template === 'document') {
     const text = typeof view.data.text === 'string' ? view.data.text : '';
     const reading = view.data.layout === 'reading' || view.data.layout !== 'excerpt' && (text.length > 900 || text.split(/\n\s*\n/).length >= 3 || Array.isArray(view.data.headings) && view.data.headings.length > 0);

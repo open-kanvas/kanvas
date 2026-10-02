@@ -10,7 +10,7 @@ import { safeSchemaIssues } from './validation.js';
 export function inlineDatasetForSubmission(submission: SubmissionInput, datasetId: string): DatasetRecord | undefined {
   if (submission.datasetId || submission.view) return;
   const data = objectData(submission.data);
-  if (submission.templateHint === 'table' && Array.isArray(data?.columns)) return;
+  if (submission.templateHint === 'table' && Array.isArray(data?.rows)) return;
   if (typeof objectData(data?.binding)?.datasetId === 'string') return;
   const canBeDataset = !submission.templateHint || ['chart', 'table', 'number'].includes(submission.templateHint);
   let inline: ReturnType<typeof parseDataset> | undefined;

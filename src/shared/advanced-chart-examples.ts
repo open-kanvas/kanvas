@@ -20,7 +20,7 @@ export const advancedChartExamples: Record<AdvancedChartKind, ViewSpec> = {
     { id: 'zone-a', label: 'Supplied region A', value: 24, geometry: { type: 'Polygon', coordinates: [[[100, 0], [101, 0], [101, 2], [100, 2], [100, 0]]] } },
     { id: 'zone-b', label: 'Supplied region B', value: 68, geometry: { type: 'Polygon', coordinates: [[[101, 0], [102, 0], [102, 1], [103, 1], [103, 2], [101, 2], [101, 0]]] } },
     { id: 'zone-c', label: 'Supplied region C', value: null, geometry: { type: 'Polygon', coordinates: [[[100, 2], [103, 2], [103, 3], [100, 3], [100, 2]]] } },
-  ] }, 'Illustrative supplied polygons; not country boundaries or a geographic lookup'),
+  ] }, 'Custom polygons; alternatively use regions [{id:"NO",countryCode:"NO",value:42}] for built-in ISO geography (Natural Earth 110m)'),
   pie: example('Allocation', { kind: 'pie', unit: '%', series: [{ name: 'Allocation', points: proportions }] }),
   donut: example('Allocation', { kind: 'donut', unit: '%', series: [{ name: 'Allocation', points: proportions }] }),
   gauge: example('Progress against a range', { kind: 'gauge', unit: '%', gauge: { min: 0, max: 100, thresholds: [{ value: 50, label: 'Halfway' }, { value: 100, label: 'Complete' }] }, series: [{ name: 'Completion', points: [{ x: 'Completion', y: 72 }] }] }),

@@ -1,3 +1,5 @@
+import boundaries from '../../shared/geography/boundaries.json';
+import { geographyCodes } from '../../shared/geography/codes';
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { chartTopologicalOrder, isAdvancedChartKind, type Cell, type ChartData, type ChartGeometry, type ChartLink, type ChartNode, type ChartPoint, type ChartSummary } from '../../shared/chart-contract';
 import './advanced-charts.css';
@@ -317,13 +319,14 @@ function SankeyPlot({ data, width, height, inspect, details }: PlotProps) {
   </Svg>{details && <ChartKey inspect={inspect} className="advanced-key-grid" items={layout.nodes.map((placed, index) => ({ id: placed.node.id, index: index + 1, color: color(index), label: placed.node.label ?? placed.node.id, value: `${pretty(placed.incoming)} in · ${pretty(placed.outgoing)} out${data.unit ? ` ${data.unit}` : ''}` }))} />}</div>;
 }
 
+export function regionGeometry(region: NonNullable<ChartData['regions']>[number]):ChartGeometry { return region.geometry ?? (boundaries as unknown as Record<string,{geometry:ChartGeometry}>)[geographyCodes[region.countryCode!.toUpperCase()]].geometry; }
 function geometryRings(geometry: ChartGeometry): [number, number][][] { return geometry.type === 'Polygon' ? geometry.coordinates : geometry.coordinates.flat(); }
 export function choroplethPaths(data: ChartData, width: number, height: number): { id: string; path: string }[] {
   let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
-  for (const region of data.regions ?? []) for (const ring of geometryRings(region.geometry)) for (const [x, y] of ring) { xMin = Math.min(xMin, x); xMax = Math.max(xMax, x); yMin = Math.min(yMin, y); yMax = Math.max(yMax, y); }
+  for (const region of data.regions ?? []) for (const ring of geometryRings(regionGeometry(region))) for (const [x, y] of ring) { xMin = Math.min(xMin, x); xMax = Math.max(xMax, x); yMin = Math.min(yMin, y); yMax = Math.max(yMax, y); }
   const scale = Math.min((width - 36) / (xMax - xMin || 1), (height - 36) / (yMax - yMin || 1)), ox = (width - (xMax - xMin) * scale) / 2, oy = (height - (yMax - yMin) * scale) / 2;
   const project = ([x, y]: [number, number]) => `${ox + (x - xMin) * scale},${oy + (yMax - y) * scale}`;
-  return (data.regions ?? []).map(region => ({ id: region.id, path: geometryRings(region.geometry).map(ring => `${ring.map((position, index) => `${index ? 'L' : 'M'}${project(position)}`).join(' ')} Z`).join(' ') }));
+  return (data.regions ?? []).map(region => ({ id: region.id, path: geometryRings(regionGeometry(region)).map(ring => `${ring.map((position, index) => `${index ? 'L' : 'M'}${project(position)}`).join(' ')} Z`).join(' ') }));
 }
 function ChoroplethPlot({ data, width, height, inspect, uid, details }: PlotProps) {
   const pretty = useAxisNumber();
@@ -426,7 +429,7 @@ export function AdvancedChartRenderer({ data, showControls = false, showSource =
   else if (data.kind === 'network') plot = <NetworkPlot {...props} />;
   else if (data.kind === 'treemap') plot = <TreemapPlot {...props} />;
   else if (data.kind === 'sankey') plot = <SankeyPlot {...props} />;
-  else if (data.kind === 'choropleth') plot = <ChoroplethPlot {...props} />;
+  else if (data.kind === 'choropleth') plot = <><ChoroplethPlot {...props}/>{data.regions?.some(r=>r.countryCode)&&<small className="geography-attribution">Natural Earth · 1:110m generalized boundaries · public domain</small>}</>;
   else if (data.kind === 'gauge') plot = <GaugePlot {...props} />;
   else if (data.kind === 'funnel') plot = <FunnelPlot {...props} />;
   else plot = <p className="content-empty">No advanced chart selected.</p>;

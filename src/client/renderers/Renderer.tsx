@@ -1,3 +1,4 @@
+import { DevicePreview } from './DevicePreview';
 import { DiagramRenderer, SportsLineupRenderer } from './Diagrams';
 import { useInternalNavigation } from './Navigation';
 import { ImageGallery } from './ImageGallery';
@@ -88,7 +89,7 @@ export function Renderer(props: RendererProps) {
   return <RegionalContext.Provider value={{...config,...view.format}}><ImageFallbackContext.Provider value={{sessionId:props.sessionId,displayId:props.displayId,revision:props.revision,preview:props.preview}}><section className={`render-surface template-${view.template} ${layout.mode === 'reading' || layout.mode === 'interactive' ? 'is-reference' : 'is-glance'} ${preview ? 'is-preview' : 'is-live'} ${layout.fullBleed ? 'is-full-bleed' : ''} ${hasInformation ? 'has-view-information' : ''}`} data-density={config?.density ?? 'comfortable'} data-surface-mode={layout.mode} data-show-caption={surface.showCaption} data-show-controls={surface.showControls} style={accent ? { '--source-accent': accent } as CSSProperties : undefined} aria-label={view.title ?? `${view.template} display`}>
     {config?.branding && !preview && <div className="session-branding">{config.branding.logoUrl&&<img src={`${config.branding.logoUrl}?sessionId=${encodeURIComponent(props.sessionId??'')}&displayId=${encodeURIComponent(props.displayId??'')}`} alt={`${config.branding.name??'Organization'} logo`}/>}<span>{config.branding.name}</span><span className="brand-palette">{config.branding.palette.map((color,index)=><i key={index} style={{background:color}}/>)}</span></div>}
     {surface.showTitle && <header className="view-heading"><h1>{view.title}</h1></header>}
-    <div className="render-body"><RenderBoundary identity={props.renderIdentity ?? JSON.stringify(view)} onError={props.onError}><Suspense fallback={<LoadingView onError={props.onError} />}>{hasMedia ? <MediaReadyGate key={props.renderIdentity ?? JSON.stringify(view)} onReady={props.onReady} onError={props.onError}><Content {...props} /></MediaReadyGate> : <Content {...props} />}{!hasMedia && !['presentation', 'map', 'whiteboard', 'html', 'session-topology'].includes(view.template) && <ReadyProbe identity={props.renderIdentity ?? JSON.stringify(view)} onReady={props.onReady} />}</Suspense></RenderBoundary></div>
+    <div className="render-body"><RenderBoundary identity={props.renderIdentity ?? JSON.stringify(view)} onError={props.onError}><Suspense fallback={<LoadingView onError={props.onError} />}>{hasMedia ? <MediaReadyGate key={props.renderIdentity ?? JSON.stringify(view)} onReady={props.onReady} onError={props.onError}><Content {...props} /></MediaReadyGate> : <Content {...props} />}{!hasMedia && !['presentation', 'map', 'whiteboard', 'html', 'device-preview', 'session-topology'].includes(view.template) && <ReadyProbe identity={props.renderIdentity ?? JSON.stringify(view)} onReady={props.onReady} />}</Suspense></RenderBoundary></div>
     {!!view.actions?.length && !preview && !['email','inbox','chat'].includes(view.template) && <ActionControls actions={view.actions} enabled={props.actionable ?? false} onAction={props.onAction} feedback={props.feedback} />}
     {hasInformation && <ViewInformation key={props.renderIdentity ?? JSON.stringify(view)} view={view} container={props.containerView} preview={preview}/>}
   </section></ImageFallbackContext.Provider></RegionalContext.Provider>;
@@ -125,7 +126,8 @@ function Content(props: RendererProps) {
     case 'display-grid': return <DisplayGridRenderer {...props}/>;
     case 'devices': return <DevicesRenderer {...props}/>;
     case 'sports-lineup': return <SportsLineupRenderer {...props}/>;
-    case 'org-chart': case 'flowchart': case 'network': return <DiagramRenderer {...props}/>;
+    case 'device-preview': return <DevicePreview {...props}/>;
+    case 'architecture': case 'org-chart': case 'flowchart': case 'network': return <DiagramRenderer {...props}/>;
     case 'calendar': return <CalendarRenderer {...props} />;
     case 'planner': return <PlannerRenderer {...props} actionable={props.actionable && !props.preview} />;
     case 'settings': return <SessionSettings {...props}/>;

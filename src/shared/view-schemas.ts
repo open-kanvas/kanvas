@@ -1,5 +1,6 @@
+import { devicePreviewDataSchema } from './device-preview.js';
 import { VERBATIM_SOURCE, SOURCE_RECORD_TEMPLATES } from './source-guidance.js';
-import {sportsLineupDataSchema,orgChartDataSchema,flowchartDataSchema,networkDataSchema} from './diagrams.js';
+import {architectureDataSchema,sportsLineupDataSchema,orgChartDataSchema,flowchartDataSchema,networkDataSchema} from './diagrams.js';
 import { viewFormatSchema } from './regional.js';
 import { galleryDataSchema,boardBackgroundSchema } from './image-gallery.js';
 import { scoreboardDataSchema,standingsDataSchema,toolLogDataSchema } from './event-views.js';
@@ -111,13 +112,14 @@ export const mapDataSchema = z.object({
   center: coordinates.optional(), zoom: finite.min(1).max(20).default(11),
 }).strict().refine((v) => Boolean(v.center || v.markers.length || v.routes.length || v.polygons.length), 'Map needs supplied geometry or a center');
 export const codeDataSchema = z.object({
-  kind: z.enum(['code', 'diff', 'tree', 'tools']).default('code'), path: short.optional(), language: z.string().max(50).optional(),
+  kind: z.enum(['code', 'diff', 'tree', 'tools', 'terminal']).default('code'), path: short.optional(), language: z.string().max(50).optional(),
   code: z.string().max(100_000).optional(), before: z.string().max(100_000).optional(), after: z.string().max(100_000).optional(),
   files: z.array(z.object({ path: label, kind: z.enum(['file', 'directory']).default('file'), status: z.enum(['added', 'modified', 'deleted', 'unchanged']).optional() }).strict()).max(1000).optional(),
   tools: z.array(z.object({ id: identifier, name: label, status: z.enum(['pending', 'running', 'success', 'error']), summary: short.optional() }).strict()).max(100).refine(uniqueIds, 'Tool IDs must be unique').optional(),
+  entries:z.array(z.object({id:identifier,command:z.string().min(1).max(10000),stdout:z.string().max(100000).optional(),stderr:z.string().max(100000).optional(),status:z.enum(['pending','running','success','error']).optional(),exitCode:z.number().int().optional(),timestamp:z.string().datetime().optional(),cwd:short.optional()}).strict()).max(100).refine(uniqueIds,'Entry IDs must be unique').optional(),
   highlightLines: z.array(positiveInteger.max(1_000_000)).max(200).optional(), startLine: positiveInteger.max(1_000_000).default(1),
 }).strict().superRefine((v, ctx) => {
-  const valid = v.kind === 'code' ? v.code !== undefined : v.kind === 'diff' ? v.before !== undefined && v.after !== undefined : v.kind === 'tree' ? Boolean(v.files?.length) : Boolean(v.tools?.length);
+  const valid = v.kind === 'code' ? v.code !== undefined : v.kind === 'diff' ? v.before !== undefined && v.after !== undefined : v.kind === 'tree' ? Boolean(v.files?.length) : v.kind === 'terminal' ? Boolean(v.entries?.length) : Boolean(v.tools?.length);
   if (!valid) ctx.addIssue({ code: 'custom', message: `Missing content for ${v.kind} layout` });
 });
 const position = finite.min(-100_000).max(100_000);
@@ -276,6 +278,8 @@ export const leafViewSchema = z.discriminatedUnion('template', [
   z.object({ ...base, template: z.literal('display-grid'), data: displayGridDataSchema }).strict(),
   z.object({ ...base, template: z.literal('devices'), data: devicesViewDataSchema }).strict(),
   z.object({...base,template:z.literal('sports-lineup'),data:sportsLineupDataSchema}).strict(),
+  z.object({...base,template:z.literal('device-preview'),data:devicePreviewDataSchema}).strict(),
+  z.object({...base,template:z.literal('architecture'),data:architectureDataSchema}).strict(),
   z.object({...base,template:z.literal('org-chart'),data:orgChartDataSchema}).strict(),
   z.object({...base,template:z.literal('flowchart'),data:flowchartDataSchema}).strict(),
   z.object({...base,template:z.literal('network'),data:networkDataSchema}).strict(),

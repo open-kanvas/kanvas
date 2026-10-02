@@ -8,7 +8,9 @@ const focus = (primary: string, detail: string, reference = false, heading = fal
 /** The shared renderer, template schema response and agent guide use this audit. */
 export const TEMPLATE_DISPLAY_GUIDANCE = {
   'sports-lineup': focus("A supplied soccer formation on a pitch.","Supply exact players and normalized x/y coordinates (0\u20131, attacking goal at top), optional shirt numbers and bench. Never invent a roster; formation is a label, not a roster source.",true),
-  'org-chart': focus("People or teams in a hierarchy.","Use nodes with parentId; top-down or left-right. Roots may form a forest; cycles are rejected. Large diagrams scroll on phones.",true),
+  'device-preview': focus('Preview the same static HTML/CSS at multiple real CSS viewport sizes.','Pick named presets or custom labelled viewports. Frames scale to the receiving screen; select Actual size for legible 1:1 inspection. This is browser responsiveness, not physical-device or email-client emulation.',false),
+  architecture: focus('Software system components and directed connections.','Supply nodes with type service, database, api, queue, cache, external, client or load-balancer and labelled edges. Components use distinct icons; no infrastructure discovery or execution.',true),
+  'org-chart': focus("People or teams in a hierarchy.","Use nodes with parentId; top-down or left-right. Roots may form a forest; cycles are rejected. The complete hierarchy auto-fits, including phones. Use navigation fit to reset or focus on a node for detail; nodes accept icon or HTTPS image.",true),
   'flowchart': focus("A process or decision path.","Supply nodes and directed edges with optional branch labels; box, decision and terminal shapes. Cycles are allowed; no execution or external lookups.",true),
   'network': focus("Supplied relationships between nodes.","Arbitrary directed or undirected edges; circular, layered or supplied normalized x/y positions. No inferred connections or external data. Scroll dense diagrams.",true),
 
@@ -40,7 +42,7 @@ export const TEMPLATE_DISPLAY_GUIDANCE = {
   comparison: focus('The decisive differences between alternatives.', 'Use few useful criteria; retain complete supplied values in a scrollable reference.', true),
   checklist: focus('The current actions and completion state.', 'Keep supplied item detail readable; never discard unchecked work. Use publish patch op:checklist with itemId and action add/remove/update/move, value text/detail/checked and optional beforeId; revision CAS and requestId preserve unrelated items.'),
   map: focus('The relevant place or route.', 'Preserve labels, geometry, usable controls and required map attribution.'),
-  code: focus('The relevant code, change or structure.', 'Code is an explicit reading/editing exception; preserve every source byte and readable scrolling.', true),
+  code: focus('The relevant code, change or structure.', 'Code preserves exact source and readable scrolling. Use navigation gotoLine with the absolute displayed line (startLine respected), or focus text; diff uses language syntax colors. kind terminal is a read-only transcript, not a shell: entries have id, command, stdout/stderr, status, exitCode and optional timestamp/cwd; patch or replace to append output.', true),
   'image-gallery':focus('Several complete images, or one full image at a time.', 'Grid or carousel. Never crop. Per-image titles, captions and sources appear only when explicitly enabled.'),
   whiteboard: focus('The diagram or shared idea.', 'Keep editing tools contextual and all source elements available.', true),
   presentation: focus('The current visual, not deck chrome.', 'Arrows/swipes navigate within the deck before local history. Audience controls are opt-in with showControls. Notes displays can set data.presenterPreview:true to browse privately and explicitly Go live through linked-display sync. Autoplay only on request.'),

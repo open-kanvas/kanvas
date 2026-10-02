@@ -1,0 +1,13 @@
+/* Supplied 1.2-second left-to-right reveal, only requested on welcome pages. */
+.wordmark.kanvas-brand{display:inline-flex;max-width:100%;flex-shrink:0;vertical-align:middle;line-height:1;padding:4px 0}
+.wordmark.kanvas-brand>svg.kanvas-brand-art{display:block;width:170px;max-width:100%;height:auto;overflow:visible;color:inherit}
+.brand-link .wordmark.kanvas-brand>svg.kanvas-brand-art{width:142px;height:auto}
+.wordmark.kanvas-brand--mark>svg.kanvas-brand-art{width:32px;height:auto}
+.viewer-empty .wordmark.kanvas-brand--mark>svg.kanvas-brand-art{width:48px;height:auto}
+.kanvas-brand--reveal .kanvas-brand-back,.kanvas-brand--reveal .kanvas-brand-front{transform-origin:60px 0;animation:kanvas-brand-extend .7s cubic-bezier(.65,0,.35,1) both}
+.kanvas-brand--reveal .kanvas-brand-back{animation-delay:.05s}
+.kanvas-brand--reveal .kanvas-brand-front{animation-delay:.32s}
+.kanvas-brand--reveal .kanvas-brand-name{animation:kanvas-brand-name .35s .85s ease both}
+@keyframes kanvas-brand-extend{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes kanvas-brand-name{from{opacity:0}to{opacity:1}}
+@media(prefers-reduced-motion:reduce){.kanvas-brand--reveal .kanvas-brand-back,.kanvas-brand--reveal .kanvas-brand-front,.kanvas-brand--reveal .kanvas-brand-name{animation:none}}

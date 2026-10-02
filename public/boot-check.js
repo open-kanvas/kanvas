@@ -20,6 +20,9 @@
     notice.setAttribute('role', 'alert');
     notice.className = 'kanvas-boot-notice';
     notice.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483647;background:#111513;color:#ededed;font-family:Arial,Helvetica,sans-serif;text-align:center;padding:10% 24px 24px;overflow:auto';
+    var logo = document.createElement('img');
+    logo.src = '/brand/kanvas-logo-white.svg'; logo.alt = 'Kanvas'; logo.width = 170;
+    logo.style.cssText = 'display:block;max-width:100%;height:auto;margin:0 auto 32px'; notice.appendChild(logo);
     notice.appendChild(line('h1', 'KANVAS could not start in this browser', 'font-size:32px;margin:0 0 20px'));
     notice.appendChild(line('p', 'This browser may be too old to run KANVAS. Open this address in a current browser (Chrome, Edge, Firefox or Safari), or show it on another device and cast or mirror that screen.', 'font-size:20px;line-height:1.4;max-width:680px;margin:0 auto 16px'));
     notice.appendChild(line('p', location.host + location.pathname, 'font-size:16px;opacity:.7;margin:0;word-wrap:break-word'));

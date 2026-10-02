@@ -58,7 +58,7 @@ async function endActiveSessions(page: Page, diagnostics: { allowHttp(page: Page
   }
 }
 
-test('first OAuth login can create a private session but still requires explicit consent', async ({ page, baseURL, diagnostics }) => {
+test('first OAuth login needs no session selection but still requires explicit account consent', async ({ page, baseURL, diagnostics }) => {
   const account = await register(page);
   await endActiveSessions(page, diagnostics);
   await signOutWorkspace(page);
@@ -70,19 +70,16 @@ test('first OAuth login can create a private session but still requires explicit
   const signedIn = await page.request.post('/api/auth/login', { data: account }); expect(signedIn.status()).toBe(200);
   await page.goto(connection.path);
   await expect(page.getByRole('heading', { name: 'Browser onboarding client' })).toBeVisible();
-  const allow = page.getByRole('button', { name: 'Allow selected sessions', exact: true });
-  await expect(allow).toBeDisabled();
+  const allow = page.getByRole('button', { name: 'Allow account access', exact: true });
+  await expect(allow).toBeEnabled();
   let approvalPosts = 0;
   page.on('request', request => { if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/oauth/approve') approvalPosts++; });
-  await page.getByLabel('New session name', { exact: true }).fill('First connector session');
-  await page.getByRole('button', { name: 'Create session', exact: true }).click();
-  await expect(page.getByRole('checkbox', { name: 'First connector session', exact: true })).toBeChecked();
-  await expect(allow).toBeEnabled();
+  await expect(page.getByRole('checkbox')).toHaveCount(0);
+  await expect(page.getByLabel('New session name', { exact:true })).toHaveCount(0);
   expect(approvalPosts).toBe(0);
   expect(await connectionCount(page)).toBe(0);
   const sessions = (await sessionApi<SessionRecord[]>(page, '/api/sessions')).data!.filter(item => !item.endedAt);
-  expect(sessions.length).toBe(1);
-  expect(sessions[0].role).toBe('owner');
+  expect(sessions.length).toBe(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2)).toBe(true);
   await allow.click();
   const returned = await connection.callback;
@@ -101,17 +98,15 @@ test('first OAuth login can create a private session but still requires explicit
   await page.goto('/');
   await expect(page.locator('.workspace')).toBeVisible();
   const connections = await page.request.get('/api/tokens');
-  expect((await connections.json()).data.map((item: { sessionIds: string[] }) => item.sessionIds)).toEqual([[sessions[0].id]]);
+  expect((await connections.json()).data.map((item: {accessMode:string})=>item.accessMode)).toEqual(['account']);
 });
 
-test('declining after session creation keeps the session private and issues no connection', async ({ page, baseURL, diagnostics }) => {
+test('declining account consent creates no session and issues no connection', async ({ page, baseURL, diagnostics }) => {
   await register(page);
   await endActiveSessions(page, diagnostics);
   const connection = await beginConnection(page, baseURL!);
   await page.goto(connection.path);
-  await page.getByLabel('New session name', { exact: true }).fill('Still private');
-  await page.getByRole('button', { name: 'Create session', exact: true }).click();
-  await expect(page.getByRole('checkbox', { name: 'Still private', exact: true })).toBeChecked();
+  await expect(page.getByRole('checkbox')).toHaveCount(0);
   await page.getByRole('button', { name: 'Decline', exact: true }).click();
   const returned = await connection.callback;
   await expect(page.getByRole('heading', { name: 'Returned to client', exact: true })).toBeVisible();
@@ -121,7 +116,7 @@ test('declining after session creation keeps the session private and issues no c
   await expect(page.locator('.workspace')).toBeVisible();
   expect(await connectionCount(page)).toBe(0);
   const sessions = (await sessionApi<SessionRecord[]>(page, '/api/sessions')).data!.filter(item => !item.endedAt);
-  expect(sessions.map(session => session.name)).toEqual(['Still private']);
+  expect(sessions).toEqual([]);
 });
 
 test('an expired consent page blocks session creation and approval', async ({ page, baseURL, diagnostics }) => {
@@ -130,12 +125,12 @@ test('an expired consent page blocks session creation and approval', async ({ pa
   const connection = await beginConnection(page, baseURL!);
   await page.clock.install();
   await page.goto(connection.path);
-  await expect(page.getByLabel('New session name', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', {name:'Allow account access',exact:true})).toBeEnabled();
   await page.clock.fastForward(11 * 60_000);
   await expect(page.getByRole('alert')).toContainText('connection request has expired');
   await expect(page.getByRole('button', { name: 'Create session', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Allow selected sessions', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Allow account access', exact: true })).toBeDisabled();
   expect(await connectionCount(page)).toBe(0);
   expect((await sessionApi<SessionRecord[]>(page, '/api/sessions')).data?.filter(item => !item.endedAt).length).toBe(0);
-  await expect(page.getByRole('link', { name: 'Open your workspace in another tab' })).toHaveAttribute('href', '/');
+  await expect(page.getByRole('link', { name: 'Open your console in another tab' })).toHaveAttribute('href', '/');
 });

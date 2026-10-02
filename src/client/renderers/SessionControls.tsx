@@ -1,3 +1,4 @@
+import { VisibleOptions } from '../VisibleOptions';
 import { FormattedTime } from './Regional';
 import { AccountOverview } from './AccountOverview';
 import { ReadingSettings } from '../ReadingSettings';
@@ -40,25 +41,25 @@ function RetainedOverview(props:RendererProps){
 
 }
 export function SessionSettings(props:RendererProps){
-  const [draft,setDraft]=useState(props.config),[base,setBase]=useState(props.configRevision??0),[dirty,setDirty]=useState(false),[saveDefaults,setSaveDefaults]=useState(false),[defaultsRevision,setDefaultsRevision]=useState<number|undefined>(),[saved,setSaved]=useState(false),[requested,setRequested]=useState(false);const task=useTask();
-  useEffect(()=>{if(!dirty){setDraft(props.config);setBase(props.configRevision??0);}},[props.config,props.configRevision,dirty]);
-  useEffect(()=>{if(!props.editable||props.preview)return;void api<{revision:number}>('/api/preferences').then(x=>setDefaultsRevision(x.revision)).catch(()=>{});},[props.editable,props.preview,saved]);
-  if(!draft)return <p>Session settings are available on a connected display.</p>;
-  const propose=Boolean(!props.editable&&props.actionable&&props.onRespond),canChange=!props.preview&&(props.editable||propose),conflict=base!==(props.configRevision??0);
-  const change=(patch:Partial<SessionConfig>)=>{setDraft(mergeConfig(draft,patch));setDirty(true);setSaved(false);setRequested(false);};
-  return <form className="surface-settings" onSubmit={event=>{event.preventDefault();if(!props.sessionId||!props.displayId||!canChange||!dirty||conflict||task.busy)return;void task.run(async()=>{
-    if(propose){await props.onRespond!({kind:'settings.request',config:draft,expectedConfigRevision:base});setRequested(true);}
-    else{await api(`${displayPath(props.sessionId!,props.displayId!)}/settings`,{method:'POST',body:{expectedRevision:base,config:draft,saveDefaults,defaultsRevision}});setSaved(true);}
-    setDirty(false);await props.onRefresh?.();
-  });}}><header className="surface-settings-heading">{typeof props.view.data.description==='string'&&<p>{props.view.data.description}</p>}<p className="settings-permission">{props.editable?'Select your changes, then Apply settings.':propose?'You can request changes. The session owner or agent applies them.':'View-only screen. Only a session editor can change these settings.'}</p></header>
-    <div className="surface-settings-scroll"><fieldset disabled={!canChange||task.busy}><legend>Appearance and behavior</legend>
-    <div className="surface-style-picker" role="group" aria-label="Style preset">{STYLE_PRESETS.map(style=><button key={style.id} type="button" aria-label={style.name} aria-pressed={draft.style===style.id} style={{borderColor:style.accent}} onClick={()=>change({style:style.id,accent:style.accent})}>{draft.style===style.id&&<span aria-hidden="true">✓ </span>}{style.name}</button>)}</div><div className="surface-settings-grid">
-    <Field label="Theme"><select value={draft.theme} onChange={e=>change({theme:e.target.value as SessionConfig['theme']})}><option value="dark">Dark</option><option value="light">Light</option><option value="system">Follow this device</option></select></Field>
-    <Field label="Density"><select value={draft.density} onChange={e=>change({density:e.target.value as SessionConfig['density']})}><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></Field>
-    <Field label="Accent"><input type="color" value={draft.accent} onChange={e=>change({accent:e.target.value})}/></Field></div>
-    <ReadingSettings value={draft} disabled={!canChange||task.busy} change={change}/><RegionalSettings value={draft} disabled={!canChange||task.busy} change={change}/>
-    {props.editable&&defaultsRevision!==undefined&&props.view.data.allowAccountDefaults!==false&&<label className="settings-defaults"><input type="checkbox" checked={saveDefaults} onChange={e=>{setSaveDefaults(e.target.checked);setDirty(true);}}/> Also use these defaults for my new sessions</label>}
-    </fieldset></div><footer className="surface-settings-actions"><div role="status" aria-live="polite">{task.busy?'Saving…':requested?'Request sent. Waiting for the owner or agent to apply it.':saved?<><span>Settings saved.</span> Your agent has been notified.</>:dirty?`Selected: ${draft.theme} · ${STYLE_PRESETS.find(s=>s.id===draft.style)?.name??'Custom'} — not applied yet.`:'Current session settings.'}</div>
-    <ErrorNotice message={task.error}/>{conflict&&dirty&&<p role="alert">Settings changed elsewhere. Your draft is kept. <button type="button" onClick={()=>{setDirty(false);setDraft(props.config);setBase(props.configRevision??0);}}>Load current settings</button></p>}
-    {canChange&&<Button type="submit" disabled={!dirty||conflict} busy={task.busy}>{propose?'Request settings change':'Apply settings'}</Button>}</footer></form>;
+ const [draft,setDraft]=useState(props.config),[base,setBase]=useState(props.configRevision??0),[patch,setPatch]=useState<Partial<SessionConfig>>({}),[saved,setSaved]=useState(false),[scope,setScope]=useState('session');
+ const [defaults,setDefaults]=useState<{revision:number;config:SessionConfig}>(),[groups,setGroups]=useState<{id:string;name:string;kind:string;role:string;revision:number;defaults:Partial<SessionConfig>}[]>([]);const task=useTask();
+ const dirty=Object.keys(patch).length>0,dimension=String(props.view.data.dimension??'all'),show=(name:string)=>dimension==='all'||dimension===name;
+ useEffect(()=>{if(!dirty&&scope==='session'){setDraft(props.config);setBase(props.configRevision??0);}},[props.config,props.configRevision,dirty,scope]);
+ useEffect(()=>{if(!props.editable||props.preview)return;void api<typeof defaults>('/api/preferences').then(setDefaults).catch(()=>{});void api<{groups:typeof groups}>('/api/groups').then(x=>setGroups(x.groups.filter(g=>['owner','admin'].includes(g.role)))).catch(()=>{});},[props.editable,props.preview,saved]);
+ if(!draft)return <p>Session settings are available on a connected display.</p>;
+ const propose=Boolean(!props.editable&&props.actionable&&props.onRespond),canChange=!props.preview&&(props.editable||propose),conflict=scope==='session'&&base!==(props.configRevision??0);
+ const change=(next:Partial<SessionConfig>)=>{setDraft(mergeConfig(draft,next));setPatch(p=>({...p,...next}));setSaved(false);};
+ const selectScope=(next:string)=>{setScope(next);setPatch({});setSaved(false);const group=groups.find(g=>g.id===next);setDraft(next==='account'&&defaults?defaults.config:group?mergeConfig(props.config!,group.defaults):props.config);setBase(next==='account'?defaults?.revision??0:group?.revision??props.configRevision??0);};
+ return <form className={'surface-settings'+(dimension==='all'?'':' settings-focused')} onSubmit={event=>{event.preventDefault();if(!props.sessionId||!props.displayId||!canChange||!dirty||conflict)return;void task.run(async()=>{
+ const group=groups.find(g=>g.id===scope);
+ if(propose)await props.onRespond!({kind:'settings.request',config:patch,expectedConfigRevision:base,scope:'session'});
+ else {const result=await api<{revision?:number;configRevision?:number}>(`${displayPath(props.sessionId!,props.displayId!)}/settings`,{method:'POST',body:{expectedRevision:base,config:patch,scope:group?.kind??scope,...(group?{groupId:group.id}:{})}});setBase(result.configRevision??result.revision??base);}
+ setPatch({});setSaved(true);await props.onRefresh?.();
+ });}}><header className="surface-settings-heading">{typeof props.view.data.description==='string'&&<p>{props.view.data.description}</p>}<p className="settings-permission">{props.editable?'Choose an option, or just ask your agent to apply the new settings.':propose?'Ask your agent, or request a change below.':'View-only screen. Ask your agent to apply changes.'}</p></header>
+ <div className="surface-settings-scroll" data-navigation-scroll><fieldset disabled={!canChange||task.busy} className="settings-sections">
+ {(show('style')||show('theme')||show('density')||show('accent'))&&<section className="settings-section"><h3>Appearance</h3>{show('style')&&<VisibleOptions label="Style preset" value={draft.style??'ocean'} options={STYLE_PRESETS.map(s=>[s.id,s.name])} onChange={v=>change({style:v,accent:STYLE_PRESETS.find(s=>s.id===v)!.accent})}/>} {show('theme')&&<VisibleOptions label="Theme" value={draft.theme} options={[["dark","Dark"],["light","Light"],["system","Follow device"]]} onChange={v=>change({theme:v as SessionConfig['theme']})}/>} {show('density')&&<VisibleOptions label="Density" value={draft.density} options={[["comfortable","Comfortable"],["compact","Compact"]]} onChange={v=>change({density:v as SessionConfig['density']})}/>} {show('accent')&&<Field label="Accent"><input type="color" value={draft.accent} onChange={e=>change({accent:e.target.value})}/></Field>}</section>}
+ {['all','readingFontSize','readingWpm','readingZoom'].includes(dimension)&&<ReadingSettings value={draft} disabled={!canChange||task.busy} change={change} dimension={dimension}/>}
+ {['all','numberLocale','unitSystem','dateFormat','timeFormat','timeZone'].includes(dimension)&&<RegionalSettings value={draft} disabled={!canChange||task.busy} change={change} dimension={dimension}/>}
+ </fieldset></div><footer className="surface-settings-actions">{props.editable&&props.view.data.allowAccountDefaults!==false&&<VisibleOptions label="Apply to" value={scope} options={[["session","This session"],...(defaults?[["account","My new sessions"]] as [string,string][]:[]),...groups.map(g=>[g.id,`${g.kind==='team'?'Team':'Organization'}: ${g.name}`] as [string,string])]} onChange={selectScope} disabled={task.busy}/>}
+ <div role="status" aria-live="polite">{saved?(propose?'Change requested.':'Settings saved.'):dirty?'Selected changes have not been applied.':'Current settings.'}</div><ErrorNotice message={task.error}/>{conflict&&dirty&&<p role="alert">Settings changed elsewhere. <button type="button" onClick={()=>{setPatch({});setDraft(props.config);setBase(props.configRevision??0);}}>Load current settings</button></p>}{canChange&&<Button type="submit" disabled={!dirty||conflict} busy={task.busy}>{propose?'Request settings change':'Apply settings'}</Button>}</footer></form>;
 }

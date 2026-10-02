@@ -42,6 +42,10 @@ it.each(['modern','legacy'])('%s MCP exposes and executes every account/history/
   await call('kanvas_publish','show',{sessionId:s.id,displayIds:[d.id],requestId:randomUUID(),view:{version:1,template:'json',data:{json:exact}}});
   await call('kanvas_access','group-access.set',{sessionId:s.id,groupId:group.id,expectedRevision:grant.revision,role:null});
   expect((await person.request('GET','/api/sessions/'+s.id)).status).toBe(404);
+  const archived=await owner.session('Synthetic archive fixture');
+  await call('kanvas_remove','archive.manage',{sessionId:archived.id,resource:'session'});
+  expect((await call('kanvas_inspect','archive.list')).items.some((item:any)=>item.targetId===archived.id)).toBe(true);
+  await call('kanvas_remove','archive.manage',{sessionId:archived.id,resource:'session',action:'restore'});
   expect(ACCOUNT_MAPPING.every(([,tool,operation])=>seen.has(tool+':'+operation))).toBe(true);
   const forbidden=await client.callTool({name:'kanvas_inspect',arguments:{operation:'analytics.read',scope:'service'}});expect(forbidden.isError).toBe(true);expect(JSON.stringify(forbidden.structuredContent)).toContain('FORBIDDEN');
 },30000);

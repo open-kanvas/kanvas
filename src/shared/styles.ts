@@ -1,6 +1,6 @@
 export const STYLE_PRESETS = [
-  { id: 'neutral', name: 'Monochrome', accent: '#a1a1aa' },
-  { id: 'lime', name: 'Kanvas green', accent: '#a3e635' },
+  { id: 'neutral', name: 'Neutral', accent: '#a1a1aa' },
+  { id: 'lime', name: 'Lime', accent: '#a3e635' },
   { id: 'ocean', name: 'Ocean', accent: '#38bdf8' },
   { id: 'iris', name: 'Iris', accent: '#a78bfa' },
   { id: 'ember', name: 'Ember', accent: '#fb923c' },

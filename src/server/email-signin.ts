@@ -1,3 +1,4 @@
+import { authEmail } from './auth-email.js';
 import { randomBytes, randomInt } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import type { Express } from 'express';
@@ -7,12 +8,12 @@ import { AppError, id, now } from './store.js';
 import { profileImageSchema, type AccountProfile } from '../shared/accounts.js';
 import { saveAccountImage } from './account-images.js';
 
-export type SigninMailer = (email:string,link:string)=>Promise<void>;
+export type SigninMailer = (email:string,link:string,signup?:boolean)=>Promise<void>;
 export function resendSigninMailer(credentialFile:string,from:string):SigninMailer {
-  return async(email,link)=>{
+  return async(email,link,signup)=>{
     const credential=(await readFile(credentialFile,'utf8')).trim();
     if(!credential)throw new Error('Mail delivery is not configured.');
-    const response=await fetch('https://api.resend.com/emails',{method:'POST',redirect:'error',signal:AbortSignal.timeout(12000),headers:{Authorization:`Bearer ${credential}`,'Content-Type':'application/json'},body:JSON.stringify({from,to:[email],subject:'Sign in to KANVAS',text:`You requested a KANVAS sign-in link.\n\n${link}\n\nThis link expires in 10 minutes and can be used once. If you did not request it, ignore this email. Opening the link does not share any display with other people.`})});
+    const response=await fetch('https://api.resend.com/emails',{method:'POST',redirect:'error',signal:AbortSignal.timeout(12000),headers:{Authorization:`Bearer ${credential}`,'Content-Type':'application/json'},body:JSON.stringify({from,to:[email],...authEmail(link,signup)})});
     if(!response.ok)throw new Error('Sign-in email could not be sent.');
     // No provider response, email link or credential is logged.
     await response.body?.cancel();
@@ -40,7 +41,7 @@ export function mountEmailSignin(app:Express,auth:Auth,origin:string,mailer?:Sig
     const user=(await auth.store.db.prepare('SELECT id FROM users WHERE username=?').get(a.email));
     if(user||auth.allowRegistration){
       const token=opaque(),challenge:Challenge={id:hash(token),email:a.email,returnTo,expiresAt:Date.now()+10*60000,createdAt:now(),...(pendingId?{pendingId}:{})};(await auth.store.put('email-challenge',challenge));
-      try{await mailer(a.email,`${linkOrigin}/#email-signin=${token}`);}catch{(await auth.store.delete('email-challenge',challenge.id));throw new AppError('EMAIL_DELIVERY','Email delivery is temporarily unavailable. Try again later.',503);}
+      try{await mailer(a.email,`${linkOrigin}/#email-signin=${token}`,!user);}catch{(await auth.store.delete('email-challenge',challenge.id));throw new AppError('EMAIL_DELIVERY','Email delivery is temporarily unavailable. Try again later.',503);}
     }
     return {requested:true,authenticated:false,message:'If this address is eligible, a verification email is on its way. Confirm the email and explicitly approve the connector if offered. No credential is returned here.',startUrl:`${origin}/start`,mcpUrl:`${origin}/mcp`};
   };

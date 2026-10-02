@@ -159,14 +159,14 @@ export class Accounts {
   async effectiveConfig(session:SessionRecord,userId:string):Promise<Awaited<SessionConfig>>{
     const c=(await this.store.get<SessionContext>('session-context',session.id));if(!c)return session.config;
     const org=c.organizationId?(await this.store.get<AccountGroup>('group',c.organizationId)):undefined,team=c.teamId?(await this.store.get<AccountGroup>('group',c.teamId)):undefined;
-    const preferences=(await this.store.get<{config:SessionConfig;appearanceOverrides?:Appearance}>('preferences',userId)),personal=preferences?.appearanceOverrides??(preferences?appearance(preferences.config):undefined);
+    const preferences=(await this.store.get<{config:SessionConfig;appearanceOverrides?:Appearance;configOverrides?:Partial<SessionConfig>}>('preferences',userId)),personal=preferences?.configOverrides??preferences?.appearanceOverrides??(preferences?appearance(preferences.config):undefined);
     const brand=team&&(team.branding.logoUrl||team.branding.palette.length)?team:org;
     let config={...session.config};
-    for(const layer of [org?.defaults,team?.defaults,personal?appearance(personal):undefined,c.overrides])if(layer)config=mergeConfig(config,layer);
+    for(const layer of [org?.defaults,team?.defaults,personal,c.overrides])if(layer)config=mergeConfig(config,layer);
     return {...config,...(c.showBranding&&brand?{branding:{...brand.branding,name:brand.name}}:{branding:undefined})};
   }
   async configChanged(sessionId:string,patch:Partial<SessionConfig>){
-    return this.store.atomic(async () => {const c=(await this.store.get<SessionContext>('session-context',sessionId));if(c){c.overrides={...c.overrides,...appearance(patch)};c.revision++;(await this.store.put('session-context',c));}
+    return this.store.atomic(async () => {const c=(await this.store.get<SessionContext>('session-context',sessionId));if(c){c.overrides={...c.overrides,...patch};c.revision++;(await this.store.put('session-context',c));}
     });
   }
   async profile(p:AuthPrincipal){(await this.account(p));return {...((await this.store.get<AccountProfile>('profile',p.userId))??{id:p.userId,revision:0}),user:(await this.service.auth.user(p.userId)),avatarUrl:(await avatarUrl(this.store,p.userId)),serviceAdmin:(await this.isServiceAdmin(p))};}

@@ -1,3 +1,4 @@
+import { legacySelectedCode } from './legacy-oauth-fixture.js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -34,12 +35,13 @@ async function authorize(browser: Browser, metadata: Metadata, registered: Regis
   return { response, location, verifier, state, requestId: location ? new URL(location, ORIGIN).searchParams.get('authorize') : null };
 }
 
-async function approve(browser: Browser, requestId: string, sessionIds: string[]) {
-  const result = success(await browser.request<{ redirectUri: string }>('POST', '/api/oauth/approve', { requestId, approve: true, sessionIds }));
+async function approve(h:Harness, browser: Browser, requestId: string, sessionIds: string[]) {
+  const result = success(await browser.request<{ redirectUri: string }>('POST', '/api/oauth/approve', { requestId, approve: true, accessMode:'account' }));
   const redirect = new URL(result.redirectUri);
   expect(`${redirect.origin}${redirect.pathname}`).toBe(CALLBACK);
   const code = redirect.searchParams.get('code');
   expect(typeof code).toBe('string');
+  await legacySelectedCode(h,code!,sessionIds);
   return { code: code!, state: redirect.searchParams.get('state') };
 }
 
@@ -72,7 +74,7 @@ describe('OAuth consent, PKCE and single-use grants', () => {
     }
   });
 
-  it('issues only the consented sessions, preserves OAuth state and rejects code replay', async () => {
+  it('preserves pre-upgrade selected-session grants, preserves OAuth state and rejects code replay', async () => {
     const owner = await h.account(), allowed = await owner.session('Allowed'), excluded = await owner.session('Excluded');
     const clientBrowser = h.browser(), metadata = await discover(clientBrowser), registered = await register(clientBrowser, metadata);
     const request = await authorize(clientBrowser, metadata, registered);
@@ -81,7 +83,7 @@ describe('OAuth consent, PKCE and single-use grants', () => {
     expect(consent.id).toBe(request.requestId);
     expect(consent.scopes).toEqual(expect.arrayContaining(['read', 'publish']));
     denied(await owner.request('POST', '/api/oauth/approve', { requestId: request.requestId, approve: true, sessionIds: [allowed.id] }, { csrf: null }), [403]);
-    const approved = await approve(owner, request.requestId!, [allowed.id]);
+    const approved = await approve(h, owner, request.requestId!, [allowed.id]);
     expect(approved.state).toBe(request.state);
     const issued = await exchange(clientBrowser, metadata, registered, approved.code, request.verifier);
     expect(issued.response.status).toBe(200);
@@ -115,7 +117,7 @@ describe('OAuth consent, PKCE and single-use grants', () => {
     for (const change of invalidBindings) {
       const request = await authorize(client, metadata, registered);
       expect(request.requestId).toEqual(expect.any(String));
-      const approved = await approve(owner, request.requestId!, [session.id]);
+      const approved = await approve(h, owner, request.requestId!, [session.id]);
       const result = await exchange(client, metadata, registered, approved.code, request.verifier, change);
       expect([400, 401]).toContain(result.response.status);
       expect(result.body.error).toEqual(expect.any(String));
@@ -128,7 +130,7 @@ describe('OAuth consent, PKCE and single-use grants', () => {
     const client = h.browser(), metadata = await discover(client), registered = await register(client, metadata);
     const request = await authorize(client, metadata, registered);
     expect(request.requestId).toEqual(expect.any(String));
-    denied(await owner.request('POST', '/api/oauth/approve', { requestId: request.requestId, approve: true, sessionIds: [foreign.id] }), [403, 404]);
+    denied(await owner.request('POST', '/api/oauth/approve', { requestId: request.requestId, approve: true, sessionIds: [foreign.id] }), [400, 403, 404]);
     const rejected = success(await owner.request<{ redirectUri: string }>('POST', '/api/oauth/approve', { requestId: request.requestId, approve: false }));
     const uri = new URL(rejected.redirectUri);
     expect(uri.searchParams.get('error')).toBe('access_denied');

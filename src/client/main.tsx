@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './styles.css';
+import './console-refresh.css';
 import { initializeWindowIdentity } from './window-identity';
 
 const root = document.getElementById('root');

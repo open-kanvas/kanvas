@@ -1,3 +1,5 @@
+import { archiveSchema, archiveListSchema } from '../archive.js';
+import { randomUUID } from 'node:crypto';
 import { viewFormatSchema } from '../../shared/regional.js';
 import { eventTools } from './event-tools.js';
 import { accountTools } from './account-tools.js';
@@ -74,6 +76,8 @@ const exactlyOne = (left: string, right: string) => ({
 });
 
 const definitions: readonly Definition[] = [
+ {name:'kanvas_archive_list',description:'List your recoverable archived sessions, displays and retained views. Hidden from normal lists; retained indefinitely. Session grant restrictions still apply.',schema:archiveListSchema,readOnly:true},
+ {name:'kanvas_archive_manage',description:'Owner-only archive (default) or restore of a session, display or retained view ID from display history. Archive is reversible. Permanent removal requires request-delete: show a warning and three random phonetic words on the current confirmationSessionId/confirmationDisplayId for 60 seconds. Then confirm-delete with challengeId and words explicitly supplied by the human. Never read/guess the words or infer approval. Shared items are deleted for everyone.',schema:archiveSchema,destructive:true},
   ...eventTools, ...experienceTools, ...invitationTools, ...workTools, ...accountTools, ...documentTools, ...plannerTools, ...syncTools, ...homeTools,
   {name:'kanvas_help',description:'Kanvas Help: focused task guidance and canonical public documentation. Read-only; never publishes or changes a display. General orientation offers a few choices; pass a topic and optional question for a specific how-to.',schema:helpInputSchema,readOnly:true},
   {name:'kanvas_navigation_control',description:'Explicit user scroll/page/navigation requests must be executed, regardless of pageCount or inferred visibility. Page, scroll, search, highlight or focus within the existing view without rewriting source data or history. Read navigation.read for capabilities, then supply revision and a new requestId. Agent cues the display, or one active independent viewerId. Read per-viewer acknowledgements; an accepted command is not proof of a painted screen.',schema:navigationInputSchema,idempotent:true},
@@ -239,8 +243,8 @@ const definitions: readonly Definition[] = [
   },
   {
     name: 'kanvas_config_update',
-    description: 'Update revisioned appearance, reading, regional and synchronization settings. Read current configRevision first. Synchronization changes require owner authority. Settings do not grant access or trigger publication.',
-    schema: z.strictObject({ sessionId: id, expectedRevision: revision, config }), idempotent: true,
+    description: 'Ask which settings scope the user intends: session (default), account (new-session defaults), team or organization (group defaults). Supply expectedRevision for that scope and groupId for team/organization. Group writes require group administration. All appearance, reading and regional settings supported. Synchronization changes require owner authority. Settings do not grant access or trigger publication.',
+    schema: z.strictObject({ sessionId: id, expectedRevision: revision, config, scope:z.enum(['session','account','team','organization']).default('session'), groupId:id.optional() }), idempotent: true,
   },
   {
     name: 'kanvas_dataset_import',
@@ -309,7 +313,17 @@ const definitions: readonly Definition[] = [
   },
 ];
 
-export const CANONICAL_TOOLS: readonly Definition[] = definitions.map(tool => Object.hasOwn(VIEWER_LINK_TOOL_GUIDANCE, tool.name)
+function requestFallbackMetadata(value:unknown):any {
+  if(Array.isArray(value))return value.map(requestFallbackMetadata);
+  if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([key,child])=>[key,key==='required'&&Array.isArray(child)?child.filter(field=>field!=='requestId'):requestFallbackMetadata(child)]));
+  return value;
+}
+function forgiving(tool:Definition):Definition {
+  const schema=tool.schema;
+  if(tool.readOnly || !(schema instanceof z.ZodObject) || !schema.shape.requestId)return tool;
+  return {...tool,idempotent:false,schema:schema.safeExtend({requestId:schema.shape.requestId.optional().transform((value:string|undefined)=>value??randomUUID()).describe('Required for retry safety: supply a stable requestId. Omission generates a fresh ID; retries without it are NOT deduplicated.')}).meta(requestFallbackMetadata(schema.meta()??{}))};
+}
+export const CANONICAL_TOOLS: readonly Definition[] = definitions.map(forgiving).map(tool => Object.hasOwn(VIEWER_LINK_TOOL_GUIDANCE, tool.name)
   ? { ...tool, description: `${tool.description} First use: provide the actual literal, clickable, copyable URL as text, including in voice mode; do not repeat it after every update. ${VIEWER_LINK_TOOL_GUIDANCE[tool.name as keyof typeof VIEWER_LINK_TOOL_GUIDANCE]}` }
   : tool).map(tool => tool.name === 'kanvas_submit' ? { ...tool, description: `${VISUAL_INTENT_SUBMIT_HINT} ${tool.description} ${PUBLISHING_DESCRIPTION}` }
     : tool.name === 'kanvas_guide' ? { ...tool, description: `${tool.description} Topic tools groups the callable capabilities and distinguishes their effects; topic publishing provides complete context/data/intent recipes and common exact data shapes without a required schema round trip.` } : tool)

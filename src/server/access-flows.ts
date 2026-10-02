@@ -461,7 +461,7 @@ export function mountAccessFlows(app: Express, options: AccessFlowOptions): () =
     noStore(response); (await fullBrowser(request));
     const pending = (await consent(request.params.id));
     const client = required((await store.get<OAuthClient>('oauth-client', pending.clientId)), 'This client connection is unavailable.');
-    response.json({ data: { id: pending.id, clientId: client.id, clientName: client.clientName, scopes: pending.scopes, expiresAt: pending.expiresAt, redirectUri: pending.redirectUri, resource: pending.resource, accessModes: ['selected', 'account'], refreshable: refreshable(client) } });
+    response.json({ data: { id: pending.id, clientId: client.id, clientName: client.clientName, scopes: pending.scopes, expiresAt: pending.expiresAt, redirectUri: pending.redirectUri, resource: pending.resource, accessModes: ['account'], refreshable: refreshable(client) } });
   });
   app.post('/api/oauth/approve', async (request, response) => {
     noStore(response);
@@ -477,10 +477,9 @@ export function mountAccessFlows(app: Express, options: AccessFlowOptions): () =
         pending.status = 'denied'; (await store.put('oauth-consent', pending));
         return oauthRedirect(pending.redirectUri, pending.state, issuer, { error: 'access_denied', error_description: 'The account holder declined this connection.' });
       }
-      const accessMode = body.accessMode ?? 'selected';
-      if (accessMode !== 'selected' && accessMode !== 'account') throw new AppError('INVALID_SCOPE', 'Choose selected-session or account access explicitly.');
-      if (accessMode === 'account' && body.sessionIds !== undefined) throw new AppError('INVALID_SCOPE', 'Account access and a selected-session restriction cannot be combined.');
-      const sessionIds = accessMode === 'account' ? undefined : (await selectedSessions(body.sessionIds, principal, pending.scopes)), code = opaque();
+      const accessMode = body.accessMode;
+      if (accessMode !== 'account' || body.sessionIds !== undefined) throw new AppError('INVALID_SCOPE', 'New connections require explicit account access approval. Existing selected-session grants remain restricted.');
+      const sessionIds = undefined, code = opaque();
       const grant: AuthorizationCode = { id: hash(code), clientId: pending.clientId, redirectUri: pending.redirectUri, resource: pending.resource, scopes: pending.scopes, sessionIds, accessMode, userId: principal.userId, challenge: pending.challenge, expiresAt: Date.now() + ACCESS_LIMITS.codeMs };
       pending.status = 'approved';
       (await store.put('oauth-code', grant)); (await store.put('oauth-consent', pending));

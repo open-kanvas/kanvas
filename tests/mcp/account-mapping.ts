@@ -1,5 +1,7 @@
 /** Independently enumerated, exercised by accounts-http.test against both SDKs. */
 export const ACCOUNT_MAPPING=[
+  ['kanvas_archive_list','kanvas_inspect','archive.list'],
+  ['kanvas_archive_manage','kanvas_remove','archive.manage'],
   ['kanvas_profile_read','kanvas_inspect','profile.read'],
   ['kanvas_profile_update','kanvas_configure','profile.update'],
   ['kanvas_groups_list','kanvas_inspect','groups.list'],

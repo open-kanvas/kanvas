@@ -1,3 +1,5 @@
+import { Archive } from './archive.js';
+import { usageLimits } from './usage-limits.js';
 import { devicesViewDataSchema } from '../shared/devices-view.js';
 import { asyncEvery, asyncFilter, asyncFlatMap, asyncForEach, asyncMap } from './async-collections.js';
 import { livePushSchema } from '../shared/monitoring.js';
@@ -110,6 +112,7 @@ export class KanvasService implements McpService {
   readonly reports: SessionReports;
   readonly experience: Experience;
   readonly history: DisplayHistory;
+  readonly archive: Archive;
   readonly video: VideoControls;
   readonly engagement: Engagement;
   readonly visualCapture: VisualCapture;
@@ -133,7 +136,7 @@ export class KanvasService implements McpService {
     this.publication = new PublishSetup(this, publishSetupEnabled);
     this.experience = new Experience(this);
     this.invitations=new Invitations(this);
-    this.history = new DisplayHistory(store); this.video = new VideoControls(store); this.engagement = new Engagement(store); this.visualCapture = new VisualCapture(store, auth, publicUrl);
+    this.archive=new Archive(this); this.history = new DisplayHistory(store); this.video = new VideoControls(store); this.engagement = new Engagement(store); this.visualCapture = new VisualCapture(store, auth, publicUrl);
     this.devices=new EntryDevices(this);
     this.inventory=new AccountInventory(this);
     this.patches = new ViewPatches({
@@ -275,7 +278,8 @@ export class KanvasService implements McpService {
     return this.store.atomic(async () => {
     (await this.fullAccount(principal, 'publish'));
     if (principal.tokenId && (await this.store.get<{sessionIds?:string[]}>('token', principal.tokenId))?.sessionIds) throw new AppError('FORBIDDEN', 'A session-scoped client cannot create another session. Create it in the workspace.', 403);
-    if ((await this.store.list<SessionRecord>('session')).filter(s => s.ownerId === principal.userId && !s.endedAt).length >= 100) throw new AppError('LIMIT_REACHED', 'The account has reached its active-session limit.', 429);
+    const sessionLimit=usageLimits().sessions;
+    if ((await this.store.list<SessionRecord>('session',undefined,true)).filter(s => s.ownerId === principal.userId).length >= sessionLimit) throw new AppError('LIMIT_REACHED', `Free account session limit (${sessionLimit}) reached. Existing sessions remain available. Contact the administrator about upgrading. Archived sessions still count.`, 429);
     const session: SessionRecord = { id: id(), name, ownerId: principal.userId, config: copy((await this.experience.defaults(principal.userId)).config), configRevision: 0, createdAt: now(), updatedAt: now() };
     (await this.store.transaction(async () => { (await this.store.put('session', session)); (await this.store.db.prepare('INSERT INTO members VALUES(?,?,?)').run(session.id, principal.userId, 'owner')); }));
     (await this.accounts.audit('session.created',{actorId:principal.userId,sessionId:session.id}));
@@ -569,6 +573,11 @@ export class KanvasService implements McpService {
     const session = (await this.access(principal, input.sessionId, 'editor'));
     const existing = (await this.retry<UpdateRecord>(principal, input.sessionId, input.requestId, kind, input)); if (existing) return existing;
     const displays = (await asyncMap(input.displayIds, async displayId => (await this.display(principal, input.sessionId, displayId, 'editor'))));
+    const viewLimit=usageLimits().views;
+    const retained=(await this.store.list<{view:unknown}>('display-history',input.sessionId,true)).filter(entry=>entry.view).length;
+    const pending=(await this.store.list<UpdateRecord>('update',input.sessionId)).filter(u=>['accepted','rendering'].includes(u.status)).reduce((n,u)=>n+u.displayIds.length,0);
+    if(retained+pending+displays.length>viewLimit)throw new AppError('LIMIT_REACHED',`Free session view limit (${viewLimit}) reached. Existing views remain available. Contact the administrator about upgrading. Archived views still count.`,429);
+
     if (input.datasetId && !(await this.store.list<DatasetRecord>('dataset', input.sessionId)).some(d => d.id === input.datasetId)) throw new AppError('NOT_FOUND', 'The supplied dataset is unavailable.', 404);
     for (const assetId of input.assetIds ?? []) (await this.asset(principal, assetId, input.sessionId));
     if (input.view) input = { ...input, view: (await this.verifyView(principal, input.sessionId, input.view)) };
@@ -1014,6 +1023,8 @@ export class KanvasService implements McpService {
     if (!parsed.success) throw toolArgumentError(name, raw) ?? new InputError();
     const a = parsed.data as Record<string, never>;
     switch (name) {
+      case 'kanvas_archive_list': return this.archive.list(principal,a);
+      case 'kanvas_archive_manage': return this.archive.manage(principal,a);
       case 'kanvas_pointing_configure':return (await this.pointing.configure(principal,a));
       case 'kanvas_pointing_read':return (await this.pointing.read(principal,a));
       case 'kanvas_autoplay_control':return (await this.autoplay.control(principal,a));
@@ -1036,7 +1047,7 @@ export class KanvasService implements McpService {
       case 'kanvas_session_context_set':return (await this.accounts.setContext(principal,a));
       case 'kanvas_activity_read':return (await this.accounts.activity(principal,a));
       case 'kanvas_analytics_read':return (await this.accounts.analytics(principal,a));
-      case 'kanvas_topology_read':return (await this.topology.snapshot(principal,a));
+      case 'kanvas_topology_read':return (await this.topology.acrossSessions(principal,a));
       case 'kanvas_devices_read': { const listing = (await this.devices.list(principal)); const recipe = (await this.devicesRecipe(principal, listing.devices)); return { ...listing, ...(recipe ? { publishRecipe: recipe } : {}) }; }
       case 'kanvas_device_present': return (await this.devices.present(principal,a));
       case 'kanvas_window_present': return (await this.devices.windows.present(principal,a));
@@ -1150,7 +1161,7 @@ export class KanvasService implements McpService {
         (await this.store.put('capture-asset',{id:asset.id,sessionId:a.sessionId,displayId:display.id,revision:display.revision,createdAt:now()}));
         Object.assign(result.metadata,{assetId:asset.id,assetUrl:new URL(asset.url,this.publicUrl).href,assetPath:asset.url,reusable:true});return result;
       }
-      case 'kanvas_config_update': return (await this.updateConfig(principal, a.sessionId, a.expectedRevision, a.config));
+      case 'kanvas_config_update': return (await this.experience.scopedSettings(principal,a));
       case 'kanvas_submit': return (await this.publication.show(principal, a as unknown as PublishInput));
       case 'kanvas_presentation_navigate': return (await this.navigatePresentation(principal, a as unknown as PresentationNavigation));
       case 'kanvas_clear': return (await this.clear(principal, a.sessionId, a.displayIds, a.requestId));

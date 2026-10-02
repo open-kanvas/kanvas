@@ -64,8 +64,8 @@ function PersonalAppearance(){
     <ErrorNotice message={task.error}/><Button type="submit" busy={task.busy} disabled={!Object.keys(dirty).length}>Save personal appearance</Button>{saved&&<p role="status">Personal appearance saved.</p>}
   </form>;
 }
-function AppearanceFields({value,onChange}:{value:Appearance;onChange:(next:Appearance)=>void}){
-  const set=(key:keyof Appearance,val:string)=>{const next={...value};if(val)Object.assign(next,{[key]:val});else delete next[key];onChange(next);};
+function AppearanceFields({value,onChange}:{value:Partial<SessionConfig>;onChange:(next:Appearance)=>void}){
+  const set=(key:keyof Appearance,val:string)=>{const next={...value};if(val)Object.assign(next,{[key]:val});else delete next[key];onChange({...next,style:STYLE_PRESETS.find(s=>s.id===next.style)?.id});};
   return <div className="account-field-grid">
     <Field label="Default theme"><select value={value.theme??''} onChange={e=>set('theme',e.target.value)}><option value="">Inherit theme</option><option value="system">Follow device</option><option value="light">Light</option><option value="dark">Dark</option></select></Field>
     <Field label="Default style"><select value={value.style??''} onChange={e=>set('style',e.target.value)}><option value="">Inherit style</option>{STYLE_PRESETS.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>

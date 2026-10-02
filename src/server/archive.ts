@@ -83,13 +83,13 @@ export class Archive {
    return {resource:a.resource,targetId,archived:a.action==='archive',recoverable:true};
  });}
  private async detachView(p:AuthPrincipal,sessionId:string,target:Target){
-   const store=this.service.store,display=await store.get<DisplayRecord>('display',target.displayId!,true);
+   const store=this.service.store,display=await store.get<Awaited<ReturnType<KanvasService['display']>>>('display',target.displayId!,true);
    const before=await store.get<{entries:string[];cursor:number}>('display-timeline',target.displayId!,true);
    const current=before?before.entries[before.cursor]===target.id:display?.revision===target.revision;
    if(display&&current&&display.view){
      // The caller already proved ownership, including archived parent resources.
      // Normal clear() excludes archived parents; clear the retained display atomically here.
-     const historical=display as DisplayRecord & {interactionEpoch?:string};
+     const historical=display;
      historical.view=null;historical.revision++;historical.generation++;historical.interactionEpoch=id();delete historical.targetAgentId;
      historical.updatedAt=now();historical.delivery={revision:historical.revision,status:'pending',updatedAt:now()};
      await store.put('display',historical);await this.service.history.record(historical,'archive');

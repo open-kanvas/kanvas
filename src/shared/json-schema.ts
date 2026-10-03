@@ -198,6 +198,41 @@ export function compactSchemaReferences(schema: Record<string, unknown>): Record
       delete result.$defs[candidate.name];
     }
 
+    // Share repeated context-independent constraint fragments as $ref siblings.
+    // Unlike properties/additionalProperties/unevaluatedProperties, these
+    // keywords do not depend on where adjacent validators evaluate properties
+    // or items. Moving them into a referenced schema is an exact intersection,
+    // including required lists and bounds; nothing is dropped or relaxed.
+    // Keep the root type visible for schema discovery and avoid nested resource
+    // scopes, where a local anchor might otherwise resolve against another $id.
+    let nestedResource=false;schemas(result,node=>{if(node!==result&&typeof node.$id==='string')nestedResource=true;});
+    if(!nestedResource){
+      const groups=[['type'],['required'],['type','required'],['type','minItems','maxItems','uniqueItems'],['type','minLength','maxLength','pattern'],['type','minimum','maximum','exclusiveMinimum','exclusiveMaximum','multipleOf']];
+      for(let iteration=0;iteration<schemaNodes;iteration++){
+        let ordinal=0,name:string;
+        do{name=alphabet[ordinal%alphabet.length]+(ordinal<alphabet.length?'':Math.floor(ordinal/alphabet.length).toString(36));ordinal++;}while(Object.hasOwn(result.$defs,name));
+        const reference={$ref:`#${name}`},candidates=new Map<string,{fragment:Record<string,unknown>;nodes:Record<string,unknown>[]}>();
+        schemas(result,node=>{
+          if(node===result||node.$ref!==undefined)return;
+          const seen=new Set<string>();
+          for(const keys of groups){
+            const fragment=Object.fromEntries(keys.filter(key=>Object.hasOwn(node,key)).map(key=>[key,node[key]])),encoded=JSON.stringify(fragment);
+            if(encoded==='{}'||seen.has(encoded))continue;seen.add(encoded);
+            const group=candidates.get(encoded)??{fragment,nodes:[]};group.nodes.push(node);candidates.set(encoded,group);
+          }
+        });
+        const chosen=[...candidates.values()].filter(group=>group.nodes.length>1).map(group=>{
+          const keys=new Set(Object.keys(group.fragment));
+          const replacements=group.nodes.map(node=>({...Object.fromEntries(Object.entries(node).filter(([key])=>!keys.has(key))),...reference}));
+          const savings=group.nodes.reduce((sum,node,index)=>sum+JSON.stringify(node).length-JSON.stringify(replacements[index]).length,0)-JSON.stringify({[name]:{...group.fragment,$anchor:name}}).length;
+          return {...group,replacements,savings};
+        }).filter(group=>group.savings>0).sort((a,b)=>b.savings-a.savings)[0];
+        if(!chosen)break;
+        chosen.nodes.forEach((node,index)=>{for(const key of Object.keys(node))delete node[key];Object.assign(node,chosen.replacements[index]);});
+        (result.$defs as Record<string,unknown>)[name]={...chosen.fragment,$anchor:name};
+      }
+    }
+
   }
   return result;
 }

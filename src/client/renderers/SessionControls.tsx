@@ -44,10 +44,10 @@ const SETTINGS_LABELS:Record<string,string>={style:'Style',theme:'Theme',accent:
 export function SessionSettings(props:RendererProps){
  const [draft,setDraft]=useState(props.config),[base,setBase]=useState(props.configRevision??0),[scope,setScope]=useState('session'),[status,setStatus]=useState('');
  const [defaults,setDefaults]=useState<{revision:number;config:SessionConfig}>(),[groups,setGroups]=useState<{id:string;name:string;kind:string;role:string;revision:number;defaults:Partial<SessionConfig>}[]>([]);
- const pending=useRef<Partial<SessionConfig>>({});
+ const pending=useRef<Partial<SessionConfig>>({}),[writeEpoch,setWriteEpoch]=useState(0);
  const defaultsRef=useRef<typeof defaults>(undefined),writing=useRef(false),scopeRef=useRef(scope);scopeRef.current=scope;
  const task=useTask(),dimension=String(props.view.data.dimension??'all'),show=(name:string)=>dimension==='all'||dimension===name;
- useEffect(()=>{if(scope==='session'&&!writing.current){setDraft(props.config);setBase(props.configRevision??0);}},[props.config,props.configRevision,scope]);
+ useEffect(()=>{if(scope==='session'&&!writing.current&&(props.configRevision??0)>=base){setDraft(props.config);setBase(props.configRevision??0);}},[props.config,props.configRevision,scope,base,writeEpoch]);
  useEffect(()=>{
   if(!props.editable||props.preview)return;
   let active=true;
@@ -100,7 +100,7 @@ export function SessionSettings(props:RendererProps){
     setStatus(propose?'Change requested from your agent.':scope==='account'?'Saved for all new sessions. This session is unchanged.':'Settings saved.');
    }catch(error){
     pending.current={};writing.current=false;setDraft(confirmed);setStatus('');void props.onRefresh?.().catch(()=>{});throw error;
-   }finally{writing.current=false;}
+   }finally{writing.current=false;setWriteEpoch(epoch=>epoch+1);}
   });
  };
  const selectScope=(next:string)=>{if(writing.current)return;setScope(next);setStatus('');const group=groups.find(g=>g.id===next);setDraft(next==='account'&&defaults?defaults.config:group?mergeConfig(props.config!,group.defaults):props.config);setBase(next==='account'?defaults?.revision??0:group?.revision??props.configRevision??0);};

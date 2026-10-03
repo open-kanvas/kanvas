@@ -12,5 +12,8 @@ test('failed individual image remains a visible placeholder without losing the n
  await expect(viewer.locator('.viewer-shell')).toHaveAttribute('data-render-status','ready');
  await expect(viewer.locator('.viewer-candidate')).toContainText('Option One');await expect(viewer.locator('.viewer-candidate')).toContainText('Option Two');
  await expect(viewer.locator('.viewer-last-good')).toHaveCount(0);
+ const placeholder=viewer.locator('.viewer-candidate .media-unavailable'),slot=placeholder.locator('..'),label=slot.locator('..').locator('.comparison-name');
+ const pb=await placeholder.boundingBox(),sb=await slot.boundingBox(),lb=await label.boundingBox();expect(pb).not.toBeNull();expect(sb).not.toBeNull();expect(lb).not.toBeNull();expect(pb!.height).toBeLessThanOrEqual(sb!.height+1);expect(pb!.y+pb!.height).toBeLessThanOrEqual(lb!.y);
+ await expect(placeholder).toHaveAttribute('title','Synthetic source unavailable');
  await viewer.screenshot({path:info.outputPath('image-degraded-ready.png'),animations:'disabled'});
 });

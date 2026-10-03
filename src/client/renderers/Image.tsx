@@ -33,7 +33,7 @@ function ImageResource({ entry, url }: { entry: ImageEntry; url?: string }) {
     setRatio(image.naturalWidth / image.naturalHeight); ready();
   };
   useEffect(loaded, [source, ready, fail]);
-  if (!url || status === 'failed') return <div className="media-unavailable" role="img" aria-label={entry.alt ?? 'Image unavailable'}><Icon name="image" size={32} /><p>Image unavailable</p>{diagnostic&&<small>{diagnostic}</small>}{entry.alt && <span>{entry.alt}</span>}{url && <a href={url} target="_blank" rel="noopener noreferrer">Open source</a>}</div>;
+  if (!url || status === 'failed') return <div className="media-unavailable" role="img" title={diagnostic ?? 'Image unavailable'} aria-label={[entry.alt, 'Image unavailable', diagnostic].filter(Boolean).join('. ')}><Icon name="image" size={32} /><p>Image unavailable</p>{diagnostic&&<small>{diagnostic}</small>}{entry.alt && <span>{entry.alt}</span>}{url && <a href={url} target="_blank" rel="noopener noreferrer">Open source</a>}</div>;
   const image = <img ref={ref} src={source} alt={entry.alt ?? entry.caption ?? ''} style={entry.crop ? { width: `${100 / entry.crop.width}%`, left: `${-entry.crop.x / entry.crop.width * 100}%`, top: `${-entry.crop.y / entry.crop.height * 100}%` } : undefined} onLoad={loaded} onError={()=>void recover()} referrerPolicy="no-referrer" loading="eager" />;
   const cropRatio = entry.crop ? ratio * entry.crop.width / entry.crop.height : ratio;
   return entry.crop ? <div className="image-crop" style={{ aspectRatio: cropRatio, '--image-crop-ratio': cropRatio } as CSSProperties}>{image}</div> : image;

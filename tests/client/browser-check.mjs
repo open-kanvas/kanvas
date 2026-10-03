@@ -13,7 +13,7 @@ const context = await browser.newContext({ viewport: { width: 1440, height: 1000
 const page = await context.newPage();
 const failures = [];
 page.on('pageerror', error => failures.push(error.message));
-const session = { id: 'visual-session', name: 'Design conversation', ownerId: 'visual-user', role: 'owner', configRevision: 1, createdAt: '2026-09-08T09:00:00Z', updatedAt: '2026-09-08T09:00:00Z', config: { theme: 'dark', accent: '#b9ed87', density: 'comfortable' } };
+const session = { id: 'visual-session', name: 'Design conversation', ownerId: 'visual-user', role: 'owner', configRevision: 1, createdAt: '2026-09-08T09:00:00Z', updatedAt: '2026-09-08T09:00:00Z', config: { theme: 'dark', accent: '#b9ed87' } };
 const displays = [
   { id: 'visual-display', name: 'Main display', view: samples.number, width: 1440, height: 900, online: true },
   { id: 'second-display', name: 'A different angle', view: samples.chart, width: 1920, height: 1080, online: true },

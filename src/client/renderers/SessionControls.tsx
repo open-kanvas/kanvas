@@ -11,7 +11,7 @@ import { type ViewSpec, type SessionConfig } from '../../shared/types';
 import { STYLE_PRESETS } from '../../shared/styles';
 import { mergeConfig } from '../../shared/preferences';
 import { useTask,useAuth } from '../hooks';
-import { Button, ErrorNotice, Field } from '../components/ui';
+import { ErrorNotice, Field } from '../components/ui';
 
 interface Card {displayId:string;displayName:string;displayRevision:number;revision:number;title?:string;template:string;createdAt:string;current:boolean;preview:string;image?:string;width:number;height:number}
 function RetainedPreview({card,props,maxHeight}:{card:Card;props:RendererProps;maxHeight:number}){
@@ -41,25 +41,62 @@ function RetainedOverview(props:RendererProps){
 
 }
 export function SessionSettings(props:RendererProps){
- const [draft,setDraft]=useState(props.config),[base,setBase]=useState(props.configRevision??0),[patch,setPatch]=useState<Partial<SessionConfig>>({}),[saved,setSaved]=useState(false),[scope,setScope]=useState('session');
- const [defaults,setDefaults]=useState<{revision:number;config:SessionConfig}>(),[groups,setGroups]=useState<{id:string;name:string;kind:string;role:string;revision:number;defaults:Partial<SessionConfig>}[]>([]);const task=useTask();
- const dirty=Object.keys(patch).length>0,dimension=String(props.view.data.dimension??'all'),show=(name:string)=>dimension==='all'||dimension===name;
- useEffect(()=>{if(!dirty&&scope==='session'){setDraft(props.config);setBase(props.configRevision??0);}},[props.config,props.configRevision,dirty,scope]);
- useEffect(()=>{if(!props.editable||props.preview)return;void api<typeof defaults>('/api/preferences').then(setDefaults).catch(()=>{});void api<{groups:typeof groups}>('/api/groups').then(x=>setGroups(x.groups.filter(g=>['owner','admin'].includes(g.role)))).catch(()=>{});},[props.editable,props.preview,saved]);
+ const [draft,setDraft]=useState(props.config),[base,setBase]=useState(props.configRevision??0),[scope,setScope]=useState('session'),[status,setStatus]=useState('');
+ const [defaults,setDefaults]=useState<{revision:number;config:SessionConfig}>(),[groups,setGroups]=useState<{id:string;name:string;kind:string;role:string;revision:number;defaults:Partial<SessionConfig>}[]>([]);
+ const defaultsRef=useRef<typeof defaults>(undefined),writing=useRef(false),scopeRef=useRef(scope);scopeRef.current=scope;
+ const task=useTask(),dimension=String(props.view.data.dimension??'all'),show=(name:string)=>dimension==='all'||dimension===name;
+ useEffect(()=>{if(scope==='session'&&!writing.current){setDraft(props.config);setBase(props.configRevision??0);}},[props.config,props.configRevision,scope]);
+ useEffect(()=>{
+  if(!props.editable||props.preview)return;
+  let active=true;
+  const refresh=async()=>{
+   try {
+    const [next,result]=await Promise.all([api<NonNullable<typeof defaults>>('/api/preferences'),api<{groups:typeof groups}>('/api/groups')]);
+    if(!active||writing.current)return;
+    const previous=defaultsRef.current;if(previous&&next.revision<previous.revision)return;defaultsRef.current=next;setDefaults(next);setGroups(result.groups.filter(g=>['owner','admin'].includes(g.role)));
+    if(scopeRef.current==='account'){setDraft(next.config);setBase(next.revision);}
+    else if(scopeRef.current!=='session'){const group=result.groups.find(g=>g.id===scopeRef.current);if(group){setDraft(mergeConfig(props.config!,group.defaults));setBase(group.revision);}}
+    if(previous&&previous.revision!==next.revision){
+      const changes=Object.entries(next.config).filter(([key,value])=>JSON.stringify(previous.config[key as keyof SessionConfig])!==JSON.stringify(value)&&(dimension==='all'||dimension===key));
+      if(changes.length)setStatus('All new sessions updated: '+changes.map(([key,value])=>key+': '+String(value)).join(', ')+(scopeRef.current==='session'?'. This session is unchanged.':''));
+    }
+   }catch{/* Defaults are optional; session controls remain available. */}
+  };
+  void refresh();const timer=setInterval(()=>void refresh(),3000);
+  const changed=(event:Event)=>{const detail=(event as CustomEvent).detail;if(detail?.sessionId===props.sessionId&&detail.type==='config')void refresh();};
+  window.addEventListener('kanvas:session-change',changed);
+  return()=>{active=false;clearInterval(timer);window.removeEventListener('kanvas:session-change',changed);};
+ },[props.editable,props.preview,props.sessionId,props.config,dimension]);
  if(!draft)return <p>Session settings are available on a connected display.</p>;
- const propose=Boolean(!props.editable&&props.actionable&&props.onRespond),canChange=!props.preview&&(props.editable||propose),conflict=scope==='session'&&base!==(props.configRevision??0);
- const change=(next:Partial<SessionConfig>)=>{setDraft(mergeConfig(draft,next));setPatch(p=>({...p,...next}));setSaved(false);};
- const selectScope=(next:string)=>{setScope(next);setPatch({});setSaved(false);const group=groups.find(g=>g.id===next);setDraft(next==='account'&&defaults?defaults.config:group?mergeConfig(props.config!,group.defaults):props.config);setBase(next==='account'?defaults?.revision??0:group?.revision??props.configRevision??0);};
- return <form className={'surface-settings'+(dimension==='all'?'':' settings-focused')} onSubmit={event=>{event.preventDefault();if(!props.sessionId||!props.displayId||!canChange||!dirty||conflict)return;void task.run(async()=>{
- const group=groups.find(g=>g.id===scope);
- if(propose)await props.onRespond!({kind:'settings.request',config:patch,expectedConfigRevision:base,scope:'session'});
- else {const result=await api<{revision?:number;configRevision?:number}>(`${displayPath(props.sessionId!,props.displayId!)}/settings`,{method:'POST',body:{expectedRevision:base,config:patch,scope:group?.kind??scope,...(group?{groupId:group.id}:{})}});setBase(result.configRevision??result.revision??base);}
- setPatch({});setSaved(true);await props.onRefresh?.();
- });}}><header className="surface-settings-heading">{typeof props.view.data.description==='string'&&<p>{props.view.data.description}</p>}<p className="settings-permission">{props.editable?'Choose an option, or just ask your agent to apply the new settings.':propose?'Ask your agent, or request a change below.':'View-only screen. Ask your agent to apply changes.'}</p></header>
+ const propose=Boolean(!props.editable&&props.actionable&&props.onRespond),canChange=!props.preview&&(props.editable||propose);
+ const change=(next:Partial<SessionConfig>)=>{
+  if(!canChange||writing.current||!props.sessionId||!props.displayId)return;
+  const before=draft;setDraft(mergeConfig(draft,next));setStatus('');writing.current=true;
+  void task.run(async()=>{
+   try{
+    const group=groups.find(g=>g.id===scope);
+    if(propose){await props.onRespond!({kind:'settings.request',config:next,expectedConfigRevision:base,scope:'session'});setDraft(before);setStatus('Change requested from your agent.');}
+    else {
+      const result=await api<{revision?:number;configRevision?:number;config?:SessionConfig;defaults?:Partial<SessionConfig>}>(displayPath(props.sessionId!,props.displayId!)+'/settings',{method:'POST',body:{expectedRevision:base,config:next,scope:group?.kind??scope,...(group?{groupId:group.id}:{})}});
+      setBase(result.configRevision??result.revision??base);setDraft(result.config??mergeConfig(before,result.defaults??next));
+      if(scope==='account'&&result.config){const saved={revision:result.revision!,config:result.config};defaultsRef.current=saved;setDefaults(saved);}
+      setStatus(scope==='account'?'Saved for all new sessions. This session is unchanged.':'Settings saved.');
+    }
+    writing.current=false;await props.onRefresh?.();
+   }catch(error){writing.current=false;setDraft(before);await props.onRefresh?.();throw error;}
+   finally{writing.current=false;}
+  });
+ };
+ const selectScope=(next:string)=>{setScope(next);setStatus('');const group=groups.find(g=>g.id===next);setDraft(next==='account'&&defaults?defaults.config:group?mergeConfig(props.config!,group.defaults):props.config);setBase(next==='account'?defaults?.revision??0:group?.revision??props.configRevision??0);};
+ return <section className={'surface-settings'+(dimension==='all'?'':' settings-focused')}>
+ <header className="surface-settings-heading">{typeof props.view.data.description==='string'&&<p>{props.view.data.description}</p>}
+ {props.editable&&props.view.data.allowAccountDefaults!==false?<label className="settings-scope">Apply to <select aria-label="Apply to" value={scope} onChange={e=>selectScope(e.target.value)} disabled={task.busy}><option value="session">This session</option>{defaults&&<option value="account">All new sessions</option>}{groups.map(g=><option value={g.id} key={g.id}>{g.kind==='team'?'Team':'Organization'}: {g.name}</option>)}</select><small>Changes save immediately.</small></label>:<p className="settings-permission">{props.editable?'Changes save immediately.':propose?'Ask your agent, or select an option to request a change.':'View-only screen. Ask your agent to apply changes.'}</p>}</header>
  <div className="surface-settings-scroll" data-navigation-scroll><fieldset disabled={!canChange||task.busy} className="settings-sections">
- {(show('style')||show('theme')||show('density')||show('accent'))&&<section className="settings-section"><h3>Appearance</h3>{show('style')&&<VisibleOptions label="Style preset" value={draft.style??'ocean'} options={STYLE_PRESETS.map(s=>[s.id,s.name])} onChange={v=>change({style:v,accent:STYLE_PRESETS.find(s=>s.id===v)!.accent})}/>} {show('theme')&&<VisibleOptions label="Theme" value={draft.theme} options={[["dark","Dark"],["light","Light"],["system","Follow device"]]} onChange={v=>change({theme:v as SessionConfig['theme']})}/>} {show('density')&&<VisibleOptions label="Density" value={draft.density} options={[["comfortable","Comfortable"],["compact","Compact"]]} onChange={v=>change({density:v as SessionConfig['density']})}/>} {show('accent')&&<Field label="Accent"><input type="color" value={draft.accent} onChange={e=>change({accent:e.target.value})}/></Field>}</section>}
+ {(show('style')||show('theme')||show('accent'))&&<section className="settings-section"><h3>Appearance</h3>{show('style')&&<VisibleOptions label="Style preset" defaultValue="ocean" value={draft.style??'ocean'} options={STYLE_PRESETS.map(s=>[s.id,s.name])} colors={Object.fromEntries(STYLE_PRESETS.map(s=>[s.id,s.accent]))} onChange={v=>change({style:v,accent:STYLE_PRESETS.find(s=>s.id===v)!.accent})}/>}
+ {show('theme')&&<VisibleOptions label="Theme" defaultValue="dark" value={draft.theme} options={[["dark","Dark"],["light","Light"],["system","Follow device"]]} onChange={v=>change({theme:v as SessionConfig['theme']})}/>}
+ {show('accent')&&<Field label="Accent (default: Ocean blue)"><input type="color" value={draft.accent} onChange={e=>change({accent:e.target.value})}/></Field>}</section>}
  {['all','readingFontSize','readingWpm','readingZoom'].includes(dimension)&&<ReadingSettings value={draft} disabled={!canChange||task.busy} change={change} dimension={dimension}/>}
  {['all','numberLocale','unitSystem','dateFormat','timeFormat','timeZone'].includes(dimension)&&<RegionalSettings value={draft} disabled={!canChange||task.busy} change={change} dimension={dimension}/>}
- </fieldset></div><footer className="surface-settings-actions">{props.editable&&props.view.data.allowAccountDefaults!==false&&<VisibleOptions label="Apply to" value={scope} options={[["session","This session"],...(defaults?[["account","My new sessions"]] as [string,string][]:[]),...groups.map(g=>[g.id,`${g.kind==='team'?'Team':'Organization'}: ${g.name}`] as [string,string])]} onChange={selectScope} disabled={task.busy}/>}
- <div role="status" aria-live="polite">{saved?(propose?'Change requested.':'Settings saved.'):dirty?'Selected changes have not been applied.':'Current settings.'}</div><ErrorNotice message={task.error}/>{conflict&&dirty&&<p role="alert">Settings changed elsewhere. <button type="button" onClick={()=>{setPatch({});setDraft(props.config);setBase(props.configRevision??0);}}>Load current settings</button></p>}{canChange&&<Button type="submit" disabled={!dirty||conflict} busy={task.busy}>{propose?'Request settings change':'Apply settings'}</Button>}</footer></form>;
+ </fieldset></div><div className="surface-settings-status" role="status" aria-live="polite">{status}</div><ErrorNotice message={task.error}/>
+ </section>;
 }

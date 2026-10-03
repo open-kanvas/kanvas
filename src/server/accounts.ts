@@ -12,7 +12,7 @@ import { displayedLeaf } from './engagement.js';
 import { mergeConfig } from '../shared/preferences.js';
 
 const rank:Record<Role,number>={viewer:0,editor:1,owner:2};
-const appearanceKeys=['theme','style','accent','density'] as const;
+const appearanceKeys=['theme','style','accent'] as const;
 const appearance=(value:Partial<SessionConfig>):Appearance=>Object.fromEntries(appearanceKeys.filter(k=>value[k]!==undefined).map(k=>[k,value[k]]));
 const identifier=z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 interface RequestMetric {at:string;category:string;status:number;requests:number;durationMs:number}

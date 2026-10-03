@@ -134,7 +134,7 @@ describe('glanceable clock renderer', () => {
 
   it('falls back safely for descriptive config language without treating it as the clock zone', () => {
     const view = validateView({ version: 1, template: 'clock', data: { timeZone: 'UTC' } });
-    const html = renderToStaticMarkup(<ClockRenderer view={view} serverNow="2026-09-14T12:34:56Z" config={{ theme: 'dark', accent: '#b9ed87', density: 'comfortable', numberLocale: 'en-GB' }} />);
+    const html = renderToStaticMarkup(<ClockRenderer view={view} serverNow="2026-09-14T12:34:56Z" config={{ theme: 'dark', accent: '#b9ed87', numberLocale: 'en-GB' }} />);
     expect(html).toContain('data-time-zone="UTC"'); expect(html).toContain('aria-label="12:34 · UTC"');
   });
 

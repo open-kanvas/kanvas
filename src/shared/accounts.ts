@@ -9,7 +9,6 @@ export const appearanceSchema = z.object({
   theme: z.enum(['system', 'light', 'dark']).optional(),
   style: z.enum(STYLE_PRESETS.map(x=>x.id)).optional(),
   accent: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
-  density: z.enum(['comfortable', 'compact']).optional(),
 }).strict();
 export const profileImageSchema = z.object({mimeType:z.enum(['image/png','image/jpeg','image/webp']),base64:z.string().min(4).max(350000)}).strict();
 export const profileUpdateSchema = z.object({expectedRevision:revision,displayName:z.string().trim().min(1).max(80).optional(),avatar:profileImageSchema.nullable().optional()}).strict();

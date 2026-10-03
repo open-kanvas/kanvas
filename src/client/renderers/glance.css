@@ -1,7 +1,6 @@
 /* One useful visual beat. Metadata does not reserve space unless requested.
    Live surfaces and nested workspace thumbnails have independent fit rules. */
 .render-surface.is-live:not(.is-preview){--live-padding:clamp(16px,min(2.6cqw,3.2cqh),48px);--content-pad:var(--live-padding);padding:var(--live-padding)}
-.render-surface.is-live:not(.is-preview)[data-density=compact]{--live-padding:clamp(12px,min(2cqw,2.5cqh),32px)}
 .render-surface.is-live:not(.is-preview).is-full-bleed{padding:0}
 .render-surface.is-live>.render-body{overflow:auto;overscroll-behavior:contain;align-items:stretch}
 .render-surface.is-live[data-surface-mode=media]>.render-body{overflow:hidden}

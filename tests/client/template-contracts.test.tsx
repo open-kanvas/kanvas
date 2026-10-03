@@ -63,7 +63,7 @@ describe('dedicated transcript and translation fidelity', () => {
   it('keeps both languages and the original even if generic fact original-retention is disabled', () => {
     const sourceText = 'Hei.  Dette er originalen.\nIkke skriv den om.', targetText = 'Hello.  This is the original.\nDo not rewrite it.';
     const input = view('translation', { sourceText, targetText, sourceLanguage: 'nb', targetLanguage: 'en' });
-    const html = renderToStaticMarkup(<Renderer view={input} config={{ theme: 'dark', accent: '#b9ed87', density: 'comfortable' }} />);
+    const html = renderToStaticMarkup(<Renderer view={input} config={{ theme: 'dark', accent: '#b9ed87' }} />);
     expect(html).toContain(sourceText);
     expect(html).toContain(targetText);
     expect(html).toContain('lang="nb"');

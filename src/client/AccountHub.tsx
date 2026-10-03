@@ -60,7 +60,7 @@ function PersonalAppearance(){
     <div className="account-field-grid"><Field label="Personal theme"><select value={config.theme} onChange={e=>set({theme:e.target.value as Appearance['theme']})}><option value="system">Follow device</option><option value="dark">Dark</option><option value="light">Light</option></select></Field>
       <Field label="Personal style"><select value={config.style??'ocean'} onChange={e=>{const s=STYLE_PRESETS.find(x=>x.id===e.target.value)!;set({style:s.id,accent:s.accent});}}>{STYLE_PRESETS.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
       <Field label="Personal accent"><input type="color" value={config.accent} onChange={e=>set({accent:e.target.value})}/></Field>
-      <Field label="Personal density"><select value={config.density} onChange={e=>set({density:e.target.value as Appearance['density']})}><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></Field></div>
+      </div>
     <ErrorNotice message={task.error}/><Button type="submit" busy={task.busy} disabled={!Object.keys(dirty).length}>Save personal appearance</Button>{saved&&<p role="status">Personal appearance saved.</p>}
   </form>;
 }
@@ -70,7 +70,7 @@ function AppearanceFields({value,onChange}:{value:Partial<SessionConfig>;onChang
     <Field label="Default theme"><select value={value.theme??''} onChange={e=>set('theme',e.target.value)}><option value="">Inherit theme</option><option value="system">Follow device</option><option value="light">Light</option><option value="dark">Dark</option></select></Field>
     <Field label="Default style"><select value={value.style??''} onChange={e=>set('style',e.target.value)}><option value="">Inherit style</option>{STYLE_PRESETS.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
     <Field label="Default accent" hint="Leave blank to inherit."><input value={value.accent??''} onChange={e=>set('accent',e.target.value)} placeholder="#b9ed87" pattern="#[0-9a-fA-F]{6}" maxLength={7}/></Field>
-    <Field label="Default density"><select value={value.density??''} onChange={e=>set('density',e.target.value)}><option value="">Inherit density</option><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></Field>
+
   </div>;
 }
 function GroupEditor({group,groups,reload}:{group:GroupDetail;groups:GroupSummary[];reload:()=>Promise<void>}){

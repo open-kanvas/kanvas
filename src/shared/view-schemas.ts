@@ -1,5 +1,7 @@
+import { devicePreviewDataSchema } from './device-preview.js';
+import { emphasisSchema } from './emphasis.js';
 import { VERBATIM_SOURCE, SOURCE_RECORD_TEMPLATES } from './source-guidance.js';
-import {sportsLineupDataSchema,orgChartDataSchema,flowchartDataSchema,networkDataSchema} from './diagrams.js';
+import {architectureDataSchema,sportsLineupDataSchema,orgChartDataSchema,flowchartDataSchema,networkDataSchema} from './diagrams.js';
 import { viewFormatSchema } from './regional.js';
 import { galleryDataSchema,boardBackgroundSchema } from './image-gallery.js';
 import { scoreboardDataSchema,standingsDataSchema,toolLogDataSchema } from './event-views.js';
@@ -67,14 +69,18 @@ export const numberDataSchema = z.object({ value: z.union([finite, z.string().mi
 
 const columnName = label.refine((v) => !dangerousKeys.has(v), 'Reserved column name');
 export const tableDataSchema = z.object({
+  showHeaders: z.boolean().optional().describe('Omit headers for a flat list arranged as a grid. Supply positional row arrays and omit columns; retain headers when columns have distinct meanings.'), emphasis: emphasisSchema.optional(),
   columns: z.array(columnName).max(64).default([]), rows: z.array(z.union([z.record(columnName, cellSchema), z.array(cellSchema).max(64)])).max(VIEW_LIMITS.tableRows).default([]),
   pageSize: positiveInteger.max(100).default(12), binding: datasetBindingSchema.optional(), summary: summarySchema.optional(),
   rowStyles:z.array(tableRowStyleSchema).max(1000).optional(),cellStyles:z.array(tableCellStyleSchema).max(2000).optional(),
 }).strict().superRefine((data, ctx) => {
-  if (!data.binding && !data.columns.length) ctx.addIssue({ code: 'custom', message: 'Table requires columns or a dataset binding' });
+  if (!data.binding && !data.columns.length && data.rows.some(row => !Array.isArray(row))) ctx.addIssue({ code: 'custom', message: 'Headerless tables require positional row arrays' });
+  const width = data.columns.length || (Array.isArray(data.rows[0]) ? data.rows[0].length : 0);
+  const keys=data.columns.length?data.columns:Array.from({length:width},(_,i)=>String(i));
+  for(const e of data.emphasis??[])if(e.series!==undefined||e.point!==undefined||((!data.binding||data.rows.length>0)&&e.row!==undefined&&e.row>=data.rows.length)||(e.column!==undefined&&keys.length>0&&!keys.includes(e.column)))ctx.addIssue({code:'custom',path:['emphasis'],message:'Table emphasis targets a retained row and/or supplied column'});
   if (new Set(data.columns).size !== data.columns.length) ctx.addIssue({ code: 'custom', message: 'Columns must be unique' });
   data.rows.forEach((row, index) => {
-    if (Array.isArray(row) ? row.length !== data.columns.length : Object.keys(row).some(key => !data.columns.includes(key))) ctx.addIssue({ code: 'custom', path: ['rows', index], message: Array.isArray(row) ? 'Row array length must equal the number of columns' : 'Row contains an undeclared column' });
+    if (Array.isArray(row) ? row.length !== width : Object.keys(row).some(key => !data.columns.includes(key))) ctx.addIssue({ code: 'custom', path: ['rows', index], message: Array.isArray(row) ? 'Row array length must equal the number of columns' : 'Row contains an undeclared column' });
   });
   for(const key of ['rowStyles','cellStyles'] as const){
     const seen=new Set<string>();
@@ -94,8 +100,11 @@ export const webDataSchema = z.object({ url: safeUrlSchema, title: short.optiona
   .refine((v) => !v.embed || isAllowedEmbedUrl(v.url) || /^https:\/\//i.test(v.url), 'Live embedding needs an https URL (or a supported publisher embed URL)');
 export const comparisonDataSchema = z.object({
   criteria: z.array(label).min(1).max(12),
-  items: z.array(z.object({ name: label, values: z.record(columnName, cellSchema), pros: z.array(short).max(6).optional(), cons: z.array(short).max(6).optional() }).strict()).min(2).max(4),
+  commentary: z.record(columnName, short).optional().describe('Agent-authored takeaway per criterion, separate from items.'), emphasis: emphasisSchema.optional(),
+  items: z.array(z.object({ name: label, image: z.object({url:safeUrlSchema,alt:short.default('')}).strict().optional(), highlights:z.array(columnName).max(12).optional().describe('Criteria whose cells are emphasized for this item.'), values: z.record(columnName, cellSchema), pros: z.array(short).max(6).optional(), cons: z.array(short).max(6).optional() }).strict()).min(2).max(10),
 }).strict().superRefine((data, ctx) => {
+  for(const e of data.emphasis??[])if(e.series!==undefined||e.point!==undefined||e.row!==undefined&&e.row>=data.criteria.length||e.column!==undefined&&!data.items.some(i=>i.name===e.column))ctx.addIssue({code:'custom',path:['emphasis'],message:'Comparison emphasis targets zero-based criterion row and/or item name as column'});
+  if (Object.keys(data.commentary ?? {}).some(key => !data.criteria.includes(key)) || data.items.some(item => item.highlights?.some(key => !data.criteria.includes(key)))) ctx.addIssue({code:'custom',message:'Commentary/highlights must name supplied criteria'});
   if (new Set(data.criteria).size !== data.criteria.length) ctx.addIssue({ code: 'custom', message: 'Comparison criteria must be unique' });
   for (const item of data.items) if (Object.keys(item.values).some((key) => !data.criteria.includes(key)) || data.criteria.some((key) => !(key in item.values))) ctx.addIssue({ code: 'custom', message: 'All alternatives must use the same criteria' });
 });
@@ -105,19 +114,20 @@ const coordinates = z.object({ lat: finite.min(-90).max(90), lng: finite.min(-18
 const color = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 const geometry = z.object({ name: short.optional(), coordinates: z.array(coordinates).min(2).max(5000), color: color.optional() }).strict();
 export const mapDataSchema = z.object({
-  markers: z.array(coordinates.extend({ label: short.optional(), description: short.optional() }).strict()).max(500).default([]),
+  markers: z.array(coordinates.extend({ label: short.optional(), description: short.optional(), color:color.optional(), iconUrl:safeUrlSchema.optional(), popupHtml:z.string().max(6000).optional().describe('Safe formatted popup: b/strong/em/i/p/br/ul/ol/li/a/code only; scripts, styles and active content are removed.') }).strict()).max(500).default([]),
   routes: z.array(geometry).max(12).default([]),
   polygons: z.array(geometry.refine((v) => v.coordinates.length >= 3, 'Polygon needs at least three coordinates')).max(12).default([]),
   center: coordinates.optional(), zoom: finite.min(1).max(20).default(11),
 }).strict().refine((v) => Boolean(v.center || v.markers.length || v.routes.length || v.polygons.length), 'Map needs supplied geometry or a center');
 export const codeDataSchema = z.object({
-  kind: z.enum(['code', 'diff', 'tree', 'tools']).default('code'), path: short.optional(), language: z.string().max(50).optional(),
+  kind: z.enum(['code', 'diff', 'tree', 'tools', 'terminal']).default('code'), path: short.optional(), language: z.string().max(50).optional(),
   code: z.string().max(100_000).optional(), before: z.string().max(100_000).optional(), after: z.string().max(100_000).optional(),
   files: z.array(z.object({ path: label, kind: z.enum(['file', 'directory']).default('file'), status: z.enum(['added', 'modified', 'deleted', 'unchanged']).optional() }).strict()).max(1000).optional(),
   tools: z.array(z.object({ id: identifier, name: label, status: z.enum(['pending', 'running', 'success', 'error']), summary: short.optional() }).strict()).max(100).refine(uniqueIds, 'Tool IDs must be unique').optional(),
+  entries:z.array(z.object({id:identifier,command:z.string().min(1).max(10000),stdout:z.string().max(100000).optional(),stderr:z.string().max(100000).optional(),status:z.enum(['pending','running','success','error']).optional(),exitCode:z.number().int().optional(),timestamp:z.string().datetime().optional(),cwd:short.optional()}).strict()).max(100).refine(uniqueIds,'Entry IDs must be unique').optional(),
   highlightLines: z.array(positiveInteger.max(1_000_000)).max(200).optional(), startLine: positiveInteger.max(1_000_000).default(1),
 }).strict().superRefine((v, ctx) => {
-  const valid = v.kind === 'code' ? v.code !== undefined : v.kind === 'diff' ? v.before !== undefined && v.after !== undefined : v.kind === 'tree' ? Boolean(v.files?.length) : Boolean(v.tools?.length);
+  const valid = v.kind === 'code' ? v.code !== undefined : v.kind === 'diff' ? v.before !== undefined && v.after !== undefined : v.kind === 'tree' ? Boolean(v.files?.length) : v.kind === 'terminal' ? Boolean(v.entries?.length) : Boolean(v.tools?.length);
   if (!valid) ctx.addIssue({ code: 'custom', message: `Missing content for ${v.kind} layout` });
 });
 const position = finite.min(-100_000).max(100_000);
@@ -276,6 +286,8 @@ export const leafViewSchema = z.discriminatedUnion('template', [
   z.object({ ...base, template: z.literal('display-grid'), data: displayGridDataSchema }).strict(),
   z.object({ ...base, template: z.literal('devices'), data: devicesViewDataSchema }).strict(),
   z.object({...base,template:z.literal('sports-lineup'),data:sportsLineupDataSchema}).strict(),
+  z.object({...base,template:z.literal('device-preview'),data:devicePreviewDataSchema}).strict(),
+  z.object({...base,template:z.literal('architecture'),data:architectureDataSchema}).strict(),
   z.object({...base,template:z.literal('org-chart'),data:orgChartDataSchema}).strict(),
   z.object({...base,template:z.literal('flowchart'),data:flowchartDataSchema}).strict(),
   z.object({...base,template:z.literal('network'),data:networkDataSchema}).strict(),
@@ -361,8 +373,9 @@ function checkedSelection(view:ViewSpec,path:(string|number)[]=[]):ViewSpec {
 function normalizeTableRows(view: ViewSpec): ViewSpec {
   if (view.template === 'presentation') return { ...view, data: { ...view.data, slides: (view.data.slides as ViewSpec[]).map(normalizeTableRows) } };
   if (view.template !== 'table') return view;
-  const columns = view.data.columns as string[];
-  return { ...view, data: { ...view.data, rows: (view.data.rows as unknown[]).map(row => Array.isArray(row) ? Object.fromEntries(columns.map((column, index) => [column, row[index]])) : row) } };
+  const supplied = view.data.columns as string[], rows = view.data.rows as unknown[];
+  const columns = supplied.length ? supplied : Array.from({length:Array.isArray(rows[0]) ? rows[0].length : 0}, (_, i) => String(i));
+  return { ...view, data: { ...view.data, columns, showHeaders:view.data.showHeaders ?? (supplied.length > 0 || Boolean(view.data.binding)), rows: (view.data.rows as unknown[]).map(row => Array.isArray(row) ? Object.fromEntries(columns.map((column, index) => [column, row[index]])) : row) } };
 }
 
 export function retainedProvenance(input: unknown): unknown {

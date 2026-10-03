@@ -55,3 +55,7 @@
 .roster-gaps{flex:none;margin:0;padding-inline-start:1.3em;font-size:.88em;columns:2 26em;column-gap:2em;max-height:24cqh;overflow:hidden}
 .roster-gaps>li{break-inside:avoid}
 .roster-gaps-more{list-style:none;color:var(--roster-muted)}
+
+.roster-team{column-gap:6px}.roster-team>.roster-slot{padding-inline:3px;border-right:1px solid var(--line)}.roster-day-count{text-align:center;padding:9px 4px;border-top:1px solid var(--line);font-size:.85rem;font-weight:650;min-height:34px}
+
+.roster-mode-team{overflow:auto;font-size:max(14px,1cqw)}.roster-team{flex:none;grid-template-columns:minmax(110px,max-content) repeat(var(--roster-days,7),minmax(48px,1fr)) max-content;grid-template-rows:auto auto repeat(var(--roster-people,1),minmax(38px,auto));min-width:max-content;min-height:0}.roster-team .roster-slot{min-height:38px}.roster-mode-team .roster-legend{flex-shrink:0}

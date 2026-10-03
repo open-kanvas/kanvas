@@ -22,7 +22,9 @@ describe('host argument-type recovery', () => {
           // A default for one operation must not inject an extra field into another.
           expect(tool.inputSchema.properties![key]).not.toHaveProperty('default');
         }
-        for (const args of TOOL_DISCOVERY[entry.canonical].examples) {
+        for (const example of TOOL_DISCOVERY[entry.canonical].examples) {
+          // Compare recovery with an explicit retry ID; omitted IDs intentionally generate independent effects.
+          const args = canonical.get(entry.canonical)!.inputSchema.properties?.requestId && !('requestId' in example) ? {...example,requestId:'recovery-test'} : example;
           const input = { operation: entry.operation, ...args };
           expect(validate(input), `${entry.tool}/${entry.operation}`).toBe(true);
           expect(validate({ ...input, unrecognizedField: true })).toBe(false);
@@ -41,7 +43,9 @@ describe('host argument-type recovery', () => {
   });
 
   it('decodes exactly one cached-host JSON layer for non-text arguments across the canonical operations', () => {
-    for (const entry of OPERATION_ENTRIES) for (const args of TOOL_DISCOVERY[entry.canonical].examples) {
+    for (const entry of OPERATION_ENTRIES) for (const example of TOOL_DISCOVERY[entry.canonical].examples) {
+          // Compare recovery with an explicit retry ID; omitted IDs intentionally generate independent effects.
+          const args = canonical.get(entry.canonical)!.inputSchema.properties?.requestId && !('requestId' in example) ? {...example,requestId:'recovery-test'} : example;
       const properties = canonical.get(entry.canonical)!.inputSchema.properties!;
       const encoded = Object.fromEntries(Object.entries(args).map(([key, value]) => {
         const allowed = schemaTypes(properties[key]);

@@ -68,11 +68,10 @@ test('account connection needs no session and grants creation only after explici
     if (path === '/api/sessions') sessionCreates++;
   });
   await page.goto(connection.path);
-  await expect(page.getByRole('radio', { name: 'Selected sessions only', exact: true })).toBeChecked();
-  await expect(page.getByRole('button', { name: 'Allow selected sessions', exact: true })).toBeDisabled();
-  await page.getByRole('radio', { name: 'Account access', exact: true }).check();
-  await expect(page.getByText('Allow access to all current and future sessions available to your account.', { exact: false })).toBeVisible();
-  await expect(page.getByText('This client can renew its connection automatically', { exact: false })).toBeVisible();
+  await expect(page.getByRole('radio')).toHaveCount(0);
+  await expect(page.getByRole('checkbox')).toHaveCount(0);
+  await expect(page.getByText('Connect this client to your KANVAS account', { exact:false })).toBeVisible();
+  await expect(page.getByText('This connection renews automatically', { exact:false })).toBeVisible();
   await expect(page.getByLabel('New session name', { exact: true })).toHaveCount(0);
   const allow = page.getByRole('button', { name: 'Allow account access', exact: true });
   await expect(allow).toBeEnabled();
@@ -105,7 +104,6 @@ test('read-only account consent does not claim or grant session creation', async
   await register(page);
   const connection = await beginConnection(page, baseURL!, 'read');
   await page.goto(connection.path);
-  await page.getByRole('radio', { name: 'Account access', exact: true }).check();
   await expect(page.getByText('Read session content', { exact: true })).toBeVisible();
   await expect(page.getByText('Publish content', { exact: true })).toHaveCount(0);
   await expect(page.getByText('The client can also create new sessions for you through its tools.', { exact: false })).toHaveCount(0);
@@ -127,13 +125,12 @@ test('expired account consent cannot approve or create anything', async ({ page,
   const connection = await beginConnection(page, baseURL!);
   await page.clock.install();
   await page.goto(connection.path);
-  await page.getByRole('radio', { name: 'Account access', exact: true }).check();
   const allow = page.getByRole('button', { name: 'Allow account access', exact: true });
   await expect(allow).toBeEnabled();
   await page.clock.fastForward(11 * 60_000);
   await expect(page.getByRole('alert')).toContainText('connection request has expired');
   await expect(allow).toBeDisabled();
-  await expect(page.getByRole('radio', { name: 'Account access', exact: true })).toBeDisabled();
+  await expect(page.getByRole('radio')).toHaveCount(0);
   const connections = await page.request.get('/api/tokens');
   expect((await connections.json()).data).toEqual([]);
   const retained=(await sessionApi<SessionRecord[]>(page,'/api/sessions')).data!;expect(retained).toHaveLength(1);expect(retained[0].name).toBe('Home');

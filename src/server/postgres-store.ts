@@ -77,13 +77,16 @@ export class Store {
     if (mutating) this.writes += result.rowCount ?? 0;
     return result;
   }
-  async get<T>(kind: string, key: string): Promise<T | undefined> {
+  /** Archived records are hidden from ordinary domain reads. Explicit recovery/
+   * quota reads opt in after their own authorization; this flag grants no access. */
+  async get<T>(kind: string, key: string, includeArchived = false): Promise<T | undefined> {
     const row = (await this.query<{value:string}>('SELECT value FROM documents WHERE kind=$1 AND id=$2', [kind,key])).rows[0];
-    return row ? normalizeLegacyRecord(kind, JSON.parse(row.value)) as T : undefined;
+    const value=row?normalizeLegacyRecord(kind,JSON.parse(row.value)):undefined;
+    return value && (includeArchived || !value.archivedAt) ? value as T : undefined;
   }
-  async list<T>(kind: string, sessionId?: string): Promise<T[]> {
+  async list<T>(kind: string, sessionId?: string, includeArchived = false): Promise<T[]> {
     const rows = (await this.query<{value:string}>(sessionId === undefined ? 'SELECT value FROM documents WHERE kind=$1 ORDER BY rowid' : 'SELECT value FROM documents WHERE kind=$1 AND session_id=$2 ORDER BY rowid', sessionId === undefined ? [kind] : [kind,sessionId])).rows;
-    return rows.map(row => normalizeLegacyRecord(kind, JSON.parse(row.value)) as T);
+    return rows.map(row => normalizeLegacyRecord(kind, JSON.parse(row.value))).filter(value=>includeArchived || !value.archivedAt) as T[];
   }
   async put<T extends {id: string; sessionId?: string}>(kind: string, value: T): Promise<void> {
     await this.query('INSERT INTO documents(kind,id,session_id,value) VALUES($1,$2,$3,$4) ON CONFLICT(kind,id) DO UPDATE SET session_id=excluded.session_id,value=excluded.value', [kind,value.id,value.sessionId ?? '',JSON.stringify(value)]);

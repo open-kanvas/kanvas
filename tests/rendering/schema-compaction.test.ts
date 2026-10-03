@@ -17,6 +17,8 @@ it('compacted presentation schema preserves valid leaves and rejection boundarie
       const value=deck(candidate);expect(converted(value),sample.template+' '+JSON.stringify(candidate)).toBe(original(value));
     }
     expect(converted(deck(sample)),sample.template).toBe(sample.template!=='web');
+    // Common action bounds may be lifted, but source-record branches must stay action-free.
+    for(const count of [0,1,8,9]){const candidate=deck({...sample,actions:Array.from({length:count},(_,i)=>({id:`a${i}`,label:'Action',kind:'button'}))});expect(converted(candidate),`${sample.template} action count ${count}`).toBe(original(candidate));}
   }
 });
 

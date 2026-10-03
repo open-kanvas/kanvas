@@ -47,6 +47,7 @@ export const rosterDataSchema = z.object({
     count: z.number().int().min(1).max(9999).optional().describe('Aggregated headcount; default 1 (one named person).'),
   }).strict()).max(ROSTER_LIMITS.staffing).default([]).describe('Coverage mode: who (or how many) is actually assigned per date, shift and role.'),
   appearance: z.enum(['session', 'light']).optional().describe('light forces the light roster palette on any session theme.'),
+  showDayCounts:z.boolean().optional().describe('Team individual mode: show per-day counts for each supplied shift type beneath people rows.'),
   showTotals: z.boolean().optional().describe('Show per-shift totals and free days (default true).'),
 }).strict().superRefine((data, ctx) => {
   const issue = (path: (string | number)[], message: string) => ctx.addIssue({ code: 'custom', path, message });

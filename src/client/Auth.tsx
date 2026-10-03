@@ -72,64 +72,10 @@ function PairingScreen({ viewer, onBack }: { viewer: ViewerRoute; onBack: () => 
 }
 
 export function ConsentScreen({ requestId }: { requestId: string }) {
-  const [request, setRequest] = useState<{ id: string; clientName: string; scopes: string[]; expiresAt: string; accessModes: ('selected' | 'account')[]; refreshable: boolean } | null>(null), [sessions, setSessions] = useState<SessionRecord[]>([]), [selected, setSelected] = useState<string[]>([]), [loading, setLoading] = useState(true);
-  const [accessMode, setAccessMode] = useState<'selected' | 'account'>('selected');
-  const [sessionName, setSessionName] = useState(''), [expired, setExpired] = useState(false);
-  const task = useTask();
-  useEffect(() => {
-    let disposed = false;
-    setLoading(true); setRequest(null); setSelected([]); setAccessMode('selected'); setExpired(false);
-    void Promise.all([api<NonNullable<typeof request>>(`/api/oauth/requests/${encodeURIComponent(requestId)}`), api<SessionRecord[]>('/api/sessions')])
-      .then(([r, s]) => { if (!disposed) { setRequest(r); setSessions(s.filter(item => !item.endedAt)); } })
-      .catch(error => { if (!disposed) task.setError(errorMessage(error)); })
-      .finally(() => { if (!disposed) setLoading(false); });
-    return () => { disposed = true; };
-  }, [requestId]);
-  useEffect(() => {
-    if (!request) return;
-    const timer = setTimeout(() => setExpired(true), Math.max(0, Date.parse(request.expiresAt) - Date.now()));
-    return () => clearTimeout(timer);
-  }, [request?.expiresAt]);
-  const refreshSessions = () => void task.run(async () => {
-    await api(`/api/oauth/requests/${encodeURIComponent(requestId)}`);
-    const current = (await api<SessionRecord[]>('/api/sessions')).filter(item => !item.endedAt);
-    setSessions(current); setSelected(previous => previous.filter(id => current.some(session => session.id === id)));
-  });
-  const createSession = (event: FormEvent) => {
-    event.preventDefault();
-    if (expired || !sessionName.trim()) return;
-    void task.run(async () => {
-      await api(`/api/oauth/requests/${encodeURIComponent(requestId)}`);
-      const session = await api<SessionRecord>('/api/sessions', { method: 'POST', body: { name: sessionName.trim() } });
-      setSessions(previous => [...previous, session]); setSelected(previous => [...previous, session.id]); setSessionName('');
-      // Creating a private session never submits consent. The account holder
-      // must still explicitly choose Allow or Decline below.
-    });
-  };
-  const decide = (approve: boolean) => void task.run(async () => {
-    const result = await api<{ redirectUri: string }>('/api/oauth/approve', { method: 'POST', body: { requestId, approve, ...(approve ? { accessMode, ...(accessMode === 'selected' ? { sessionIds: selected } : {}) } : {}) } });
-    const url = new URL(result.redirectUri); if (!['https:', 'http:'].includes(url.protocol)) throw new Error('The client redirect address is unsupported.');
-    window.location.assign(url.href);
-  });
-  return <main className="consent-layout"><Wordmark /><div className="consent-card">{loading ? <Loading label="Checking connection request" /> : <>
-    <span className="consent-symbol"><Icon name="key" size={32} /></span><span className="eyebrow">Connect an agent</span><h1>{request?.clientName ?? 'Client connection'}</h1>
-    <p>Choose how this client may access your KANVAS account.</p><ErrorNotice message={task.error} />
-    {request && <>
-      <div className="consent-scopes">{request.scopes.map(scope => <div key={scope}><Icon name={scope === 'publish' ? 'send' : 'eye'} size={20} /><span><strong>{scope === 'publish' ? 'Publish content' : 'Read session content'}</strong><small>{scope === 'publish' ? 'Send visuals and update sessions within your permissions.' : 'Read displays, configuration, and interaction feedback.'}</small></span></div>)}</div>
-      {request.refreshable && <p>This client can renew its connection automatically for up to 90 days, with a 30-day inactivity limit. You can revoke it anytime from Connections.</p>}
-      {expired && <ErrorNotice message="This connection request has expired. Return to your agent and choose Connect again." />}
-      {request.accessModes?.includes('account') && <fieldset className="session-choices" disabled={task.busy || expired}><legend>Connection access</legend>
-        <label><input type="radio" name="accessMode" value="selected" checked={accessMode === 'selected'} onChange={() => setAccessMode('selected')} /><span>Selected sessions only</span></label>
-        <label><input type="radio" name="accessMode" value="account" checked={accessMode === 'account'} onChange={() => setAccessMode('account')} /><span>Account access</span></label>
-      </fieldset>}
-      {accessMode === 'account' ? <p>Allow access to all current and future sessions available to your account. {request.scopes.includes('publish') ? 'The client can also create new sessions for you through its tools. ' : ''}Other accounts’ private sessions stay private. You do not need to create a session to connect.</p> : <fieldset className="session-choices" disabled={task.busy || expired}><legend>Selected sessions</legend>{sessions.map(session => <label key={session.id}><input type="checkbox" checked={selected.includes(session.id)} onChange={e => setSelected(e.target.checked ? [...selected, session.id] : selected.filter(id => id !== session.id))} /><span>{session.name}</span></label>)}{!sessions.length && <p>Select account access to connect without a session, or create your first private session below. Either choice still requires your approval.</p>}</fieldset>}
-      {accessMode === 'selected' && !sessions.length && !expired && <form className="auth-form" onSubmit={createSession}>
-        <Field label="New session name" hint="Only you have access until you allow this connection."><input value={sessionName} onChange={e => setSessionName(e.target.value)} required maxLength={100} placeholder="e.g. Claude conversation" disabled={task.busy} /></Field>
-        <Button type="submit" variant="secondary" icon="plus" busy={task.busy} disabled={!sessionName.trim()}>Create session</Button>
-      </form>}
-      {accessMode === 'selected' && !expired && <Button type="button" variant="ghost" icon="refresh" onClick={refreshSessions} disabled={task.busy}>Refresh sessions</Button>}
-      <div className="form-actions"><Button type="button" variant="secondary" onClick={() => decide(false)} disabled={task.busy || expired}>Decline</Button><Button type="button" onClick={() => decide(true)} busy={task.busy} disabled={accessMode === 'selected' && !selected.length || expired}>{accessMode === 'account' ? 'Allow account access' : 'Allow selected sessions'}</Button></div>
-    </>}
-    <p><a href="/" target="_blank" rel="noopener noreferrer">Open your workspace in another tab</a></p>
-  </>}</div></main>;
+  const [request,setRequest]=useState<{clientName:string;scopes:string[];expiresAt:string;refreshable:boolean}|null>(null),[loading,setLoading]=useState(true),[expired,setExpired]=useState(false);
+  const task=useTask();
+  useEffect(()=>{let disposed=false;setLoading(true);setExpired(false);void api<NonNullable<typeof request>>(`/api/oauth/requests/${encodeURIComponent(requestId)}`).then(value=>{if(!disposed)setRequest(value);}).catch(error=>{if(!disposed)task.setError(errorMessage(error));}).finally(()=>{if(!disposed)setLoading(false);});return()=>{disposed=true;};},[requestId]);
+  useEffect(()=>{if(!request)return;const timer=setTimeout(()=>setExpired(true),Math.max(0,Date.parse(request.expiresAt)-Date.now()));return()=>clearTimeout(timer);},[request?.expiresAt]);
+  const decide=(approve:boolean)=>void task.run(async()=>{const result=await api<{redirectUri:string}>('/api/oauth/approve',{method:'POST',body:{requestId,approve,...(approve?{accessMode:'account'}:{})}});const url=new URL(result.redirectUri);if(!['https:','http:'].includes(url.protocol))throw new Error('The client redirect address is unsupported.');window.location.assign(url.href);});
+  return <main className="consent-layout"><Wordmark/><div className="consent-card">{loading?<Loading label="Checking connection request"/>:<><span className="consent-symbol"><Icon name="key" size={32}/></span><span className="eyebrow">Connect an agent</span><h1>{request?.clientName??'Client connection'}</h1><ErrorNotice message={task.error}/>{request&&<><p>Connect this client to your KANVAS account, including current and future sessions available to you. Other accounts’ private sessions remain private. Session sharing and device approval remain separate.</p><div className="consent-scopes">{request.scopes.map(scope=><div key={scope}><Icon name={scope==='publish'?'send':'eye'} size={20}/><span><strong>{scope==='publish'?'Publish content and create sessions':'Read session content'}</strong><small>{scope==='publish'?'Send visuals and make changes within your permissions.':'Read displays, configuration and interaction feedback.'}</small></span></div>)}</div>{request.refreshable&&<p>This connection renews automatically for up to 90 days, with a 30-day inactivity limit. Revoke access anytime from Connections.</p>}{expired&&<ErrorNotice message="This connection request has expired. Return to your agent and choose Connect again."/>}<div className="form-actions"><Button variant="secondary" onClick={()=>decide(false)} disabled={task.busy||expired}>Decline</Button><Button onClick={()=>decide(true)} busy={task.busy} disabled={expired}>Allow account access</Button></div></>}<p><a href="/" target="_blank" rel="noopener noreferrer">Open your console in another tab</a></p></>}</div></main>;
 }

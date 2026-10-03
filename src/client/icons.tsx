@@ -1,3 +1,4 @@
+import { Brand } from './Brand';
 import type { CSSProperties } from 'react';
 
 const paths = {
@@ -53,6 +54,4 @@ export type IconName = keyof typeof paths;
 export function Icon({ name, size = 20, className, style }: { name: IconName; size?: number; className?: string; style?: CSSProperties }) {
   return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" className={className} style={style}><path d={paths[name]} /></svg>;
 }
-export function Wordmark({ compact = false }: { compact?: boolean }) {
-  return <span className="wordmark"><svg aria-hidden="true" width="27" height="30" viewBox="0 0 27 30"><path d="M3 2v26M24 2 9 15l15 13" stroke="currentColor" strokeWidth="4.5" fill="none" /></svg>{!compact && <span>KANVAS</span>}</span>;
-}
+export const Wordmark = Brand;

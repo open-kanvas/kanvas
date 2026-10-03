@@ -38,14 +38,25 @@ export class Experience {
     (await this.service.fullAccount(p,write?'publish':'read'));
     if(p.tokenId && (await this.store.get<Token>('token',p.tokenId))?.sessionIds) throw new AppError('FORBIDDEN','Account settings require account-level authorization, not a selected-session grant.',403);
   }
-  async defaults(userId:string){return (await this.store.get<{id:string;revision:number;config:SessionConfig;appearanceOverrides?:Appearance}>('preferences',userId)) ?? {id:userId,revision:0,config:{...DEFAULT_CONFIG}};}
+  async defaults(userId:string){return (await this.store.get<{id:string;revision:number;config:SessionConfig;appearanceOverrides?:Appearance;configOverrides?:Partial<SessionConfig>}>('preferences',userId)) ?? {id:userId,revision:0,config:{...DEFAULT_CONFIG}};}
   async preferences(p:AuthPrincipal,raw?:unknown){
     return this.store.atomic(async () => {
     (await this.account(p,raw!==undefined)); const current=(await this.defaults(p.userId));
-    if(raw!==undefined){const a=z.object({expectedRevision:z.number().int().nonnegative(),config:configPatchSchema}).strict().parse(raw);this.service.assertRevision(a.expectedRevision,current.revision);const keys=['theme','style','accent','density'] as const;current.appearanceOverrides={...(current.appearanceOverrides??(current.revision>0?Object.fromEntries(keys.filter(k=>current.config[k]!==undefined).map(k=>[k,current.config[k]])):{})),...Object.fromEntries(keys.filter(k=>a.config[k]!==undefined).map(k=>[k,a.config[k]]))};current.config=mergeConfig(current.config,a.config);delete current.config.presenterViewerId;if(current.config.syncMode==='presenter')current.config.syncMode='independent';current.revision++;(await this.store.put('preferences',current));(await this.service.accounts.audit('account.preferences.changed',{actorId:p.userId,subjectId:p.userId}));for(const session of (await this.service.sessions(p)))if((await this.store.get('session-context',session.id)))this.service.emit({type:'config',sessionId:session.id});}
+    if(raw!==undefined){const a=z.object({expectedRevision:z.number().int().nonnegative(),config:configPatchSchema}).strict().parse(raw);this.service.assertRevision(a.expectedRevision,current.revision);const keys=['theme','style','accent','density'] as const;current.appearanceOverrides={...(current.appearanceOverrides??(current.revision>0?Object.fromEntries(keys.filter(k=>current.config[k]!==undefined).map(k=>[k,current.config[k]])):{})),...Object.fromEntries(keys.filter(k=>a.config[k]!==undefined).map(k=>[k,a.config[k]]))};current.configOverrides={...current.configOverrides,...a.config};current.config=mergeConfig(current.config,a.config);delete current.config.presenterViewerId;delete current.configOverrides.presenterViewerId;delete current.configOverrides.syncMode;if(current.config.syncMode==='presenter')current.config.syncMode='independent';current.revision++;(await this.store.put('preferences',current));(await this.service.accounts.audit('account.preferences.changed',{actorId:p.userId,subjectId:p.userId}));for(const session of (await this.service.sessions(p)))if((await this.store.get('session-context',session.id)))this.service.emit({type:'config',sessionId:session.id});}
     return {...current,styles:STYLE_PRESETS,note:'Defaults are copied into new sessions. Personal appearance also applies in group-inherited sessions unless explicitly overridden. Existing standalone sessions are unchanged.'};
 
     });
+  }
+  async scopedSettings(p:AuthPrincipal,raw:unknown){
+    const a=z.object({sessionId:slot,scope:z.enum(['session','account','team','organization']).default('session'),groupId:slot.optional(),expectedRevision:z.number().int().nonnegative(),config:configPatchSchema}).strict().parse(raw);
+    await this.service.access(p,a.sessionId,'editor');
+    if(a.scope==='session') {if(a.groupId)throw new AppError('INVALID_SCOPE','groupId requires team or organization scope.');return this.service.updateConfig(p,a.sessionId,a.expectedRevision,a.config);}
+    if(a.config.syncMode!==undefined||a.config.presenterViewerId!==undefined)throw new AppError('INVALID_SCOPE','Viewer synchronization belongs to a session, not shared defaults.');
+    if(a.scope==='account'){if(a.groupId)throw new AppError('INVALID_SCOPE','Account preferences do not use groupId.');return this.preferences(p,{expectedRevision:a.expectedRevision,config:a.config});}
+    if(!a.groupId)throw new AppError('INVALID_SCOPE','Choose the team or organization explicitly.');
+    const group=await this.service.accounts.read(p,a.groupId);
+    if(group.kind!==a.scope)throw new AppError('INVALID_SCOPE','Group kind does not match requested scope.');
+    return this.service.accounts.update(p,{groupId:a.groupId,expectedRevision:a.expectedRevision,defaults:{...group.defaults,...a.config}});
   }
   async existingAlias(sessionId:string,displayId?:string,shareId?:string):Promise<Awaited<Alias|undefined>> {return (await this.addresses.existing(sessionId,displayId,shareId));}
   async alias(sessionId:string,displayId?:string,shareId?:string):Promise<Awaited<Alias>> {return (await this.addresses.reserve(sessionId,displayId,shareId));}
@@ -252,10 +263,11 @@ export function mountExperience(app:Express,experience:Experience,browser:(req:R
   app.get('/api/sessions/:id/displays/:displayId/overview/preview',async (req,res)=>{const query=z.object({sourceDisplayId:slot,revision:z.coerce.number().int().nonnegative()}).strict().parse(req.query);res.json({data:(await experience.overviewPreview((await browser(req)),...ids(req),query.sourceDisplayId,query.revision))});});
   app.get('/api/sessions/:id/displays/:displayId/grid',async (req,res)=>res.json({data:(await experience.displayGrid((await browser(req)),...ids(req)))}));
   app.post('/api/sessions/:id/displays/:displayId/settings',async (req,res)=>{
-    const p=(await browser(req)),[sessionId,displayId]=ids(req),a=z.object({expectedRevision:z.number().int().nonnegative(),config:configPatchSchema,saveDefaults:z.boolean().default(false),defaultsRevision:z.number().int().nonnegative().optional()}).strict().parse(req.body);
+    const p=(await browser(req)),[sessionId,displayId]=ids(req),a=z.object({expectedRevision:z.number().int().nonnegative(),config:configPatchSchema,saveDefaults:z.boolean().default(false),defaultsRevision:z.number().int().nonnegative().optional(),scope:z.enum(['session','account','team','organization']).default('session'),groupId:slot.optional()}).strict().parse(req.body);
     const d=(await experience.service.display(p,sessionId,displayId,'editor')),leaf=displayedLeaf(d.view);if(leaf?.template!=='settings')throw new AppError('INVALID_VIEW','Settings are not displayed here.');
+    if(a.scope!=='session'&&leaf!.data.allowAccountDefaults===false)throw new AppError('FORBIDDEN','Defaults are disabled on this control.',403);
     if(a.saveDefaults){(await experience.preferences(p));if(leaf!.data.allowAccountDefaults===false)throw new AppError('FORBIDDEN','Account defaults are disabled on this control.',403);experience.service.assertRevision(a.defaultsRevision,(await experience.defaults(p.userId)).revision);}
-    const session=(await experience.service.updateConfig(p,sessionId,a.expectedRevision,a.config));if(a.saveDefaults)(await experience.preferences(p,{expectedRevision:a.defaultsRevision,config:a.config}));
+    const session=(await experience.scopedSettings(p,{sessionId,scope:a.scope,groupId:a.groupId,expectedRevision:a.expectedRevision,config:a.config})) as {config?:SessionConfig;configRevision?:number};if(a.saveDefaults)(await experience.preferences(p,{expectedRevision:a.defaultsRevision,config:a.config}));
     const event:InteractionRecord={id:id(),sessionId,displayId,revision:d.revision,actionId:'settings.changed',userId:p.participantId??p.userId,targetAgentId:d.targetAgentId,status:'pending',createdAt:now(),value:{config:session.config,configRevision:session.configRevision,applied:true,defaultsSaved:a.saveDefaults}};
     (await experience.store.put('interaction',event));experience.service.emit({type:'interaction',sessionId,displayId});res.json({data:session});
   });

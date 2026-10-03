@@ -1,3 +1,4 @@
+import { OPERATION_ENTRIES } from '../../src/server/mcp/operations.js';
 import {randomUUID} from 'node:crypto';
 import {Client,StreamableHTTPClientTransport} from '@modelcontextprotocol/client';
 import {Client as LegacyClient} from '@modelcontextprotocol/sdk/client/index.js';
@@ -19,10 +20,11 @@ it.each(['modern','legacy'] as const)('exercises every new operation through the
     const owner=await h.account(),guest=await h.account(),s=(await owner.session()).id,d=(await owner.display(s)).id;
     const host=await connect(owner),other=await connect(guest),reader=await connect(owner,['read']);
     const call=async<T>(tool:string,operation:string,args:Record<string,unknown>={},client:Client|LegacyClient=host):Promise<T>=>{const result=await client.callTool({name:tool,arguments:{operation,...args}});expect(result.isError,JSON.stringify(result.structuredContent)).not.toBe(true);seen.add(`${tool}:${operation}`);return (result.structuredContent as {data:T}).data;};
-    const catalog=await host.listTools();expect(catalog.tools).toHaveLength(12);expect(catalog.tools.flatMap(t=>t.inputSchema.oneOf as unknown[])).toHaveLength(116);
+    const catalog=await host.listTools();expect(catalog.tools).toHaveLength(12);expect(catalog.tools.flatMap(t=>t.inputSchema.oneOf as unknown[])).toHaveLength(OPERATION_ENTRIES.length);
     const composite=await host.callTool({name:'kanvas_inspect',arguments:{operation:'template.get',template:'presentation'}});
     expect(composite.isError).not.toBe(true);expect(composite.structuredContent).not.toHaveProperty('truncated');
-    expect((composite.structuredContent as {data:{schema:unknown;example:unknown}}).data.example).toBeDefined();
+    // Composite leaf growth may omit the illustrative example, never the complete schema.
+    expect((composite.structuredContent as {data:{schema:unknown}}).data.schema).toHaveProperty('type','object');
     expect(JSON.stringify((composite.structuredContent as {data:{schema:unknown}}).data.schema)).toContain('progress');
     expect(Buffer.byteLength((composite.content as {text:string}[])[0].text)).toBeLessThanOrEqual(MAX_TOOL_RESULT_BYTES);
     expect(catalog.tools.some(t=>t.name==='kanvas_games')).toBe(false);

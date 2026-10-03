@@ -50,7 +50,8 @@ describe('inspectable publishing recipes without mandatory schema lookup', () =>
     expect(PUBLISHING_DESCRIPTION.length).toBeLessThanOrEqual(1400);
     expect(COMMON_DATA_SHAPES).toHaveLength(7);
     expect(JSON.stringify({ PUBLISHING_GUIDANCE, PUBLISHING_RECIPES, COMMON_DATA_SHAPES }).length).toBeLessThan(20_000);
-    expect(submit.annotations).toMatchObject({ idempotentHint: true, destructiveHint: false, openWorldHint: false });
+    // Omitted requestId generates a fresh effect; explicit stable IDs still support retries.
+    expect(submit.annotations).toMatchObject({ idempotentHint: false, destructiveHint: false, openWorldHint: false });
     const inline = /Literal transcription example arguments: (\{.+?\})\. Common native data shapes:/.exec(PUBLISHING_DESCRIPTION);
     expect(inline).not.toBeNull();
     expect(MCP_TOOLS.find(tool => tool.name === 'kanvas_submit')!.schema.safeParse(JSON.parse(inline![1])).success).toBe(true);

@@ -1,0 +1,65 @@
+import { afterEach, describe, expect, it } from 'vitest';
+import { randomUUID } from 'node:crypto';
+import type { Response } from 'express';
+import { startHarness, success, fact, type Harness, type Browser } from './harness.js';
+import { authEmail } from '../../src/server/auth-email.js';
+import { CANONICAL_TOOLS, canonicalToolDefinitions } from '../../src/server/mcp/canonical.js';
+import { TOOL_DISCOVERY } from '../../src/server/mcp/tool-discovery.js';
+import { resolveToolCall } from '../../src/server/mcp/catalog.js';
+let h:Harness;
+afterEach(async()=>{delete process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT;delete process.env.KANVAS_MAX_VIEWS_PER_SESSION;await h?.close();});
+const principal=async(a:Browser)=>{const s=await h.runtime.auth.issueBrowser(a.user!.id,{cookie:()=>{}} as unknown as Response);return {userId:a.user!.id,browserId:s.id};};
+describe('platform feedback safeguards',()=>{
+ it('renders branded multipart sign-in and signup without unescaped link markup',()=>{const mail=authEmail('https://example.test/#email-signin=test&x="<');expect(mail.subject).toBe('Sign in to KANVAS');expect(mail.html).toContain('&amp;x=&quot;&lt;');expect(mail.text).toContain('10 minutes');expect(authEmail('https://example.test/',true).html).toContain('Create your account');});
+ it('generates request IDs across profiles without inventing authorization/revisions',()=>{for(const profile of ['domains','twelve','legacy'] as const){const tool=profile==='legacy'?'kanvas_clear':profile==='domains'?'kanvas_display_clear':'kanvas_remove';const args={sessionId:'s',displayIds:['d'],...(profile==='legacy'?{}:{operation:profile==='domains'?'clear':'display.clear'})};const one=resolveToolCall(profile,tool,args),two=resolveToolCall(profile,tool,args);expect(one.error).toBeUndefined();expect(one.args?.requestId).toEqual(expect.any(String));expect(one.args?.requestId).not.toBe(two.args?.requestId);}expect(resolveToolCall('legacy','kanvas_config_update',{sessionId:'s',config:{theme:'light'}}).error).toBeDefined();});
+ it('audits every effectful requestId field without changing read selectors',()=>{const definitions=canonicalToolDefinitions();for(const tool of CANONICAL_TOOLS){const example=TOOL_DISCOVERY[tool.name].examples.find(e=>'requestId' in e);if(tool.readOnly||!example)continue;const {requestId:_id,...without}=example;const parsed=tool.schema.safeParse(without);expect(parsed.success,tool.name).toBe(true);expect(definitions.find(t=>t.name===tool.name)!.inputSchema.required??[]).not.toContain('requestId');}});
+ it('archives and restores sessions/displays/views while enforcing owner and grant scope',async()=>{h=await startHarness();const owner=await h.account(),other=await h.account(),p=await principal(owner),outsider=await principal(other),s=await owner.session(),d=await owner.display(s.id);await owner.submit(s.id,[d.id],fact('Synthetic retained view'));const frame=(await h.runtime.service.history.list(await h.runtime.service.display(p,s.id,d.id))).entries.find(e=>e.template==='fact')!;expect(frame.id).toBeTruthy();await expect(h.runtime.service.archive.manage(outsider,{resource:'session',sessionId:s.id})).rejects.toMatchObject({code:'NOT_FOUND'});const restricted=await h.runtime.auth.issueToken(p.userId,'Restricted synthetic grant',['read','publish'],['different-session']);await expect(h.runtime.service.archive.manage({userId:p.userId,tokenId:restricted.token.id},{resource:'session',sessionId:s.id})).rejects.toMatchObject({code:'FORBIDDEN'});
+ await h.runtime.service.archive.manage(p,{resource:'view',sessionId:s.id,targetId:frame.id});expect((await h.runtime.service.history.list(await h.runtime.service.display(p,s.id,d.id))).entries.some(e=>e.id===frame.id)).toBe(false);await h.runtime.service.archive.manage(p,{action:'restore',resource:'view',sessionId:s.id,targetId:frame.id});expect((await h.runtime.service.archive.list(p,{})).items).toHaveLength(0);
+ await h.runtime.service.archive.manage(p,{resource:'display',sessionId:s.id,targetId:d.id});await expect(h.runtime.service.display(p,s.id,d.id)).rejects.toMatchObject({code:'NOT_FOUND'});await h.runtime.service.archive.manage(p,{action:'restore',resource:'display',sessionId:s.id,targetId:d.id});
+ await h.runtime.service.archive.manage(p,{resource:'session',sessionId:s.id});expect((await h.runtime.service.sessions(p)).some(x=>x.id===s.id)).toBe(false);expect((await h.runtime.service.archive.list(p,{})).items).toHaveLength(1);await h.runtime.service.archive.manage(p,{action:'restore',resource:'session',sessionId:s.id});expect((await h.runtime.service.sessions(p)).some(x=>x.id===s.id)).toBe(true);
+ });
+ it('archives the currently navigated historical view without destroying forward history',async()=>{
+   h=await startHarness();const owner=await h.account(),p=await principal(owner),s=await owner.session(),d=await owner.display(s.id);
+   for(const text of ['A','B','C'])await owner.submit(s.id,[d.id],fact(text));
+   let display=await h.runtime.service.display(p,s.id,d.id);
+   const entries=(await h.runtime.service.history.list(display)).entries;
+   const b=entries.find(e=>e.revision===2)!,c=entries.find(e=>e.revision===3)!;
+   await h.runtime.service.navigate(p,{sessionId:s.id,displayIds:[d.id],requestId:randomUUID(),expectedRevisions:{[d.id]:display.revision},direction:'back'});
+   display=await h.runtime.service.display(p,s.id,d.id);expect(display.view?.data.text).toBe('B');expect(display.revision).not.toBe(b.revision);
+   await h.runtime.service.archive.manage(p,{resource:'view',sessionId:s.id,targetId:b.id});
+   expect((await h.runtime.service.display(p,s.id,d.id)).view).toBeNull();
+   expect(await h.runtime.store.get('display-history',c.id,true)).toMatchObject({view:{data:{text:'C'}},archivedAt:expect.any(String)});
+   expect((await h.runtime.service.archive.list(p,{})).items.map(x=>x.targetId)).toEqual(expect.arrayContaining([b.id,c.id]));
+   await h.runtime.service.archive.manage(p,{action:'restore',resource:'view',sessionId:s.id,targetId:c.id});
+   expect((await h.runtime.service.history.list(await h.runtime.service.display(p,s.id,d.id))).entries.some(e=>e.id===c.id)).toBe(true);
+ });
+ it.each(['display','session'] as const)('archives a current retained view beneath an archived %s',async(parent)=>{
+   h=await startHarness();const owner=await h.account(),p=await principal(owner),s=await owner.session(),d=await owner.display(s.id);
+   await owner.submit(s.id,[d.id],fact('Retained content'));
+   const frame=(await h.runtime.service.history.list(await h.runtime.service.display(p,s.id,d.id))).entries.find(e=>e.template==='fact')!;
+   await h.runtime.service.archive.manage(p,{resource:parent,sessionId:s.id,...(parent==='display'?{targetId:d.id}:{})});
+   await h.runtime.service.archive.manage(p,{resource:'view',sessionId:s.id,targetId:frame.id});
+   await h.runtime.service.archive.manage(p,{action:'restore',resource:parent,sessionId:s.id,...(parent==='display'?{targetId:d.id}:{})});
+   expect((await h.runtime.service.display(p,s.id,d.id)).view).toBeNull();
+   expect(await h.runtime.store.get('display-history',frame.id,true)).toMatchObject({view:{data:{text:'Retained content'}},archivedAt:expect.any(String)});
+ });
+ it('keeps live-history overflow recoverable rather than permanently pruning source',async()=>{
+   h=await startHarness();const owner=await h.account(),p=await principal(owner),s=await owner.session(),d=await owner.display(s.id);
+   process.env.KANVAS_MAX_VIEWS_PER_SESSION='100';
+   const display=await h.runtime.service.display(p,s.id,d.id);await h.runtime.service.history.ensure(display);
+   for(let i=1;i<=62;i++){display.revision=i;display.view=fact(`Retained ${i}`);await h.runtime.service.history.record(display,'test');}
+   const retained=await h.runtime.store.list<{view:unknown;archivedAt?:string}>('display-history',s.id,true);
+   expect(retained.filter(e=>e.view)).toHaveLength(62);
+   expect(retained.some(e=>e.view&&e.archivedAt)).toBe(true);
+   expect((await h.runtime.service.history.list(display)).entries).toHaveLength(60);
+ });
+ it('requires an unexpired target-bound one-use visual code for permanent deletion',async()=>{h=await startHarness();const owner=await h.account(),p=await principal(owner),s=await owner.session(),d=await owner.display(s.id);const input={resource:'display',sessionId:s.id,targetId:d.id,confirmationDisplayId:d.id} as const;const challenge:any=await h.runtime.service.archive.manage(p,{...input,action:'request-delete'});expect(challenge.words).toBeUndefined();const row:any=await h.runtime.store.get('delete-challenge',challenge.challengeId);const toast:any=await h.runtime.store.get('toast',row.toastId);expect(toast.text).toContain('cannot be undone');expect(toast.ownerId).toBe(p.userId);const words=/seconds: (.+)\. Otherwise/.exec(toast.text)![1];
+ const wrong:any=await h.runtime.service.archive.manage(p,{...input,action:'confirm-delete',challengeId:challenge.challengeId,words:'wrong words'});expect(wrong.deleted).toBe(false);row.expiresAt=Date.now()-1;await h.runtime.store.put('delete-challenge',row);await expect(h.runtime.service.archive.manage(p,{...input,action:'confirm-delete',challengeId:challenge.challengeId,words})).rejects.toMatchObject({code:'CONFIRMATION_EXPIRED'});
+ const fresh:any=await h.runtime.service.archive.manage(p,{...input,action:'request-delete'});const r:any=await h.runtime.store.get('delete-challenge',fresh.challengeId),t:any=await h.runtime.store.get('toast',r.toastId);const code=/seconds: (.+)\. Otherwise/.exec(t.text)![1];expect(await h.runtime.service.archive.manage(p,{...input,action:'confirm-delete',challengeId:fresh.challengeId,words:code})).toMatchObject({deleted:true,recoverable:false});expect(await h.runtime.store.get('display',d.id,true)).toBeUndefined();await expect(h.runtime.service.archive.manage(p,{...input,action:'confirm-delete',challengeId:fresh.challengeId,words:code})).rejects.toBeDefined();
+ });
+ it('enforces configurable creation limits without removing existing content',async()=>{h=await startHarness();const owner=await h.account(),p=await principal(owner),s=await owner.session(),d=await owner.display(s.id);process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT='1';await expect(h.runtime.service.createSession(p,'Blocked')).rejects.toMatchObject({code:'LIMIT_REACHED'});expect((await h.runtime.service.sessions(p)).some(x=>x.id===s.id)).toBe(true);process.env.KANVAS_MAX_VIEWS_PER_SESSION='1';await owner.submit(s.id,[d.id],fact('First'));await expect(h.runtime.service.submit(p,{sessionId:s.id,displayIds:[d.id],requestId:randomUUID(),view:fact('Second')})).rejects.toMatchObject({code:'LIMIT_REACHED'});expect((await h.runtime.service.display(p,s.id,d.id)).view?.data.text).toBe('First');
+ });
+ it('writes settings to explicit account/team scopes with revisions and admin authorization',async()=>{h=await startHarness();const owner=await h.account(),other=await h.account(),p=await principal(owner),q=await principal(other),s=await owner.session(),os=await other.session();const team:any=await h.runtime.service.accounts.create(p,{kind:'team',name:'Synthetic team',requestId:randomUUID()});await h.runtime.service.experience.scopedSettings(p,{sessionId:s.id,scope:'team',groupId:team.id,expectedRevision:team.revision,config:{timeFormat:'24h',unitSystem:'metric'}});await expect(h.runtime.service.experience.scopedSettings(q,{sessionId:os.id,scope:'team',groupId:team.id,expectedRevision:1,config:{timeFormat:'12h'}})).rejects.toMatchObject({code:'NOT_FOUND'});await h.runtime.service.accounts.setContext(p,{sessionId:s.id,teamId:team.id,expectedRevision:0});expect((await h.runtime.service.access(p,s.id)).config.timeFormat).toBe('24h');const prefs=await h.runtime.service.experience.defaults(p.userId);await h.runtime.service.experience.scopedSettings(p,{sessionId:s.id,scope:'account',expectedRevision:prefs.revision,config:{timeFormat:'12h'}});expect((await h.runtime.service.access(p,s.id)).config.timeFormat).toBe('12h');await h.runtime.service.updateConfig(p,s.id,0,{timeFormat:'24h'});expect((await h.runtime.service.access(p,s.id)).config.timeFormat).toBe('24h');
+ });
+ it('lists cross-session connections without exposing inaccessible sessions',async()=>{h=await startHarness();const owner=await h.account(),other=await h.account(),p=await principal(owner);await owner.session('Mine');await other.session('Private other');const result=await h.runtime.service.topology.acrossSessions(p,{});expect(JSON.stringify(result)).not.toContain('Private other');expect(result).toHaveProperty('sessions');});
+});

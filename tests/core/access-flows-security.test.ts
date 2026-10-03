@@ -1,3 +1,4 @@
+import { legacySelectedCode } from './legacy-oauth-fixture.js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AssetRecord, ViewSpec } from '../../src/shared/types.js';
@@ -20,10 +21,11 @@ async function authorize(browser: Browser, clientId: string) {
   expect(typeof requestId).toBe('string'); await response.arrayBuffer();
   return { requestId: requestId!, verifier };
 }
-async function consent(owner: Browser, requestId: string, sessionIds: string[]) {
-  const result = success(await owner.request<{ redirectUri: string }>('POST', '/api/oauth/approve', { requestId, approve: true, sessionIds }));
+async function consent(h:Harness, owner: Browser, requestId: string, sessionIds: string[]) {
+  const result = success(await owner.request<{ redirectUri: string }>('POST', '/api/oauth/approve', { requestId, approve: true, accessMode:'account' }));
   const code = new URL(result.redirectUri).searchParams.get('code');
   expect(typeof code).toBe('string');
+  await legacySelectedCode(h,code!,sessionIds);
   return code!;
 }
 async function exchange(browser: Browser, clientId: string, code: string, verifier: string) {
@@ -59,7 +61,7 @@ describe('authorization expiry and paired-screen exchange boundaries', () => {
     const owner = await h.account(), session = await owner.session(), browser = h.browser(), clientId = await client(browser);
     const pending = await authorize(browser, clientId);
     denied(await owner.request('POST', '/api/oauth/approve', { requestId: pending.requestId, approve: true, sessionIds: [] }), [400, 422]);
-    const live = await authorize(browser, clientId), code = await consent(owner, live.requestId, [session.id]);
+    const live = await authorize(browser, clientId), code = await consent(h, owner, live.requestId, [session.id]);
     const time = Date.now(); vi.spyOn(Date, 'now').mockReturnValue(time + 3 * 60_000);
     const expiredCode = await exchange(browser, clientId, code, live.verifier);
     expect(expiredCode.response.status).toBe(400); expect(expiredCode.body.error).toBe('invalid_grant'); expect(expiredCode.body.access_token).toBeUndefined();
@@ -72,7 +74,7 @@ describe('authorization expiry and paired-screen exchange boundaries', () => {
   it('rechecks membership between consent and token exchange', async () => {
     const owner = await h.account(), editor = await h.account(), session = await owner.session(), browser = h.browser();
     success(await owner.request('POST', `/api/sessions/${session.id}/members`, { username: editor.user!.username, role: 'editor' }));
-    const clientId = await client(browser), pending = await authorize(browser, clientId), code = await consent(editor, pending.requestId, [session.id]);
+    const clientId = await client(browser), pending = await authorize(browser, clientId), code = await consent(h, editor, pending.requestId, [session.id]);
     success(await owner.request('DELETE', `/api/sessions/${session.id}/members/${editor.user!.id}`));
     const attempted = await exchange(browser, clientId, code, pending.verifier);
     expect(attempted.response.status).toBe(400); expect(attempted.body.error).toBe('invalid_grant'); expect(attempted.body.access_token).toBeUndefined();

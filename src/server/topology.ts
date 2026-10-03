@@ -50,6 +50,14 @@ export class Topology {
     }else (await this.service.fullAccount(p));
     return (await this.project(a,session,locationVisible,p.userId));
   }
+  async acrossSessions(p:AuthPrincipal,raw:unknown){
+    const a=topologyQuerySchema.extend({sessionId:topologyQuerySchema.shape.sessionId.optional()}).parse(raw);
+    if(a.sessionId)return this.snapshot(p,a);
+    await this.service.fullAccount(p);
+    const sessions=await this.service.sessions(p),results=[];
+    for(const session of sessions.filter(s=>!s.endedAt))results.push(await this.snapshot(p,{...a,sessionId:session.id,includeOffline:false}));
+    return {sessions:results.filter(s=>s.counts.windows>0),note:'Live displays across all sessions this connection may access. Use connection.redirect with the source sessionId and connectionId to move your own existing window to a target session/display; do not ask the user to open another URL.'};
+  }
   /** Anonymous access projects only this explicitly published topology view. */
   async publicDisplay(sessionId:string,displayId:string):Promise<Awaited<SessionTopology>>{
     const session=(await this.service.store.get<SessionRecord>('session',sessionId)),d=(await this.service.store.get<DisplayRecord>('display',displayId)),leaf=displayedLeaf(d?.view??null);

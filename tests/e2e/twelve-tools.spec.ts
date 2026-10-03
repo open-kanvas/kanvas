@@ -1,3 +1,4 @@
+import { OPERATION_ENTRIES } from '../../src/server/mcp/operations.js';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import type { DisplayRecord, InteractionRecord, SessionRecord, UpdateRecord } from '../../src/shared/types';
 import type { ReportPage, ReportRecord } from '../../src/shared/reports';
@@ -17,7 +18,7 @@ test('core-tool workflow preserves exact content, actual painting, viewer input 
   try {
     const catalog = await client.listTools();
     expect(catalog.tools).toHaveLength(12);
-    expect(catalog.tools.flatMap(tool => tool.inputSchema.oneOf as unknown[])).toHaveLength(116);
+    expect(catalog.tools.flatMap(tool => tool.inputSchema.oneOf as unknown[])).toHaveLength(OPERATION_ENTRIES.length);
     expect(catalog.tools.some(tool => tool.name === 'kanvas_submit')).toBe(false);
     const session = await call<SessionRecord>('kanvas_session', 'create', { name: 'Twelve-tool exact source workflow' });
     const sessionId = session.id;

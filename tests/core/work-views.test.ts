@@ -9,7 +9,7 @@ import type {ViewSpec,UpdateRecord} from '../../src/shared/types.js';
 describe('September 17 source-driven work views',()=>{
   let h:Harness,b:Browser,s:string,d:string;const interpret=vi.fn(async()=>{throw new Error('Unexpected source preparation for prepared content');});
   beforeEach(async()=>{interpret.mockClear();h=await startHarness({interpreter:{interpret}});b=await h.account();s=(await b.session()).id;d=(await b.display(s)).id;});
-  afterEach(async()=>{await h?.close();});
+  afterEach(async()=>{delete process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT;await h?.close();});
   const call=async (name:string,args:unknown,owner=b)=>(await h.runtime.service.execute(name,args,{userId:owner.user!.id}));
   it.each(Object.entries(workExamples))('publishes the %s contract without reinterpreting content or losing source',async(_name,example)=>{
     const view=validateView(example),{update,detail}=await b.submit(s,[d],view);
@@ -46,6 +46,7 @@ describe('September 17 source-driven work views',()=>{
     const display=(await b.detail(s)).displays[0];expect(display.revision).toBe(2);expect(display.view!.data.messages).toEqual([first,args.messages[0]]);
   });
   it('offers recent ten and older sessions read-only, and renames only with owner/config-revision authority',async()=>{
+    process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT='100';
     for(let i=0;i<11;i++)await b.session(`Source session ${i}`);
     const records=()=>h.runtime.store.query('SELECT kind,id,session_id,value FROM documents ORDER BY rowid');const before=(await records()).rows;
     const page=await call('kanvas_start_read',{}) as any,older=await call('kanvas_start_read',{offset:10}) as any;

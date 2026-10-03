@@ -150,10 +150,54 @@ export function compactSchemaReferences(schema: Record<string, unknown>): Record
     schemas(result,node=>{for(const key of ['description','title','default','examples','deprecated','readOnly','writeOnly'])delete node[key];});
     shareRepeated(16,14);
     pruneAliases();
+    // Closed discriminated unions can share a common array upper bound while
+    // branches with a tighter bound retain it. This preserves source-template
+    // actions: ordinary slides allow up to eight; reading records allow none.
+    const dereference=(value:unknown):Record<string,unknown>|undefined=>{
+      if(!value||typeof value!=='object'||Array.isArray(value))return;
+      let node=value as Record<string,unknown>;const seen=new Set<string>();
+      while(Object.keys(node).length===1&&typeof node.$ref==='string'){
+        const match=/^#\/\$defs\/([^/]+)$/.exec(node.$ref);if(!match||seen.has(match[1]))return;seen.add(match[1]);
+        const next=result.$defs[match[1]];if(!next||typeof next!=='object'||Array.isArray(next))return;node=next as Record<string,unknown>;
+      }
+      return node;
+    };
+    schemas(result,node=>{
+      const branches=(node.anyOf??node.oneOf) as Record<string,unknown>[]|undefined;
+      if(node.unevaluatedProperties!==false||!Array.isArray(branches)||branches.length<2||!node.properties)return;
+      const first=branches[0].properties;if(!first||typeof first!=='object')return;
+      for(const key of Object.keys(first)){
+        const fields=branches.map(branch=>(branch.properties as Record<string,unknown>|undefined)?.[key]),resolved=fields.map(dereference);
+        if(!resolved.every(field=>field?.type==='array'&&typeof field.maxItems==='number'))continue;
+        const withoutLimit=(field:Record<string,unknown>)=>JSON.stringify(Object.fromEntries(Object.entries(field).filter(([key])=>key!=='maxItems')));
+        if(!resolved.every(field=>withoutLimit(field!)===withoutLimit(resolved[0]!)))continue;
+        const maximum=Math.max(...resolved.map(field=>field!.maxItems as number)),index=resolved.findIndex(field=>field!.maxItems===maximum);
+        (node.properties as Record<string,unknown>)[key]=fields[index];
+        branches.forEach((branch,index)=>{if(resolved[index]!.maxItems===maximum)delete (branch.properties as Record<string,unknown>)[key];});
+      }
+    });
+    pruneAliases();
     const alphabet='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
     const names=new Map(Object.keys(result.$defs).map((key,index)=>[key,alphabet[index%alphabet.length]+(index<alphabet.length?'':Math.floor(index/alphabet.length).toString(36))]));
     schemas(result,node=>{if(typeof node.$ref==='string'){const match=/^#\/\$defs\/([^/]+)$/.exec(node.$ref);if(match&&names.has(match[1]))node.$ref=`#${names.get(match[1])}`;}});
     result.$defs=Object.fromEntries(Object.entries(result.$defs).map(([key,value])=>[names.get(key)!,{...(value as Record<string,unknown>),$anchor:names.get(key)!}]));
+    // Deduplication can leave single-use or tiny definitions whose anchor and
+    // reference cost more bytes than the complete schema. Inline only pure
+    // references, choosing actual encoded savings, and never recursive edges.
+    for (;;) {
+      const uses=new Map<string,Record<string,unknown>[]>();
+      schemas(result,node=>{if(typeof node.$ref==='string'){const locations=uses.get(node.$ref)??[];locations.push(node);uses.set(node.$ref,locations);}});
+      const candidate=Object.entries(result.$defs).map(([name,definition])=>{
+        const refs=uses.get(`#${name}`)??[],{$anchor:_anchor,...body}=definition as Record<string,unknown>;
+        let recursive=false;schemas(body,node=>{if(node.$ref===`#${name}`)recursive=true;});
+        const savings=JSON.stringify({[name]:definition}).length-2+refs.length*(JSON.stringify({$ref:`#${name}`}).length-JSON.stringify(body).length);
+        return {name,body,refs,savings,recursive};
+      }).filter(x=>!x.recursive&&x.refs.length>0&&x.refs.every(node=>Object.keys(node).length===1)&&x.savings>0).sort((a,b)=>b.savings-a.savings)[0];
+      if(!candidate)break;
+      for(const node of candidate.refs){delete node.$ref;Object.assign(node,structuredClone(candidate.body));}
+      delete result.$defs[candidate.name];
+    }
+
   }
   return result;
 }

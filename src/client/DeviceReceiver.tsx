@@ -1,3 +1,4 @@
+import { Wordmark } from './icons';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { api, errorMessage, viewerPath } from './api';
 import { useAuth } from './hooks';
@@ -38,5 +39,5 @@ export function DeviceReceiver({children}:{children:ReactNode}){
 export function LiveEntry(){
   const {device,error}=useDevice(),[failure,setFailure]=useState<string>();
   useEffect(()=>{if(!device)return;let alive=true;void api<{sessionId:string;displayId:string}>('/api/entry/open',{method:'POST',body:{deviceId:device.id}}).then(t=>{if(alive)location.replace(viewerPath(t.sessionId,t.displayId));}).catch(e=>{if(alive)setFailure(errorMessage(e));});return()=>{alive=false;};},[device?.id]);
-  return <main className="app-loading"><h1>Opening KANVAS</h1>{failure||error?<><p role="alert">{failure??error}</p><button className="button" onClick={()=>location.reload()}>Try again</button></>:<><span className="spinner"/><p>Connecting this screen…</p></>}</main>;
+  return <main className="app-loading"><Wordmark/><h1>Opening KANVAS</h1>{failure||error?<><p role="alert">{failure??error}</p><button className="button" onClick={()=>location.reload()}>Try again</button></>:<><span className="spinner"/><p>Connecting this screen…</p></>}</main>;
 }

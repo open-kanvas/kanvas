@@ -279,7 +279,7 @@ export class KanvasService implements McpService {
     (await this.fullAccount(principal, 'publish'));
     if (principal.tokenId && (await this.store.get<{sessionIds?:string[]}>('token', principal.tokenId))?.sessionIds) throw new AppError('FORBIDDEN', 'A session-scoped client cannot create another session. Create it in the workspace.', 403);
     const sessionLimit=(await accountUsageLimits(this.store,principal.userId)).sessions;
-    if ((await this.store.list<SessionRecord>('session',undefined,true)).filter(s => s.ownerId === principal.userId).length >= sessionLimit) throw new AppError('LIMIT_REACHED', `Free account session limit (${sessionLimit}) reached. Existing sessions remain available. Contact the administrator about upgrading. Archived sessions still count.`, 429);
+    if ((await this.store.list<SessionRecord>('session',undefined,true)).filter(s => s.ownerId === principal.userId).length >= sessionLimit) throw new AppError('LIMIT_REACHED', `Trial account session limit (${sessionLimit}) reached. Existing sessions remain available. Contact the administrator about upgrading. Archived sessions still count.`, 429);
     const session: SessionRecord = { id: id(), name, ownerId: principal.userId, config: copy((await this.experience.defaults(principal.userId)).config), configRevision: 0, createdAt: now(), updatedAt: now() };
     (await this.store.transaction(async () => { (await this.store.put('session', session)); (await this.store.db.prepare('INSERT INTO members VALUES(?,?,?)').run(session.id, principal.userId, 'owner')); }));
     (await this.accounts.audit('session.created',{actorId:principal.userId,sessionId:session.id}));
@@ -600,7 +600,7 @@ export class KanvasService implements McpService {
     const viewLimit=(await sessionUsageLimits(this.store,input.sessionId)).views;
     const retained=(await this.store.list<{view:unknown}>('display-history',input.sessionId,true)).filter(entry=>entry.view).length;
     const pending=(await this.store.list<UpdateRecord>('update',input.sessionId)).filter(u=>['accepted','rendering'].includes(u.status)).reduce((n,u)=>n+u.displayIds.length,0);
-    if(retained+pending+displays.length>viewLimit)throw new AppError('LIMIT_REACHED',`Free session view limit (${viewLimit}) reached. Existing views remain available. Contact the administrator about upgrading. Archived views still count.`,429);
+    if(retained+pending+displays.length>viewLimit)throw new AppError('LIMIT_REACHED',`Trial session view limit (${viewLimit}) reached. Existing views remain available. Contact the administrator about upgrading. Archived views still count.`,429);
 
     if (input.datasetId && !(await this.store.list<DatasetRecord>('dataset', input.sessionId)).some(d => d.id === input.datasetId)) throw new AppError('NOT_FOUND', 'The supplied dataset is unavailable.', 404);
     for (const assetId of input.assetIds ?? []) (await this.asset(principal, assetId, input.sessionId));

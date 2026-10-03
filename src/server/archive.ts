@@ -28,7 +28,7 @@ export class Archive {
      if(session.archivedAt)items.push({resource:'session',sessionId:session.id,targetId:session.id,name:session.name,archivedAt:session.archivedAt});
      for(const resource of ['display','view'] as const)for(const target of await this.service.store.list<Target>(this.kind(resource),session.id,true))if(target.archivedAt)items.push({resource,sessionId:session.id,targetId:target.id,name:target.name,revision:target.revision,archivedAt:target.archivedAt});
    }
-   return {items,retention:'Archived items are kept indefinitely and still count toward free limits. Restore explicitly; permanent deletion requires a fresh 120-second visual confirmation.'};
+   return {items,retention:'Archived items are kept indefinitely and still count toward trial limits. Restore explicitly; permanent deletion requires a fresh 120-second visual confirmation.'};
  }
  async manage(p:AuthPrincipal,raw:unknown){return this.service.store.atomic(async()=>this.service.store.transaction(async()=>{
    const a=archiveSchema.parse(raw),store=this.service.store;

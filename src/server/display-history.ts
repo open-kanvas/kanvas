@@ -41,7 +41,7 @@ export class DisplayHistory {
   private async append(display: HistoricalDisplay, reason: string, timeline: Timeline): Promise<Awaited<void>> {
     for (const key of timeline.entries.splice(timeline.cursor + 1)) await this.archiveEntry(key);
     const limit=(await sessionUsageLimits(this.store,display.sessionId)).views;
-    if(display.view&&(await this.store.list<Entry>('display-history',display.sessionId,true)).filter(e=>e.view).length>=limit)throw new AppError('LIMIT_REACHED',`Free session view limit (${limit}) reached. Existing views remain available. Contact the administrator about upgrading. Archived views still count.`,429);
+    if(display.view&&(await this.store.list<Entry>('display-history',display.sessionId,true)).filter(e=>e.view).length>=limit)throw new AppError('LIMIT_REACHED',`Trial session view limit (${limit}) reached. Existing views remain available. Contact the administrator about upgrading. Archived views still count.`,429);
     const entry: Entry = { id: id(), sessionId: display.sessionId, displayId: display.id, revision: display.revision, view: structuredClone(display.view), createdAt: display.updatedAt, reason, interactionEpoch: display.interactionEpoch };
     (await this.store.put('display-history', entry)); timeline.entries.push(entry.id); timeline.cursor = timeline.entries.length - 1;
     const size = async () => (await asyncReduce(timeline.entries, async (total, key) => total + Buffer.byteLength(JSON.stringify((await this.store.get<Entry>('display-history', key)) ?? {})), 0));

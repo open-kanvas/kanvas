@@ -1,3 +1,4 @@
+import { geographyPoints } from '../../shared/geography/points';
 import boundaries from '../../shared/geography/boundaries.json';
 import { geographyCodes } from '../../shared/geography/codes';
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
@@ -319,24 +320,26 @@ function SankeyPlot({ data, width, height, inspect, details }: PlotProps) {
   </Svg>{details && <ChartKey inspect={inspect} className="advanced-key-grid" items={layout.nodes.map((placed, index) => ({ id: placed.node.id, index: index + 1, color: color(index), label: placed.node.label ?? placed.node.id, value: `${pretty(placed.incoming)} in · ${pretty(placed.outgoing)} out${data.unit ? ` ${data.unit}` : ''}` }))} />}</div>;
 }
 
-export function regionGeometry(region: NonNullable<ChartData['regions']>[number]):ChartGeometry { return region.geometry ?? (boundaries as unknown as Record<string,{geometry:ChartGeometry}>)[geographyCodes[region.countryCode!.toUpperCase()]].geometry; }
+export function regionGeometry(region: NonNullable<ChartData['regions']>[number]):ChartGeometry { return region.geometry ?? (boundaries as unknown as Record<string,{geometry:ChartGeometry}>)[geographyCodes[region.countryCode!.toUpperCase()]]?.geometry ?? {type:'Polygon',coordinates:[]}; }
 function geometryRings(geometry: ChartGeometry): [number, number][][] { return geometry.type === 'Polygon' ? geometry.coordinates : geometry.coordinates.flat(); }
 export function choroplethPaths(data: ChartData, width: number, height: number): { id: string; path: string }[] {
-  let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
-  for (const region of data.regions ?? []) for (const ring of geometryRings(regionGeometry(region))) for (const [x, y] of ring) { xMin = Math.min(xMin, x); xMax = Math.max(xMax, x); yMin = Math.min(yMin, y); yMax = Math.max(yMax, y); }
-  const scale = Math.min((width - 36) / (xMax - xMin || 1), (height - 36) / (yMax - yMin || 1)), ox = (width - (xMax - xMin) * scale) / 2, oy = (height - (yMax - yMin) * scale) / 2;
-  const project = ([x, y]: [number, number]) => `${ox + (x - xMin) * scale},${oy + (yMax - y) * scale}`;
-  return (data.regions ?? []).map(region => ({ id: region.id, path: geometryRings(regionGeometry(region)).map(ring => `${ring.map((position, index) => `${index ? 'L' : 'M'}${project(position)}`).join(' ')} Z`).join(' ') }));
+  const entries=(data.regions??[]).map(region=>({region,rings:geometryRings(regionGeometry(region)),point:region.geometry?undefined:geographyPoints[geographyCodes[region.countryCode!.toUpperCase()]]}));
+  const coordinates=entries.flatMap(e=>e.point?[e.point]:e.rings.flat());if(!coordinates.length)return [];
+  const xs=coordinates.map(p=>p[0]),ys=coordinates.map(p=>p[1]),xMin=Math.min(...xs),xMax=Math.max(...xs),yMin=Math.min(...ys),yMax=Math.max(...ys);
+  const scale=Math.min((width-36)/(xMax-xMin||1),(height-36)/(yMax-yMin||1)),ox=(width-(xMax-xMin)*scale)/2,oy=(height-(yMax-yMin)*scale)/2;
+  const project=([x,y]:[number,number])=>[ox+(x-xMin)*scale,oy+(yMax-y)*scale];
+  return entries.filter(e=>e.point||e.rings.length).map(({region,rings,point})=>{if(point){const [x,y]=project(point);return {id:region.id,path:`M${x-5},${y}a5,5 0 1,0 10,0a5,5 0 1,0 -10,0`};}return {id:region.id,path:rings.map(ring=>`${ring.map((p,i)=>`${i?'L':'M'}${project(p).join(',')}`).join(' ')} Z`).join(' ')};});
 }
+
 function ChoroplethPlot({ data, width, height, inspect, uid, details }: PlotProps) {
   const pretty = useAxisNumber();
-  const regions = data.regions ?? [], plotHeight = Math.max(310, Math.min(height - 55, 640)), paths = useMemo(() => choroplethPaths(data, width, plotHeight), [data, width, plotHeight]);
+  const excluded=(data.regions??[]).filter(r=>!r.geometry&&!geographyCodes[r.countryCode!.toUpperCase()]), regions=(data.regions??[]).filter(r=>!excluded.includes(r)), plotHeight = Math.max(310, Math.min(height - 55, 640)), paths = useMemo(() => choroplethPaths(data, width, plotHeight), [data, width, plotHeight]);
   const values = regions.flatMap(region => number(region.value) ? [region.value] : []), min = Math.min(...values), max = Math.max(...values), magnitude = Math.max(Math.abs(min), Math.abs(max));
   const fill = (value: number) => min < 0 && max > 0 ? value < 0 ? falling : 'var(--accent)' : 'var(--accent)';
   const opacity = (value: number) => min < 0 && max > 0 ? .22 + .73 * Math.abs(value) / magnitude : min === max ? .76 : .2 + .75 * ((value - min) / (max - min));
-  return <div className="advanced-hierarchy"><Svg width={width} height={plotHeight} title="Choropleth of supplied region boundaries; unobserved regions remain no data">
+  return <div className="advanced-hierarchy">{!!excluded.length&&<p role="status" className="choropleth-warning">Not mapped (unsupported codes): {excluded.map(r=>`${r.label??r.id} (${r.countryCode})`).join(', ')}. Supply GeoJSON to include these regions.</p>}{regions.some(r=>!r.geometry&&geographyPoints[geographyCodes[r.countryCode!.toUpperCase()]])&&<small>Dots mark approximate small-territory locations, not area or boundaries.</small>}<Svg width={width} height={plotHeight} title="Choropleth of supplied region boundaries; unobserved regions remain no data">
     <defs><pattern id={`${uid}-missing`} patternUnits="userSpaceOnUse" width="8" height="8"><path d="M-2,2 L2,-2 M0,8 L8,0 M6,10 L10,6" stroke="var(--muted)" strokeOpacity=".4" strokeWidth="1" /></pattern></defs>
-    {regions.map((region, index) => { const description = `${region.label ?? region.id}: ${region.value === null || region.value === undefined ? 'No data' : exact(region.raw?.value ?? region.value)}${number(region.value) && data.unit ? ` ${data.unit}` : ''}`; return <path key={region.id} d={paths[index]?.path} fill={number(region.value) ? fill(region.value) : `url(#${uid}-missing)`} fillOpacity={number(region.value) ? opacity(region.value) : 1} fillRule="evenodd" stroke="var(--text)" strokeOpacity=".65" strokeWidth="1.2" vectorEffect="non-scaling-stroke" {...mark(description, inspect, 'choropleth-region')} data-chart-region={region.id} data-chart-value={region.value ?? 'no-data'}><title>{description}</title></path>; })}
+    {regions.map((region, index) => { const description = `${region.label ?? region.id}: ${region.value === null || region.value === undefined ? 'No data' : exact(region.raw?.value ?? region.value)}${number(region.value) && data.unit ? ` ${data.unit}` : ''}`; return <path key={region.id} d={paths.find(p=>p.id===region.id)?.path} fill={number(region.value) ? fill(region.value) : `url(#${uid}-missing)`} fillOpacity={number(region.value) ? opacity(region.value) : 1} fillRule="evenodd" stroke="var(--text)" strokeOpacity=".65" strokeWidth="1.2" vectorEffect="non-scaling-stroke" {...mark(description, inspect, 'choropleth-region')} data-chart-region={region.id} data-chart-value={region.value ?? 'no-data'}><title>{description}</title></path>; })}
   </Svg>{values.length > 0 && <div className="advanced-color-scale" aria-label={`Color scale ${min} to ${max}${data.unit ? ` ${data.unit}` : ''}`}><span>{pretty(min)}</span><i style={{ background: min < 0 && max > 0 ? `linear-gradient(90deg, ${falling}, var(--surface), var(--accent))` : 'linear-gradient(90deg, color-mix(in srgb, var(--accent) 20%, var(--surface)), var(--accent))' }} /><span>{pretty(max)}{data.unit ? ` ${data.unit}` : ''}</span></div>}
   {details && <ChartKey inspect={inspect} className="advanced-key-grid" items={regions.map(region => ({ id: region.id, label: region.label ?? region.id, value: number(region.value) ? exact(region.raw?.value ?? region.value) : 'No data', ...(number(region.value) ? { color: fill(region.value) } : {}) }))} />}</div>;
 }

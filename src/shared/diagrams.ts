@@ -37,13 +37,22 @@ export function diagramLayout(data:DiagramData,hierarchy=false,availableWidth=In
   }
   const narrow=availableWidth<600,circular=data.layout==='circular'&&!narrow,horizontal=data.layout==='left-right'&&!narrow;
   const rows=new Map<number,string[]>();for(const node of data.nodes){const level=levels.get(node.id)!;rows.set(level,[...(rows.get(level)??[]),node.id]);}
+  const branchSlots=new Map<string,number>(),branchCenters=new Map<string,number>();
+  if(hierarchy){
+    const children=(id:string)=>data.nodes.filter(n=>n.parentId===id);
+    const count=(id:string):number=>{const value=Math.max(1,children(id).reduce((sum,n)=>sum+count(n.id),0));branchSlots.set(id,value);return value;};
+    roots.forEach(n=>count(n.id));let offset=0;
+    const place=(id:string,start:number)=>{const size=branchSlots.get(id)!;branchCenters.set(id,start+size/2);let childOffset=start;for(const child of children(id)){place(child.id,childOffset);childOffset+=branchSlots.get(child.id)!;}};
+    roots.forEach(n=>{place(n.id,offset);offset+=branchSlots.get(n.id)!;});
+  }
+  const totalSlots=Math.max(1,roots.reduce((sum,n)=>sum+(branchSlots.get(n.id)??0),0));
   const maxRow=Math.max(...[...rows.values()].map(r=>r.length)),maxHeight=Math.max(...data.nodes.map(diagramNodeHeight)),step=maxHeight+40;
-  const width=narrow?Math.max(320,availableWidth):circular?Math.max(660,data.nodes.length*70):horizontal?Math.max(660,rows.size*320):Math.max(660,maxRow*280);
-  const height=narrow?Math.max(400,data.nodes.length*step):circular?Math.max(width,maxHeight*3):horizontal?Math.max(400,maxRow*step):Math.max(400,rows.size*step);
+  const width=narrow?Math.max(320,availableWidth):circular?Math.max(660,data.nodes.length*70):horizontal?Math.max(660,rows.size*320):Math.max(660,(hierarchy?totalSlots:maxRow)*280);
+  const height=narrow?Math.max(400,data.nodes.length*step):circular?Math.max(width,maxHeight*3):horizontal?Math.max(400,(hierarchy?totalSlots:maxRow)*step):Math.max(400,rows.size*step);
   const nodes=data.nodes.map((node,index)=>{
     const row=rows.get(levels.get(node.id)!)!,col=row.indexOf(node.id),angle=index/data.nodes.length*Math.PI*2-Math.PI/2;
-    let x=narrow?width/2:circular?width/2+Math.cos(angle)*(width/2-140):horizontal?160+levels.get(node.id)!*320:(col+.5)*width/row.length;
-    let y=narrow?step/2+order.indexOf(node.id)*step:circular?height/2+Math.sin(angle)*(height/2-maxHeight/2-30):horizontal?(col+.5)*height/row.length:step/2+levels.get(node.id)!*step;
+    let x=narrow?width/2:circular?width/2+Math.cos(angle)*(width/2-140):horizontal?160+levels.get(node.id)!*320:hierarchy?branchCenters.get(node.id)!*width/totalSlots:(col+.5)*width/row.length;
+    let y=narrow?step/2+order.indexOf(node.id)*step:circular?height/2+Math.sin(angle)*(height/2-maxHeight/2-30):horizontal?(hierarchy?branchCenters.get(node.id)!*height/totalSlots:(col+.5)*height/row.length):step/2+levels.get(node.id)!*step;
     if(node.x!==undefined&&node.y!==undefined){x=124+node.x*(width-248);y=maxHeight/2+20+node.y*(height-maxHeight-40);}
     return {...node,x,y,height:diagramNodeHeight(node)};
   });return {width,height,nodes,edges,narrow,step};

@@ -115,17 +115,17 @@ export function BrowsingProvider({view,sessionId,displayId,revision,config,enabl
     const el=root.current;if(!el||!enabled)return;let cancelled=false;
     const frame=requestAnimationFrame(()=>requestAnimationFrame(()=>{
       if(cancelled||!el.isConnected)return;
-      const caps=navigationCapabilities(view,state),scroll=scrollElement(el);
+      const caps=navigationCapabilities(view,state),panel=state.panelId?[...el.querySelectorAll<HTMLElement>('[data-code-panel]')].find(p=>p.getAttribute('data-code-panel')===state.panelId):el;let scroll=scrollElement(panel??el);
       const scrollKey=JSON.stringify([state.scroll,state.page,revision,snapshot?.commandId]);
       if(caps.scroll&&!nativeScrollPending.current&&scroll.dataset.readingAuto!=='true'&&scrollKey!==lastScroll.current&&((snapshot?.version??0)>0||busy.current||local)){const x=state.scroll.x*Math.max(0,scroll.scrollWidth-scroll.clientWidth),y=state.scroll.y*Math.max(0,scroll.scrollHeight-scroll.clientHeight);if(Math.abs(scroll.scrollLeft-x)>1||Math.abs(scroll.scrollTop-y)>1){suppress.current=Date.now()+150;scroll.scrollLeft=x;scroll.scrollTop=y;}}
       lastScroll.current=scrollKey;
       const ranges=caps.search?textRanges(el,state.query):[],highlights=caps.highlight?textRanges(el,state.highlight):[];
       const css=CSS as typeof CSS&{highlights?:Map<string,unknown>},HighlightClass=(globalThis as unknown as {Highlight?:new(...ranges:Range[])=>unknown}).Highlight;
       if(css.highlights&&HighlightClass){css.highlights.set('kanvas-search',new HighlightClass(...ranges));css.highlights.set('kanvas-highlight',new HighlightClass(...highlights));}
-      const line=state.line?el.querySelector(`[data-code-line="${state.line}"]`):null,lineRange=line?document.createRange():undefined;if(line&&lineRange)lineRange.selectNodeContents(line);
+      const line=state.line?panel?.querySelector(`[data-code-${state.side==='before'?'before':'after'}="${state.line}"], [data-code-line="${state.line}"]`):null;if(line?.closest<HTMLElement>('[data-navigation-scroll]'))scroll=line.closest<HTMLElement>('[data-navigation-scroll]')!;const lineRange=line?document.createRange():undefined;if(line&&lineRange)lineRange.selectNodeContents(line);
       const focus=lineRange??(state.focus?.text?textRanges(el,state.focus.text)[0]:ranges.length?ranges[state.match%ranges.length]:undefined);
-      const focusKey=JSON.stringify([state.query,state.match,state.focus,state.line,state.page,revision]);
-      if(focus&&focusKey!==lastFocus.current){const rect=focus.getBoundingClientRect(),box=scroll.getBoundingClientRect();suppress.current=Date.now()+200;scroll.scrollTop+=rect.top-box.top+rect.height/2-scroll.clientHeight/2;scroll.scrollLeft+=rect.left-box.left+rect.width/2-scroll.clientWidth/2;}
+      const focusKey=JSON.stringify([state.query,state.match,state.focus,state.line,state.panelId,state.side,state.page,revision]);
+      if(focus&&focusKey!==lastFocus.current){const rect=focus.getBoundingClientRect(),box=scroll.getBoundingClientRect();suppress.current=Date.now()+200;scroll.scrollTop+=rect.top-box.top+rect.height/2-scroll.clientHeight/2;scroll.scrollLeft+=rect.left-box.left+rect.width/2-scroll.clientWidth/2;if(state.panelId&&line instanceof HTMLElement)line.scrollIntoView({block:'nearest',inline:'nearest'});}
       const changedFocus=focusKey!==lastFocus.current;lastFocus.current=focusKey;
       const surface=el.querySelector<HTMLElement>('.render-surface');if(surface&&el.querySelector('.relationship-diagram')){surface.style.transform='';const region=state.focus?.region;if(changedFocus&&region){suppress.current=Date.now()+200;scroll.scrollLeft=(region.x+region.width/2)*scroll.scrollWidth-scroll.clientWidth/2;scroll.scrollTop=(region.y+region.height/2)*scroll.scrollHeight-scroll.clientHeight/2;}}if(surface&&changedFocus&&!el.querySelector('.relationship-diagram')){const zoom=state.focus?.zoom??1,region=state.focus?.region;surface.style.transform='';
         if(region){scroll.scrollLeft=Math.max(0,(region.x+region.width/2)*scroll.scrollWidth-scroll.clientWidth/2);scroll.scrollTop=Math.max(0,(region.y+region.height/2)*scroll.scrollHeight-scroll.clientHeight/2);surface.style.transformOrigin=`${(region.x+region.width/2)*100}% ${(region.y+region.height/2)*100}%`;}

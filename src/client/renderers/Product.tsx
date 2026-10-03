@@ -1,3 +1,4 @@
+import { MediaImage } from './Image';
 import { PRODUCT_ATTRIBUTES, productAttribute, type ProductData } from '../../shared/product';
 import { regionalNumber } from '../../shared/regional';
 import { useRegional } from './Regional';
@@ -5,11 +6,11 @@ import './browsing.css';
 
 export function ProductComparison({ data }: { data: ProductData }) {
   const preferences = useRegional();
-  const attributes = data.attributes ?? PRODUCT_ATTRIBUTES;
+  const supplied=data.attributes??[], attributes=[...PRODUCT_ATTRIBUTES,...supplied.filter(a=>!PRODUCT_ATTRIBUTES.some(b=>b.key===a.key))].map(a=>supplied.find(b=>b.key===a.key)??a);
   const cell = (value: ReturnType<typeof productAttribute>) => value === undefined || value === null
     ? <span className="missing-value">Not supplied</span> : typeof value === 'boolean' ? value ? 'Yes' : 'No' : regionalNumber(value, preferences);
   return <div className="product-comparison">
-    <header><h2>{data.name}</h2>{data.description && <p>{data.description}</p>}</header>
+    <header className="product-comparison-intro">{data.image&&<div className="product-comparison-image"><MediaImage entry={data.image}/></div>}<div><h2>{data.name}</h2>{data.description && <p>{data.description}</p>}</div></header>
     <div className="product-comparison-scroll" role="region" aria-label="Vendor comparison" tabIndex={0}>
       <table><thead><tr><th scope="col">Attribute</th>{data.offers.map((offer, index) => <th key={index} scope="col">{offer.vendor}</th>)}</tr></thead>
         <tbody>{attributes.filter(attribute => attribute.key !== 'url').map(attribute => <tr key={attribute.key}><th scope="row">{attribute.label}</th>{data.offers.map((offer, index) => <td key={index}>{cell(productAttribute(offer, attribute.key))}</td>)}</tr>)}

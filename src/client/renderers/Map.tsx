@@ -7,9 +7,10 @@ import './map-surface.css';
 
 interface Coordinate { lat: number; lng: number }
 export interface MapData {
-  markers?: (Coordinate & { label?: string; description?: string; color?:string;accuracyKm?:number;iconUrl?:string;popupHtml?:string;key?:string;indexLabel?:string })[];
+  markers?: (Coordinate & { label?: string; description?: string; color?:string;accuracyKm?:number;iconUrl?:string;popupHtml?:string;contentDisplay?:'popup'|'permanent';key?:string;indexLabel?:string })[];
   routes?: { name?: string; coordinates: Coordinate[]; color?: string; dashed?:boolean }[];
   polygons?: { name?: string; coordinates: Coordinate[]; color?: string }[];
+  contentDisplay?:'popup'|'permanent';
   center?: Coordinate;
   zoom?: number;
 }
@@ -36,10 +37,11 @@ export default function MapRenderer({ data, onReady, onError, renderIdentity, sh
       const badge=document.createElement('span');badge.textContent=marker.indexLabel??'';badge.style.backgroundColor=marker.color??'#2563eb';
       const node = marker.indexLabel ? L.marker(point,{icon:L.divIcon({html:badge,className:'itinerary-stop-icon',iconSize:[36,36],iconAnchor:[18,18]})}).addTo(group) : marker.iconUrl ? L.marker(point,{icon:L.icon({iconUrl:marker.iconUrl,iconSize:[32,40],iconAnchor:[16,40],popupAnchor:[0,-36]})}).addTo(group) : L.circleMarker(point, { radius: 8, color: '#203227', weight: 3, fillColor: marker.color??'#b9ed87', fillOpacity: 1 }).addTo(group);
       if(marker.accuracyKm&&marker.accuracyKm>0)L.circle(point,{radius:marker.accuracyKm*1000,color:marker.color??'#86b89d',weight:1,fillOpacity:.08,interactive:false}).addTo(group);
-      if (marker.label) node.bindTooltip(textNode(marker.label), { direction: 'top', permanent: (current.markers?.length ?? 0) < 7 });
+      const permanent=(marker.contentDisplay??current.contentDisplay)==='permanent';
+      const content=()=>marker.popupHtml?safeMapPopup(marker.popupHtml):textNode([marker.label,marker.description].filter(Boolean).join(' — '));
+      if(permanent)node.bindTooltip(content(),{direction:'top',permanent:true,interactive:true,className:'map-permanent-content'});
+      else {if(marker.label)node.bindTooltip(textNode(marker.label),{direction:'top',permanent:(current.markers?.length??0)<7});if(marker.popupHtml||marker.description||marker.label)node.bindPopup(content());}
       if(marker.key && onMarkerSelect)node.on('click',()=>onMarkerSelect(marker.key!));
-      if(marker.popupHtml)node.bindPopup(safeMapPopup(marker.popupHtml));
-      else if (marker.description || marker.label) node.bindPopup(textNode([marker.label, marker.description].filter(Boolean).join(' — ')));
     }
     for (const route of current.routes ?? []) {
       const points = route.coordinates.map(p => [p.lat, p.lng] as Leaflet.LatLngTuple); coordinates.push(...points);

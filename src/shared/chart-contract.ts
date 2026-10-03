@@ -74,7 +74,7 @@ const geometrySchema = z.discriminatedUnion('type', [
 ]);
 export type ChartGeometry = z.infer<typeof geometrySchema>;
 export const chartRegionSchema = z.object({
-  id: nodeId, label: short.optional(), geometry: geometrySchema.optional(), countryCode:z.string().min(2).max(5).refine(v=>Boolean(geographyCodes[v.toUpperCase()]), 'Code not covered by built-in Natural Earth 110m; supply GeoJSON instead').optional().describe('ISO alpha-2/alpha-3 country or US-XX state. Built-in Natural Earth 110m; small territories may need GeoJSON.'), value: finite.nullable().optional(),
+  id: nodeId, label: short.optional(), geometry: geometrySchema.optional(), countryCode:z.string().regex(/^(?:[A-Za-z]{2,3}|[A-Za-z]{2}-[A-Za-z]{2})$/).optional().describe('ISO alpha-2/alpha-3 country or US-XX state. Natural Earth 110m polygons plus small-country point fallbacks. Unknown codes are retained but omitted from the map with an explicit on-map warning naming excluded codes; source records remain available. Supply GeoJSON to display them.'), value: finite.nullable().optional(),
   sourceRows: sourceRows.optional(), raw: rawCells.optional(), rawValues: z.array(cellSchema).max(rowLimit).optional(),
 }).strict().refine(v=>Boolean(v.geometry)!==Boolean(v.countryCode),'Supply exactly one of geometry or countryCode');
 export type ChartRegion = z.infer<typeof chartRegionSchema>;
@@ -334,7 +334,7 @@ export const chartDataSchema = z.object({
     if (!data.regions?.length) issue('Choropleth requires regions with geometry or a supported countryCode; place names are not geocoded', ['regions']);
     else {
       if (new Set(data.regions.map(region => region.id)).size !== data.regions.length) issue('Region IDs must be unique', ['regions']);
-      const countryKeys=data.regions.flatMap(region=>region.countryCode?[geographyCodes[region.countryCode.toUpperCase()]]:[]);if(new Set(countryKeys).size!==countryKeys.length)issue('Country code aliases must not repeat the same built-in region',['regions']);
+      const countryKeys=data.regions.flatMap(region=>region.countryCode&&geographyCodes[region.countryCode.toUpperCase()]?[geographyCodes[region.countryCode.toUpperCase()]]:[]);if(new Set(countryKeys).size!==countryKeys.length)issue('Country code aliases must not repeat the same built-in region',['regions']);
       const values = data.regions.flatMap(region => typeof region.value === 'number' ? [region.value] : []);
       if (values.length && !Number.isFinite(Math.max(...values) - Math.min(...values))) issue('Region values exceed finite color-scale precision');
       let vertices = 0;

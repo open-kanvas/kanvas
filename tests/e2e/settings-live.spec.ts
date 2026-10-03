@@ -32,7 +32,7 @@ test('settings save clicks and agent updates live without changing existing sess
  await form.getByRole('combobox',{name:'Apply to'}).selectOption('session');
  await expect(form.getByRole('radio',{name:'As supplied (default)',exact:true}).last()).toBeChecked();
  expect((await sessionApi(page,'/api/sessions/'+s+'/displays/'+d.id+'/settings','POST',{scope:'account',expectedRevision:1,config:{dateFormat:'dmy'}})).status).toBe(200);
- await expect(form.getByRole('status')).toContainText('All new sessions updated: dateFormat: dmy. This session is unchanged.');
+ await expect(form.getByRole('status')).toContainText('All new sessions updated: Date format: dmy. This session is unchanged.');
  expect((await sessionDetail(page,s)).session.config.dateFormat).toBeUndefined();
  expect(await form.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
  await viewer.screenshot({path:info.outputPath('live-settings.png'),animations:'disabled'});
@@ -53,4 +53,25 @@ test('sign-in approval code, checkbox and text occupy separate readable regions'
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   await checkbox.check();await expect(page.getByRole('button',{name:'Approve requesting device',exact:true})).toBeEnabled();
  }finally{await page.close();server.closeAllConnections();await new Promise<void>(r=>server.close(()=>r()));await runtime.close();}
+});
+
+test('continuous color input persists the final value across a delayed save',async({page})=>{
+ await register(page);const s=await createSession(page,'Continuous settings'),d=await createDisplay(page,s,'Settings'),viewer=await openViewer(page,s,d.id);
+ await publishPrepared(page,s,[d.id],{version:1,template:'settings',data:{dimension:'accent'}});
+ await waitForDisplay(page,s,d.id,x=>x.appliedRevision===x.revision&&x.revision>0);
+ const form=viewer.locator('.viewer-candidate .surface-settings'),color=form.locator('input[type=color]'),requests:{expectedRevision:number;config:{accent:string}}[]=[];
+ await viewer.route('**/displays/'+d.id+'/settings',async route=>{requests.push(route.request().postDataJSON());await new Promise(r=>setTimeout(r,250));await route.continue();});
+ // Native color dialogs emit an input stream as the chooser is dragged. Use
+ // genuine bubbling input/change events rather than an OS-owned dialog in headless Chromium.
+ await color.evaluate(async element=>{
+  const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!;
+  for(const value of ['#112233','#445566','#778899','#aabbcc']){
+   setter.call(element,value);element.dispatchEvent(new Event('input',{bubbles:true}));element.dispatchEvent(new Event('change',{bubbles:true}));
+   await new Promise(r=>setTimeout(r,30));
+  }
+ });
+ await expect(form.getByRole('combobox',{name:'Apply to'})).toBeDisabled();
+ await expect.poll(async()=>(await sessionDetail(page,s)).session.config.accent).toBe('#aabbcc');
+ await expect(color).toHaveValue('#aabbcc');
+ expect(requests.length).toBe(2);expect(requests.map(x=>x.expectedRevision)).toEqual([0,1]);expect(requests.at(-1)!.config.accent).toBe('#aabbcc');
 });

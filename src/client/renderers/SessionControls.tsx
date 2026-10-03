@@ -40,9 +40,11 @@ function RetainedOverview(props:RendererProps){
   </article>)}</div>{!props.preview&&!auth.viewOnly&&<footer className="overview-account-actions"><a href="/">Home</a><button onClick={()=>void task.run(()=>auth.logout())}>Sign out of this browser</button></footer>}</div>;
 
 }
+const SETTINGS_LABELS:Record<string,string>={style:'Style',theme:'Theme',accent:'Accent color',readingFontSize:'Reading font size',readingWpm:'Reading speed',readingZoom:'Reading zoom',dateFormat:'Date format',timeFormat:'Time format',timeZone:'Time zone',numberLocale:'Number locale',unitSystem:'Weather units'};
 export function SessionSettings(props:RendererProps){
  const [draft,setDraft]=useState(props.config),[base,setBase]=useState(props.configRevision??0),[scope,setScope]=useState('session'),[status,setStatus]=useState('');
  const [defaults,setDefaults]=useState<{revision:number;config:SessionConfig}>(),[groups,setGroups]=useState<{id:string;name:string;kind:string;role:string;revision:number;defaults:Partial<SessionConfig>}[]>([]);
+ const pending=useRef<Partial<SessionConfig>>({});
  const defaultsRef=useRef<typeof defaults>(undefined),writing=useRef(false),scopeRef=useRef(scope);scopeRef.current=scope;
  const task=useTask(),dimension=String(props.view.data.dimension??'all'),show=(name:string)=>dimension==='all'||dimension===name;
  useEffect(()=>{if(scope==='session'&&!writing.current){setDraft(props.config);setBase(props.configRevision??0);}},[props.config,props.configRevision,scope]);
@@ -58,7 +60,7 @@ export function SessionSettings(props:RendererProps){
     else if(scopeRef.current!=='session'){const group=result.groups.find(g=>g.id===scopeRef.current);if(group){setDraft(mergeConfig(props.config!,group.defaults));setBase(group.revision);}}
     if(previous&&previous.revision!==next.revision){
       const changes=Object.entries(next.config).filter(([key,value])=>JSON.stringify(previous.config[key as keyof SessionConfig])!==JSON.stringify(value)&&(dimension==='all'||dimension===key));
-      if(changes.length)setStatus('All new sessions updated: '+changes.map(([key,value])=>key+': '+String(value)).join(', ')+(scopeRef.current==='session'?'. This session is unchanged.':''));
+      if(changes.length)setStatus('All new sessions updated: '+changes.map(([key,value])=>(SETTINGS_LABELS[key]??key)+': '+String(value)).join(', ')+(scopeRef.current==='session'?'. This session is unchanged.':''));
     }
    }catch{/* Defaults are optional; session controls remain available. */}
   };
@@ -70,33 +72,47 @@ export function SessionSettings(props:RendererProps){
  if(!draft)return <p>Session settings are available on a connected display.</p>;
  const propose=Boolean(!props.editable&&props.actionable&&props.onRespond),canChange=!props.preview&&(props.editable||propose);
  const change=(next:Partial<SessionConfig>)=>{
-  if(!canChange||writing.current||!props.sessionId||!props.displayId)return;
-  const before=draft;setDraft(mergeConfig(draft,next));setStatus('');writing.current=true;
+  if(!canChange||!props.sessionId||!props.displayId)return;
+  setDraft(current=>mergeConfig(current??draft,next));setStatus(propose?'Requesting change…':'Saving…');
+  pending.current={...pending.current,...next};
+  if(writing.current)return;
+  writing.current=true;
   void task.run(async()=>{
+   let revision=base,confirmed=draft;
    try{
     const group=groups.find(g=>g.id===scope);
-    if(propose){await props.onRespond!({kind:'settings.request',config:next,expectedConfigRevision:base,scope:'session'});setDraft(before);setStatus('Change requested from your agent.');}
-    else {
-      const result=await api<{revision?:number;configRevision?:number;config?:SessionConfig;defaults?:Partial<SessionConfig>}>(displayPath(props.sessionId!,props.displayId!)+'/settings',{method:'POST',body:{expectedRevision:base,config:next,scope:group?.kind??scope,...(group?{groupId:group.id}:{})}});
-      setBase(result.configRevision??result.revision??base);setDraft(result.config??mergeConfig(before,result.defaults??next));
-      if(scope==='account'&&result.config){const saved={revision:result.revision!,config:result.config};defaultsRef.current=saved;setDefaults(saved);}
-      setStatus(scope==='account'?'Saved for all new sessions. This session is unchanged.':'Settings saved.');
-    }
-    writing.current=false;await props.onRefresh?.();
-   }catch(error){writing.current=false;setDraft(before);await props.onRefresh?.();throw error;}
-   finally{writing.current=false;}
+    do {
+     while(Object.keys(pending.current).length){
+      const patch=pending.current;pending.current={};
+      if(propose){
+       await props.onRespond!({kind:'settings.request',config:patch,expectedConfigRevision:revision,scope:'session'});
+      }else{
+       const result=await api<{revision?:number;configRevision?:number;config?:SessionConfig;defaults?:Partial<SessionConfig>}>(displayPath(props.sessionId!,props.displayId!)+'/settings',{method:'POST',body:{expectedRevision:revision,config:patch,scope:group?.kind??scope,...(group?{groupId:group.id}:{})}});
+       revision=result.configRevision??result.revision??revision;confirmed=result.config??mergeConfig(confirmed,result.defaults??patch);setBase(revision);
+       if(scope==='account'&&result.config){const saved={revision,config:result.config};defaultsRef.current=saved;setDefaults(saved);}
+      }
+      // A native picker/continuous input can change again while the request is
+      // in flight. Paint and persist its latest value, not the first event.
+      setDraft(mergeConfig(confirmed,pending.current));
+     }
+     await props.onRefresh?.();
+    }while(Object.keys(pending.current).length);
+    setStatus(propose?'Change requested from your agent.':scope==='account'?'Saved for all new sessions. This session is unchanged.':'Settings saved.');
+   }catch(error){
+    pending.current={};writing.current=false;setDraft(confirmed);setStatus('');void props.onRefresh?.().catch(()=>{});throw error;
+   }finally{writing.current=false;}
   });
  };
- const selectScope=(next:string)=>{setScope(next);setStatus('');const group=groups.find(g=>g.id===next);setDraft(next==='account'&&defaults?defaults.config:group?mergeConfig(props.config!,group.defaults):props.config);setBase(next==='account'?defaults?.revision??0:group?.revision??props.configRevision??0);};
+ const selectScope=(next:string)=>{if(writing.current)return;setScope(next);setStatus('');const group=groups.find(g=>g.id===next);setDraft(next==='account'&&defaults?defaults.config:group?mergeConfig(props.config!,group.defaults):props.config);setBase(next==='account'?defaults?.revision??0:group?.revision??props.configRevision??0);};
  return <section className={'surface-settings'+(dimension==='all'?'':' settings-focused')}>
  <header className="surface-settings-heading">{typeof props.view.data.description==='string'&&<p>{props.view.data.description}</p>}
  {props.editable&&props.view.data.allowAccountDefaults!==false?<label className="settings-scope">Apply to <select aria-label="Apply to" value={scope} onChange={e=>selectScope(e.target.value)} disabled={task.busy}><option value="session">This session</option>{defaults&&<option value="account">All new sessions</option>}{groups.map(g=><option value={g.id} key={g.id}>{g.kind==='team'?'Team':'Organization'}: {g.name}</option>)}</select><small>Changes save immediately.</small></label>:<p className="settings-permission">{props.editable?'Changes save immediately.':propose?'Ask your agent, or select an option to request a change.':'View-only screen. Ask your agent to apply changes.'}</p>}</header>
- <div className="surface-settings-scroll" data-navigation-scroll><fieldset disabled={!canChange||task.busy} className="settings-sections">
+ <div className="surface-settings-scroll" data-navigation-scroll><fieldset disabled={!canChange} className="settings-sections">
  {(show('style')||show('theme')||show('accent'))&&<section className="settings-section"><h3>Appearance</h3>{show('style')&&<VisibleOptions label="Style preset" defaultValue="ocean" value={draft.style??'ocean'} options={STYLE_PRESETS.map(s=>[s.id,s.name])} colors={Object.fromEntries(STYLE_PRESETS.map(s=>[s.id,s.accent]))} onChange={v=>change({style:v,accent:STYLE_PRESETS.find(s=>s.id===v)!.accent})}/>}
  {show('theme')&&<VisibleOptions label="Theme" defaultValue="dark" value={draft.theme} options={[["dark","Dark"],["light","Light"],["system","Follow device"]]} onChange={v=>change({theme:v as SessionConfig['theme']})}/>}
  {show('accent')&&<Field label="Accent (default: Ocean blue)"><input type="color" value={draft.accent} onChange={e=>change({accent:e.target.value})}/></Field>}</section>}
- {['all','readingFontSize','readingWpm','readingZoom'].includes(dimension)&&<ReadingSettings value={draft} disabled={!canChange||task.busy} change={change} dimension={dimension}/>}
- {['all','numberLocale','unitSystem','dateFormat','timeFormat','timeZone'].includes(dimension)&&<RegionalSettings value={draft} disabled={!canChange||task.busy} change={change} dimension={dimension}/>}
+ {['all','readingFontSize','readingWpm','readingZoom'].includes(dimension)&&<ReadingSettings value={draft} disabled={!canChange} change={change} dimension={dimension}/>}
+ {['all','numberLocale','unitSystem','dateFormat','timeFormat','timeZone'].includes(dimension)&&<RegionalSettings value={draft} disabled={!canChange} change={change} dimension={dimension}/>}
  </fieldset></div><div className="surface-settings-status" role="status" aria-live="polite">{status}</div><ErrorNotice message={task.error}/>
  </section>;
 }

@@ -71,7 +71,7 @@ describe('domains profile catalog', () => {
   it('derives honest annotations per resource tool', () => {
     const byName = new Map(listToolDefinitions('domains').map(tool => [tool.name, tool.annotations]));
     expect(byName.get('kanvas_session_history')).toMatchObject({ readOnlyHint: true, destructiveHint: false, idempotentHint: true });
-    expect(byName.get('kanvas_account')).toMatchObject({ readOnlyHint: false, destructiveHint: false });
+    expect(byName.get('kanvas_account')).toMatchObject({ readOnlyHint: false, destructiveHint: true });
     expect(byName.get('kanvas_display_clear')).toMatchObject({ readOnlyHint: false, destructiveHint: true });
     expect(byName.get('kanvas_session_end')).toMatchObject({ destructiveHint: true });
     expect(byName.get('kanvas_feed')).toMatchObject({ readOnlyHint: false, destructiveHint: false });

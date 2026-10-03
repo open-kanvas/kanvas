@@ -149,7 +149,7 @@ export const OPERATION_ENTRIES = PROFILE_ENTRIES.twelve;
 export const DOMAIN_TOOL_NAMES = Object.freeze(Object.keys(DOMAIN_REGISTRY) as DomainToolName[]);
 export const DOMAIN_OPERATION_ENTRIES = PROFILE_ENTRIES.domains;
 /** Canonical operations that only read (the twelve profile's kanvas_inspect). */
-export const READ_ONLY_CANONICAL: ReadonlySet<string> = new Set(Object.values(OPERATION_REGISTRY.kanvas_inspect));
+export const READ_ONLY_CANONICAL: ReadonlySet<string> = new Set([...Object.values(OPERATION_REGISTRY.kanvas_inspect), 'kanvas_asset_export']);
 
 export function publicReference(canonical: string, profile?: McpProfile): ToolReference | undefined {
   const entry = lookups[guidanceProfile(profile)].byCanonical.get(canonical);

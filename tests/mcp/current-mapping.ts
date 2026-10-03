@@ -2,6 +2,10 @@
  * lives in drafting-ops, planner-ops, display-sync, window-invitations and
  * account-home; real SDK coverage lives in workflows-http/event-feedback-http. */
 export const CURRENT_MAPPING = [
+  // Exercised over modern/legacy SDK HTTP in workflows-http.
+  ['kanvas_account_begin','kanvas_control','start.begin'],
+  ['kanvas_asset_export','kanvas_import','asset.export'],
+  ['kanvas_report_patch','kanvas_feedback','patch'],
   ['kanvas_pointing_read','kanvas_inspect','pointing.read'],
   ['kanvas_autoplay_read','kanvas_inspect','autoplay.read'],
   ['kanvas_tool_log_read','kanvas_inspect','tool-log.read'],

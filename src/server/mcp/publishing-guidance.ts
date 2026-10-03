@@ -74,7 +74,7 @@ export const COMMON_DATA_SHAPES: readonly CommonDataShape[] = [
 ];
 
 export const PUBLISHING_GUIDANCE = {
-  start: 'First use can call kanvas_submit with only requestId and content; automatic setup returns actual viewer URLs and a scoped targetRef. Continue using that reference or explicit targets. If needs_target is returned, resolve the one scoped choice. For existing sessions read permissions, displays and held state. Use kanvas_submit to publish or replace content; do not use display_update, which changes viewport/hold only.',
+  start: 'When asked to start/use Kanvas without an active session, first call kanvas_account_begin to find a connected owned screen or return the bare startUrl. No long/short URL narration is needed. For direct publishing first use can call kanvas_submit with only requestId and content; automatic setup returns actual viewer URLs and a scoped targetRef. Continue using that reference or explicit targets. If needs_target is returned, resolve the one scoped choice. For existing sessions read permissions, displays and held state. Use kanvas_submit to publish or replace content; do not use display_update, which changes viewport/hold only.',
   choose: 'For an unfamiliar or advanced template, read kanvas_template_get before constructing data. Prefer a complete prepared view {version:1,template,data} when you control the fields; use templateHint with source content only with literal or template-shaped data. A hint does not validate an invented shape. Familiar native fields need no redundant lookup.',
   fields: {
     context: 'Relevant source text or surrounding context. For a literal transcription, this is the actual supplied wording, not a request to listen or fetch something.',

@@ -1,5 +1,5 @@
 import { Archive } from './archive.js';
-import { usageLimits } from './usage-limits.js';
+import { accountUsageLimits, sessionUsageLimits, accountTier } from './usage-limits.js';
 import { devicesViewDataSchema } from '../shared/devices-view.js';
 import { asyncEvery, asyncFilter, asyncFlatMap, asyncForEach, asyncMap } from './async-collections.js';
 import { livePushSchema } from '../shared/monitoring.js';
@@ -278,7 +278,7 @@ export class KanvasService implements McpService {
     return this.store.atomic(async () => {
     (await this.fullAccount(principal, 'publish'));
     if (principal.tokenId && (await this.store.get<{sessionIds?:string[]}>('token', principal.tokenId))?.sessionIds) throw new AppError('FORBIDDEN', 'A session-scoped client cannot create another session. Create it in the workspace.', 403);
-    const sessionLimit=usageLimits().sessions;
+    const sessionLimit=(await accountUsageLimits(this.store,principal.userId)).sessions;
     if ((await this.store.list<SessionRecord>('session',undefined,true)).filter(s => s.ownerId === principal.userId).length >= sessionLimit) throw new AppError('LIMIT_REACHED', `Free account session limit (${sessionLimit}) reached. Existing sessions remain available. Contact the administrator about upgrading. Archived sessions still count.`, 429);
     const session: SessionRecord = { id: id(), name, ownerId: principal.userId, config: copy((await this.experience.defaults(principal.userId)).config), configRevision: 0, createdAt: now(), updatedAt: now() };
     (await this.store.transaction(async () => { (await this.store.put('session', session)); (await this.store.db.prepare('INSERT INTO members VALUES(?,?,?)').run(session.id, principal.userId, 'owner')); }));
@@ -382,7 +382,31 @@ export class KanvasService implements McpService {
     (await this.fullAccount(principal));
     const sessions=(await asyncFilter((await this.sessions(principal)), async s=>!(await this.devices.isEntrySession(s.id)))).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt)||a.id.localeCompare(b.id));
     const token=principal.tokenId?(await this.store.get<{sessionIds?:string[]}>('token',principal.tokenId)):undefined;
-    return {startUrl:`${this.publicUrl}/`,consoleUrl:this.adminUrl??`${this.publicUrl}/console`,adminUrl:this.adminUrl??`${this.publicUrl}/console`,...(!token?.sessionIds?{entry:(await this.devices.existing(principal))}:{}),sessions:(await asyncMap(sessions.slice(offset,offset+10), async s=>{const alias=(await this.experience.existingAlias(s.id));const displays=(await this.store.list<DisplayRecord>('display',s.id));return {id:s.id,name:s.name,updatedAt:s.updatedAt,role:s.role,workspaceUrl:`${this.adminUrl??`${this.publicUrl}/console`}?session=${s.id}`,displays:displays.map(d=>({id:d.id,name:d.name,viewerUrl:`${this.publicUrl}/view/${s.id}/${d.id}`})),...(alias?{shortUrl:`${this.publicUrl}/s/${alias.id}`}:{})};})),total:sessions.length,...(offset+10<sessions.length?{nextOffset:offset+10}:{}),canCreate:!principal.scopedSessionId&&!token?.sessionIds&&(!principal.scopes||principal.scopes.includes('publish')),newSession:{tool:'kanvas_session',operation:'create'},selection:'Choose a session by its name or ID, or explicitly create a new session. No display has been selected or changed.'};
+    return {tier:await accountTier(this.store,principal.userId),startUrl:`${this.publicUrl}/`,consoleUrl:this.adminUrl??`${this.publicUrl}/console`,adminUrl:this.adminUrl??`${this.publicUrl}/console`,...(!token?.sessionIds?{entry:(await this.devices.existing(principal))}:{}),sessions:(await asyncMap(sessions.slice(offset,offset+10), async s=>{const alias=(await this.experience.existingAlias(s.id));const displays=(await this.store.list<DisplayRecord>('display',s.id));return {id:s.id,name:s.name,updatedAt:s.updatedAt,role:s.role,workspaceUrl:`${this.adminUrl??`${this.publicUrl}/console`}?session=${s.id}`,displays:displays.map(d=>({id:d.id,name:d.name,viewerUrl:`${this.publicUrl}/view/${s.id}/${d.id}`})),...(alias?{shortUrl:`${this.publicUrl}/s/${alias.id}`}:{})};})),total:sessions.length,...(offset+10<sessions.length?{nextOffset:offset+10}:{}),canCreate:!principal.scopedSessionId&&!token?.sessionIds&&(!principal.scopes||principal.scopes.includes('publish')),newSession:{tool:'kanvas_session',operation:'create'},selection:'Choose a session by its name or ID, or explicitly create a new session. No display has been selected or changed.'};
+  }
+  async beginSession(principal:AuthPrincipal,a:{requestId:string;name:string;deviceId?:string;windowId?:string}) {
+    return this.store.atomic(async()=>this.store.transaction(async()=>{
+      await this.fullAccount(principal,'publish');
+      // list() requires account-wide authority and supplies authenticated presence.
+      const inventory=await this.devices.list(principal);
+      const key=hash(`${principal.userId}:${principal.tokenId??'account'}:${a.requestId}`),digest=hash(JSON.stringify(a));
+      const previous=await this.store.get<{id:string;digest:string;sessionId:string;displayId:string;deviceId:string;windowId:string;commandId:string}>('start-request',key);
+      if(previous){
+        if(previous.digest!==digest)throw new AppError('REQUEST_ID_CONFLICT','This start request refers to different input.',409);
+        await this.display(principal,previous.sessionId,previous.displayId,'editor');
+        return {...previous,status:'started',startUrl:`${this.publicUrl}/`,note:'Original start command; inspect the receiver for actual paint. No new session or redirect was created.'};
+      }
+      const windows=inventory.devices.flatMap(device=>device.windows.filter(window=>window.connected).map(window=>({deviceId:device.id,deviceName:device.name,...window})));
+      const candidates=windows.filter(window=>(!a.deviceId||window.deviceId===a.deviceId)&&(!a.windowId||window.id===a.windowId));
+      if(!windows.length)return {status:'needs_display',startUrl:`${this.publicUrl}/`,nextAction:'Open this bare Kanvas address and sign in. Then retry begin; no session has been created.'};
+      if(!candidates.length)throw new AppError('VIEWER_UNAVAILABLE','The selected owned window is not connected.',409);
+      if(candidates.length!==1)return {status:'needs_target',startUrl:`${this.publicUrl}/`,windows:candidates.map(w=>({deviceId:w.deviceId,windowId:w.id,deviceName:w.deviceName,name:w.name})),nextAction:'Choose the intended window and retry begin with deviceId/windowId. No session has been created.'};
+      const selected=candidates[0],session=await this.createSession(principal,a.name),display=await this.createDisplay(principal,session.id,{name:'Main display',width:1280,height:800});
+      const receipt=await this.devices.windows.present(principal,{deviceId:selected.deviceId,windowId:selected.id,sessionId:session.id,displayId:display.id,expectedVersion:selected.version,requestId:a.requestId});
+      const result={id:key,digest,sessionId:session.id,displayId:display.id,deviceId:selected.deviceId,windowId:selected.id,commandId:receipt.commandId};
+      await this.store.put('start-request',result);
+      return {...result,status:'started',startUrl:`${this.publicUrl}/`,nextAction:'Publish the requested content to this session/display. The blank display shows the Kanvas ready screen. Verify command paint before claiming it is visible; no URL needs to be read aloud.'};
+    }));
   }
   async publishHome(principal:AuthPrincipal,sessionId:string,displayId:string){
     return this.store.atomic(async () => {
@@ -573,7 +597,7 @@ export class KanvasService implements McpService {
     const session = (await this.access(principal, input.sessionId, 'editor'));
     const existing = (await this.retry<UpdateRecord>(principal, input.sessionId, input.requestId, kind, input)); if (existing) return existing;
     const displays = (await asyncMap(input.displayIds, async displayId => (await this.display(principal, input.sessionId, displayId, 'editor'))));
-    const viewLimit=usageLimits().views;
+    const viewLimit=(await sessionUsageLimits(this.store,input.sessionId)).views;
     const retained=(await this.store.list<{view:unknown}>('display-history',input.sessionId,true)).filter(entry=>entry.view).length;
     const pending=(await this.store.list<UpdateRecord>('update',input.sessionId)).filter(u=>['accepted','rendering'].includes(u.status)).reduce((n,u)=>n+u.displayIds.length,0);
     if(retained+pending+displays.length>viewLimit)throw new AppError('LIMIT_REACHED',`Free session view limit (${viewLimit}) reached. Existing views remain available. Contact the administrator about upgrading. Archived views still count.`,429);
@@ -1094,7 +1118,9 @@ export class KanvasService implements McpService {
       case 'kanvas_feedback_submit': return (await this.reports.submit(principal, 'feedback', a as unknown as FeedbackInput));
       case 'kanvas_error_report': return (await this.reports.submit(principal, 'error', a as unknown as ErrorReportInput));
       case 'kanvas_reports_read': return (await this.reports.read(principal, a as unknown as ReportsReadInput));
+      case 'kanvas_report_patch': return await this.reports.patch(principal, a as unknown as import('../shared/reports.js').ReportPatchInput);
       case 'kanvas_report_update': return (await this.reports.update(principal, a as unknown as ReportUpdateInput));
+      case 'kanvas_account_begin': return await this.beginSession(principal,a as unknown as Parameters<KanvasService['beginSession']>[1]);
       case 'kanvas_start_read': return (await this.startPage(principal,a.offset));
       case 'kanvas_session_rename': return (await this.renameSession(principal,a.sessionId,a.expectedRevision,a.name));
       case 'kanvas_display_rename': return (await this.renameDisplay(principal,a.sessionId,a.displayId,a.expectedRevision,a.name));
@@ -1154,6 +1180,7 @@ export class KanvasService implements McpService {
         const display = (await this.publicDisplay((await this.display(principal, a.sessionId, a.displayId)), principal));
         const result = await this.visualCapture.capture(principal.userId, display, a, async () => (await this.publicDisplay((await this.display(principal, a.sessionId, a.displayId)), principal)));
         (await this.access(principal,a.sessionId));
+        if(a.includeBase64)result.metadata.export={base64:result.image.toString('base64'),mimeType:result.mimeType,name:`kanvas-snapshot-${display.revision}.jpg`,size:result.image.length};
         // Capturing already-readable pixels may create a bounded derivative asset,
         // but never accepts arbitrary uploaded bytes or grants publish permission.
         if((await this.store.list('capture-asset',a.sessionId)).length>=100 || (await this.store.list<AssetRecord>('asset',a.sessionId)).reduce((n,x)=>n+x.size,0)+result.image.length>200*1024*1024){Object.assign(result.metadata,{reusable:false,storageNote:'Snapshot returned inline. Remove unused capture assets before saving more; maximum 100 per session and normal media quota apply.'});return result;}
@@ -1169,6 +1196,15 @@ export class KanvasService implements McpService {
       case 'kanvas_dataset_import': return (await this.dataset(principal, a.sessionId, { name: a.name, ...(a.csv !== undefined ? { csv: a.csv } : a.json !== undefined ? { json: a.json } : { rows: a.rows }), source: a.source }));
       case 'kanvas_dataset_delete': return (await this.deleteContent(principal, a.sessionId, 'dataset', a.datasetId));
       case 'kanvas_asset_import': return (await this.importAsset(principal, a.sessionId, { name: a.name, mimeType: a.mimeType, base64: a.base64 }));
+      case 'kanvas_asset_export': {
+        await this.fullAccount(principal);
+        const asset=await this.asset(principal,a.assetId,a.sessionId);
+        const row=required(await this.store.db.prepare('SELECT bytes FROM assets WHERE id=?').get(asset.id));
+        const bytes=Buffer.from(row.bytes as Uint8Array);
+        if(a.offset>bytes.length)throw new AppError('INVALID_ARGUMENT','The byte offset exceeds this asset size.');
+        const chunk=bytes.subarray(a.offset,Math.min(bytes.length,a.offset+a.length)),end=a.offset+chunk.length;
+        return {assetId:asset.id,name:asset.name,mimeType:asset.mimeType,size:bytes.length,offset:a.offset,bytes:chunk.length,base64:chunk.toString('base64'),...(end<bytes.length?{nextOffset:end}:{}),complete:end===bytes.length};
+      }
       case 'kanvas_asset_delete': return (await this.deleteContent(principal, a.sessionId, 'asset', a.assetId));
       case 'kanvas_presentation_create': return (await this.createDeck(principal, a.sessionId, a.name, a.slides));
       case 'kanvas_presentations_list': return (await this.decks(principal, a.sessionId));

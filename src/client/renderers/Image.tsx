@@ -23,7 +23,7 @@ function ImageResource({ entry, url }: { entry: ImageEntry; url?: string }) {
   const context=useContext(ImageFallbackContext),[source,setSource]=useState(url),[diagnostic,setDiagnostic]=useState(''),attempted=useRef(false),controller=useRef<AbortController | undefined>(undefined);
   const [ratio, setRatio] = useState(1.5);
   const ref = useRef<HTMLImageElement>(null);
-  const { status, ready, fail } = useMediaResource(url ? 'pending' : 'failed','MEDIA_TIMEOUT',30000);
+  const { status, ready, fail } = useMediaResource(url ? 'pending' : 'failed','MEDIA_TIMEOUT',30000,true);
   const recover=async()=>{if(attempted.current&&source===url)return;if(!url||attempted.current||!context.sessionId||!context.displayId||context.revision===undefined||context.preview||!url.startsWith('https://')){fail();return;}attempted.current=true;controller.current=new AbortController();try{const result=await api<{status:string;imageUrl?:string;message?:string}>(`${displayPath(context.sessionId,context.displayId)}/image-fallback`,{method:'POST',body:{expectedRevision:context.revision,url:entry.url},signal:controller.current.signal});if(controller.current.signal.aborted)return;if(result.status==='available'&&result.imageUrl)setSource(result.imageUrl);else{setDiagnostic(result.message??'The anonymous source request could not retrieve an image.');fail();}}catch{if(!controller.current?.signal.aborted)fail();}};
   useEffect(()=>{const timer=setTimeout(()=>{if(ref.current&&!ref.current.naturalWidth&&!attempted.current)void recover();},7000);return()=>{clearTimeout(timer);controller.current?.abort();};},[url]);
   const loaded = () => {

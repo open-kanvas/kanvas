@@ -125,13 +125,8 @@ export class PublishSetup {
       const createdDisplays: string[] = [];
       if (!displayIds) {
         const displays = (await s.store.list<DisplayRecord>('display', session.id));
-        if (displays.length > 1) {
-          // No recency or online-status heuristic. The user's explicit session
-          // remains fixed, but they choose which screen to replace.
-          record.resolutionRef = id(); record.expiresAt = new Date(Date.now() + 15 * 60_000).toISOString();
-          record.candidates = [{ sessionId: session.id, displayIds: displays.map(d => d.id) }];
-          (await s.store.put('publish-setup', record)); return (await this.needsTarget(p, input, record));
-        }
+        // The first registered display is the stable primary; never broadcast
+        // to additional screens or switch based on incidental viewer recency.
         if (displays.length) displayIds = [displays[0].id];
         else { const d = (await s.createDisplay(p, session.id, { name: 'Main display', width: 1280, height: 720 })); displayIds = [d.id]; createdDisplays.push(d.id); }
       }

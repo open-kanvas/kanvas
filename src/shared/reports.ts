@@ -66,3 +66,12 @@ export interface ReportRecord {
   redacted: boolean;
 }
 export interface ReportPage { reports: ReportRecord[]; nextCursor?: string; serviceAdmin?:boolean }
+
+/** Author follow-up by stable report ID, independent of filing session context. */
+export const reportPatchSchema = z.strictObject({
+ reportId: id, expectedRevision: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+ note: z.string().trim().min(1).max(2000),
+ title: z.string().trim().min(1).max(160).optional(),
+ description: z.string().trim().min(1).max(REPORT_DESCRIPTION_MAX).optional(),
+});
+export type ReportPatchInput = z.infer<typeof reportPatchSchema>;

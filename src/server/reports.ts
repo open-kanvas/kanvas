@@ -1,6 +1,6 @@
 import type { Role, SessionRecord, DisplayRecord, UpdateRecord } from '../shared/types.js';
 import { TEMPLATE_IDS } from '../shared/types.js';
-import type { DiagnosticRecord, FeedbackInput, ErrorReportInput, ReportRecord, ReportPage, ReportsReadInput, ReportUpdateInput } from '../shared/reports.js';
+import type { DiagnosticRecord, FeedbackInput, ErrorReportInput, ReportRecord, ReportPage, ReportsReadInput, ReportUpdateInput, ReportPatchInput } from '../shared/reports.js';
 import { REPORT_CREATE_BYTES, REPORT_RECORD_BYTES } from '../shared/reports.js';
 import { InputError } from './input-errors.js';
 import { type AuthPrincipal, hash } from './auth.js';
@@ -165,6 +165,27 @@ export class SessionReports {
       reports.push(JSON.parse(value) as ReportRecord); bytes += size;
     }
     return { reports, serviceAdmin:(await this.access.serviceAdmin(principal)), ...(rows.length > reports.length && reports.length ? { nextCursor: reports.at(-1)!.id } : {}) };
+  }
+
+  async patch(principal: AuthPrincipal, input: ReportPatchInput): Promise<ReportRecord> {
+    return this.store.atomic(async () => {
+      await this.access.account(principal, true);
+      const record = await this.store.get<ReportRecord>('report', input.reportId);
+      if (!record || record.authorId !== principal.userId) throw new AppError('NOT_FOUND', 'This report is unavailable.', 404);
+      // A selected-session grant cannot reach another session through an ID.
+      if (record.sessionId) await this.access.session(principal, record.sessionId, 'viewer', true, true);
+      if (record.revision !== input.expectedRevision) throw new AppError('REVISION_CONFLICT', 'This report changed. Read it again before updating.', 409);
+      const clean = (value: string) => { const result = redactReportText(value); record.redacted ||= result !== value; return result; };
+      if (input.title !== undefined) record.title = clean(input.title);
+      if (input.description !== undefined) record.description = clean(input.description);
+      record.revision++; record.updatedAt = now();
+      record.history = [...record.history, {status: record.status, note: clean(input.note), actorId: principal.userId, createdAt: record.updatedAt}].slice(-16);
+      while (record.history.length > 1 && Buffer.byteLength(JSON.stringify(record)) > REPORT_RECORD_BYTES) record.history.shift();
+      if (Buffer.byteLength(JSON.stringify(record)) > REPORT_RECORD_BYTES) throw new AppError('LIMIT_EXCEEDED', 'The report exceeds its UTF-8 storage budget. Shorten the update.');
+      await this.store.put('report', record);
+      if (record.sessionId) this.access.changed(record.sessionId);
+      return record;
+    });
   }
 
   async update(principal: AuthPrincipal, input: ReportUpdateInput): Promise<Awaited<ReportRecord>> {

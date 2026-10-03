@@ -11,15 +11,21 @@ function expandLocalReferences(value: unknown, root: Record<string, unknown>, an
   if (Array.isArray(value)) return value.map(child => expandLocalReferences(child, root, ancestors));
   if (!value || typeof value !== 'object') return value;
   const { $defs: _definitions, $anchor: _anchor, description: _description, title: _title, default: _default, examples: _examples, deprecated: _deprecated, readOnly: _readOnly, writeOnly: _writeOnly, ...node } = value as Record<string, unknown>;
+  let expanded:Record<string,unknown>;
   if (typeof node.$ref === 'string' && node.$ref.startsWith('#')) {
     const pointer = node.$ref;
     if (ancestors.has(pointer)) throw new Error('Unexpected recursive presentation schema');
     const target = !pointer.startsWith('#/') ? Object.values(root.$defs as Record<string,any>).find(value=>value.$anchor===pointer.slice(1)) : pointer.slice(2).split('/').reduce<unknown>((object, key) => (object as Record<string, unknown>)?.[key.replace(/~1/g, '/').replace(/~0/g, '~')], root);
     if (!target || typeof target !== 'object') throw new Error('Unresolved published schema reference');
     const { $ref: _reference, ...siblings } = node;
-    return expandLocalReferences({ ...target, ...siblings }, root, new Set([...ancestors, pointer]));
-  }
-  const expanded=Object.fromEntries(Object.entries(node).map(([key, child]) => [key, expandLocalReferences(child, root, ancestors)]));
+    // The reference is an ancestor only while traversing its target. Sibling
+    // constraints are independent: e.g. a shared object-type ref at a parent
+    // and again in its properties is reuse, not a recursive schema. Expand
+    // both independently, then normalize their merged complete constraints.
+    const referenced=expandLocalReferences(target,root,new Set([...ancestors,pointer])) as Record<string,unknown>;
+    const adjacent=expandLocalReferences(siblings,root,ancestors) as Record<string,unknown>;
+    expanded={...referenced,...adjacent};
+  }else expanded=Object.fromEntries(Object.entries(node).map(([key, child]) => [key, expandLocalReferences(child, root, ancestors)]));
   const keyword=Array.isArray(expanded.anyOf)?'anyOf':Array.isArray(expanded.oneOf)?'oneOf':undefined;
   if(keyword&&expanded.type==='object'&&expanded.properties){
     const branches=expanded[keyword] as Record<string,unknown>[];
@@ -52,6 +58,14 @@ function expandLocalReferences(value: unknown, root: Record<string, unknown>, an
 }
 
 describe('September 14 source-preserving integration', () => {
+  it('expands shared fragments in independent siblings without hiding actual reference cycles',()=>{
+    const schema={$defs:{object:{$anchor:'object',type:'object'}},$ref:'#object',properties:{child:{$ref:'#object',properties:{value:{type:'integer',minimum:2}},required:['value'],additionalProperties:false}},required:['child'],additionalProperties:false};
+    expect(expandLocalReferences(schema,schema)).toEqual({type:'object',properties:{child:{type:'object',properties:{value:{type:'integer',minimum:2}},required:['value'],additionalProperties:false}},required:['child'],additionalProperties:false});
+    const direct={$defs:{a:{$anchor:'a',$ref:'#a'}},$ref:'#a'};
+    const indirect={$defs:{a:{$anchor:'a',$ref:'#b'},b:{$anchor:'b',$ref:'#a'}},$ref:'#a'};
+    for(const cycle of [direct,indirect])expect(()=>expandLocalReferences(cycle,cycle)).toThrow('Unexpected recursive presentation schema');
+  });
+
   it('keeps supplied contact identities and literal action values after an explicit profile selection', async () => {
     const data = { name: 'Supplied person', role: 'Source role', description: 'Biography remains exactly as provided.', details: [{ label: 'Call', value: '+47 400 00 001', type: 'phone' }, { label: 'Email', value: 'person+test@example.com', type: 'email' }, { label: 'Address', value: 'One supplied street\nArendal', type: 'address' }, { label: 'Source identifier', value: '000001.2300' }], links: [{ label: 'Website', url: 'https://example.com/about' }] };
     const interpreter = createInterpreter();

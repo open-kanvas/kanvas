@@ -81,8 +81,16 @@ export default function MapRenderer({ data, onReady, onError, renderIdentity, sh
       surface.kanvasCoordinate=(x,y)=>{const r=surface.getBoundingClientRect();const ll=map.containerPointToLatLng([x-r.left,y-r.top]).wrap();return{lat:ll.lat,lng:ll.lng};};
       surface.kanvasProject=(lat,lng)=>{const r=surface.getBoundingClientRect(),p=map.latLngToContainerPoint([lat,lng]);return{x:r.left+p.x,y:r.top+p.y};};
       map.on('move',()=>surface.dispatchEvent(new CustomEvent('kanvas-map-move',{bubbles:true})));
-      draw(true); setReady(true);
-      observer = new ResizeObserver(() => { if (!disposed) map.invalidateSize(); }); observer.observe(container.current);
+      const resize=()=>{
+        if(disposed||!container.current)return;
+        container.current.style.setProperty('--map-tooltip-max-width',`${Math.max(24,container.current.clientWidth-32)}px`);
+        map.invalidateSize();
+        // Leaflet positions tooltips using their measured width; remeasure after
+        // the map-width bound changes (including embedded maps and rotation).
+        layerRef.current?.eachLayer(layer=>layer.getTooltip()?.update());
+      };
+      resize();draw(true); setReady(true);
+      observer = new ResizeObserver(resize); observer.observe(container.current);
     }).catch(() => { if (!disposed) {setMapError(true);onError?.();} });
     return () => {
       disposed = true; observer?.disconnect();

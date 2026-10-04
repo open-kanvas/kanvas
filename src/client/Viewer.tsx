@@ -5,7 +5,6 @@ import type { DisplayRecord, InteractionRecord, SessionConfig, ViewAction, Video
 import { api, ApiError, displayPath, errorMessage, requestId, sessionPath } from './api';
 import { useAuth, useMedia, useSession } from './hooks';
 import { Icon, Wordmark } from './icons';
-import { NavigationControls } from './NavigationControls';
 import { BrowsingProvider } from './renderers/Navigation';
 import { Renderer } from './renderers/Renderer';
 import { ViewInformation } from './renderers/ViewInformation';
@@ -227,14 +226,13 @@ export function Viewer({ sessionId, displayId }: ViewerRoute) {
     {menu && !auth.captureOnly && <div className="viewer-menu">
       <header><strong>{display?.name ?? 'Display'}</strong><span><i className={`connection-dot ${state.connection}`} />{state.connection}</span></header>
       <div className="viewer-menu-meta"><span>{display?.width} × {display?.height}</span><span>Revision {display?.revision ?? 0}</span>{auth.viewOnly && <span>{auth.interactive ? 'Guest · responses enabled' : 'Paired · view only'}</span>}</div>
-      {display?.view&&state.connection==='live'&&<NavigationControls sessionId={sessionId} displayId={displayId} revision={display.revision}/>}
       {!auth.viewOnly&&<a href="/">Home · choose a session</a>}
       <a href="/docs/" target="_blank" rel="noopener noreferrer">Kanvas Help</a>
       {display?.view && <ViewInformation view={display.view} placement="menu" />}
       {display?.monitoring && <section className="viewer-monitoring"><strong>Source updates · {display.monitoring.status}</strong>{display.monitoring.nextPollAt && <p>Next check {new Date(display.monitoring.nextPollAt).toLocaleTimeString()}</p>}{editable && display.monitoring.status !== 'stopped' && <button onClick={() => void stopMonitoring()}>Stop source updates</button>}</section>}
       <button onClick={() => void fullscreen()}><Icon name="fullscreen" size={17} />{document.fullscreenElement ? 'Leave fullscreen' : 'Enter fullscreen'}<kbd>F</kbd></button>
       {display && state.connection === 'live' && <button onClick={() => { setMenu(false); setScreenOptions(true); }}><Icon name="screen" size={17} />Screen options</button>}
-      {config?.syncMode!=='presenter'&&<><button disabled={strip.position<=0} onClick={()=>{strip.positional.step(-1);setMenu(false);}}>Previous view</button><button disabled={strip.position>=strip.frames.length-1} onClick={()=>{strip.positional.step(1);setMenu(false);}}>Next view</button><button onClick={()=>{strip.positional.overview();setMenu(false);}}>Session overview <kbd>Esc</kbd></button></>}
+      {config?.syncMode!=='presenter'&&<><button disabled={strip.position<=0} onClick={()=>{strip.positional.step(-1);setMenu(false);}}>Previous view</button><button disabled={strip.position>=strip.frames.length-1} onClick={()=>{strip.positional.step(1);setMenu(false);}}>Next view</button><button onClick={()=>{strip.positional.overview();setMenu(false);}}>Session overview</button></>}
       {editable && <>
         <button onClick={() => void hold()}><Icon name={display?.held ? 'play' : 'pause'} size={17} />{display?.held ? 'Resume updates' : 'Hold this view'}</button>
       </>}

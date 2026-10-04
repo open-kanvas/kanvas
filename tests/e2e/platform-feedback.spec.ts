@@ -6,7 +6,7 @@ test('settings show visible options, focused dimensions and responsive sections'
  await register(page);const sessionId=await createSession(page,'Synthetic settings acceptance'),display=await createDisplay(page,sessionId,'Settings');const viewer=await openViewer(page,sessionId,display.id);
  await publishPrepared(page,sessionId,[display.id],{version:1,template:'settings',data:{dimension:'all'}});
  await waitForDisplay(page,sessionId,display.id,d=>d.appliedRevision===d.revision&&d.revision>0);
- const form=viewer.locator('.viewer-candidate .surface-settings');await expect(form).toBeVisible();await expect(form.getByRole('combobox',{name:'Apply to'})).toBeVisible();
+ const form=viewer.locator('.viewer-candidate .surface-settings');await expect(form).toBeVisible();await expect(form.getByRole('radio',{name:'This session',exact:true})).toBeVisible();
  await expect(form.getByRole('radio',{name:'Neutral',exact:true})).toBeVisible();await expect(form.getByRole('radio',{name:'Lime',exact:true})).toBeVisible();
  expect(await form.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
  await viewer.screenshot({path:info.outputPath('settings-all.png'),animations:'disabled'});

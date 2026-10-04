@@ -10,6 +10,8 @@ test('settings save clicks and agent updates live without changing existing sess
  await waitForDisplay(page,s,d.id,x=>x.appliedRevision===x.revision&&x.revision>0);
  const form=viewer.locator('.viewer-candidate .surface-settings');
  await expect(form.getByRole('button',{name:'Apply settings'})).toHaveCount(0);
+ await expect(form.getByText('Applies to document and reading views only, not other templates.',{exact:true})).toBeVisible();
+ await expect(form.getByRole('combobox',{name:'Apply to'})).toHaveCount(0);
  await expect(form.getByText('Current settings.',{exact:true})).toHaveCount(0);
  await expect(form.getByRole('radio',{name:'22 px (default)',exact:true})).toBeChecked();
  await form.getByRole('radio',{name:'28 px',exact:true}).check();
@@ -24,12 +26,12 @@ test('settings save clicks and agent updates live without changing existing sess
  const before=(await sessionDetail(page,s)).session;
  const changed=await sessionApi(page,'/api/sessions/'+s+'/config','PATCH',{expectedRevision:before.configRevision,config:{style:'iris'}});expect(changed.status).toBe(200);
  await expect(form.getByRole('radio',{name:'Iris',exact:true})).toBeChecked();
- await form.getByRole('combobox',{name:'Apply to'}).selectOption('account');
+ await form.getByRole('radio',{name:'All new sessions',exact:true}).check();
  const update=await sessionApi(page,'/api/sessions/'+s+'/displays/'+d.id+'/settings','POST',{scope:'account',expectedRevision:0,config:{dateFormat:'iso'}});expect(update.status).toBe(200);
  await expect(form.getByRole('radio',{name:'Year-month-day (ISO)',exact:true})).toBeChecked();
  expect((await sessionDetail(page,s)).session.config.dateFormat).toBeUndefined();
  const newer=await createSession(page,'Uses account defaults');expect((await sessionDetail(page,newer)).session.config.dateFormat).toBe('iso');
- await form.getByRole('combobox',{name:'Apply to'}).selectOption('session');
+ await form.getByRole('radio',{name:'This session',exact:true}).check();
  await expect(form.getByRole('radio',{name:'As supplied (default)',exact:true}).last()).toBeChecked();
  expect((await sessionApi(page,'/api/sessions/'+s+'/displays/'+d.id+'/settings','POST',{scope:'account',expectedRevision:1,config:{dateFormat:'dmy'}})).status).toBe(200);
  await expect(form.getByRole('status')).toContainText('All new sessions updated: Date format: dmy. This session is unchanged.');
@@ -39,6 +41,8 @@ test('settings save clicks and agent updates live without changing existing sess
  await publishPrepared(page,s,[d.id],{version:1,template:'settings',data:{dimension:'readingZoom'}});
  await expect(form.getByText('Zoom presets and the exact factor change the same setting. 1 = 100% (default).',{exact:true})).toBeVisible();
  await expect(form.getByRole('button',{name:'Apply settings'})).toHaveCount(0);
+ await expect(form.getByText('Applies to document and reading views only, not other templates.',{exact:true})).toBeVisible();
+ await expect(form.getByRole('combobox',{name:'Apply to'})).toHaveCount(0);
 });
 
 test('sign-in approval code, checkbox and text occupy separate readable regions',async({page})=>{
@@ -70,7 +74,7 @@ test('continuous color input persists the final value across a delayed save',asy
    await new Promise(r=>setTimeout(r,30));
   }
  });
- await expect(form.getByRole('combobox',{name:'Apply to'})).toBeDisabled();
+ await expect(form.getByRole('radio',{name:'This session',exact:true})).toBeDisabled();
  await expect.poll(async()=>(await sessionDetail(page,s)).session.config.accent).toBe('#aabbcc');
  await expect(color).toHaveValue('#aabbcc');
  expect(requests.length).toBe(2);expect(requests.map(x=>x.expectedRevision)).toEqual([0,1]);expect(requests.at(-1)!.config.accent).toBe('#aabbcc');

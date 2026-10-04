@@ -40,7 +40,7 @@ export default function MapRenderer({ data, onReady, onError, renderIdentity, sh
       const permanent=(marker.contentDisplay??current.contentDisplay)==='permanent';
       const content=()=>marker.popupHtml?safeMapPopup(marker.popupHtml):textNode([marker.label,marker.description].filter(Boolean).join(' — '));
       if(permanent)node.bindTooltip(content(),{direction:'top',permanent:true,interactive:true,className:'map-permanent-content'});
-      else {if(marker.label)node.bindTooltip(textNode(marker.label),{direction:'top',permanent:(current.markers?.length??0)<7});if(marker.popupHtml||marker.description||marker.label)node.bindPopup(content());}
+      else {if(marker.label)node.bindTooltip(textNode(marker.label),{direction:'top',permanent:(current.markers?.length??0)<7});if(marker.popupHtml||marker.description||marker.label)node.bindPopup(content(),{className:'map-rich-popup',minWidth:80,maxWidth:320});}
       if(marker.key && onMarkerSelect)node.on('click',()=>onMarkerSelect(marker.key!));
     }
     for (const route of current.routes ?? []) {
@@ -87,7 +87,7 @@ export default function MapRenderer({ data, onReady, onError, renderIdentity, sh
         map.invalidateSize();
         // Leaflet positions tooltips using their measured width; remeasure after
         // the map-width bound changes (including embedded maps and rotation).
-        layerRef.current?.eachLayer(layer=>layer.getTooltip()?.update());
+        layerRef.current?.eachLayer(layer=>{layer.getTooltip()?.update();layer.getPopup()?.update();});
       };
       resize();draw(true); setReady(true);
       observer = new ResizeObserver(resize); observer.observe(container.current);

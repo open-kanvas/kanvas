@@ -2,6 +2,14 @@
  * lives in drafting-ops, planner-ops, display-sync, window-invitations and
  * account-home; real SDK coverage lives in workflows-http/event-feedback-http. */
 export const CURRENT_MAPPING = [
+  // Exercised over modern/legacy SDK HTTP in platform-oct04-http.
+  ['kanvas_account_details','kanvas_inspect','account.details'],
+  ['kanvas_checklist_read','kanvas_inspect','checklist.read'],
+  ['kanvas_checklist_update','kanvas_publish','checklist.update'],
+  ['kanvas_checklist_show','kanvas_publish','checklist.show'],
+  // Fixed capture flow: core ACL tests and desktop/phone modern/legacy SDK browser checks.
+  ['kanvas_display_request_capture','kanvas_capture','request-capture'],
+  ['kanvas_display_capture_status','kanvas_capture','capture-status'],
   // Exercised over modern/legacy SDK HTTP in workflows-http.
   ['kanvas_account_begin','kanvas_control','start.begin'],
   ['kanvas_asset_export','kanvas_import','asset.export'],

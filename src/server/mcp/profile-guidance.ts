@@ -67,7 +67,7 @@ export function profileResultData(canonical: string, value: unknown, profile: Mc
   if (canonical === 'kanvas_guide') return profileGuide((value as { topic: GuideTopic }).topic, value, profile);
   // Help pages are static server-authored guidance; name this profile's tools.
   if (canonical === 'kanvas_help') return trustedGuidance(value);
-  if (['kanvas_live_push', 'kanvas_update_status', 'kanvas_submit', 'kanvas_presentation_cue', 'kanvas_presentation_navigate', 'kanvas_view_patch', 'kanvas_timer_control', 'kanvas_display_navigate', 'kanvas_clear', 'kanvas_map_camera'].includes(canonical)) return deliveryGuidance(value);
+  if (['kanvas_live_push', 'kanvas_update_status', 'kanvas_submit', 'kanvas_presentation_cue', 'kanvas_presentation_navigate', 'kanvas_view_patch', 'kanvas_timer_control', 'kanvas_display_navigate', 'kanvas_clear', 'kanvas_map_camera'].includes(canonical)) return 'settingsGuidance' in value?{...deliveryGuidance(value) as object,settingsGuidance:trustedGuidance(value.settingsGuidance)}:deliveryGuidance(value);
   if (canonical === 'kanvas_session_state') return stateGuidance(value);
   if (canonical === 'kanvas_display_current' && 'latestUpdate' in value) return { ...value, latestUpdate: deliveryGuidance(value.latestUpdate) };
   if (canonical === 'kanvas_account_inventory' && 'manage' in value) {
@@ -76,6 +76,7 @@ export function profileResultData(canonical: string, value: unknown, profile: Mc
     const manage = Object.fromEntries(Object.entries((value as { manage: Record<string, { read: readonly string[]; change: readonly string[] }> }).manage).map(([area, ops]) => [area, { read: ops.read.map(name), change: ops.change.map(name) }]));
     return { ...value, manage };
   }
+  if (canonical === 'kanvas_account_details' && 'publishRecipe' in value) return {...value,publishRecipe:trustedGuidance(value.publishRecipe)};
   if (canonical === 'kanvas_template_get') {
     const result = { ...value } as Record<string, unknown>;
     for (const key of ['note', 'viewerContext']) if (typeof result[key] === 'string') result[key] = publicGuidanceText(result[key] as string);

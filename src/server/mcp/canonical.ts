@@ -1,3 +1,4 @@
+import {checklistTools} from '../checklists.js';
 import { archiveSchema, archiveListSchema } from '../archive.js';
 import { randomUUID } from 'node:crypto';
 import { viewFormatSchema } from '../../shared/regional.js';
@@ -78,7 +79,7 @@ const exactlyOne = (left: string, right: string) => ({
 const definitions: readonly Definition[] = [
  {name:'kanvas_archive_list',description:'List your recoverable archived sessions, displays and retained views. Hidden from normal lists; retained indefinitely. Session grant restrictions still apply.',schema:archiveListSchema,readOnly:true},
  {name:'kanvas_archive_manage',description:'Owner-only archive (default) or restore of a session, display or retained view ID from display history. Archive is reversible. Permanent removal requires request-delete: show a warning and three random phonetic words on the current confirmationSessionId/confirmationDisplayId for 120 seconds. Batch views use targetIds (1–100 distinct IDs in one session), with one exact-target-bound confirmation. Then confirm-delete with challengeId and words explicitly supplied by the human. Never read/guess the words or infer approval. Shared items are deleted for everyone.',schema:archiveSchema,destructive:true},
-  ...eventTools, ...experienceTools, ...invitationTools, ...workTools, ...accountTools, ...documentTools, ...plannerTools, ...syncTools, ...homeTools,
+  ...checklistTools,...eventTools, ...experienceTools, ...invitationTools, ...workTools, ...accountTools, ...documentTools, ...plannerTools, ...syncTools, ...homeTools,
   {name:'kanvas_help',description:'Kanvas Help: focused task guidance and canonical public documentation. Read-only; never publishes or changes a display. General orientation offers a few choices; pass a topic and optional question for a specific how-to.',schema:helpInputSchema,readOnly:true},
   {name:'kanvas_navigation_control',description:'Explicit user scroll/page/navigation requests must be executed, regardless of pageCount or inferred visibility. Page, scroll, search, highlight, focus, gotoLine for code/diff (optional panelId and side before/after), selectDay for itinerary maps (day 1..N or all), or fit a diagram within the existing view without rewriting source data or history. Read navigation.read for capabilities, then supply revision and a new requestId. Agent cues the display, or one active independent viewerId. Read per-viewer acknowledgements; an accepted command is not proof of a painted screen.',schema:navigationInputSchema,idempotent:true},
   {name:'kanvas_navigation_read',description:'Read within-view position, available actions and per-viewer navigation acknowledgements. Includes current sync mode; cross-origin page contents are not observable.',schema:navigationReadSchema,readOnly:true},
@@ -154,8 +155,8 @@ const definitions: readonly Definition[] = [
   },
   {
     name: 'kanvas_session_create',
-    description: 'Create an authorized private screen session when needed. New to showing content? kanvas_guide introduces templates, viewer location and current displays and revisions; read kanvas_session_state before display decisions. Register a display and publish quietly within that policy. A viewer separately signs in; its URL is not an access grant.',
-    schema: z.strictObject({ name }),
+    description: 'Create an authorized private screen session when needed. New to showing content? kanvas_guide introduces templates, viewer location and current displays and revisions; read kanvas_session_state before display decisions. An initial blank Main display and joinable viewerUrl are created by default; initialDisplay:false opts out. Publish quietly within that policy. A viewer separately signs in; its URL is not an access grant.',
+    schema: z.strictObject({ name,initialDisplay:z.boolean().default(true).describe("Create a blank branded Main display and return its viewerUrl immediately. Set false for an intentionally display-free session.") }),
   },
   {
     name: 'kanvas_sessions_list',
@@ -220,9 +221,11 @@ const definitions: readonly Definition[] = [
     description: 'Read the receiving browser’s acknowledgement of a runtime video command. Reports pending/applied/blocked/failed/expired/superseded and actual playback state when acknowledged. A queued command is not proof of playback; blocked requires a local device gesture.',
     schema: z.strictObject({ sessionId: id, displayId: id, commandId: id.optional() }), readOnly: true,
   },
+  { name: 'kanvas_display_request_capture', description: 'Arm one fixed capture routine on your connected signed-in browser; editor access required. Supply viewerId if ambiguous. No scripts. The person must click the existing viewer, then choose a surface in the native share picker; a remote call cannot supply user activation. Two-minute expiry. Poll capture-status; saved pixels are private session assets, not proof of which surface the person selected.', schema: z.strictObject({sessionId:id, displayId:id, viewerId:id.optional()}), readOnly: false },
+  { name: 'kanvas_display_capture_status', description: 'Poll captureId for awaiting-user-gesture/awaiting-permission/complete/denied/unsupported/failed/expired. Complete returns private assetId/assetUrl; export via kanvas_asset_export. Request status expires ten minutes after its deadline or on restart; saved assets retain normal session protection.', schema:z.strictObject({sessionId:id, displayId:id, captureId:id}), readOnly:true },
   {
     name: 'kanvas_display_snapshot',
-    description: 'Capture the current authorized display using the real viewer in an isolated server browser. Set includeBase64:true to also return portable image bytes as metadata.export {base64,mimeType,name,size}, at most 2 MiB decoded, for a user-authorized attachment/export workflow. Private URLs are not public download links. Returns an image, revision/readiness metadata and a reusable session-protected asset URL (up to 100 saved captures per session). A read grant may save derived pixels but does not gain publishing or upload rights. This is NOT a screenshot of the human’s physical screen and does not acknowledge delivery there. External media is blocked in capture and reported; current viewer-reported application/failure is provided separately. Maximum capture viewport 1920×1080; no credentials or raw URLs are accepted.',
+    description: 'Render an authorized display in an isolated server browser, NOT the physical viewer or delivery proof. Omitted dimensions use the latest connected viewer (foreground preferred), otherwise display defaults, capped at 1920×1080. Waits for fonts/images plus 1.5s settle. External media is blocked and reported. Returns image, readiness/revision, and private session asset (max 100 captures); read grants save derived pixels without upload/publish rights. includeBase64:true adds metadata.export {base64,mimeType,name,size}, max 2 MiB, for authorized attachment workflows. Private URLs are not public download links. No credentials or raw URLs accepted.',
     schema: z.strictObject({ sessionId: id, displayId: id, width: z.number().int().min(320).max(1920).optional(), height: z.number().int().min(240).max(1080).optional(), includeBase64:z.boolean().default(false) }), readOnly: false,
   },
   {

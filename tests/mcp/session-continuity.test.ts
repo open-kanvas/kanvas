@@ -118,7 +118,7 @@ describe('guide, catalogue and result integration', () => {
     expect(created.data.name).toBe('Weekend in Bergen'); expect(created.data.id).not.toBe(old.id);
     expect(created.orientation?.sessionContinuity).toBe(sessionContinuityGuidanceFor('kanvas_session_create'));
     const clean = await owner.detail(created.data.id);
-    expect(clean.displays).toEqual([]); expect(clean.updates).toEqual([]); expect(clean.interactions).toEqual([]);
+    expect(clean.displays).toHaveLength(1); expect(clean.displays[0].view).toBeNull(); expect(clean.updates).toEqual([]); expect(clean.interactions).toEqual([]);
     expect((await app.runtime.store.list('session'))).toHaveLength(3);
     expect((await app.runtime.store.get('session', old.id))).toEqual(oldSession); expect((await app.runtime.store.list('display', old.id))).toEqual(oldDisplays);
   });

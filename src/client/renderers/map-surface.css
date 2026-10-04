@@ -124,3 +124,11 @@
    absolute tooltip otherwise shrinks to min-content (one character per line).
    Size from max-content first, then constrain it to the actual map surface. */
 .map-content .leaflet-tooltip.map-permanent-content{width:max-content;max-width:min(340px,var(--map-tooltip-max-width,calc(100vw - 32px)));box-sizing:border-box;white-space:normal}
+
+/* Give Leaflet measurable rich content while it computes its popup width.
+   Zero-width panes + percentage descendant widths otherwise collapse tables
+   to a few characters. Both presentation modes use the same sanitized DOM. */
+.map-content .safe-map-content{width:max-content;max-width:min(320px,calc(var(--map-tooltip-max-width,calc(100vw - 32px)) - 32px));font-size:14px;line-height:1.45}
+.map-content .safe-map-content table{width:max-content;max-width:100%;border-collapse:collapse;table-layout:auto}
+.map-content .safe-map-content :is(th,td){padding:5px 9px;text-align:left;vertical-align:top;border-bottom:1px solid #d5d5d5;font-size:inherit;line-height:inherit}
+.map-content .map-rich-popup .leaflet-popup-content{max-width:calc(var(--map-tooltip-max-width,calc(100vw - 32px)) - 32px)}

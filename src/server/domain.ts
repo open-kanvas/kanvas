@@ -1,3 +1,5 @@
+import {Checklists} from './checklists.js';
+import { ClientCapture } from './client-capture.js';
 import { Archive } from './archive.js';
 import { accountUsageLimits, sessionUsageLimits, accountTier } from './usage-limits.js';
 import { devicesViewDataSchema } from '../shared/devices-view.js';
@@ -99,6 +101,7 @@ export function referencedAssets(value: unknown): Set<string> {
 
 /** The same ACL, ordering and validation boundary serves HTTP and MCP. */
 export class KanvasService implements McpService {
+  readonly checklists:Checklists;
   readonly autoplay:Autoplay;
   readonly pointing:Pointing;
   readonly toolLog:ToolLog;
@@ -116,6 +119,7 @@ export class KanvasService implements McpService {
   readonly video: VideoControls;
   readonly engagement: Engagement;
   readonly visualCapture: VisualCapture;
+  readonly clientCapture: ClientCapture;
   readonly patches: ViewPatches;
   readonly timers: TimerControls;
   readonly drafts: DraftDocuments;
@@ -129,6 +133,7 @@ export class KanvasService implements McpService {
   private readonly cancelWork = new Set<() => void>();
   private closed = false;
   constructor(readonly store: Store, readonly auth: Auth, readonly interpreter: Interpreter = createInterpreter(), readonly publicUrl = 'http://127.0.0.1:8787', monitoringOptions?: MonitoringOptions, publishSetupEnabled = true) {
+    this.checklists=new Checklists(this);
     this.pointing=new Pointing(this);this.toolLog=new ToolLog(this);this.autoplay=new Autoplay(this);
     this.accounts=new Accounts(this);
     this.topology=new Topology(this);
@@ -136,6 +141,7 @@ export class KanvasService implements McpService {
     this.publication = new PublishSetup(this, publishSetupEnabled);
     this.experience = new Experience(this);
     this.invitations=new Invitations(this);
+    this.clientCapture = new ClientCapture(this);
     this.archive=new Archive(this); this.history = new DisplayHistory(store); this.video = new VideoControls(store); this.engagement = new Engagement(store); this.visualCapture = new VisualCapture(store, auth, publicUrl);
     this.devices=new EntryDevices(this);
     this.inventory=new AccountInventory(this);
@@ -274,6 +280,15 @@ export class KanvasService implements McpService {
       }
     }));
   }
+  /** Explicit public create: immediately joinable, with an opt-out for headless workflows. */
+  async createReadySession(principal:AuthPrincipal,name:string,initialDisplay=true) {
+    return this.store.atomic(async()=>this.store.transaction(async()=>{
+      const session=await this.createSession(principal,name);
+      if(!initialDisplay)return {...session,displays:[]};
+      const display=await this.createDisplay(principal,session.id,{name:'Main display',width:1280,height:800});
+      return {...session,displays:[display],viewerUrl:display.viewerUrl,note:'This private display is ready to join and shows the branded ready screen until content is published. Creating its address does not grant access.'};
+    }));
+  }
   async createSession(principal: AuthPrincipal, name: string): Promise<Awaited<SessionRecord>> {
     return this.store.atomic(async () => {
     (await this.fullAccount(principal, 'publish'));
@@ -377,6 +392,14 @@ export class KanvasService implements McpService {
   assertRevision(expected: unknown, actual: number): void {
     if (!revisionSchema.safeParse(expected).success) throw new AppError('REVISION_REQUIRED', 'Read current state and supply its revision.');
     if (expected !== actual) throw new AppError('REVISION_CONFLICT', 'This view changed. Read the latest version before editing.', 409);
+  }
+  async accountDetails(principal:AuthPrincipal) {
+    await this.fullAccount(principal);
+    if(principal.tokenId&&(await this.store.get<{sessionIds?:string[]}>('token',principal.tokenId))?.sessionIds)throw new AppError('FORBIDDEN','Account details require an account-wide grant.',403);
+    const user=required(await this.auth.user(principal.userId)),verified=await this.store.get<{email:string}>('verified-email',principal.userId),limits=await accountUsageLimits(this.store,principal.userId);
+    const email=verified?.email??(z.string().email().safeParse(user.username).success?user.username:null);
+    const details={id:user.id,displayName:user.displayName,username:user.username,email,emailVerified:Boolean(verified),tier:limits.tier,quotaExempt:limits.tier!=='trial',limits:{sessions:Number.isFinite(limits.sessions)?limits.sessions:null,retainedViewsPerSession:Number.isFinite(limits.views)?limits.views:null}};
+    return {...details,note:'Tier is a quota entitlement, not administrator authority. Null limit means no trial quota; safety and access limits still apply.',publishRecipe:{tool:'kanvas_submit',privacy:'Contains personal account data. Show only on the intended private display; never publish publicly without consent.',view:{version:1,template:'table',title:'Your Kanvas account',showTitle:true,data:{columns:['Account detail','Value'],rows:[['Name',details.displayName],['Email',email??'Not set'],['Plan / quota tier',details.tier],['Session quota',details.limits.sessions??'No trial quota'],['Retained views per session',details.limits.retainedViewsPerSession??'No trial quota']].map(([key,value])=>({'Account detail':key,Value:value}))}}}};
   }
   async startPage(principal:AuthPrincipal,offset=0){
     (await this.fullAccount(principal));
@@ -507,7 +530,7 @@ export class KanvasService implements McpService {
     (await this.store.transaction(async () => {
       (await this.history.ensure(display));
       if (!participationCompatible(display.view, view)) display.interactionEpoch = id();
-      display.view = view; display.revision++; display.generation++; display.updatedAt = now();
+      display.view = view?await this.checklists.capture(display.sessionId,view):null; display.revision++; display.generation++; display.updatedAt = now();
       display.delivery = { revision: display.revision, status: 'pending', updatedAt: display.updatedAt };
       (await this.store.put('display', display)); (await this.history.record(display, 'edit'));
     })); this.emit({ type: 'display', sessionId, displayId, revision: display.revision }); return (await this.publicDisplay(display, principal));
@@ -515,14 +538,14 @@ export class KanvasService implements McpService {
     });
   }
   /** Called inside the patch/timer host transaction; original input is the durable identity. */
-  private async publishMutation(principal: AuthPrincipal, input: { sessionId: string; displayId: string; requestId: string }, before: ViewPatchDisplay, view: ViewSpec, kind: 'patch' | 'timer-control' | 'presentation-control' | 'pin-recall' | DocumentKind): Promise<Awaited<UpdateRecord>> {
+  private async publishMutation(principal: AuthPrincipal, input: { sessionId: string; displayId: string; requestId: string }, before: ViewPatchDisplay, view: ViewSpec, kind: 'patch' | 'timer-control' | 'presentation-control' | 'pin-recall' | 'checklist-show' | DocumentKind): Promise<Awaited<UpdateRecord>> {
     return this.store.atomic(async () => {
     const display = (await this.display(principal, input.sessionId, input.displayId, 'editor'));
     this.assertRevision(before.revision, display.revision);
     if (before.generation !== display.generation || before.interactionEpoch !== display.interactionEpoch) throw new AppError('REVISION_CONFLICT', 'The display changed while applying this operation.', 409);
     if (kind === 'timer-control' && display.held) throw new AppError('DISPLAY_HELD', 'Release the display hold before controlling this timer.', 409);
     (await this.history.ensure(display));
-    display.view = view; display.revision++; display.generation++; display.updatedAt = now();
+    display.view = view?await (kind==='pin-recall'?this.checklists.restoreSnapshot(display.sessionId,view):this.checklists.capture(display.sessionId,view)):null; display.revision++; display.generation++; display.updatedAt = now();
     if(kind==='pin-recall')display.interactionEpoch=id();
     display.targetAgentId = principal.agentId ?? display.targetAgentId;
     display.delivery = { revision: display.revision, status: 'pending', updatedAt: display.updatedAt };
@@ -532,6 +555,14 @@ export class KanvasService implements McpService {
     return update;
 
     });
+  }
+  async showChecklist(principal:AuthPrincipal,input:{sessionId:string;displayId:string;requestId:string;expectedRevision:number},view:ViewSpec) {
+    const display=await this.display(principal,input.sessionId,input.displayId,'editor');
+    const retry=await this.retry<UpdateRecord>(principal,input.sessionId,input.requestId,'checklist-show',input);if(retry)return this.updateDelivery(retry);
+    this.assertRevision(input.expectedRevision,display.revision);
+    if(display.held)throw new AppError('DISPLAY_HELD','Release the display before showing a checklist.',409);
+    const update=await this.publishMutation(principal,input,display,await this.verifyView(principal,input.sessionId,view),'checklist-show');
+    this.store.afterCommit(()=>this.emit({type:'display',sessionId:input.sessionId,displayId:input.displayId,revision:update.revisions[input.displayId]}));return this.updateDelivery(update);
   }
   async publishPreparedControl(principal:AuthPrincipal,input:{sessionId:string;displayId:string;requestId:string},view:ViewSpec):Promise<Awaited<UpdateRecord>> {
     return this.store.atomic(async () => {
@@ -701,11 +732,16 @@ export class KanvasService implements McpService {
         else {
           // Validate every view before changing any display; all writes commit together.
           const views=await asyncMap(results,async (result,index)=>result.action==='retain'?current[index].view:await this.verifyView(work.principal,input.sessionId,required(result.view,'Rendering did not return a valid view.')));
+          const checklistCopies=new Map<string,ViewSpec>();
           for (let index=0;index<current.length;index++) {
             const display=current[index];
             if (results[index].action!=='retain') {
               const epoch=work.deckId?`deck:${work.deckId}`:participationCompatible(display.view,views[index])?display.interactionEpoch:id();
-              await this.history.ensure(display); display.view=views[index]; display.revision++; display.interactionEpoch=epoch; display.targetAgentId=work.principal.agentId; display.updatedAt=now();
+              await this.history.ensure(display);
+              const candidate=views[index],checklistKey=candidate?.template==='checklist'&&!candidate.data.checklistId?canonical(candidate):undefined;
+              display.view=checklistKey&&checklistCopies.has(checklistKey)?copy(checklistCopies.get(checklistKey)!):candidate?await this.checklists.capture(display.sessionId,candidate):null;
+              if(checklistKey&&display.view)checklistCopies.set(checklistKey,display.view);
+              display.revision++; display.interactionEpoch=epoch; display.targetAgentId=work.principal.agentId; display.updatedAt=now();
               display.delivery={revision:display.revision,status:'pending',updatedAt:now()};
               await this.store.put('display',display); await this.history.record(display,input.view?'prepared':'interpreted');
             }
@@ -803,7 +839,7 @@ export class KanvasService implements McpService {
     (await this.store.transaction(async () => {
       for (const { display, cursor, view, entry } of targets) {
         (await this.history.ensure(display));
-        display.view = view; display.revision++; display.generation++; display.interactionEpoch = entry.interactionEpoch ?? id(); display.targetAgentId = principal.agentId; display.updatedAt = now(); display.delivery = { revision: display.revision, status: 'pending', updatedAt: now() };
+        display.view = view?await this.checklists.restoreSnapshot(display.sessionId,view):null; display.revision++; display.generation++; display.interactionEpoch = entry.interactionEpoch ?? id(); display.targetAgentId = principal.agentId; display.updatedAt = now(); display.delivery = { revision: display.revision, status: 'pending', updatedAt: now() };
         update.revisions[display.id] = display.revision; (await this.store.put('display', display)); (await this.history.moved(display, cursor));
       }
       (await this.store.put('update', update)); (await this.saveRequest(principal, input.sessionId, input.requestId, 'navigate', input, update.id));
@@ -855,8 +891,13 @@ export class KanvasService implements McpService {
       response = draftingSelectionFeedback(display.view!, value);
     } else if (value.kind === 'checklist.toggle' && leaf.template === 'checklist') {
       const toggle = z.object({ kind: z.literal('checklist.toggle'), itemId: z.string().min(1).max(128), checked: z.boolean() }).strict().parse(value);
-      const items = structuredClone(leaf.data.items) as { id: string; checked: boolean }[], item = required(items.find(item => item.id === toggle.itemId), 'This checklist item is unavailable.');
-      item.checked = toggle.checked; response = { itemId: item.id, checked: item.checked }; nextView = replaceLeaf(display.view!, { ...leaf.data, items });
+      // A narrow checkbox intent can rebase onto the latest document without
+      // resubmitting stale sibling items. Full-data edits still require CAS.
+      const latest=await this.checklists.latestView(sessionId,leaf),items=structuredClone(latest.data.items) as {id:string;checked:boolean}[],item=items.find(item=>item.id===toggle.itemId);
+      if(item){item.checked=toggle.checked;response={itemId:item.id,checked:item.checked};}
+      else response={itemId:toggle.itemId,applied:false,reason:'Item was removed; the latest saved checklist is now shown.'};
+      const updated={...latest,data:{...latest.data,items}};
+      nextView=display.view!.template==='presentation'?{...display.view!,data:{...display.view!.data,slides:(display.view!.data.slides as ViewSpec[]).map((slide,index)=>index===Number(display.view!.data.index??0)?updated:slide)}}:updated;
     } else if (value.kind === 'planner.review' && leaf.template === 'planner') {
       const decision = z.object({ kind: z.literal('planner.review'), proposalId: z.string().min(1).max(128), decision: z.enum(['accept', 'reject', 'change']), comment: z.string().max(500).optional() }).strict().parse(value);
       const data = plannerDataSchema.parse(leaf.data), proposal = required(data.proposals.find(entry => entry.id === decision.proposalId), 'This proposal is no longer pending.');
@@ -885,7 +926,7 @@ export class KanvasService implements McpService {
     (await this.store.transaction(async () => {
       if (!nextView && response === undefined) { const accepted = (await this.engagement.submit(display, principal.participantId ?? principal.userId, value)); actionId = accepted.actionId; response = accepted.value; }
       if (nextView) {
-        (await this.history.ensure(display)); display.view = nextView; display.revision++; display.generation++; display.updatedAt = now(); (await this.store.put('display', display)); (await this.history.record(display, actionId));
+        (await this.history.ensure(display)); display.view = await this.checklists.capture(display.sessionId,nextView); display.revision++; display.generation++; display.updatedAt = now(); (await this.store.put('display', display)); (await this.history.record(display, actionId));
       }
       interaction.actionId = actionId; interaction.value = response; (await this.store.put('interaction', interaction)); (await this.saveRequest(principal, sessionId, input.requestId, 'interaction', payload, interaction.id));
     }));
@@ -1058,6 +1099,10 @@ export class KanvasService implements McpService {
       case 'kanvas_session_public_access':return (await setPublicAccess(this,principal,a));
       case 'kanvas_scoreboard_control':(await this.access(principal,a.sessionId,'editor'));return (await this.respond(principal,a.sessionId,a.displayId,{revision:a.expectedRevision,requestId:a.requestId,value:{kind:'scoreboard.adjust',sideId:a.sideId,action:a.action,...(a.score!==undefined?{score:a.score}:{})}}));
 
+      case 'kanvas_checklist_read':return this.checklists.read(principal,a);
+      case 'kanvas_checklist_update':return this.checklists.update(principal,a);
+      case 'kanvas_checklist_show':return this.checklists.show(principal,a);
+      case 'kanvas_account_details':return await this.accountDetails(principal);
       case 'kanvas_profile_read':return (await this.accounts.profile(principal));
       case 'kanvas_profile_update':return (await this.accounts.updateProfile(principal,a));
       case 'kanvas_groups_list':return (await this.accounts.list(principal));
@@ -1126,7 +1171,7 @@ export class KanvasService implements McpService {
       case 'kanvas_display_rename': return (await this.renameDisplay(principal,a.sessionId,a.displayId,a.expectedRevision,a.name));
       case 'kanvas_selection_set': return (await this.setSelection(principal,a));
       case 'kanvas_sessions_list': return (await this.sessions(principal));
-      case 'kanvas_session_create': return (await this.createSession(principal, a.name));
+      case 'kanvas_session_create': return (await this.createReadySession(principal, a.name,a.initialDisplay));
       case 'kanvas_session_state': return (await this.detail(principal, a.sessionId));
       case 'kanvas_session_end': return (await this.end(principal, a.sessionId));
       case 'kanvas_display_register': return (await this.createDisplay(principal, a.sessionId, a as unknown as Parameters<KanvasService['createDisplay']>[2]));
@@ -1175,10 +1220,16 @@ export class KanvasService implements McpService {
       case 'kanvas_display_navigate': return (await this.navigate(principal, a as unknown as Parameters<KanvasService['navigate']>[1]));
       case 'kanvas_video_control': return (await this.videoControl(principal, a as unknown as Parameters<KanvasService['videoControl']>[1]));
       case 'kanvas_video_status': return (await this.video.get((await this.display(principal, a.sessionId, a.displayId)), a.commandId)) ?? null;
+      case 'kanvas_display_request_capture': return this.clientCapture.request(principal, {sessionId:a.sessionId, displayId:a.displayId, viewerId:a.viewerId});
+      case 'kanvas_display_capture_status': return this.clientCapture.status(principal, {sessionId:a.sessionId, displayId:a.displayId, captureId:a.captureId});
       case 'kanvas_display_snapshot': {
         (await this.fullAccount(principal));
         const display = (await this.publicDisplay((await this.display(principal, a.sessionId, a.displayId)), principal));
-        const result = await this.visualCapture.capture(principal.userId, display, a, async () => (await this.publicDisplay((await this.display(principal, a.sessionId, a.displayId)), principal)));
+        const live = (await this.experience.receiving.viewers(a.sessionId, a.displayId))
+          .filter(v => v.connected && v.width > 0 && v.height > 0).sort((x,y) => Number(y.visible) - Number(x.visible) || Date.parse(y.observedAt) - Date.parse(x.observedAt))[0];
+        const dimensions = { width: a.width ?? live?.width ?? display.width, height: a.height ?? live?.height ?? display.height };
+        const result = await this.visualCapture.capture(principal.userId, display, dimensions, async () => (await this.publicDisplay((await this.display(principal, a.sessionId, a.displayId)), principal)));
+        Object.assign(result.metadata, { viewportSource: a.width || a.height ? 'explicit-with-live-defaults' : live ? 'connected-viewer' : 'display-default', ...(live ? { viewportViewerId: live.id } : {}) });
         (await this.access(principal,a.sessionId));
         if(a.includeBase64)result.metadata.export={base64:result.image.toString('base64'),mimeType:result.mimeType,name:`kanvas-snapshot-${display.revision}.jpg`,size:result.image.length};
         // Capturing already-readable pixels may create a bounded derivative asset,
@@ -1189,7 +1240,7 @@ export class KanvasService implements McpService {
         Object.assign(result.metadata,{assetId:asset.id,assetUrl:new URL(asset.url,this.publicUrl).href,assetPath:asset.url,reusable:true});return result;
       }
       case 'kanvas_config_update': return (await this.experience.scopedSettings(principal,a));
-      case 'kanvas_submit': return (await this.publication.show(principal, a as unknown as PublishInput));
+      case 'kanvas_submit': { const result=await this.publication.show(principal,a as unknown as PublishInput);return (a.view as ViewSpec|undefined)?.template==='settings'||a.templateHint==='settings'?{...result,settingsGuidance:{tool:'kanvas_config_update',sessionId:a.sessionId??('sessionId' in result?result.sessionId:undefined),readRevision:'Read session.state for configRevision; pass it as expectedRevision.',nextAction:'Apply user-requested changes now via settings.update with config:{style,theme,accent,readingFontSize,readingWpm,readingZoom}. This is live configuration, not static display content. Account defaults use profile preferences.update and its current revision; never change scope implicitly.'}}:result; }
       case 'kanvas_presentation_navigate': return (await this.navigatePresentation(principal, a as unknown as PresentationNavigation));
       case 'kanvas_clear': return (await this.clear(principal, a.sessionId, a.displayIds, a.requestId));
       case 'kanvas_update_status': { (await this.access(principal, a.sessionId)); const update = required(a.updateId ? (await this.store.get<UpdateRecord>('update', a.updateId)) : (await this.retryStatus(principal, a.sessionId, a.requestId))); if (update.sessionId !== a.sessionId) throw new AppError('NOT_FOUND', 'This update is unavailable.', 404); return (await this.updateDelivery(update)); }

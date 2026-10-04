@@ -92,7 +92,7 @@ export function BrowsingProvider({view,sessionId,displayId,revision,config,enabl
     };
     const key=(event:KeyboardEvent)=>{if(event.defaultPrevented||event.metaKey||event.ctrlKey||event.altKey||event.shiftKey||excluded(event.target)||window.getSelection()?.toString())return;
       if(event.key==='ArrowLeft'||event.key==='ArrowRight'){const el=root.current;if(el){const scroll=scrollElement(el),max=scroll.scrollWidth-scroll.clientWidth;if(max>2&&(event.key==='ArrowRight'?scroll.scrollLeft<max-2:scroll.scrollLeft>2))return;}event.preventDefault();step(event.key==='ArrowLeft'?-1:1);}
-      else if(positionalRef.current&&(event.key==='Home'||event.key==='End'||event.key==='Escape')){event.preventDefault();if(event.key==='Home')positionalRef.current?.home();else if(event.key==='End')positionalRef.current?.end();else positionalRef.current?.overview();}
+      else if(positionalRef.current&&(event.key==='Home'||event.key==='End')){event.preventDefault();if(event.key==='Home')positionalRef.current?.home();else positionalRef.current?.end();}
     };
     let start:{x:number;y:number;at:number}|undefined;
     const touchStart=(event:TouchEvent)=>{if(event.touches.length!==1||excluded(event.target)){start=undefined;return;}start={x:event.touches[0].clientX,y:event.touches[0].clientY,at:Date.now()};};
@@ -106,7 +106,10 @@ export function BrowsingProvider({view,sessionId,displayId,revision,config,enabl
   },[enabled,canNavigate,Boolean(positional),hasPaging]);
 
   useEffect(()=>{const el=root.current;if(!el||!enabled)return;let timer:ReturnType<typeof setTimeout>|undefined;
-    const scroll=(event:Event)=>{if((event.target as HTMLElement)?.dataset.readingAuto==='true')return;if(Date.now()<suppress.current||!canNavigate)return;const target=event.target;if(!(target instanceof HTMLElement)||!el.contains(target)||target!==scrollElement(el))return;inputEpoch.current++;nativeScrollPending.current=true;clearTimeout(timer);timer=setTimeout(()=>{nativeScrollPending.current=false;if(latest.current.revision===revision&&target.isConnected&&el.contains(target))sendRef.current({action:'scroll',x:normalizedScroll(target.scrollLeft,target.scrollWidth-target.clientWidth),y:normalizedScroll(target.scrollTop,target.scrollHeight-target.clientHeight)});},160);};
+    const scroll=(event:Event)=>{if((event.target as HTMLElement)?.dataset.readingAuto==='true')return;
+      // Native scrolling in embedded/unsupported views stays local and silent.
+      // Explicit agent commands retain their capability errors.
+      if(!navigationCapabilities(latest.current.view,latest.current.state).scroll)return;if(Date.now()<suppress.current||!canNavigate)return;const target=event.target;if(!(target instanceof HTMLElement)||!el.contains(target)||target!==scrollElement(el))return;inputEpoch.current++;nativeScrollPending.current=true;clearTimeout(timer);timer=setTimeout(()=>{nativeScrollPending.current=false;if(latest.current.revision===revision&&target.isConnected&&el.contains(target))sendRef.current({action:'scroll',x:normalizedScroll(target.scrollLeft,target.scrollWidth-target.clientWidth),y:normalizedScroll(target.scrollTop,target.scrollHeight-target.clientHeight)});},160);};
     const prevent=(event:Event)=>{if(!canNavigate)event.preventDefault();};
     const key=(event:KeyboardEvent)=>{if(!canNavigate&&['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','PageUp','PageDown','Home','End',' '].includes(event.key)&&!(event.target as HTMLElement).closest('input,textarea,select,button,a'))event.preventDefault();};
     el.addEventListener('keydown',key);el.addEventListener('scroll',scroll,true);el.addEventListener('wheel',prevent,{passive:false});el.addEventListener('touchmove',prevent,{passive:false});return()=>{el.removeEventListener('keydown',key);el.removeEventListener('scroll',scroll,true);el.removeEventListener('wheel',prevent);el.removeEventListener('touchmove',prevent);clearTimeout(timer);nativeScrollPending.current=false;};

@@ -169,7 +169,7 @@ export class Accounts {
     return this.store.atomic(async () => {const c=(await this.store.get<SessionContext>('session-context',sessionId));if(c){c.overrides={...c.overrides,...patch};c.revision++;(await this.store.put('session-context',c));}
     });
   }
-  async profile(p:AuthPrincipal){(await this.account(p));return {...((await this.store.get<AccountProfile>('profile',p.userId))??{id:p.userId,revision:0}),user:(await this.service.auth.user(p.userId)),avatarUrl:(await avatarUrl(this.store,p.userId)),serviceAdmin:(await this.isServiceAdmin(p))};}
+  async profile(p:AuthPrincipal){(await this.account(p));const details=await this.service.accountDetails(p);return {email:details.email,emailVerified:details.emailVerified,tier:details.tier,quotaExempt:details.quotaExempt,limits:details.limits,...((await this.store.get<AccountProfile>('profile',p.userId))??{id:p.userId,revision:0}),user:(await this.service.auth.user(p.userId)),avatarUrl:(await avatarUrl(this.store,p.userId)),serviceAdmin:(await this.isServiceAdmin(p))};}
   async updateProfile(p:AuthPrincipal,raw:unknown){
     return this.store.atomic(async () => {
     (await this.account(p,true));const a=profileUpdateSchema.parse(raw),profile=(await this.store.get<AccountProfile>('profile',p.userId))??{id:p.userId,revision:0};this.service.assertRevision(a.expectedRevision,profile.revision);

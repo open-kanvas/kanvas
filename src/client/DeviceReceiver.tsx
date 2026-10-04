@@ -4,7 +4,7 @@ import { api, errorMessage, viewerPath } from './api';
 import { useAuth } from './hooks';
 import { viewerTabId } from './window-identity';
 
-type Device={id:string;name:string;home:{sessionId:string;displayId:string};window?:{id:string;name:string;version:number}};
+type Device={id:string;name:string;home?:{sessionId:string;displayId:string};window?:{id:string;name:string;version:number}};
 type Command={id:string;sessionId:string;displayId:string};
 const Context=createContext<{device?:Device;error?:string}>({});
 export const useDevice=()=>useContext(Context);
@@ -12,7 +12,7 @@ function installationId(){try{const saved=localStorage.getItem('kanvas-device-in
 export function DeviceReceiver({children}:{children:ReactNode}){
   const auth=useAuth(),[device,setDevice]=useState<Device>(),[error,setError]=useState<string>(),command=useRef<Command|undefined>(undefined),painted=useRef<{sessionId:string;displayId:string;renderedRevision:number}|undefined>(undefined);
   useEffect(()=>{
-    if(!auth.user||auth.viewOnly||auth.captureOnly||location.pathname==='/console'||location.pathname==='/'||new URLSearchParams(location.search).has('authorize'))return;
+    if(!auth.user||auth.viewOnly||auth.captureOnly||new URLSearchParams(location.search).has('authorize'))return;
     if('serviceWorker' in navigator)void navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(()=>{});
     let stopped=false,stream:EventSource|undefined,timer:ReturnType<typeof setTimeout>|undefined,registered:Device|undefined;
     const report=()=>{const p=painted.current;if(!registered||!p)return;const c=command.current,match=c?.sessionId===p.sessionId&&c.displayId===p.displayId;
@@ -25,7 +25,7 @@ export function DeviceReceiver({children}:{children:ReactNode}){
       if(data.command){const c=data.command;command.current=c;const path=viewerPath(c.sessionId,c.displayId);if(location.pathname!==path){location.assign(path);return;}window.dispatchEvent(new Event('kanvas:return-live'));report();}else command.current=undefined;
     };
     const commandEvent=(event:Event)=>receive((event as CustomEvent).detail);window.addEventListener('kanvas:window-command',commandEvent);
-    const start=async()=>{try{registered=await api<Device>('/api/devices/register',{method:'POST',body:{installationId:installationId(),windowId:viewerTabId()}});if(stopped)return;setDevice(registered);setError(undefined);report();
+    const start=async()=>{try{registered=await api<Device>('/api/devices/register',{method:'POST',body:{installationId:installationId(),windowId:viewerTabId(),...(['/', '/console'].includes(location.pathname)?{provisionHome:false}:{})}});if(stopped)return;setDevice(registered);setError(undefined);report();
       // A viewer carries targeted commands on its content stream. Two streams
       // per tab exhaust HTTP/1.1's six-connection origin limit.
       if(registered.window&&/^\/view\//.test(location.pathname)){window.dispatchEvent(new Event('kanvas:device-registered'));return;}

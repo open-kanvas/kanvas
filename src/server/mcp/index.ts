@@ -92,7 +92,9 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
   const profile = mcpProfile(options.profile);
   const allowedHosts: string[] = options.allowedHosts ?? app.locals.mcpAllowedHosts ?? ['localhost', '127.0.0.1', '[::1]'];
   const allowedOrigins: string[] | undefined = options.allowedOrigins ?? app.locals.mcpAllowedOrigins;
-  const challenge = metadataChallenge(options.resourceMetadataUrl ?? app.locals.mcpResourceMetadataUrl);
+  const metadataUrl=options.resourceMetadataUrl ?? app.locals.mcpResourceMetadataUrl;
+  const challenge = metadataChallenge(metadataUrl);
+  const icons=typeof metadataUrl==='string'?[{src:new URL('/icons/kanvas-192.png',metadataUrl).href,mimeType:'image/png',sizes:['192x192']}]:undefined;
   const maxLegacySessions = options.maxLegacySessions ?? 256;
   const maxPerPrincipal = options.maxSessionsPerPrincipal ?? 16;
   const idleMs = options.legacySessionIdleMs ?? 30 * 60 * 1000;
@@ -111,7 +113,7 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
   };
 
   const makeServer = (legacy?: LegacySession): Server => {
-    const server = new Server({ ...SERVER_INFO, description: profileDescription(profile) }, {
+    const server = new Server({ ...SERVER_INFO,title:'Kanvas',...(icons?{icons}:{}), description: profileDescription(profile) }, {
       capabilities: { tools: {}, resources: { subscribe: true, listChanged: true } },
       instructions: profileInstructions(profile),
       supportedProtocolVersions: LEGACY_PROTOCOL_VERSIONS,

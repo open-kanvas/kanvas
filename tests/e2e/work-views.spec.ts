@@ -1,4 +1,6 @@
 import {randomUUID} from 'node:crypto';
+import {Store} from '../../src/server/store';
+import {testDatabase} from '../postgres';
 import {mkdir} from 'node:fs/promises';
 import type {Page,TestInfo} from '@playwright/test';
 import {test,expect,register,createSession,createDisplay,openViewer,publishPrepared,waitForDisplay,sessionApi,sessionDetail} from './support';
@@ -96,12 +98,18 @@ test('list uses multiple columns without losing long rows and progress connector
   const connectors=await v.locator('.spine-connector').evaluateAll(els=>els.map(e=>['x1','y1','x2','y2'].map(k=>Number(e.getAttribute(k)))));expect(connectors).toHaveLength(3);for(const [x1,y1,x2,y2] of connectors)expect(Math.abs(x1-x2)<1||Math.abs(y1-y2)<1).toBe(true);await photo(v,info,'progress-orthogonal');
 });
 
-test('account start paginates names and real links, renames with CAS, and installs a shell without caching account data',async({page},info)=>{
-  await register(page);for(let i=0;i<12;i++){const created=await sessionApi(page,'/api/sessions','POST',{name:`Recent source ${i+1}`});expect(created.status).toBe(200);}
+test('a free account start paginates names and real links, renames with CAS, and installs a shell without caching account data',async({page},info)=>{
+  await register(page);
+  // Pagination beyond ten sessions requires a real free-tier entitlement. This
+  // operator fixture is restricted to the disposable configured browser schema.
+  const runId=process.env.KANVAS_E2E_RUN_ID;if(!runId)throw new Error('Isolated browser run ID is required.');
+  const userId=await page.evaluate(async()=> (await(await fetch('/api/auth/me')).json()).data.user.id as string);
+  const fixtures=new Store(testDatabase(runId));try{await fixtures.ready;await fixtures.put('account-tier',{id:userId,tier:'free'});}finally{await fixtures.close();}
+  for(let i=0;i<12;i++){const created=await sessionApi(page,'/api/sessions','POST',{name:`Recent source ${i+1}`});expect(created.status).toBe(200);}
   const list=await sessionApi<any>(page,'/api/start');expect(list.status).toBe(200);expect(list.data.sessions).toHaveLength(10);const selected=list.data.sessions[0],before=await sessionDetail(page,selected.id);
   const renamed=await sessionApi(page,`/api/sessions/${selected.id}/rename`,'POST',{name:'Renamed source session',expectedRevision:before.session.configRevision});expect(renamed.status).toBe(200);
   await page.goto('/start');await expect(page.getByRole('region',{name:'Your sessions'})).toBeVisible();await expect(page.locator('.account-session-list article')).toHaveCount(10);await expect(page.getByRole('button',{name:/Renamed source session/})).toBeVisible();const firstNames=await page.locator('.session-choice strong').allTextContents();await page.getByRole('button',{name:'Older sessions',exact:true}).click();await expect(page.locator('.account-session-list article')).toHaveCount(2);const olderNames=await page.locator('.session-choice strong').allTextContents();expect(new Set([...firstNames,...olderNames]).size).toBe(list.data.total);await expect(page.locator('.viewer-shell')).toBeVisible();await photo(page,info,'account-start');
   const manifest=await page.evaluate(async()=>fetch('/manifest.webmanifest').then(r=>r.json()));expect(manifest.start_url).toBe('/start');expect(manifest.display).toBe('standalone');
-  const keys=await page.evaluate(async()=>{await navigator.serviceWorker.ready;const out:string[]=[];for(const name of await caches.keys())for(const req of await (await caches.open(name)).keys())out.push(new URL(req.url).pathname);return out;});expect(keys.length).toBeGreaterThan(0);expect(keys.every(k=>k==='/offline.html'||k.startsWith('/icons/'))).toBe(true);
+  const keys=await page.evaluate(async()=>{await navigator.serviceWorker.ready;const out:string[]=[];for(const name of await caches.keys())for(const req of await (await caches.open(name)).keys())out.push(new URL(req.url).pathname);return out;});expect(keys.sort()).toEqual(['/offline.html','/icons/kanvas-192.png','/icons/kanvas-512.png','/brand/kanvas-logo-white.svg'].sort());
   await page.goto('/docs/install-and-cast');await expect(page.locator('main')).toContainText('device.present');
 });

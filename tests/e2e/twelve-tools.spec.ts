@@ -102,12 +102,16 @@ test('an agent can repair pairing and feedback inputs while the intended browser
     await expect(guest.getByRole('heading', { name: 'Waiting for the owner.', exact: true })).toBeVisible();
     await expect(guest.getByText(source, { exact: true })).toHaveCount(0);
 
-    const badDecision = await client.callTool({ name: 'kanvas_access', arguments: { operation: 'pairing.decide', sessionId, pairingId: pair.id } });
+    const badDecision = await client.callTool({ name: 'kanvas_tool_use', arguments: { operationId: 'kanvas.pairing.decide', arguments: { sessionId, pairingId: pair.id } } });
     expect(badDecision.isError).toBe(true);
     expect((badDecision.structuredContent as { error: unknown }).error).toMatchObject({
-      code: 'INVALID_ARGUMENT', schemaTool: 'kanvas_inspect', schemaOperation: 'guide.get', topic: 'tools',
+      code: 'INVALID_ARGUMENT', schemaTool: 'kanvas_tool_use', schemaArguments: { operationId: 'kanvas.guide', arguments: { topic: 'tools' } }, topic: 'tools',
       issues: [{ path: 'approve', problem: 'Required boolean (true or false).' }, { path: 'confirm', problem: expect.stringContaining('owner confirms') }],
     });
+    const repair = (badDecision.structuredContent as { error: { schemaTool: string; schemaArguments: Record<string, unknown> } }).error;
+    const repaired = await client.callTool({ name: repair.schemaTool, arguments: repair.schemaArguments });
+    expect(repaired.isError).not.toBe(true);
+    expect((repaired.structuredContent as { data: { tools: string[] } }).data.tools).toEqual([...DISCOVERY_TOOL_NAMES]);
     const pending = await call<Array<{ id: string; displayId: string; status: string }>>('kanvas_inspect', 'pairings.read', { sessionId });
     expect(pending.find(item => item.id === pair.id)).toMatchObject({ displayId: display.id, status: 'pending' });
     await expect(guest.locator('.viewer-shell')).toHaveCount(0);
@@ -119,7 +123,7 @@ test('an agent can repair pairing and feedback inputs while the intended browser
     await waitForDisplay(page, sessionId, display.id, item => item.width === size.width && item.height === size.height && item.appliedRevision === item.revision && item.revision > 0);
 
     const reportArgs = { sessionId, requestId: 'recovery-report', title: 'Agent reproduction prose', description: 'The full reproduction should survive validation and be visible for review.', displayId: display.id };
-    const tooLong = await client.callTool({ name: 'kanvas_feedback', arguments: { operation: 'error.report', ...reportArgs, steps: 'x'.repeat(3201) } });
+    const tooLong = await client.callTool({ name: 'kanvas_tool_use', arguments: { operationId: 'kanvas.error.report', arguments: { ...reportArgs, steps: 'x'.repeat(3201) } } });
     expect(tooLong.isError).toBe(true);
     expect((tooLong.structuredContent as { error: unknown }).error).toMatchObject({ code: 'INVALID_ARGUMENT', issues: [{ path: 'steps', maximum: 3200, actual: 3201, unit: 'characters' }] });
     const steps = 'Open the intended screen. Keep its request pending until the owner confirms it.\nThen approve that browser and check the exact fact.\n'.repeat(6).trim();

@@ -37,8 +37,8 @@ describe('bounded first-use viewer handoff guidance', () => {
   });
 
   it('makes each entry point honest about locator fields and its actual lifecycle', () => {
-    expect(VIEWER_LINK_TOOL_GUIDANCE.kanvas_session_create).toContain('no registered-screen viewerUrl');
-    expect(VIEWER_LINK_TOOL_GUIDANCE.kanvas_session_create).toContain('neither registers a display nor publishes content');
+    expect(VIEWER_LINK_TOOL_GUIDANCE.kanvas_session_create).toContain('real viewerUrl');
+    expect(VIEWER_LINK_TOOL_GUIDANCE.kanvas_session_create).toContain('initialDisplay:false');
     expect(VIEWER_LINK_TOOL_GUIDANCE.kanvas_display_register).toContain('returned viewerUrl');
     expect(VIEWER_LINK_TOOL_GUIDANCE.kanvas_display_register).toContain('does not publish content or prove');
     expect(VIEWER_LINK_TOOL_GUIDANCE.kanvas_submit).toContain('targets[].viewerUrl/shortUrl');

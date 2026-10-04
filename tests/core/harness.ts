@@ -84,7 +84,7 @@ export class Browser {
   }
 
   async session(name = 'Acceptance session'): Promise<SessionRecord> {
-    return success(await this.request<SessionRecord>('POST', '/api/sessions', { name }));
+    return success(await this.request<SessionRecord>('POST', '/api/sessions', { name,initialDisplay:false }));
   }
 
   async display(sessionId: string, name = 'Test display', width = 1200, height = 800): Promise<DisplayRecord> {

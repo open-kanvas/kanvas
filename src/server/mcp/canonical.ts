@@ -1,3 +1,4 @@
+import {checklistTools} from '../checklists.js';
 import { archiveSchema, archiveListSchema } from '../archive.js';
 import { randomUUID } from 'node:crypto';
 import { viewFormatSchema } from '../../shared/regional.js';
@@ -78,7 +79,7 @@ const exactlyOne = (left: string, right: string) => ({
 const definitions: readonly Definition[] = [
  {name:'kanvas_archive_list',description:'List your recoverable archived sessions, displays and retained views. Hidden from normal lists; retained indefinitely. Session grant restrictions still apply.',schema:archiveListSchema,readOnly:true},
  {name:'kanvas_archive_manage',description:'Owner-only archive (default) or restore of a session, display or retained view ID from display history. Archive is reversible. Permanent removal requires request-delete: show a warning and three random phonetic words on the current confirmationSessionId/confirmationDisplayId for 120 seconds. Batch views use targetIds (1–100 distinct IDs in one session), with one exact-target-bound confirmation. Then confirm-delete with challengeId and words explicitly supplied by the human. Never read/guess the words or infer approval. Shared items are deleted for everyone.',schema:archiveSchema,destructive:true},
-  ...eventTools, ...experienceTools, ...invitationTools, ...workTools, ...accountTools, ...documentTools, ...plannerTools, ...syncTools, ...homeTools,
+  ...checklistTools,...eventTools, ...experienceTools, ...invitationTools, ...workTools, ...accountTools, ...documentTools, ...plannerTools, ...syncTools, ...homeTools,
   {name:'kanvas_help',description:'Kanvas Help: focused task guidance and canonical public documentation. Read-only; never publishes or changes a display. General orientation offers a few choices; pass a topic and optional question for a specific how-to.',schema:helpInputSchema,readOnly:true},
   {name:'kanvas_navigation_control',description:'Explicit user scroll/page/navigation requests must be executed, regardless of pageCount or inferred visibility. Page, scroll, search, highlight, focus, gotoLine for code/diff (optional panelId and side before/after), selectDay for itinerary maps (day 1..N or all), or fit a diagram within the existing view without rewriting source data or history. Read navigation.read for capabilities, then supply revision and a new requestId. Agent cues the display, or one active independent viewerId. Read per-viewer acknowledgements; an accepted command is not proof of a painted screen.',schema:navigationInputSchema,idempotent:true},
   {name:'kanvas_navigation_read',description:'Read within-view position, available actions and per-viewer navigation acknowledgements. Includes current sync mode; cross-origin page contents are not observable.',schema:navigationReadSchema,readOnly:true},
@@ -154,8 +155,8 @@ const definitions: readonly Definition[] = [
   },
   {
     name: 'kanvas_session_create',
-    description: 'Create an authorized private screen session when needed. New to showing content? kanvas_guide introduces templates, viewer location and current displays and revisions; read kanvas_session_state before display decisions. Register a display and publish quietly within that policy. A viewer separately signs in; its URL is not an access grant.',
-    schema: z.strictObject({ name }),
+    description: 'Create an authorized private screen session when needed. New to showing content? kanvas_guide introduces templates, viewer location and current displays and revisions; read kanvas_session_state before display decisions. An initial blank Main display and joinable viewerUrl are created by default; initialDisplay:false opts out. Publish quietly within that policy. A viewer separately signs in; its URL is not an access grant.',
+    schema: z.strictObject({ name,initialDisplay:z.boolean().default(true).describe("Create a blank branded Main display and return its viewerUrl immediately. Set false for an intentionally display-free session.") }),
   },
   {
     name: 'kanvas_sessions_list',

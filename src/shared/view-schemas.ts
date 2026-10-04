@@ -109,7 +109,7 @@ export const comparisonDataSchema = z.object({
   for (const item of data.items) if (Object.keys(item.values).some((key) => !data.criteria.includes(key)) || data.criteria.some((key) => !(key in item.values))) ctx.addIssue({ code: 'custom', message: 'All alternatives must use the same criteria' });
 });
 const uniqueIds = <T extends { id: string }>(values: T[]) => new Set(values.map((v) => v.id)).size === values.length;
-export const checklistDataSchema = z.object({ items: z.array(z.object({ id: identifier, text: z.string().min(1).max(1000), checked: z.boolean().default(false), detail: short.optional() }).strict()).max(100).refine(uniqueIds, 'Checklist IDs must be unique') }).strict();
+export const checklistDataSchema = z.object({ checklistId:identifier.optional().describe('Server-managed persistent checklist identity. Keep it to update the same checklist; omit to create a new checklist.'),checklistRevision:z.number().int().nonnegative().optional().describe('Current document revision. Stale copies cannot overwrite a newer checklist.'), items: z.array(z.object({ id: identifier, text: z.string().min(1).max(1000), checked: z.boolean().default(false), detail: short.optional() }).strict()).max(100).refine(uniqueIds, 'Checklist IDs must be unique') }).strict();
 const coordinates = z.object({ lat: finite.min(-90).max(90), lng: finite.min(-180).max(180) }).strict();
 const color = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 const geometry = z.object({ name: short.optional(), coordinates: z.array(coordinates).min(2).max(5000), color: color.optional() }).strict();

@@ -56,7 +56,9 @@ export class Topology {
     await this.service.fullAccount(p);
     const sessions=await this.service.sessions(p),results=[];
     for(const session of sessions.filter(s=>!s.endedAt))results.push(await this.snapshot(p,{...a,sessionId:session.id,includeOffline:false}));
-    return {sessions:results.filter(s=>s.counts.windows>0),note:'Live displays across all sessions this connection may access. Use connection.redirect with the source sessionId and connectionId to move your own existing window to a target session/display; do not ask the user to open another URL.'};
+    const devices=await this.service.devices.list(p).catch(error=>{if(error instanceof AppError&&error.code==='FORBIDDEN')return {devices:[]};throw error;});
+    const availableWindows=devices.devices.flatMap(d=>d.windows.filter(w=>a.includeOffline||w.connected).map(w=>({deviceId:d.id,deviceName:d.name,windowId:w.id,name:w.name,connected:w.connected,version:w.version,current:w.current??null})));
+    return {sessions:results.filter(s=>s.counts.windows>0),availableWindows,windowTargeting:'Signed-in root/console windows also receive commands. Use kanvas_account begin or kanvas_devices window.present with deviceId/windowId/version; no session needs to be joined first.',note:'Live displays across all sessions this connection may access. Use connection.redirect with the source sessionId and connectionId to move your own existing window to a target session/display; do not ask the user to open another URL.'};
   }
   /** Anonymous access projects only this explicitly published topology view. */
   async publicDisplay(sessionId:string,displayId:string):Promise<Awaited<SessionTopology>>{

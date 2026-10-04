@@ -14,13 +14,13 @@ export const isGrouped = (profile: McpProfile): profile is GroupedProfile => pro
 
 /** Reviewed, exhaustive registry. Do not synthesize handler names from input. */
 export const OPERATION_REGISTRY = {
-  kanvas_inspect: { 'archive.list':'kanvas_archive_list',
+  kanvas_inspect: { 'checklist.read':'kanvas_checklist_read','archive.list':'kanvas_archive_list',
     'pointing.read':'kanvas_pointing_read','autoplay.read':'kanvas_autoplay_read','tool-log.read':'kanvas_tool_log_read',
     'profile.read':'kanvas_profile_read','groups.list':'kanvas_groups_list','group.read':'kanvas_group_read',
     'group-access.read':'kanvas_group_access_read','session-context.read':'kanvas_session_context_read',
     'activity.read':'kanvas_activity_read','analytics.read':'kanvas_analytics_read','topology.read':'kanvas_topology_read',
     'start.read':'kanvas_start_read',
-    'devices.read':'kanvas_devices_read','account.inventory':'kanvas_account_inventory',
+    'account.details':'kanvas_account_details','devices.read':'kanvas_devices_read','account.inventory':'kanvas_account_inventory',
     'participants.read':'kanvas_participants_read',
     'help.read': 'kanvas_help',
     'navigation.read': 'kanvas_navigation_read', 'draft.read': 'kanvas_draft_read', 'planner.read': 'kanvas_planner_read', 'displays.sync.read': 'kanvas_displays_sync_read',
@@ -47,7 +47,7 @@ export const OPERATION_REGISTRY = {
     'monitoring.read': 'kanvas_monitoring_read',
   },
   kanvas_session: {rename:'kanvas_session_rename', create: 'kanvas_session_create', 'display.register': 'kanvas_display_register', 'display.rename':'kanvas_display_rename', 'address.get': 'kanvas_address_get', 'address.customize':'kanvas_address_customize' },
-  kanvas_publish: {'tool-log.append':'kanvas_tool_log_append','chat.append':'kanvas_chat_append', show: 'kanvas_submit', 'progress.append': 'kanvas_progress_append', replace_data: 'kanvas_display_edit', patch: 'kanvas_view_patch', notify: 'kanvas_toast', 'draft.edit': 'kanvas_draft_edit', 'draft.suggest': 'kanvas_draft_suggest', 'draft.review': 'kanvas_draft_review', 'planner.edit': 'kanvas_planner_edit', 'planner.propose': 'kanvas_planner_propose', 'planner.review': 'kanvas_planner_review', 'planner.finalize': 'kanvas_planner_finalize' },
+  kanvas_publish: {'checklist.update':'kanvas_checklist_update','checklist.show':'kanvas_checklist_show','tool-log.append':'kanvas_tool_log_append','chat.append':'kanvas_chat_append', show: 'kanvas_submit', 'progress.append': 'kanvas_progress_append', replace_data: 'kanvas_display_edit', patch: 'kanvas_view_patch', notify: 'kanvas_toast', 'draft.edit': 'kanvas_draft_edit', 'draft.suggest': 'kanvas_draft_suggest', 'draft.review': 'kanvas_draft_review', 'planner.edit': 'kanvas_planner_edit', 'planner.propose': 'kanvas_planner_propose', 'planner.review': 'kanvas_planner_review', 'planner.finalize': 'kanvas_planner_finalize' },
   kanvas_control: {'start.begin':'kanvas_account_begin','autoplay.control':'kanvas_autoplay_control','scoreboard.control':'kanvas_scoreboard_control',
     'selection.set':'kanvas_selection_set',
     'device.present':'kanvas_device_present',
@@ -75,7 +75,7 @@ export const OPERATION_REGISTRY = {
  * twelve profile (same name, operations and argument shape): existing agent
  * hosts manage reports through it. */
 export const DOMAIN_REGISTRY = {
-  kanvas_account: { begin:'kanvas_account_begin', start: 'kanvas_start_read', inventory: 'kanvas_account_inventory', activity: 'kanvas_activity_read', analytics: 'kanvas_analytics_read' },
+  kanvas_account: { details:'kanvas_account_details', begin:'kanvas_account_begin', start: 'kanvas_start_read', inventory: 'kanvas_account_inventory', activity: 'kanvas_activity_read', analytics: 'kanvas_analytics_read' },
   kanvas_profile: { read: 'kanvas_profile_read', update: 'kanvas_profile_update', 'preferences.read': 'kanvas_preferences_get', 'preferences.update': 'kanvas_preferences_update', 'styles.list': 'kanvas_styles_list' },
   kanvas_session_history: { list: 'kanvas_sessions_list' },
   kanvas_archive: { list:'kanvas_archive_list', manage:'kanvas_archive_manage' },
@@ -99,6 +99,7 @@ export const DOMAIN_REGISTRY = {
   kanvas_map: { camera: 'kanvas_map_camera' },
   kanvas_scoreboard: { control: 'kanvas_scoreboard_control' },
   kanvas_procedure: { control: 'kanvas_procedure_control' },
+  kanvas_checklist: {read:'kanvas_checklist_read',update:'kanvas_checklist_update',show:'kanvas_checklist_show'},
   kanvas_draft: { read: 'kanvas_draft_read', edit: 'kanvas_draft_edit', suggest: 'kanvas_draft_suggest', review: 'kanvas_draft_review' },
   kanvas_planner: { read: 'kanvas_planner_read', edit: 'kanvas_planner_edit', propose: 'kanvas_planner_propose', review: 'kanvas_planner_review', finalize: 'kanvas_planner_finalize' },
   kanvas_devices: { list: 'kanvas_devices_read', rename: 'kanvas_device_rename', present: 'kanvas_device_present', 'window.present': 'kanvas_window_present' },

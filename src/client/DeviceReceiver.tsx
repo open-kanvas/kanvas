@@ -12,7 +12,7 @@ function installationId(){try{const saved=localStorage.getItem('kanvas-device-in
 export function DeviceReceiver({children}:{children:ReactNode}){
   const auth=useAuth(),[device,setDevice]=useState<Device>(),[error,setError]=useState<string>(),command=useRef<Command|undefined>(undefined),painted=useRef<{sessionId:string;displayId:string;renderedRevision:number}|undefined>(undefined);
   useEffect(()=>{
-    if(!auth.user||auth.viewOnly||auth.captureOnly||location.pathname==='/console'||location.pathname==='/'||new URLSearchParams(location.search).has('authorize'))return;
+    if(!auth.user||auth.viewOnly||auth.captureOnly||new URLSearchParams(location.search).has('authorize'))return;
     if('serviceWorker' in navigator)void navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(()=>{});
     let stopped=false,stream:EventSource|undefined,timer:ReturnType<typeof setTimeout>|undefined,registered:Device|undefined;
     const report=()=>{const p=painted.current;if(!registered||!p)return;const c=command.current,match=c?.sessionId===p.sessionId&&c.displayId===p.displayId;

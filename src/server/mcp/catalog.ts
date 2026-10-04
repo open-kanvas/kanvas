@@ -31,7 +31,7 @@ const descriptions: Record<TwelveToolName, string> = {
 /** Domain profile: one tool per resource, named for what an agent is looking
  * for. Keep each to what disambiguates it from its neighbours. */
 const domainDescriptions: Record<Exclude<DomainToolName, 'kanvas_feedback'>, string> = {
-  kanvas_account: 'begin: fresh session on connected owned window; none returns bare URL. start: home/recent sessions. inventory: accessible sessions/displays/devices/windows/groups and mutation tools. activity/analytics: account usage.',
+  kanvas_account: 'details: own email, display name, quota tier, limits and account-details view recipe. begin: fresh session on connected owned window; none returns bare URL. start: home/recent sessions. inventory: accessible sessions/displays/devices/windows/groups and mutation tools. activity/analytics: account usage.',
   kanvas_profile: 'Your own profile and appearance: read/update profile (display name, avatar), preferences.read/update (personal theme/style layered over inherited defaults), styles.list (available styles). Changes need the current expectedRevision.',
   kanvas_archive: 'Recoverable archive for sessions, displays and retained views. list finds archived items. manage: archive (default), restore, request-delete then human-confirmed confirm-delete within 120 seconds. Owner only; no automatic purging.',
   kanvas_session_history: 'SESSION HISTORY: list every session you can access across the account (past and current), to find one to continue. Never selects a session. Not the session gallery (content shown inside one session).',
@@ -55,6 +55,7 @@ const domainDescriptions: Record<Exclude<DomainToolName, 'kanvas_feedback'>, str
   kanvas_map: 'Move a map display\'s camera (center, zoom).',
   kanvas_scoreboard: 'Change a scoreboard: increase, decrease or set a side\'s score at expectedRevision.',
   kanvas_procedure: 'Step through a procedure or recipe: next, previous, goto, complete, overview.',
+  kanvas_checklist: 'Persistent session checklists: read lists saved IDs or exact items/checked state; update changes the document independently; show brings it back on any display in the same session. Auto-saved when publishing the checklist template; keep checklistId/revision to update it. Replacing a display never erases it.',
   kanvas_draft: 'Collaborative text drafting held on the server: read (text, suggestions, versions, optional word diff), edit (revisioned replace/find-replace/append), suggest (span suggestions with reasons), review (accept/reject).',
   kanvas_planner: 'Negotiated plans (use calendar template for read-only events): read (items, pending proposals, conflicts; includeIcs returns iCalendar once committed), edit items, propose moves/additions/removals with reasons, review (accept/reject), finalize (commit). Conflicts are reported, never auto-resolved.',
   kanvas_devices: 'Registered devices (browsers/screens): list, rename, present (persistently re-point EVERY live window of a connected device to another display, e.g. make a phone follow the laptop), window.present (re-point one window).',

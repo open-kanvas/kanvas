@@ -217,6 +217,11 @@ export async function createApp(options: AppOptions = {}) {
   });
   app.get('/api/sessions', async (req, res) => send(res, (await service.sessions((await browser(req))))));
   app.post('/api/sessions', operation('kanvas_session_create'));
+  app.get('/api/account/details',operation('kanvas_account_details'));
+  app.get('/api/sessions/:id/checklists',operation('kanvas_checklist_read',sessionArgs));
+  app.get('/api/sessions/:id/checklists/:checklistId',operation('kanvas_checklist_read',req=>({...sessionArgs(req),checklistId:String(req.params.checklistId)})));
+  app.patch('/api/sessions/:id/checklists/:checklistId',operation('kanvas_checklist_update',req=>({...sessionArgs(req),checklistId:String(req.params.checklistId)})));
+  app.post('/api/sessions/:id/checklists/:checklistId/show',operation('kanvas_checklist_show',req=>({...sessionArgs(req),checklistId:String(req.params.checklistId)})));
   app.get('/api/sessions/:id', async (req, res) => {
     const displayId = req.query.displayId;
     if (displayId !== undefined && (typeof displayId !== 'string' || !displayId || displayId.length > 128)) throw new AppError('INVALID_DISPLAY', 'Supply one valid display identifier.');

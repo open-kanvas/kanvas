@@ -729,11 +729,16 @@ export class KanvasService implements McpService {
         else {
           // Validate every view before changing any display; all writes commit together.
           const views=await asyncMap(results,async (result,index)=>result.action==='retain'?current[index].view:await this.verifyView(work.principal,input.sessionId,required(result.view,'Rendering did not return a valid view.')));
+          const checklistCopies=new Map<string,ViewSpec>();
           for (let index=0;index<current.length;index++) {
             const display=current[index];
             if (results[index].action!=='retain') {
               const epoch=work.deckId?`deck:${work.deckId}`:participationCompatible(display.view,views[index])?display.interactionEpoch:id();
-              await this.history.ensure(display); display.view=views[index]?await this.checklists.capture(display.sessionId,views[index]!):null; display.revision++; display.interactionEpoch=epoch; display.targetAgentId=work.principal.agentId; display.updatedAt=now();
+              await this.history.ensure(display);
+              const candidate=views[index],checklistKey=candidate?.template==='checklist'&&!candidate.data.checklistId?canonical(candidate):undefined;
+              display.view=checklistKey&&checklistCopies.has(checklistKey)?copy(checklistCopies.get(checklistKey)!):candidate?await this.checklists.capture(display.sessionId,candidate):null;
+              if(checklistKey&&display.view)checklistCopies.set(checklistKey,display.view);
+              display.revision++; display.interactionEpoch=epoch; display.targetAgentId=work.principal.agentId; display.updatedAt=now();
               display.delivery={revision:display.revision,status:'pending',updatedAt:now()};
               await this.store.put('display',display); await this.history.record(display,input.view?'prepared':'interpreted');
             }

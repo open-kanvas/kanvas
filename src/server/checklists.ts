@@ -9,11 +9,11 @@ import type {Definition} from './mcp/canonical.js';
 
 const identifier=z.string().regex(/^[A-Za-z0-9_-]{1,128}$/),revision=z.number().int().nonnegative();
 const target={sessionId:identifier,checklistId:identifier};
-export const checklistReadSchema=z.strictObject({sessionId:identifier,checklistId:identifier.optional()});
+export const checklistReadSchema=z.strictObject({sessionId:identifier,checklistId:identifier.optional(),offset:z.number().int().min(0).max(100).default(0),limit:z.number().int().min(1).max(100).default(100)});
 export const checklistUpdateSchema=z.strictObject({...target,expectedRevision:revision,requestId:identifier,items:checklistDataSchema.shape.items,title:z.string().max(500).optional()});
 export const checklistShowSchema=z.strictObject({...target,displayId:identifier,expectedRevision:revision,requestId:identifier});
 export const checklistTools:Definition[]=[
- {name:'kanvas_checklist_read',readOnly:true,schema:checklistReadSchema,description:'Persistent SESSION checklists survive replacing or clearing displays. Omit checklistId to list IDs/titles; include it to retrieve exact saved items/checked state, revision and ready view. Legacy retained checklist snapshots are listed with legacy_ IDs; show saves the selected snapshot as an independent document. No cross-session reads.'},
+ {name:'kanvas_checklist_read',readOnly:true,schema:checklistReadSchema,description:'Persistent SESSION checklists survive replacing or clearing displays. Omit checklistId to list IDs/titles; include it to retrieve exact saved items/checked state, revision and ready view. Large records return bounded item windows; follow nextOffset with offset, or show the complete stored document directly. Legacy retained checklist snapshots are listed with legacy_ IDs; show saves the selected snapshot as an independent document. No cross-session reads.'},
  {name:'kanvas_checklist_update',schema:checklistUpdateSchema,idempotent:true,description:'Update saved checklist items/title independently of any currently displayed content. expectedRevision is the checklist document revision from read, not a display revision. Exact requestId retries are safe. Does not overwrite a screen; show the saved checklist on the intended display afterward.'},
  {name:'kanvas_checklist_show',schema:checklistShowSchema,idempotent:true,description:'Bring a saved checklist back on ANY display in the SAME session without resupplying its items. Uses latest document state; expectedRevision is the destination display revision. Honors hold/access and requestId retries. Other displays remain unchanged.'},
 ];
@@ -26,7 +26,7 @@ export class Checklists {
  async capture(sessionId:string,input:ViewSpec):Promise<ViewSpec>{
   const view=structuredClone(input);
   if(view.template==='presentation'){
-   view.data.slides=await Promise.all((view.data.slides as ViewSpec[]).map(slide=>this.capture(sessionId,slide)));return view;
+   const slides:ViewSpec[]=[];for(const slide of view.data.slides as ViewSpec[])slides.push(await this.capture(sessionId,slide));view.data.slides=slides;return view;
   }
   if(view.template!=='checklist')return view;
   const data=checklistDataSchema.parse(view.data),key=data.checklistId??id();
@@ -61,7 +61,13 @@ export class Checklists {
  }
  async read(p:AuthPrincipal,raw:unknown){
   const a=checklistReadSchema.parse(raw);await this.service.fullAccount(p);await this.service.access(p,a.sessionId);
-  if(a.checklistId)return this.get(a.sessionId,a.checklistId);
+  if(a.checklistId){
+   const record=await this.get(a.sessionId,a.checklistId),items=record.view.data.items as unknown[];
+   if(a.offset===0&&a.limit>=items.length&&Buffer.byteLength(JSON.stringify(record))<44000)return record;
+   let page=items.slice(a.offset,a.offset+a.limit);
+   while(page.length>1&&Buffer.byteLength(JSON.stringify(page))>40000)page=page.slice(0,Math.ceil(page.length/2));
+   return {id:record.id,sessionId:record.sessionId,revision:record.revision,title:record.view.title,items:page,offset:a.offset,total:items.length,...(a.offset+page.length<items.length?{nextOffset:a.offset+page.length}:{}),note:'Item window only, not a replacement view. checklist.show always publishes the full latest stored document.'};
+  }
   return {sessionId:a.sessionId,checklists:[...await this.store.list<Checklist>('checklist',a.sessionId),...await this.legacy(a.sessionId)].map(c=>({id:c.id,title:c.view.title??'Checklist',revision:c.revision,items:(c.view.data.items as unknown[]).length,checked:(c.view.data.items as {checked?:boolean}[]).filter(i=>i.checked).length,updatedAt:c.updatedAt,...(c.id.startsWith('legacy_')?{legacy:true}:{})})),note:'Read an ID to retrieve exact items, or show it on a selected display. Persistent records survive replacement, clearing and history pruning.'};
  }
  async update(p:AuthPrincipal,raw:unknown){

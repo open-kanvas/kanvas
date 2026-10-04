@@ -118,7 +118,7 @@ function groupedTool(profile: GroupedProfile, name: string, entries: readonly Op
     };
   });
   return {
-    name, description: profile==='domains'?`${description} Required: operation. Operations: ${entries.map(entry=>entry.operation).join(', ')}. See each strict branch for required fields.`:`${description} Required: operation. ${branches.map(branch=>`${String(branch.properties.operation.const)}(${branch.required.filter(field=>field!=='operation').join(',')||'none'})`).join('; ')}.`,
+    name, description: (profile==='domains'||name==='kanvas_inspect')?`${description} Required: operation. Operations: ${entries.map(entry=>entry.operation).join(', ')}. See each strict branch for required fields.`:`${description} Required: operation. ${branches.map(branch=>`${String(branch.properties.operation.const)}(${branch.required.filter(field=>field!=='operation').join(',')||'none'})`).join('; ')}.`,
     inputSchema: shareBranchSchemas(exposeSchemaProperties({
       type: 'object',
       properties: { operation: { type: 'string', enum: entries.map(entry => entry.operation), description: 'Choose operation; use only its fields.' } },

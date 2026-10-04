@@ -59,7 +59,9 @@ export function installClientCapture(sessionId:string, displayId:string): () => 
         if (!base64 || base64.length > 2_796_204) throw new Error('Capture exceeds two MiB');
         if (!stopped) await report(item, 'complete', {base64,width:canvas.width,height:canvas.height});
       } catch (error) {
-        if (!stopped) await report(item, error instanceof DOMException && error.name === 'NotAllowedError' ? 'denied' : 'failed').catch(() => {});
+        // A fast native denial can beat the awaiting-permission request. Preserve
+        // server state ordering instead of racing two contradictory reports.
+        if (!stopped && await permissionResult) await report(item, error instanceof DOMException && error.name === 'NotAllowedError' ? 'denied' : 'failed').catch(() => {});
       } finally {
         stream?.getTracks().forEach(track => track.stop()); stream = undefined;
         if (video) { video.pause(); video.srcObject = null; }

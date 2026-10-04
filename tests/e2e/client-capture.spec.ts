@@ -35,6 +35,12 @@ async function setup(page:Page,baseURL:string,mode:'success'|'denied'|'unsupport
 }
 for(const mode of ['success','denied','unsupported'] as const)test(`client capture ${mode} respects activation and native permission outcome`,async({page,baseURL})=>{
   const s=await setup(page,baseURL!,mode);
+  if(mode==='denied')await s.viewer.route('**/client-capture/*',async route=>{
+    // Force the native rejection to beat network acknowledgement. The client
+    // must serialize status reports, with no late409 from permission state.
+    if(route.request().method()==='POST'&&route.request().postDataJSON()?.status==='awaiting-permission')await new Promise(resolve=>setTimeout(resolve,200));
+    await route.continue();
+  });
   try {
     let delivered!:()=>void; const armed=new Promise<void>(resolve=>{delivered=resolve;});
     s.viewer.on('response',async response=>{if(response.url().includes('/client-capture?')){const data=await response.json().catch(()=>null);if(data?.data?.captureId)delivered();}});

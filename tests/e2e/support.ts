@@ -201,7 +201,9 @@ export async function tab(page: Page, name: string) {
 
 /** Run scoped business API requests inside the browser; never return auth headers or cookies. */
 export async function sessionApi<T>(page: Page, path: string, method = 'GET', body?: unknown): Promise<{ status: number; data?: T; code?: string }> {
-  if (!path.startsWith('/api/sessions') && path !== '/api/tokens' && !(path === '/api/start' && method === 'GET')) throw new Error('Browser fixture helper permits only session business APIs, read-only account start and test token creation.');
+  const allowedAccountRead = method === 'GET' && ['/api/start', '/api/devices', '/api/account/details'].includes(path);
+  const allowedWindowPresent = method === 'POST' && /^\/api\/devices\/[A-Za-z0-9_-]+\/windows\/[A-Za-z0-9_-]+\/present$/.test(path);
+  if (!path.startsWith('/api/sessions') && path !== '/api/tokens' && !allowedAccountRead && !allowedWindowPresent) throw new Error('Browser fixture helper permits scoped session APIs, read-only account discovery, explicit window targeting and test token creation.');
   return page.evaluate(async ({ path, method, body }) => {
     const me = await fetch('/api/auth/me', { credentials: 'same-origin', cache: 'no-store' });
     if (!me.ok) return { status: me.status, code: 'FIXTURE_NOT_SIGNED_IN' };

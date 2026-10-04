@@ -62,10 +62,10 @@ describe('inspectable publishing recipes without mandatory schema lookup', () =>
     const examples = [...documentation.matchAll(/```json\n([\s\S]*?)\n```/g)].map(match => JSON.parse(match[1]));
     expect(examples).toHaveLength(5);
     for (const example of examples) {
-      const recipe = PUBLISHING_RECIPES.find(candidate => candidate.arguments.requestId === example.requestId);
+      const recipe = PUBLISHING_RECIPES.find(candidate => candidate.arguments.requestId === example.arguments.arguments.requestId);
       expect(recipe).toBeDefined();
-      expect(example).toEqual({ operation: 'show', ...recipe!.arguments });
-      const resolved = resolveToolCall('twelve', 'kanvas_publish', example);
+      expect(example).toEqual({ name: 'kanvas_tool_use', arguments: { operationId: 'kanvas.submit', arguments: recipe!.arguments } });
+      const resolved = resolveToolCall('discovery', example.name, example.arguments);
       expect(resolved.error).toBeUndefined();
       expect(resolved.canonicalName).toBe('kanvas_submit');
       expect(resolved.args).toEqual(MCP_TOOLS.find(tool => tool.name === 'kanvas_submit')!.schema.parse(recipe!.arguments));

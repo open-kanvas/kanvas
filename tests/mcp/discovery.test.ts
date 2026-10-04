@@ -141,6 +141,9 @@ describe('seven-tool discoverable catalog', () => {
     expect(catalog.list('template', context).some(item => item.id === 'private.template.hidden')).toBe(false);
     expect(catalog.query('template', true, { query: 'private.template.account-b', limit: 5 }, context).results).not.toContainEqual({ owner: 'account-b' });
     expect(catalog.list('template', context).filter(item => item.provider === 'private').map(item => item.id)).toEqual(['private.template.account-a']);
+    let revision = 1; const changing: CatalogProvider = { namespace: 'mutable', kind: 'help', list: () => [1,2].map(n => ({ id: `mutable.help.${n}`, provider: 'mutable', revision, title: 'Current topic', summary: 'Current details', detail: () => ({ revision }) })) };
+    const versioned = new DiscoveryCatalog([changing]); const page = versioned.query('help', false, { limit: 1 }, context); revision++;
+    expect(() => versioned.query('help', false, { limit: 1, cursor: page.nextCursor }, context)).toThrow();
   });
   it('translates server-owned guidance and recipes without modifying argument/source literals', () => {
     const recipe = { tool: 'kanvas_publish', arguments: { operation: 'show', requestId: 'x', view: { version: 1, template: 'fact', data: { text: 'kanvas_session_state is literal source text' } } } };

@@ -1,3 +1,4 @@
+import { DISCOVERY_TOOL_NAMES } from '../../src/server/mcp/operations.js';
 import { randomUUID } from 'node:crypto';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { Client as LegacyClient } from '@modelcontextprotocol/sdk/client/index.js';
@@ -31,14 +32,15 @@ describe.each(['modern','legacy'] as const)('%s September 13 feedback and agent 
   it('seeds orientation before a naive caller searches for a guide, without rewriting operation data',async()=>{
     const owner=await h.account(),session=await owner.session(),p=await connect(owner,[session.id]);
     const index=await p.client.listTools();
-    expect(index.tools.map(tool => tool.name).sort()).toEqual(MCP_TOOLS.map(tool => tool.name).sort());
-    const submit=index.tools.find(x=>x.name==='kanvas_submit')!,viewer=index.tools.find(x=>x.name==='kanvas_viewers_read')!;
-    expect(submit.description?.slice(0,550)).toMatch(/current displays and revisions/);
-    expect(submit.description?.slice(0,550)).toContain('kanvas_guide');
+    expect(index.tools.map(tool => tool.name)).toEqual(DISCOVERY_TOOL_NAMES);
+    const lookup=async(query:string)=>(await p.client.callTool({name:'kanvas_tool_search',arguments:{query}})).structuredContent as any;
+    const submit=(await lookup('kanvas.submit')).data.results[0],viewer=(await lookup('kanvas.viewers.read')).data.results[0];
+    expect(JSON.stringify(submit)).toMatch(/current displays and revisions/);
+    expect(JSON.stringify(submit)).toContain('kanvas_tool_use');
     expect(viewer.description?.slice(0,500)).toMatch(/location.*weather|weather.*location/i);
     expect(p.client.getServerVersion()?.description).toMatch(/weather|near-me/);
     expect(p.client.getInstructions()).toContain('glanceable');
-    expect(p.client.getInstructions()).toContain('kanvas_session_state');
+    expect(p.client.getInstructions()).toContain('kanvas.session.state');
     expect(p.client.getInstructions()).toContain('never bypasses host approvals');
     const result=await p.call('kanvas_sessions_list');
     expect(value<SessionRecord[]>(result).map(x=>x.id)).toEqual([session.id]);

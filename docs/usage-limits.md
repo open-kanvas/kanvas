@@ -16,6 +16,6 @@ Publish settings with data.dimension (for example timeFormat or unitSystem) to s
 
 # Archive and permanent deletion
 
-`kanvas_tool_search for "archive"` operations list and manage expose recoverable archives. manage defaults to action archive; select resource session/display/view, sessionId and targetId for displays/views (history now returns retained view IDs). Archives are hidden and inaccessible through normal reads; restoring reuses the same IDs. No automatic purge.
+`kanvas_tool_search` with `{ "query": "archive" }` finds the recoverable archive operations `kanvas.archive.list` and `kanvas.archive.manage`; execute the selected ID through `kanvas_tool_use`. manage defaults to action archive; select resource session/display/view, sessionId and targetId for displays/views (history now returns retained view IDs). Archives are hidden and inaccessible through normal reads; restoring reuses the same IDs. No automatic purge.
 
 For hard deletion use request-delete, selecting the current live confirmation display (can be another session when deleting an archived session). The owner sees a 60-second warning and three random phonetic words. Only a subsequent confirm-delete with the matching challengeId and words explicitly supplied by the human can remove the item. Three wrong attempts close the request. The code is not included in the MCP response and never published into retained view history. No nonowner or selected-session grant can expand its scope using this API.

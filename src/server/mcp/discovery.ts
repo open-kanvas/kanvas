@@ -20,6 +20,8 @@ export type CatalogKind = 'tool' | 'help' | 'template';
 export interface CatalogContext { readonly principal: Principal; readonly signal?: AbortSignal }
 export interface CatalogItem extends SearchDocument {
   readonly provider: string;
+  /** Provider revision invalidates cursors when a private contract changes. */
+  readonly revision?: string | number;
   readonly detail: () => Record<string, unknown>;
   /** Defense in depth: called before ranking, totals, exact lookup or detail. */
   readonly visible?: (context: CatalogContext) => boolean;
@@ -86,7 +88,7 @@ export function operationCatalog(): readonly CatalogItem[] {
     const id = operationId(tool.name), summary = short(discoveryGuidanceText(canonical.description));
     const examples = (discovery?.examples ?? []).map(args => ({ tool: 'kanvas_tool_use', arguments: { operationId: id, arguments: structuredClone(args) } }));
     const aliases = [...new Set([tool.name, ...[...OPERATION_ENTRIES, ...DOMAIN_OPERATION_ENTRIES].filter(entry => entry.canonical === tool.name).map(entry => `${entry.tool} ${entry.operation}`)])];
-    return { id, provider: 'kanvas', title: id.slice(7).replaceAll('.', ' '), summary, keywords: `${operationExtras[tool.name] ?? ''} ${aliases.join(' ')} ${discovery?.hint ?? ''}`, text: `${canonical.description} ${schemaTerms(tool.inputSchema)}`, detail: () => profileScope.run('discovery', () => ({ id, operationId: id, title: id.slice(7).replaceAll('.', ' '), description: discoveryGuidanceText(canonical.description), guidance: discoveryGuidanceText(discovery?.hint ?? ''), inputSchema: profileSchema(tool.inputSchema), annotations: tool.annotations, examples, exampleNotice: 'Examples are valid syntax with illustrative IDs and source data. Substitute live authorized IDs/revisions; examples never grant consent.' })) };
+    return { id, provider: 'kanvas', title: id.slice(7).replaceAll('.', ' '), summary, keywords: `${operationExtras[tool.name] ?? ''} ${aliases.join(' ')} ${discovery?.hint ?? ''}`, text: `${canonical.description} ${schemaTerms(tool.inputSchema)}`, detail: () => profileScope.run('discovery', () => ({ id, operationId: id, title: id.slice(7).replaceAll('.', ' '), requiredInputs: tool.inputSchema.required ?? [], description: discoveryGuidanceText(canonical.description), guidance: discoveryGuidanceText(discovery?.hint ?? ''), inputSchema: profileSchema(tool.inputSchema), annotations: tool.annotations, examples, exampleNotice: 'Examples are valid syntax with illustrative IDs and source data. Substitute live authorized IDs/revisions; examples never grant consent.' })) };
   });
 }
 export function canonicalForOperation(id: string): string | undefined { return CANONICAL_TOOLS.find(tool => operationId(tool.name) === id)?.name; }
@@ -150,7 +152,7 @@ export class DiscoveryCatalog {
   query(kind: CatalogKind, search: boolean, input: Record<string, unknown>, context: CatalogContext): Record<string, unknown> {
     const all = this.list(kind, context), query = search ? String(input.query) : '';
     const ranked = search ? new LocalSearch(all).search(query).map(row => row.document) : all;
-    const binding = createHash('sha256').update(JSON.stringify([kind, search, query, context.principal.userId, context.principal.agentId, context.principal.scopes, all.map(item => item.id)])).digest('hex').slice(0, 24);
+    const binding = createHash('sha256').update(JSON.stringify([KANVAS_VERSION, kind, search, query, context.principal.userId, context.principal.agentId, context.principal.scopes, all.map(item => [item.id, item.revision, item.title, item.summary, item.keywords, item.text])])).digest('hex').slice(0, 24);
     let offset = 0;
     if (input.cursor) {
       const match = /^v1:([a-f0-9]{24}):(0|[1-9][0-9]{0,8})$/.exec(String(input.cursor));

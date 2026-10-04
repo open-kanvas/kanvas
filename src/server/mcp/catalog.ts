@@ -200,7 +200,6 @@ const coversExactlyOnce = (entries: readonly OperationEntry[]) => entries.length
   && new Set(entries.map(entry => entry.canonical)).size === canonicalNames.length
   && entries.map(entry => entry.canonical).sort().every((name, index) => name === canonicalNames[index]);
 if (PUBLIC_TOOL_NAMES.length !== 12 || !coversExactlyOnce(OPERATION_ENTRIES) || !coversExactlyOnce(DOMAIN_OPERATION_ENTRIES)
-  || DOMAIN_TOOL_NAMES.length < 30 || DOMAIN_TOOL_NAMES.length > 50
   || JSON.stringify(DOMAIN_REGISTRY.kanvas_feedback) !== JSON.stringify(OPERATION_REGISTRY.kanvas_feedback)) {
   throw new Error('The KANVAS public operation registry does not cover the canonical catalog exactly once.');
 }

@@ -1,3 +1,4 @@
+import { TEMPLATE_IDS } from '../../src/shared/types.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { Client as LegacyClient } from '@modelcontextprotocol/sdk/client/index.js';
@@ -101,6 +102,6 @@ describe('seven-tool authenticated HTTP contract', () => {
     expect((await use(scoped, 'kanvas.account.details')).isError).toBe(true);
     expect(data(await client.callTool({ name: 'kanvas_tool_search', arguments: { query: 'kanvas.checklist.show' } })).returned).toBe(1);
     // Static built-in contracts are safe for selected-session readers; no account content is read.
-    expect(data(await readOnly.callTool({ name: 'kanvas_template_index', arguments: {} })).total).toBe(74);
+    expect(data(await readOnly.callTool({ name: 'kanvas_template_index', arguments: {} })).total).toBe(TEMPLATE_IDS.length);
   }, 30000);
 });

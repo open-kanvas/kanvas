@@ -4,7 +4,7 @@
 
 ## Ordinary published slides — 0.3.0
 
-`kanvas_tool_search for "control"` / `kanvas_tool_use with operationId:"kanvas.presentation.navigate" and arguments:{…}` moves within the current presentation without requiring a saved deck. Supply `sessionId`, `displayId`, `expectedRevision`, `requestId` and `action:next|previous|first|last|goto`; `goto` requires zero-based `index`. The exact slides, source details and participation state are preserved. No content is regenerated. A duplicate request never advances twice; stale revisions, held displays and unauthorized callers fail. A next/previous at the end/start is a retained no-op. Explicitly selecting a saved deck remains `kanvas_tool_use with operationId:"kanvas.presentation.cue" and arguments:{…}`.
+`kanvas_tool_use` with `operationId:"kanvas.presentation.navigate"` and nested `arguments` moves within the current presentation without requiring a saved deck. Supply `sessionId`, `displayId`, `expectedRevision`, `requestId` and `action:next|previous|first|last|goto`; `goto` requires zero-based `index`. The exact slides, source details and participation state are preserved. No content is regenerated. A duplicate request never advances twice; stale revisions, held displays and unauthorized callers fail. A next/previous at the end/start is a retained no-op. Explicitly selecting a saved deck remains `kanvas_tool_use with operationId:"kanvas.presentation.cue" and arguments:{…}`.
 
 ## Implemented navigation — 2026-09-09
 

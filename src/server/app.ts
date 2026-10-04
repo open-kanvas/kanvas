@@ -193,7 +193,7 @@ export async function createApp(options: AppOptions = {}) {
   app.post('/api/sessions/:id/displays/:displayId/chat',operation('kanvas_chat_append',displayArgs));
   app.post('/api/sessions/:id/displays/:displayId/selection',operation('kanvas_selection_set',displayArgs));
   const tiles=mapConfig();app.get('/api/map/config',(_req,res)=>res.json({data:tiles}));
-  app.get('/healthz', (_req, res) => res.json({ status: 'ok', version: KANVAS_VERSION, mcpProfile: profile }));
+  app.get('/healthz', (_req, res) => res.json({ status: 'ok', version: KANVAS_VERSION, mcpProfile: 'discovery' }));
   app.get('/readyz', async (_req, res) => {
     try { await store.query('SELECT 1'); res.json({ status: 'ready', version: KANVAS_VERSION, database: 'postgresql' }); }
     catch { res.status(503).json({ status: 'unavailable' }); }

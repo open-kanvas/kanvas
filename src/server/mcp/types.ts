@@ -15,7 +15,7 @@ export interface ToolInvocation {id:string;tool:string;operation?:string;session
 /** The domain owns account, role, scope, revision, and session checks. */
 export interface McpService {
   authorize(request: Request): Promise<Principal>;
-  execute(name: string, args: Record<string, unknown>, principal: Principal): Promise<unknown>;
+  execute(name: string, args: Record<string, unknown>, principal: Principal, context?: { signal?: AbortSignal }): Promise<unknown>;
   /** Optional content-free correlation record; never receives an unauthenticated call. */
   recordFailure?(name: string, args: Record<string, unknown>, principal: Principal, error: unknown): string | undefined | Promise<string | undefined>;
   recordToolCall?(principal:Principal,event:ToolInvocation):void | Promise<void>;

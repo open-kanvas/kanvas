@@ -20,8 +20,8 @@ it.each(['modern', 'legacy'] as const)('performs first publication and ordinary 
     const result = await client.callTool({ name, arguments: { operation, ...args } });
     expect(result.isError).not.toBe(true); return (result.structuredContent as { data: T }).data;
   };
-  const catalog = await client.listTools(); expect(catalog.tools).toHaveLength(12);
-  expect(catalog.tools.flatMap(t => t.inputSchema.oneOf as unknown[])).toHaveLength(OPERATION_ENTRIES.length);
+  const catalog = await client.listTools(); expect(catalog.tools).toHaveLength(7);
+  const inventory=await client.callTool({name:'kanvas_tool_index',arguments:{}});expect((inventory.structuredContent as any).data.total).toBe(OPERATION_ENTRIES.length);
   expect(await call('kanvas_inspect', 'guide.get', { topic: 'getting-started' })).toHaveProperty('capabilities.publishSetup', true);
   const receipt = await call<UpdateRecord & { targetRef: string; targets: { viewerUrl: string; shortUrl: string }[] }>('kanvas_publish', 'show', {
     requestId: 'first', view: JSON.stringify({ version: 1, template: 'presentation', data: { slides: [fact('First'), fact('Second')], index: 0 } }),

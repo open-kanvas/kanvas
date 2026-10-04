@@ -145,9 +145,9 @@ export function toolFailure(error: unknown, diagnosticId?: string, profile: McpP
   const grouped = isGrouped(profile);
   const help = grouped ? publicReference('kanvas_help', profile)! : { tool: 'kanvas_inspect', operation: 'help.read' };
   const state = grouped ? publicReference('kanvas_session_state', profile)! : { tool: 'kanvas_inspect', operation: 'session.state' };
-  const result = { error: grouped ? trustedGuidance(failure) as typeof failure : failure, server: mcpServerInfo(profile), docs:{path:'/docs/recovery',help:{...help,topic:'recovery'}} };
+  const result = { error: grouped ? trustedGuidance(failure) as typeof failure : failure, server: mcpServerInfo(profile), docs:{path:'/docs/recovery',help:profile === 'discovery' ? { tool: 'kanvas_help_search', arguments: { query: 'kanvas.help.recovery' } } : {...help,topic:'recovery'}} };
   const detail = { type: 'text' as const, text: JSON.stringify(result) };
-  const headline = `${result.error.code}: ${result.error.message}${diagnosticId ? ` Diagnostic: ${diagnosticId}. Read recentDiagnostics with ${state.tool} operation ${state.operation} if your host hides error details.` : ''}`;
+  const headline = `${result.error.code}: ${result.error.message}${diagnosticId ? ` Diagnostic: ${diagnosticId}. Read recentDiagnostics with ${profile === 'discovery' ? 'kanvas_tool_use {operationId:"kanvas.session.state",arguments:{sessionId}}' : `${state.tool} operation ${state.operation}`} if your host hides error details.` : ''}`;
   // Standard MCP text is readable without structured-content support. Preserve
   // isError and the machine-readable envelope; never disguise failure as success.
   return { isError: true, content: grouped ? [{ type: 'text', text: headline }, detail] : [detail], structuredContent: result };

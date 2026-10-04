@@ -41,10 +41,22 @@ At zero, a paused down timer remains explicitly paused; an unpaused down timer i
 
 ## Dedicated pause/resume control
 
-Use `kanvas_control` (`operation: "timer.control"`) for an existing timer. It calculates the exact fractional pause snapshot from authoritative server time and resumes from that stored snapshot directly. Read `kanvas_inspect` (`operation: "display.current"`) immediately before a **new** action, then send its display revision and a new request ID:
+Use `kanvas_tool_use` with `operationId:"kanvas.timer.control"` and nested `arguments` for an existing timer. It calculates the exact fractional pause snapshot from authoritative server time and resumes from that stored snapshot directly. Read `kanvas_tool_use` with `operationId:"kanvas.display.current"` and nested `arguments` immediately before a **new** action, then send its display revision and a new request ID:
 
 ```json
-{"operation":"timer.control","sessionId":"SESSION_ID","displayId":"DISPLAY_ID","expectedRevision":134,"requestId":"pause-workshop-1","action":"pause"}
+{
+  "name": "kanvas_tool_use",
+  "arguments": {
+    "operationId": "kanvas.timer.control",
+    "arguments": {
+      "sessionId": "SESSION_ID",
+      "displayId": "DISPLAY_ID",
+      "expectedRevision": 134,
+      "requestId": "pause-workshop-1",
+      "action": "pause"
+    }
+  }
+}
 ```
 
 For the subsequent resume, read the current revision again and send a new request ID with `"action":"resume"`. The HTTP equivalent is `POST /api/sessions/SESSION_ID/displays/DISPLAY_ID/timer-control`, with `expectedRevision`, `requestId` and `action` in the body. Existing editor/publish authorization and normal browser CSRF protection apply.
@@ -57,12 +69,28 @@ New actions reject held/ended/inaccessible displays, stale revisions and unsuppo
 
 ### Editing data directly
 
-The pause fields are supported by both initial submission and `kanvas_publish` (`operation: "replace_data"`). **`replace_data` replaces the complete `data` object; it is not a partial merge.** Sending only `{"pausedRemainingSeconds":1668}` omits required `endsAt` and must fail validation without changing the revision. An up timer similarly still requires `direction:"up"` and `startedAt`.
+The pause fields are supported by both initial submission and `kanvas_tool_use` with `operationId:"kanvas.display.edit"` and nested `arguments`. **`replace_data` replaces the complete `data` object; it is not a partial merge.** Sending only `{"pausedRemainingSeconds":1668}` omits required `endsAt` and must fail validation without changing the revision. An up timer similarly still requires `direction:"up"` and `startedAt`.
 
-Prefer `kanvas_control` (`operation: "timer.control"`) when the user asks to pause/resume. For another precise field change, `kanvas_publish` (`operation: "patch"`) updates a selected path such as `/data/label` or `/data/pausedRemainingSeconds` while preserving the remaining data. If deliberately using full-data edit, retain all desired data fields from the current view:
+Prefer `kanvas_tool_use` with `operationId:"kanvas.timer.control"` and nested `arguments` when the user asks to pause/resume. For another precise field change, `kanvas_tool_use` with `operationId:"kanvas.view.patch"` and nested `arguments` updates a selected path such as `/data/label` or `/data/pausedRemainingSeconds` while preserving the remaining data. If deliberately using full-data edit, retain all desired data fields from the current view:
 
 ```json
-{"operation":"replace_data","sessionId":"SESSION_ID","displayId":"DISPLAY_ID","expectedRevision":134,"data":{"endsAt":"2026-09-14T12:30:00+02:00","label":"Break ends in","completeText":"Welcome back.","pausedRemainingSeconds":42.125}}
+{
+  "name": "kanvas_tool_use",
+  "arguments": {
+    "operationId": "kanvas.display.edit",
+    "arguments": {
+      "sessionId": "SESSION_ID",
+      "displayId": "DISPLAY_ID",
+      "expectedRevision": 134,
+      "data": {
+        "endsAt": "2026-09-14T12:30:00+02:00",
+        "label": "Break ends in",
+        "completeText": "Welcome back.",
+        "pausedRemainingSeconds": 42.125
+      }
+    }
+  }
+}
 ```
 
 Manual resume requires an atomic removal of the pause field **and** the adjusted start/end timestamp described above. Merely deleting the pause field restores the old running anchor and therefore includes time spent paused; the dedicated command performs both changes together.

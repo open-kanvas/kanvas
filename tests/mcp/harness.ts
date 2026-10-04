@@ -20,6 +20,8 @@ interface TestSession {
 }
 
 export class DomainFixture implements McpService {
+  recordToolCall?: McpService['recordToolCall'];
+  recordFailure?: McpService['recordFailure'];
   readonly tokens = new Map<string, Principal>();
   readonly listeners = new Set<(event: SessionEvent) => void>();
   readonly calls: { name: string; args: Json; userId: string }[] = [];
@@ -68,7 +70,7 @@ export class DomainFixture implements McpService {
     return session.interactions.filter(item => !item.targetAgentId || item.targetAgentId === principal.agentId);
   }
 
-  async execute(name: string, args: Json, principal: Principal): Promise<unknown> {
+  async execute(name: string, args: Json, principal: Principal, _context?: { signal?: AbortSignal }): Promise<unknown> {
     this.calls.push({ name, args, userId: principal.userId });
     if (this.failWithPrivateError) throw new Error(`Provider diagnostic ${this.privateErrorMarker}`);
     if (this.oversizedResult) return { id: 'accepted-result', rows: Array.from({ length: 3000 }, (_, n) => ({ n, body: 'x'.repeat(1000) })) };

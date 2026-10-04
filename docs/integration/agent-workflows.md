@@ -1,6 +1,6 @@
 # Agent workflows
 
-Connect an MCP client to the instance `/mcp` endpoint and complete explicit OAuth consent. The default `domains` profile groups operations by resource; `twelve` groups them into 12 tools, and `legacy` exposes 116 canonical operations. Profiles share permissions and request identity. Discover the current catalog rather than hard-coding counts in clients.
+Connect an MCP client to the instance `/mcp` endpoint and complete explicit OAuth consent. All transports expose exactly seven tools: `kanvas_help_search`, `kanvas_help_index`, `kanvas_template_search`, `kanvas_template_index`, `kanvas_tool_search`, `kanvas_tool_index`, and `kanvas_tool_use`. This surface does not grow as capabilities are added. Search natural language or an exact stable ID for full operation-specific schemas, annotations and executable examples, then pass `{operationId, arguments}` to `kanvas_tool_use`. Default search returns up to five relevant complete matches. Indices list every entry across explicit `nextCursor` pages with totals; search for details. See [architecture and compatibility](../architecture/mcp-discovery.md).
 
 1. Identify the intended ongoing topic and display. First publication can create an authorized session/display; an ambiguous target returns a resolution choice, not a successful publication.
 2. Fetch real source data through the agent host. Read an unfamiliar template contract before constructing its data.

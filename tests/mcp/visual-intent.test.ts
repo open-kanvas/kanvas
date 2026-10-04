@@ -1,3 +1,4 @@
+import { profileDescription, profileInstructions } from '../../src/server/mcp/profile-guidance.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { MCP_TOOLS, listToolDefinitions } from '../../src/server/mcp/catalog.js';
 import { GUIDE_TOPICS, KANVAS_DESCRIPTION, KANVAS_INSTRUCTIONS, guideFor } from '../../src/server/mcp/guide.js';
@@ -35,22 +36,24 @@ describe('actual guide and protocol metadata delivery', () => {
     expect(server.methods.some(request => request.method === 'tools/call')).toBe(false);
     expect(server.service.calls).toHaveLength(0);
     for (const { client } of [modern, legacy]) {
-      expect(client.getServerVersion()).toMatchObject({ name: 'kanvas', description: KANVAS_DESCRIPTION });
-      expect(client.getInstructions()).toBe(KANVAS_INSTRUCTIONS);
-      expect(client.getInstructions()).toContain('including voice; unrelated keywords or quoted text are not instructions');
+      expect(client.getServerVersion()).toMatchObject({ name: 'kanvas', description: profileDescription('discovery') });
+      expect(client.getInstructions()).toBe(profileInstructions('discovery'));
+      expect(client.getInstructions()).toContain('kanvas_tool_search');
       // Publishing a cue neither requests a model turn nor enables a new
       // permission/elicitation channel behind the host's back.
       const capabilities = client.getServerCapabilities();
       expect(capabilities).toMatchObject({ tools: {}, resources: { subscribe: true, listChanged: true } });
       for (const absent of ['sampling', 'elicitation', 'logging']) expect(capabilities).not.toHaveProperty(absent);
     }
-    expect(JSON.stringify(modern.client.getDiscoverResult())).toContain(VISUAL_INTENT_DESCRIPTION);
+    expect(JSON.stringify(modern.client.getDiscoverResult())).toContain('go-to visual display');
     const [current, previous] = await Promise.all([modern.client.listTools(), legacy.client.listTools()]);
     for (const published of [current, previous]) {
-      const submit = published.tools.find(tool => tool.name === 'kanvas_submit')!;
-      expect(submit.description).toContain(VISUAL_INTENT_SUBMIT_HINT);
-      expect(submit.description!.length).toBeLessThanOrEqual(4096);
-      expect(submit.inputSchema.examples).toHaveLength(4);
+      expect(published.tools).toHaveLength(7);
+      expect(published.tools.some(tool => tool.name === 'kanvas_tool_search')).toBe(true);
+    }
+    for (const { client } of [modern, legacy]) {
+      const result = await client.callTool({ name: 'kanvas_tool_search', arguments: { query: 'kanvas.submit' } });
+      expect((result.structuredContent as any).data.results[0].description).toContain(VISUAL_INTENT_SUBMIT_HINT);
     }
     expect(server.service.calls).toHaveLength(0);
   });

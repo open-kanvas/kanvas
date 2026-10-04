@@ -1,3 +1,4 @@
+import { DISCOVERY_TOOL_NAMES } from '../../src/server/mcp/operations.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import { listToolDefinitions, resolveToolCall } from '../../src/server/mcp/catalog.js';
@@ -31,7 +32,7 @@ describe('twelve-tool strict published and runtime contract', () => {
     }
     expect(() => mcpProfile('unknown')).toThrow('KANVAS_MCP_PROFILE');
     expect(mcpProfile('twelve')).toBe('twelve');
-    expect(mcpProfile()).toBe('domains');
+    expect(mcpProfile()).toBe('discovery');
   });
 
   for (const { tool, operation, canonical } of OPERATION_ENTRIES) it(`${tool}/${operation}: preserves valid inputs, defaults and rejects cross-branch extras`, () => {
@@ -139,7 +140,7 @@ describe('twelve-tool strict published and runtime contract', () => {
     server = await harness({ profile: 'twelve' });
     const connection = await server[protocol](server.service.issue('owner'));
     const listed = await connection.client.listTools();
-    expect(listed.tools.map(tool => tool.name)).toEqual(PUBLIC_TOOL_NAMES);
+    expect(listed.tools.map(tool => tool.name)).toEqual(DISCOVERY_TOOL_NAMES);
     const result = await connection.client.callTool({ name: 'kanvas_inspect', arguments: { operation: 'session.state', sessionId: 'alpha' } });
     expect(result.isError).not.toBe(true);
     expect(server.service.calls.at(-1)).toMatchObject({ name: 'kanvas_session_state', args: { sessionId: 'alpha' }, userId: 'owner' });
@@ -152,9 +153,9 @@ describe('twelve-tool strict published and runtime contract', () => {
       { name: 'kanvas_session_state', arguments: { sessionId: 'alpha' } },
     ]) expect((await connection.client.callTool(call)).isError).toBe(true);
     expect(server.service.calls).toHaveLength(callCount);
-    expect(namesIn(connection.client.getInstructions()).every(name => PUBLIC_TOOL_NAMES.includes(name as never))).toBe(true);
+    expect(namesIn(connection.client.getInstructions()).every(name => DISCOVERY_TOOL_NAMES.includes(name as never))).toBe(true);
     const templates = await connection.client.listResourceTemplates();
-    expect(namesIn(templates).every(name => PUBLIC_TOOL_NAMES.includes(name as never))).toBe(true);
+    expect(namesIn(templates).every(name => DISCOVERY_TOOL_NAMES.includes(name as never))).toBe(true);
   });
 });
 

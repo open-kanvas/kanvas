@@ -10,7 +10,7 @@ Uses service history, not agent-reconstructed content. Includes current indicato
 
 These are live renderings of retained source, not historical screenshots of a physical display. Current appearance/media may differ from the original rendering. Clicking **Show this view** navigates the original display through its revision-safe history API; editor authority is required. Up to 60 views / 6 MiB per display and 200 gallery entries are retained; branching can discard forward history. This is not an unlimited archive.
 
-Read `kanvas_inspect` (`operation: "template.get"`) for `overview` before constructing a prepared view. It returns the exact same schema used by `kanvas_inspect` (`operation: "view.validate"`) and publishing.
+Read `kanvas_tool_use` with `operationId:"kanvas.template.get"` and nested `arguments` for `overview` before constructing a prepared view. It returns the exact same schema used by `kanvas_tool_use` with `operationId:"kanvas.view.validate"` and nested `arguments` and publishing.
 
 ## Illustrative example
 

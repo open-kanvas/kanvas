@@ -8,9 +8,9 @@ A full-surface, self-contained SVG illustration and restrained CSS atmosphere dr
 
 Supports clear, partly-cloudy, cloudy, rain, snow, storm and fog; day, night, sunrise and sunset. Supply `temperature`, or explicit `high` / `low`, or both; optional `timeLabel` identifies the forecast period. At least one temperature field is required. These are exact source strings, including units. An old combined string such as `19C / 12C` remains unchanged; the renderer does not guess that the pair means high/low. Place/condition stay visible. Up to 24 forecast records and eight detail pairs remain available under **Forecast & details**, not discarded or shrunk into tiny text.
 
-The publisher should check the intended browser's fresh, consented location/timezone through `kanvas_inspect` with `operation: "viewers.read"` for local-weather requests; `operation: "guide.get", topic: "viewer-context"` explains permission and ambiguity handling. The viewer does not call weather APIs or infer a location. The publisher owns weather data/provenance. Visual inspiration does not copy YR artwork or data.
+The publisher should check the intended browser's fresh, consented location/timezone through `kanvas_tool_use` with `operationId:"kanvas.viewers.read"` and nested `arguments` for local-weather requests; `operation: "guide.get", topic: "viewer-context"` explains permission and ambiguity handling. The viewer does not call weather APIs or infer a location. The publisher owns weather data/provenance. Visual inspiration does not copy YR artwork or data.
 
-Read `kanvas_inspect` with `operation: "template.get", template: "weather"` before constructing a prepared view. It returns the exact same schema used by `operation: "view.validate"` and publishing. See the [current interface and legacy mapping](../README.md).
+Read `kanvas_tool_search for "inspect"` with `operation: "template.get", template: "weather"` before constructing a prepared view. It returns the exact same schema used by `operation: "view.validate"` and publishing. See the [current interface and legacy mapping](../README.md).
 
 ## Illustrative example
 

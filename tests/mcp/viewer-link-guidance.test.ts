@@ -1,3 +1,4 @@
+import { operationId, publicGuidanceText } from '../../src/server/mcp/operations.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { listToolDefinitions } from '../../src/server/mcp/catalog.js';
 import { KANVAS_INSTRUCTIONS, guideFor, orientationFor } from '../../src/server/mcp/guide.js';
@@ -94,7 +95,12 @@ describe('real guide, catalogue and MCP result integration', () => {
     const connections = await Promise.all([server.modern(identity), server.legacy(identity)]);
     for (const { client } of connections) {
       const listed = await client.listTools();
-      for (const tool of entryPoints) expect(listed.tools.find(definition => definition.name === tool)!.description).toContain(VIEWER_LINK_TOOL_GUIDANCE[tool]);
+    expect(listed.tools).toHaveLength(7);
+    for (const tool of entryPoints) {
+      const found = await client.callTool({ name: 'kanvas_tool_search', arguments: { query: operationId(tool) } });
+      const detail = (found.structuredContent as any).data.results[0];
+      expect(detail.description).toContain(publicGuidanceText(VIEWER_LINK_TOOL_GUIDANCE[tool], 'discovery'));
+    }
       const created = envelope(await client.callTool({ name: 'kanvas_session_create', arguments: { name: 'First viewer handoff' } }));
       expect(created.orientation?.viewerLink).toBe(viewerLinkGuidanceFor('kanvas_session_create')); expect(created.data).not.toHaveProperty('viewerUrl');
       const sessionId = created.data.id;

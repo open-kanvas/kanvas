@@ -1,3 +1,5 @@
+import { profileDescription } from '../../src/server/mcp/profile-guidance.js';
+import { DISCOVERY_TOOL_NAMES } from '../../src/server/mcp/operations.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ResourceUpdatedNotificationSchema } from '@modelcontextprotocol/sdk/types.js';
 import { MAX_TOOL_RESULT_BYTES } from '../../src/server/mcp/results.js';
@@ -22,18 +24,11 @@ describe('authenticated MCP HTTP using published SDK clients', () => {
     const legacy = await server.legacy(bearer);
     const [modernTools, legacyTools] = await Promise.all([modern.client.listTools(), legacy.client.listTools()]);
     expect(modernTools.tools.map(t => t.name)).toEqual(legacyTools.tools.map(t => t.name));
-    expect(modernTools.tools.map(tool => tool.name).sort()).toEqual(MCP_TOOLS.map(tool => tool.name).sort());
-    expect(modernTools.tools.map(tool => tool.name)).toEqual(expect.arrayContaining(['kanvas_view_patch', 'kanvas_timer_control', 'kanvas_monitoring_start', 'kanvas_monitoring_read', 'kanvas_monitoring_update', 'kanvas_monitoring_stop']));
-    const reads=['kanvas_session_state','kanvas_display_current','kanvas_display_inspect','kanvas_update_status','kanvas_viewers_read','kanvas_session_overview','kanvas_interactions_read','kanvas_template_get','kanvas_styles_list','kanvas_preferences_get','kanvas_pairings_read','kanvas_display_history','kanvas_reports_read','kanvas_session_log','kanvas_view_validate'];
-    for(const list of [modernTools.tools,legacyTools.tools]){
-      for(const name of reads)expect(list.find(t=>t.name===name)?.annotations,name).toMatchObject({readOnlyHint:true,destructiveHint:false,idempotentHint:true});
-      for(const name of ['kanvas_clear','kanvas_session_end','kanvas_member_remove','kanvas_asset_delete','kanvas_dataset_delete'])expect(list.find(t=>t.name===name)?.annotations,name).toMatchObject({readOnlyHint:false,destructiveHint:true});
-      for(const name of ['kanvas_submit','kanvas_display_snapshot','kanvas_address_get','kanvas_procedure_control','kanvas_share_create'])expect(list.find(t=>t.name===name)?.annotations,name).toMatchObject({readOnlyHint:false,destructiveHint:false});
+    expect(modernTools.tools.map(tool => tool.name)).toEqual(DISCOVERY_TOOL_NAMES);
+    for (const list of [modernTools.tools, legacyTools.tools]) {
+      for (const tool of list) expect(tool.annotations?.readOnlyHint).toBe(tool.name !== 'kanvas_tool_use');
+      expect(list.find(tool => tool.name === 'kanvas_tool_use')?.annotations?.destructiveHint).toBe(true);
     }
-    expect(modernTools.tools.map(tool => tool.name)).toEqual(expect.arrayContaining(['kanvas_template_get', 'kanvas_feedback_submit', 'kanvas_error_report', 'kanvas_reports_read', 'kanvas_report_update']));
-    expect(modernTools.tools.some(t => t.name === 'kanvas_asset_import')).toBe(true);
-    expect(modernTools.tools.some(t => t.name === 'kanvas_presentation_cue')).toBe(true);
-    expect(modernTools.tools.some(t => t.name === 'kanvas_member_remove')).toBe(true);
     expect(modern.transport.protocolVersion).toBe('2026-07-28');
     expect(legacy.transport.sessionId).toBeTruthy();
     expect(server.methods.some(m => m.method === 'server/discover' && m.version === '2026-07-28')).toBe(true);
@@ -86,8 +81,8 @@ describe('authenticated MCP HTTP using published SDK clients', () => {
     // Bound the actual application error independently of that description.
     const { _meta: metadata, ...errorBody } = failed;
     expect(JSON.stringify(errorBody).length).toBeLessThan(1000);
-    expect(metadata).toEqual({ 'io.modelcontextprotocol/serverInfo': expect.objectContaining({ description: KANVAS_DESCRIPTION }) });
-    expect(JSON.stringify(metadata).length).toBeLessThan(1200);
+    expect(metadata).toEqual({ 'io.modelcontextprotocol/serverInfo': expect.objectContaining({ description: profileDescription('discovery') }) });
+    expect(JSON.stringify(metadata).length).toBeLessThan(2000);
     server.service.failWithPrivateError = false;
     server.service.oversizedResult = true;
     const large = await client.callTool({ name: 'kanvas_session_state', arguments: { sessionId: 'alpha' } });

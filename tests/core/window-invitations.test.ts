@@ -58,9 +58,9 @@ describe('independent browser-window delivery',()=>{
   it('enforces owner, browser, selected-session and revoked-auth boundaries for windows',async()=>{
     h=await startHarness();const a=await h.account(),b=await h.account(),p=(await receiver(a)),otherBrowser=(await receiver(a)),outsider=(await receiver(b)),svc=h.runtime.service;
     const d=(await svc.devices.register(p,{installationId:'protected'},'Chrome/140')),w=(await svc.devices.windows.register(p,d.id,'protected-tab')),stream=(await svc.devices.windows.stream(p,d.id,w.id,()=>{}));
-    const input={deviceId:d.id,windowId:w.id,sessionId:d.home.sessionId,displayId:d.home.displayId,expectedVersion:0,requestId:randomUUID()};
+    const input={deviceId:d.id,windowId:w.id,sessionId:d.home!.sessionId,displayId:d.home!.displayId,expectedVersion:0,requestId:randomUUID()};
     (await expect((async ()=>(await svc.devices.windows.present(outsider,input)))()).rejects.toThrow(/unavailable/));(await expect((async ()=>(await svc.devices.windows.stream(otherBrowser,d.id,w.id,()=>{})))()).rejects.toThrow(/Only this device/));
-    const token=(await h.runtime.auth.issueToken(a.user!.id,'Selected only',['read','publish'],[d.home.sessionId])),limited=(await h.runtime.auth.authorize({get:()=>`Bearer ${token.value}`} as unknown as Request));
+    const token=(await h.runtime.auth.issueToken(a.user!.id,'Selected only',['read','publish'],[d.home!.sessionId])),limited=(await h.runtime.auth.authorize({get:()=>`Bearer ${token.value}`} as unknown as Request));
     (await expect((async ()=>(await svc.devices.windows.present(limited,input)))()).rejects.toThrow(/account-wide/));
     (await h.runtime.store.delete('browser',p.browserId));(await expect((async ()=>(await stream.push()))()).rejects.toThrow(/Sign in/));expect((await svc.devices.list(otherBrowser)).devices[0].windows[0].connected).toBe(false);stream.close();
   });

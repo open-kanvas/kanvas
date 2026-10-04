@@ -1,16 +1,15 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 
-/** A deployment chooses a profile, never a caller. Every profile uses the same
- * canonical operations, domain permissions and idempotency namespace.
- * 'domains' (default) groups operations by resource into ~40 tools; 'twelve'
- * is the former 13-tool grouping; 'legacy' exposes every canonical tool. */
-export type McpProfile = 'domains' | 'twelve' | 'legacy';
-export type GroupedProfile = Exclude<McpProfile, 'legacy'>;
-export function mcpProfile(value: unknown = 'domains'): McpProfile {
-  if (value !== 'domains' && value !== 'twelve' && value !== 'legacy') throw new Error('KANVAS_MCP_PROFILE must be domains, twelve or legacy.');
+/** Discovery is the public surface for every deployment/transport. Former
+ * profile settings select only the narrow cached-call compatibility adapter;
+ * all share canonical validation, authorization and idempotency namespaces. */
+export type McpProfile = 'discovery' | 'domains' | 'twelve' | 'legacy';
+export type GroupedProfile = Exclude<McpProfile, 'legacy' | 'discovery'>;
+export function mcpProfile(value: unknown = 'discovery'): McpProfile {
+  if (value !== 'discovery' && value !== 'domains' && value !== 'twelve' && value !== 'legacy') throw new Error('KANVAS_MCP_PROFILE must be discovery, domains, twelve or legacy (all expose seven discovery tools).');
   return value;
 }
-export const isGrouped = (profile: McpProfile): profile is GroupedProfile => profile !== 'legacy';
+export const isGrouped = (profile: McpProfile): boolean => profile !== 'legacy';
 
 /** Reviewed, exhaustive registry. Do not synthesize handler names from input. */
 export const OPERATION_REGISTRY = {
@@ -119,7 +118,7 @@ export const DOMAIN_REGISTRY = {
 export type TwelveToolName = keyof typeof OPERATION_REGISTRY;
 export type DomainToolName = keyof typeof DOMAIN_REGISTRY;
 export type PublicToolName = TwelveToolName | DomainToolName;
-export interface ToolReference { tool: PublicToolName; operation: string }
+export interface ToolReference { tool: PublicToolName | 'kanvas_tool_use'; operation: string }
 export interface OperationEntry { readonly tool: PublicToolName; readonly operation: string; readonly canonical: string }
 export const REGISTRIES: Readonly<Record<GroupedProfile, Readonly<Record<string, Readonly<Record<string, string>>>>>> = Object.freeze({ twelve: OPERATION_REGISTRY, domains: DOMAIN_REGISTRY });
 
@@ -138,9 +137,9 @@ const lookups = Object.fromEntries((Object.keys(PROFILE_ENTRIES) as GroupedProfi
 export const profileScope = new AsyncLocalStorage<McpProfile>();
 export function guidanceProfile(profile?: McpProfile): GroupedProfile {
   const active = profile ?? profileScope.getStore() ?? 'twelve';
-  return active === 'legacy' ? 'twelve' : active;
+  return active === 'legacy' ? 'twelve' : active === 'discovery' ? 'domains' : active;
 }
-export function toolNames(profile?: McpProfile): readonly PublicToolName[] { return Object.keys(REGISTRIES[guidanceProfile(profile)]) as PublicToolName[]; }
+export function toolNames(profile?: McpProfile): readonly string[] { if ((profile ?? profileScope.getStore()) === 'discovery') return DISCOVERY_TOOL_NAMES; return Object.keys(REGISTRIES[guidanceProfile(profile)]) as PublicToolName[]; }
 export function operationEntries(profile?: McpProfile): readonly OperationEntry[] { return PROFILE_ENTRIES[guidanceProfile(profile)]; }
 export function toolOperations(tool: string, profile?: McpProfile): readonly string[] { return Object.keys(REGISTRIES[guidanceProfile(profile)][tool] ?? {}); }
 
@@ -154,6 +153,7 @@ export const READ_ONLY_CANONICAL: ReadonlySet<string> = new Set([...Object.value
 
 export function publicReference(canonical: string, profile?: McpProfile): ToolReference | undefined {
   const entry = lookups[guidanceProfile(profile)].byCanonical.get(canonical);
+  if (entry && (profile ?? profileScope.getStore()) === 'discovery') return { tool: 'kanvas_tool_use', operation: operationId(canonical) };
   return entry ? { tool: entry.tool, operation: entry.operation } : undefined;
 }
 /** Resolve a stored or supplied tool+operation. The active profile wins;
@@ -181,6 +181,7 @@ const bareTwelveOperations = (() => {
  * former twelve form ('kanvas_inspect operation session.state', or a bare
  * dotted 'navigation.control') are translated to the domain names too. */
 export function publicGuidanceText(text: string, profile?: McpProfile): string {
+  if ((profile ?? profileScope.getStore()) === 'discovery') return discoveryGuidanceText(text);
   const active = guidanceProfile(profile);
   const canonicalPass = text.replace(/\b(?:kanvas_[a-z_]+|[a-z]+(?:_[a-z]+)+)\b/g, (name: string, offset: number, whole: string) => {
     // A public tool name that shares a canonical name (kanvas_help,
@@ -213,6 +214,7 @@ export function publicGuidanceText(text: string, profile?: McpProfile): string {
 /** Structural counterpart for authored examples {tool, arguments:{operation}}:
  * route a former twelve pair to this profile without touching other values. */
 export function publicExample<T>(example: T, profile?: McpProfile): T {
+  if ((profile ?? profileScope.getStore()) === 'discovery') return discoveryExample(example);
   const active = guidanceProfile(profile);
   if (active !== 'domains' || !example || typeof example !== 'object' || Array.isArray(example)) return example;
   const { tool, arguments: args } = example as { tool?: unknown; arguments?: unknown };
@@ -221,4 +223,36 @@ export function publicExample<T>(example: T, profile?: McpProfile): T {
   if (!former || lookups.domains.byCall.has(`${tool}:${String((args as { operation?: unknown }).operation)}`)) return example;
   const current = lookups.domains.byCanonical.get(former.canonical)!;
   return { ...example, tool: current.tool, arguments: { ...args, operation: current.operation } } as T;
+}
+
+/** Stable public operation IDs are independent of a grouping or transport era. */
+export const operationId = (canonical: string): string => `kanvas.${canonical.replace(/^kanvas_/, '').replaceAll('_', '.')}`;
+export const DISCOVERY_TOOL_NAMES = Object.freeze(['kanvas_help_search', 'kanvas_help_index', 'kanvas_template_search', 'kanvas_template_index', 'kanvas_tool_search', 'kanvas_tool_index', 'kanvas_tool_use'] as const);
+export function discoveryExample<T>(example: T): T {
+  if (!example || typeof example !== 'object' || Array.isArray(example)) return example;
+  const input = example as Record<string, unknown>;
+  if (input.tool === 'kanvas_tool_use') return example;
+  const args = input.arguments && typeof input.arguments === 'object' && !Array.isArray(input.arguments) ? input.arguments as Record<string, unknown> : typeof input.operation === 'string' ? Object.fromEntries(Object.entries(input).filter(([key]) => key !== 'tool')) : undefined;
+  if (typeof input.tool !== 'string' || !args) return example;
+  const entry = operationEntry(input.tool, args.operation) ?? OPERATION_ENTRIES.find(entry => entry.canonical === input.tool);
+  if (!entry) return example;
+  const { operation: _operation, ...rest } = args;
+  return { ...input, tool: 'kanvas_tool_use', arguments: { operationId: operationId(entry.canonical), arguments: rest } } as T;
+}
+/** Authored prose only. Never run this on user sources, schemas or literal examples. */
+export function discoveryGuidanceText(text: string): string {
+  let result = text.replace(/\b(kanvas_[a-z_]+)(?: operation | )([a-z][a-z0-9_-]*(?:\.[a-z0-9_-]+)*)/g, (match, tool, operation) => {
+    const entry = operationEntry(tool, operation);
+    return entry ? `kanvas_tool_use with operationId:"${operationId(entry.canonical)}" and arguments:{…}` : match;
+  });
+  result = result.replace(/\b(?:kanvas_[a-z_]+|[a-z]+(?:_[a-z]+)+)\b/g, name => {
+    if ((DISCOVERY_TOOL_NAMES as readonly string[]).includes(name)) return name;
+    const entry = OPERATION_ENTRIES.find(entry => entry.canonical === (name.startsWith('kanvas_') ? name : `kanvas_${name}`));
+    if (entry) return `kanvas_tool_use with operationId:"${operationId(entry.canonical)}" and arguments:{…}`;
+    return Object.hasOwn(DOMAIN_REGISTRY, name) || Object.hasOwn(OPERATION_REGISTRY, name) ? `kanvas_tool_search for "${name.replace(/^kanvas_/, '').replaceAll('_', ' ')}"` : name;
+  });
+  return result.replace(/(?<![\w./"-])([a-z][a-z0-9-]*(?:\.[a-z0-9-]+)+)(?![\w/"-])/g, (match, operation) => {
+    const entry = bareTwelveOperations.get(operation);
+    return entry ? `kanvas_tool_use with operationId:"${operationId(entry.canonical)}" and arguments:{…}` : match;
+  });
 }

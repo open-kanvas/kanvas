@@ -1,3 +1,4 @@
+import { discoveryToolDefinitions } from '../../src/server/mcp/discovery.js';
 import type { Tool } from '@modelcontextprotocol/server';
 import { afterEach, describe, expect, it } from 'vitest';
 import { MCP_TOOLS, listToolDefinitions } from '../../src/server/mcp/catalog.js';
@@ -102,9 +103,9 @@ describe('legacy discovery compatibility and usable examples', () => {
     const [modern, legacy] = await Promise.all([server.modern(credential), server.legacy(credential)]);
     const [current, previous] = await Promise.all([modern.client.listTools(), legacy.client.listTools()]);
     for (const result of [current, previous]) {
-      expect(result.tools.map(tool => tool.name)).toEqual(published.map(tool => tool.name));
+      expect(result.tools.map(tool => tool.name)).toEqual(discoveryToolDefinitions().map(tool => tool.name));
       for (const tool of result.tools) {
-        const expected = published.find(candidate => candidate.name === tool.name)!;
+        const expected = discoveryToolDefinitions().find(candidate => candidate.name === tool.name)!;
         expect(tool.description).toBe(expected.description);
         expect(tool.inputSchema).toEqual(expected.inputSchema);
         expect(tool.annotations).toEqual(expected.annotations);

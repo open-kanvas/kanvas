@@ -1,3 +1,4 @@
+import { operationId, publicGuidanceText } from '../../src/server/mcp/operations.js';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { Client as LegacyClient } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport as LegacyTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
@@ -103,7 +104,12 @@ describe('guide, catalogue and result integration', () => {
     expect(beforeSessions).toHaveLength(2); expect(beforeSessions.some(s => s.name === 'Home')).toBe(true);
     const { client } = await connect(owner, profile);
     const listed = await client.listTools();
-    for (const tool of entryPoints) expect(listed.tools.find(item => item.name === tool)!.description).toContain(SESSION_CONTINUITY_TOOL_GUIDANCE[tool]);
+    expect(listed.tools).toHaveLength(7);
+    for (const tool of entryPoints) {
+      const found = await client.callTool({ name: 'kanvas_tool_search', arguments: { query: operationId(tool) } });
+      const detail = (found.structuredContent as any).data.results[0];
+      expect(detail.description).toContain(publicGuidanceText(SESSION_CONTINUITY_TOOL_GUIDANCE[tool], 'discovery'));
+    }
     const sessions = envelope<SessionRecord[]>(await client.callTool({ name: 'kanvas_sessions_list', arguments: {} }));
     expect(sessions.data.map(item => ({ id: item.id, name: item.name })).sort((a,b)=>a.id.localeCompare(b.id))).toEqual(beforeSessions.map(item=>({id:item.id,name:item.name})).sort((a,b)=>a.id.localeCompare(b.id)));
     expect(sessions.orientation?.sessionContinuity).toBe(sessionContinuityGuidanceFor('kanvas_sessions_list'));

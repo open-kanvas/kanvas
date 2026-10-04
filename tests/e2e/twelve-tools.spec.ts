@@ -1,4 +1,4 @@
-import { OPERATION_ENTRIES } from '../../src/server/mcp/operations.js';
+import { DISCOVERY_TOOL_NAMES, OPERATION_ENTRIES, operationId } from '../../src/server/mcp/operations.js';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import type { DisplayRecord, InteractionRecord, SessionRecord, UpdateRecord } from '../../src/shared/types';
 import type { ReportPage, ReportRecord } from '../../src/shared/reports';
@@ -11,14 +11,16 @@ test('core-tool workflow preserves exact content, actual painting, viewer input 
   const client = new Client({ name: 'twelve-tool-browser-acceptance', version: '1' });
   await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', baseURL), { requestInit: { headers: { Authorization: `Bearer ${issued.data!.token}` } } }));
   async function call<T>(name: string, operation: string, args: Record<string, unknown> = {}): Promise<T> {
-    const result = await client.callTool({ name, arguments: { operation, ...args } });
+    const entry = OPERATION_ENTRIES.find(entry => entry.tool === name && entry.operation === operation)!;
+    const result = await client.callTool({ name: 'kanvas_tool_use', arguments: { operationId: operationId(entry.canonical), arguments: args } });
     expect(result.isError, `${name}/${operation}`).not.toBe(true);
     return (result.structuredContent as { data: T }).data;
   }
   try {
     const catalog = await client.listTools();
-    expect(catalog.tools).toHaveLength(12);
-    expect(catalog.tools.flatMap(tool => tool.inputSchema.oneOf as unknown[])).toHaveLength(OPERATION_ENTRIES.length);
+    expect(catalog.tools.map(tool => tool.name)).toEqual(DISCOVERY_TOOL_NAMES);
+    const index = await client.callTool({ name: 'kanvas_tool_index', arguments: {} });
+    expect((index.structuredContent as any).data.total).toBe(OPERATION_ENTRIES.length);
     expect(catalog.tools.some(tool => tool.name === 'kanvas_submit')).toBe(false);
     const session = await call<SessionRecord>('kanvas_session', 'create', { name: 'Twelve-tool exact source workflow' });
     const sessionId = session.id;
@@ -81,7 +83,8 @@ test('an agent can repair pairing and feedback inputs while the intended browser
   const client = new Client({ name: 'agent-input-recovery-browser', version: '1' });
   const context = await isolatedContext(browser, testInfo, baseURL!);
   async function call<T>(name: string, operation: string, args: Record<string, unknown>): Promise<T> {
-    const result = await client.callTool({ name, arguments: { operation, ...args } });
+    const entry = OPERATION_ENTRIES.find(entry => entry.tool === name && entry.operation === operation)!;
+    const result = await client.callTool({ name: 'kanvas_tool_use', arguments: { operationId: operationId(entry.canonical), arguments: args } });
     expect(result.isError, `${name}/${operation}`).not.toBe(true);
     return (result.structuredContent as { data: T }).data;
   }
@@ -141,7 +144,8 @@ test('JSON-encoded tool arguments still require consent and produce an acknowled
   const client = new Client({ name: 'cached-host-wire-recovery', version: '1' });
   const context = await isolatedContext(browser, testInfo, baseURL!);
   async function call<T>(name: string, operation: string, args: Record<string, unknown>): Promise<T> {
-    const result = await client.callTool({ name, arguments: { operation, ...args } });
+    const entry = OPERATION_ENTRIES.find(entry => entry.tool === name && entry.operation === operation)!;
+    const result = await client.callTool({ name: 'kanvas_tool_use', arguments: { operationId: operationId(entry.canonical), arguments: args } });
     expect(result.isError, `${name}/${operation}`).not.toBe(true);
     expect((result.structuredContent as { server: { version: string } }).server.version).toBe(client.getServerVersion()?.version);
     return (result.structuredContent as { data: T }).data;
@@ -149,8 +153,9 @@ test('JSON-encoded tool arguments still require consent and produce an acknowled
   try {
     await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', baseURL), { requestInit: { headers: { Authorization: `Bearer ${issued.data!.token}` } } }));
     const catalog = await client.listTools();
-    expect(catalog.tools.find(tool => tool.name === 'kanvas_access')!.inputSchema.properties!.approve).toMatchObject({ type: 'boolean' });
-    expect(catalog.tools.find(tool => tool.name === 'kanvas_publish')!.inputSchema.properties!.displayIds).toMatchObject({ type: 'array', items: { type: 'string' } });
+    const pairing = await client.callTool({ name: 'kanvas_tool_search', arguments: { query: 'kanvas.pairing.decide' } });
+    expect((pairing.structuredContent as any).data.results[0].inputSchema.properties.approve).toMatchObject({ type: 'boolean' });
+    expect(catalog.tools.map(tool => tool.name)).toEqual(DISCOVERY_TOOL_NAMES);
     const display = await call<DisplayRecord>('kanvas_session', 'display.register', { sessionId, name: 'Confirmed receiving screen' });
     const guest = await context.newPage(); diagnostics.watch(guest);
     const requested = guest.waitForResponse(response => new URL(response.url()).pathname === '/api/pairings' && response.request().method() === 'POST');

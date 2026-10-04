@@ -41,8 +41,10 @@ class BrowserDiagnostics {
           const reads = this.revisionReads.get(page) ?? new Map<string, number>();
           for (const display of payload.data.displays) {
             if (typeof display.id !== 'string' || !Number.isInteger(display.revision)) continue;
-            const path = `${pathname}/displays/${display.id}/applied`;
-            reads.set(path, Math.max(reads.get(path) ?? -1, display.revision));
+            for (const action of ['applied', 'navigation']) {
+              const path = `${pathname}/displays/${display.id}/${action}`;
+              reads.set(path, Math.max(reads.get(path) ?? -1, display.revision));
+            }
             const grids = this.gridReads.get(page) ?? new Map<string, { gridRevision: number; replacementRevision: number }>();
             const gridPath = `${pathname}/displays/${display.id}/grid`;
             const grid = grids.get(gridPath) ?? { gridRevision: -1, replacementRevision: -1 };

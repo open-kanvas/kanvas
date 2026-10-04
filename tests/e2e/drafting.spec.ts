@@ -42,13 +42,27 @@ test('draft chunks follow only the end and preserve manual scroll and renderer i
   await patch(page, sessionId, displayId, 1, [{ op: 'appendText', path: '/data/text', value: chunk }], requestId);
   text += chunk; await ready(page, viewer, sessionId, displayId, 2);
   await expect.poll(() => atEnd(viewer)).toBe(true); expect(await viewer.locator('.drafting-source').textContent()).toBe(text);
-  await scrollReview(viewer, 175); const before = await scrollTop(viewer);
-  const later = '\n\nLater content. '.repeat(16);
-  await patch(page, sessionId, displayId, 2, [{ op: 'appendText', path: '/data/text', value: later }]);
-  text += later; await ready(page, viewer, sessionId, displayId, 3);
-  expect(Math.abs(await scrollTop(viewer) - before)).toBeLessThanOrEqual(2);
-  expect(await source!.evaluate(element => element === document.querySelector('.viewer-candidate .drafting-source'))).toBe(true);
-  expect(await viewer.locator('.drafting-source').textContent()).toBe(text);
+  // Keep a real successful scroll response in flight across publication. An
+  // old request must not make the next revision's default scroll authoritative.
+  let intercepted = false, release!: () => void, finished!: () => void;
+  const released = new Promise<void>(resolve => { release = resolve; });
+  const settled = new Promise<void>(resolve => { finished = resolve; });
+  const navigation = `**/api/sessions/${sessionId}/displays/${displayId}/navigation`;
+  await viewer.route(navigation, async route => {
+    const request = route.request(), body = request.method() === 'POST' ? request.postDataJSON() : undefined;
+    if (body?.expectedRevision !== 2 || body.navigation?.action !== 'scroll' || !(body.navigation.y > 0 && body.navigation.y < .8)) { await route.continue(); return; }
+    const response = await route.fetch(); expect(response.status()).toBe(200); intercepted = true; await released;
+    try { await route.fulfill({ response }); } finally { finished(); }
+  });
+  try {
+    await expect.poll(async () => { if (!intercepted) await scrollReview(viewer, 175); return intercepted; }, { intervals: [200, 400] }).toBe(true);
+    const before = await scrollTop(viewer), later = '\n\nLater content. '.repeat(16);
+    await patch(page, sessionId, displayId, 2, [{ op: 'appendText', path: '/data/text', value: later }]);
+    text += later; await ready(page, viewer, sessionId, displayId, 3);
+    expect(Math.abs(await scrollTop(viewer) - before)).toBeLessThanOrEqual(2);
+    expect(await source!.evaluate(element => element === document.querySelector('.viewer-candidate .drafting-source'))).toBe(true);
+    expect(await viewer.locator('.drafting-source').textContent()).toBe(text);
+  } finally { release(); if (intercepted) await settled; await viewer.unroute(navigation); }
   await captureDisplay(viewer, info, 'drafting-manual-review');
   await viewer.getByRole('button', { name: 'Follow latest', exact: false }).click(); await expect.poll(() => atEnd(viewer)).toBe(true);
 });

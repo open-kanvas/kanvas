@@ -11,7 +11,12 @@ export function installClientCapture(sessionId:string, displayId:string): () => 
   let stopped = false, polling = false, repoll = false, pending:Pending|null = null, busy = false;
   let stream:MediaStream|undefined;
   const stoppedIds = new Set<string>();
-  const report = (item:Pending, status:string, data:Record<string,unknown>={}) => api(`${path}/${encodeURIComponent(item.captureId)}`, {method:'POST',body:{tabId,status,...data}});
+  const stopStream = () => { stream?.getTracks().forEach(track => track.stop()); stream = undefined; };
+  const report = async (item:Pending, status:string, data:Record<string,unknown>={}) => {
+    const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 8000);
+    try { return await api(`${path}/${encodeURIComponent(item.captureId)}`, {method:'POST',body:{tabId,status,...data},signal:controller.signal}); }
+    finally { clearTimeout(timeout); }
+  };
   const poll = async () => {
     if (stopped || busy || document.visibilityState === 'hidden') return;
     if (polling) { repoll = true; return; }
@@ -33,11 +38,14 @@ export function installClientCapture(sessionId:string, displayId:string): () => 
     const item = pending; pending = null;
     if (Date.now() >= item.expiresAt) return;
     busy = true; stoppedIds.add(item.captureId);
+    // Sharing must end independently of any stalled network request or picker.
+    let expired = false;
+    const expiry = setTimeout(() => { expired = true; stopStream(); }, Math.max(0, item.expiresAt - Date.now()));
     if (stoppedIds.size > 100) stoppedIds.delete(stoppedIds.values().next().value!);
     // Do not await a network request before the browser's activation-gated call.
     let sharing:Promise<MediaStream>;
     try { sharing = navigator.mediaDevices.getDisplayMedia({video:true,audio:false}); }
-    catch { void report(item, 'unsupported').catch(() => {}); busy = false; return; }
+    catch { clearTimeout(expiry); void report(item, 'unsupported').catch(() => {}); busy = false; return; }
     const permission = report(item, 'awaiting-permission');
     // Attach rejection handling immediately while the native picker is open.
     const permissionResult = permission.then(() => true, () => false);
@@ -45,7 +53,8 @@ export function installClientCapture(sessionId:string, displayId:string): () => 
       let video:HTMLVideoElement|undefined;
       try {
         stream = await sharing;
-        if (stopped || Date.now() >= item.expiresAt || !(await permissionResult)) return;
+        if (stopped || expired || Date.now() >= item.expiresAt || !(await permissionResult)) return;
+        if (stopped || expired || Date.now() >= item.expiresAt || !stream) return;
         video = document.createElement('video'); video.muted = true; video.playsInline = true; video.srcObject = stream;
         await Promise.race([video.play(), new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Capture frame timeout')), 8000))]);
         if (stopped || Date.now() >= item.expiresAt || !video.videoWidth || !video.videoHeight) throw new Error('Capture expired');
@@ -54,16 +63,17 @@ export function installClientCapture(sessionId:string, displayId:string): () => 
         const context = canvas.getContext('2d'); if (!context) throw new Error('Capture canvas unavailable');
         context.drawImage(video,0,0,canvas.width,canvas.height);
         // Stop sharing immediately after this single frame, before encoding/upload.
-        stream.getTracks().forEach(track => track.stop()); stream = undefined;
+        stopStream();
         const base64 = canvas.toDataURL('image/jpeg',0.8).split(',')[1];
         if (!base64 || base64.length > 2_796_204) throw new Error('Capture exceeds two MiB');
         if (!stopped) await report(item, 'complete', {base64,width:canvas.width,height:canvas.height});
       } catch (error) {
+        stopStream(); // Never keep sharing while reporting a failure to the server.
         // A fast native denial can beat the awaiting-permission request. Preserve
         // server state ordering instead of racing two contradictory reports.
         if (!stopped && await permissionResult) await report(item, error instanceof DOMException && error.name === 'NotAllowedError' ? 'denied' : 'failed').catch(() => {});
       } finally {
-        stream?.getTracks().forEach(track => track.stop()); stream = undefined;
+        clearTimeout(expiry); stopStream();
         if (video) { video.pause(); video.srcObject = null; }
         busy = false;
       }
@@ -82,7 +92,7 @@ export function installClientCapture(sessionId:string, displayId:string): () => 
   const timer = setInterval(() => void poll(), 15000); void poll();
   return () => {
     stopped = true; pending = null; clearInterval(timer);
-    stream?.getTracks().forEach(track => track.stop());
+    stopStream();
     document.removeEventListener('click', activate, true); document.removeEventListener('keydown', activate, true);
     window.removeEventListener('kanvas:session-change', change);
     document.removeEventListener('visibilitychange', visible);

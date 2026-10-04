@@ -74,3 +74,36 @@ test('server snapshot uses real viewer viewport and settled renderer while remai
     expect(Date.now()-started).toBeGreaterThanOrEqual(1500);expect(result.assetId).toBeTruthy();
   }finally{await s.client.close();}
 });
+
+for (const limit of ['network-timeout','request-expiry'] as const) test(`client capture stops live sharing on ${limit} while permission report stalls`,async({page,baseURL})=>{
+  const s=await setup(page,baseURL!,'success');
+  try {
+    // Stall only the acknowledgement transport, preserving native stream creation
+    // and real server request/poll authorization. Abort remains observable.
+    await s.viewer.evaluate(()=>{
+      const original=window.fetch.bind(window);
+      window.fetch=(input,init)=>{
+        if(String(input).includes('/client-capture/')&&init?.method==='POST'&&JSON.parse(String(init.body)).status==='awaiting-permission'){
+          return new Promise<Response>((_resolve,reject)=>{
+            init.signal?.addEventListener('abort',()=>{(window as any).__capture.aborted=true;reject(new DOMException('Aborted','AbortError'));},{once:true});
+          });
+        }
+        return original(input,init);
+      };
+    });
+    if(limit==='request-expiry') await s.viewer.route('**/client-capture?*',async route=>{
+      const response=await route.fetch(),body=await response.json();
+      if(body.data)body.data.expiresAt=Date.now()+1200;
+      await route.fulfill({response,json:body});
+    });
+    const armed=s.viewer.waitForResponse(async response=>response.url().includes('/client-capture?')&&Boolean((await response.json().catch(()=>null))?.data?.captureId));
+    const request=await s.call('request-capture');await armed;
+    await s.viewer.locator('.viewer-shell').click({position:{x:20,y:20}});
+    await expect.poll(()=>s.viewer.evaluate(()=>(window as any).__capture.calls)).toBe(1);
+    await expect.poll(()=>s.viewer.evaluate(()=>(window as any).__capture.stopped),{timeout:limit==='request-expiry'?4000:12000}).toBe(1);
+    if(limit==='request-expiry')expect(await s.viewer.evaluate(()=>(window as any).__capture.aborted)).not.toBe(true);
+    else expect(await s.viewer.evaluate(()=>(window as any).__capture.aborted)).toBe(true);
+    const result=await s.call('capture-status',{captureId:request.captureId});expect(result.assetId).toBeUndefined();
+    await s.viewer.close();
+  } finally {await s.client.close();}
+});

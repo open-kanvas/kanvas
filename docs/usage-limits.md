@@ -1,6 +1,6 @@
 # Free usage limits
 
-All accounts use one free tier; there is no payment or upgrade flow yet. Deployment administrators set `KANVAS_MAX_SESSIONS_PER_ACCOUNT` (default 10) and `KANVAS_MAX_VIEWS_PER_SESSION` (default 50), positive integers up to 100000, then restart the service. No source change is needed.
+Accounts default to the trial quota tier; operators may assign free or admin quota entitlements. Neither label grants administrator authority. There is no payment or self-service upgrade flow yet. Read your actual tier and limits with kanvas_account details. Deployment administrators set `KANVAS_MAX_SESSIONS_PER_ACCOUNT` (default 10) and `KANVAS_MAX_VIEWS_PER_SESSION` (default 50), positive integers up to 100000, then restart the service. No source change is needed.
 
 Session limits count all owned sessions, including ended/archived sessions. View limits count retained nonempty view revisions plus pending publications, including archived views. An existing over-limit account/session remains accessible; only new creation/publication is blocked. Edits that create a new retained revision also consume a view slot; changing ordinary session configuration does not. Branching after history navigation and bounded live-history retention move detached views into the recoverable archive; they never permanently delete source. Archives remain until explicitly restored or permanently removed. A limit response is conversational and does not overwrite a display. Contact the administrator about future upgrades; no billing link is invented.
 

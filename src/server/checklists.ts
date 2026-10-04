@@ -9,7 +9,7 @@ import type {Definition} from './mcp/canonical.js';
 
 const identifier=z.string().regex(/^[A-Za-z0-9_-]{1,128}$/),revision=z.number().int().nonnegative();
 const target={sessionId:identifier,checklistId:identifier};
-export const checklistReadSchema=z.strictObject({sessionId:identifier,checklistId:identifier.optional(),offset:z.number().int().min(0).max(100).default(0),limit:z.number().int().min(1).max(100).default(100)});
+export const checklistReadSchema=z.strictObject({sessionId:identifier,checklistId:identifier.optional(),offset:z.number().int().min(0).max(1000).default(0),limit:z.number().int().min(1).max(100).default(100)});
 export const checklistUpdateSchema=z.strictObject({...target,expectedRevision:revision,requestId:identifier,items:checklistDataSchema.shape.items,title:z.string().max(500).optional()});
 export const checklistShowSchema=z.strictObject({...target,displayId:identifier,expectedRevision:revision,requestId:identifier});
 export const checklistTools:Definition[]=[
@@ -43,6 +43,18 @@ export class Checklists {
   const stamp=now();await this.store.put('checklist',{id:key,sessionId,revision:version,view,createdAt:previous?.createdAt??stamp,updatedAt:stamp});
   return view;
  }
+ /** History/pin recall is a snapshot, not permission to overwrite a newer document. */
+ async restoreSnapshot(sessionId:string,input:ViewSpec):Promise<ViewSpec>{
+  const view=structuredClone(input);
+  if(view.template==='presentation'){
+   const slides:ViewSpec[]=[];for(const slide of view.data.slides as ViewSpec[])slides.push(await this.restoreSnapshot(sessionId,slide));view.data.slides=slides;return view;
+  }
+  if(view.template==='checklist'&&view.data.checklistId){
+   const current=await this.store.get<Checklist>('checklist',String(view.data.checklistId));
+   if(!current||current.sessionId!==sessionId||current.revision!==view.data.checklistRevision){delete view.data.checklistId;delete view.data.checklistRevision;}
+  }
+  return this.capture(sessionId,view);
+ }
  private async legacy(sessionId:string){
   const entries=await this.store.list<{id:string;view:ViewSpec|null;createdAt:string;displayId:string}>('display-history',sessionId);
   // Last retained version per display/title, not every historical checkbox tick.
@@ -68,7 +80,9 @@ export class Checklists {
    while(page.length>1&&Buffer.byteLength(JSON.stringify(page))>40000)page=page.slice(0,Math.ceil(page.length/2));
    return {id:record.id,sessionId:record.sessionId,revision:record.revision,title:record.view.title,items:page,offset:a.offset,total:items.length,...(a.offset+page.length<items.length?{nextOffset:a.offset+page.length}:{}),note:'Item window only, not a replacement view. checklist.show always publishes the full latest stored document.'};
   }
-  return {sessionId:a.sessionId,checklists:[...await this.store.list<Checklist>('checklist',a.sessionId),...await this.legacy(a.sessionId)].map(c=>({id:c.id,title:c.view.title??'Checklist',revision:c.revision,items:(c.view.data.items as unknown[]).length,checked:(c.view.data.items as {checked?:boolean}[]).filter(i=>i.checked).length,updatedAt:c.updatedAt,...(c.id.startsWith('legacy_')?{legacy:true}:{})})),note:'Read an ID to retrieve exact items, or show it on a selected display. Persistent records survive replacement, clearing and history pruning.'};
+  const all=[...await this.store.list<Checklist>('checklist',a.sessionId),...await this.legacy(a.sessionId)].sort((x,y)=>y.updatedAt.localeCompare(x.updatedAt)).map(c=>({id:c.id,title:c.view.title??'Checklist',revision:c.revision,items:(c.view.data.items as unknown[]).length,checked:(c.view.data.items as {checked?:boolean}[]).filter(i=>i.checked).length,updatedAt:c.updatedAt,...(c.id.startsWith('legacy_')?{legacy:true}:{})}));
+  let page=all.slice(a.offset,a.offset+a.limit);while(page.length>1&&Buffer.byteLength(JSON.stringify(page))>40000)page=page.slice(0,Math.ceil(page.length/2));
+  return {sessionId:a.sessionId,checklists:page,total:all.length,offset:a.offset,...(a.offset+page.length<all.length?{nextOffset:a.offset+page.length}:{}),note:'Read an ID to retrieve exact items, or show it on a selected display. Persistent records survive replacement, clearing and history pruning.'};
  }
  async update(p:AuthPrincipal,raw:unknown){
   const a=checklistUpdateSchema.parse(raw);

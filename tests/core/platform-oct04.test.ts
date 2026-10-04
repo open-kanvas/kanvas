@@ -72,4 +72,20 @@ describe('October4 persistent account and session feedback',()=>{
   await h.runtime.service.updateDisplay(p,s.id,d.id,{held:true,expectedRevision:current.revision});const held=await h.runtime.service.display(p,s.id,d.id);
   await expect(h.runtime.service.checklists.show(p,{sessionId:s.id,checklistId:key,displayId:d.id,expectedRevision:held.revision,requestId:'held'})).rejects.toMatchObject({code:'DISPLAY_HELD'});
  });
+ it('one multi-display publish shares one checklist and reads large documents in bounded pages',async()=>{
+  h=await startHarness();const a=await h.account(),p=await principal(a),s=await a.session(),d=await a.display(s.id),e=await a.display(s.id);
+  await a.submit(s.id,[d.id,e.id],view);const first=await h.runtime.service.display(p,s.id,d.id),second=await h.runtime.service.display(p,s.id,e.id);expect(first.view!.data.checklistId).toBe(second.view!.data.checklistId);
+  const key=String(first.view!.data.checklistId),items=Array.from({length:70},(_,i)=>({id:`item${i}`,text:'x'.repeat(900),checked:i%2===0}));
+  await h.runtime.service.checklists.update(p,{sessionId:s.id,checklistId:key,expectedRevision:0,requestId:'large',items});
+  const page:any=await h.runtime.service.checklists.read(p,{sessionId:s.id,checklistId:key});expect(page.view).toBeUndefined();expect(page.nextOffset).toBeGreaterThan(0);expect(Buffer.byteLength(JSON.stringify(page))).toBeLessThan(44000);
+  const rest:any=await h.runtime.service.checklists.read(p,{sessionId:s.id,checklistId:key,offset:page.nextOffset});expect([...page.items,...rest.items]).toEqual(items);
+ });
+ it('retained pre-upgrade checklist can be read and promoted without agent reconstruction',async()=>{
+  h=await startHarness();const a=await h.account(),p=await principal(a),s=await a.session(),d=await a.display(s.id);
+  await h.runtime.store.put('display-history',{id:'legacy-frame',sessionId:s.id,displayId:d.id,revision:1,view:{...view,data:{items:[{id:'a',text:'Already done',checked:true}]}},createdAt:new Date().toISOString(),reason:'prepared'});
+  const listed:any=await h.runtime.service.checklists.read(p,{sessionId:s.id});expect(listed.checklists[0].id).toBe('legacy_legacy-frame');
+  await h.runtime.service.checklists.show(p,{sessionId:s.id,checklistId:listed.checklists[0].id,displayId:d.id,expectedRevision:0,requestId:'restore-legacy'});
+  const current=await h.runtime.service.display(p,s.id,d.id);expect(current.view!.data.checklistId).toBeTruthy();expect((current.view!.data.items as any[])[0].checked).toBe(true);
+ });
+
 });

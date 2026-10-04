@@ -102,7 +102,6 @@ function compactExample(value:unknown,exampleIndex:number,key=''):unknown{
   return value;
 }
 function groupedTool(profile: GroupedProfile, name: string, entries: readonly OperationEntry[], description: string, toolAnnotations: NonNullable<Tool['annotations']>, canonical: Map<string, ReturnType<typeof canonicalToolDefinitions>[number]>): Tool {
-  const readOnly = entries.every(entry => READ_ONLY_CANONICAL.has(entry.canonical));
   const examples = entries.flatMap(entry => (['kanvas_submit','kanvas_autoplay_control','kanvas_navigation_control'].includes(entry.canonical)?TOOL_DISCOVERY[entry.canonical].examples:TOOL_DISCOVERY[entry.canonical].examples.slice(0,1)).map(args => ({ operation: entry.operation, ...structuredClone(args) }))).map((example,i)=>compactExample(example,i));
   const branches = entries.map(entry => {
     const definition = canonical.get(entry.canonical);
@@ -110,16 +109,16 @@ function groupedTool(profile: GroupedProfile, name: string, entries: readonly Op
     const { examples: _examples, description: _description, ...schema } = profileSchema(definition.inputSchema) as Tool['inputSchema'];
     return {
       ...schema,
-      // Read operations already have root guidance, typed required fields and
+      // Resource tools already have domain guidance, typed required fields and
       // examples. Keep the extra effectful-operation hint here; complete
       // per-operation guidance remains available through the guide.
-      ...((profile === 'twelve' ? name === 'kanvas_inspect' : readOnly || entries.length === 1 || READ_ONLY_CANONICAL.has(entry.canonical)) ? {} : { description: publicGuidanceText(TOOL_DISCOVERY[entry.canonical].hint, profile).split(/(?<=\.) (?=[A-Z])/)[0] }),
+      ...((profile === 'twelve' ? name === 'kanvas_inspect' : true) ? {} : { description: publicGuidanceText(TOOL_DISCOVERY[entry.canonical].hint, profile).split(/(?<=\.) (?=[A-Z])/)[0] }),
       properties: { operation: { const: entry.operation }, ...schema.properties },
       required: ['operation', ...(schema.required ?? [])],
     };
   });
   return {
-    name, description: `${description} Required: operation. ${branches.map(branch=>`${String(branch.properties.operation.const)}(${branch.required.filter(field=>field!=='operation').join(',')||'none'})`).join('; ')}.`,
+    name, description: profile==='domains'?`${description} Required: operation. Operations: ${entries.map(entry=>entry.operation).join(', ')}. See each strict branch for required fields.`:`${description} Required: operation. ${branches.map(branch=>`${String(branch.properties.operation.const)}(${branch.required.filter(field=>field!=='operation').join(',')||'none'})`).join('; ')}.`,
     inputSchema: shareBranchSchemas(exposeSchemaProperties({
       type: 'object',
       properties: { operation: { type: 'string', enum: entries.map(entry => entry.operation), description: 'Choose operation; use only its fields.' } },

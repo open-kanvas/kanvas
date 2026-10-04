@@ -396,7 +396,7 @@ export class KanvasService implements McpService {
     const user=required(await this.auth.user(principal.userId)),verified=await this.store.get<{email:string}>('verified-email',principal.userId),limits=await accountUsageLimits(this.store,principal.userId);
     const email=verified?.email??(z.string().email().safeParse(user.username).success?user.username:null);
     const details={id:user.id,displayName:user.displayName,username:user.username,email,emailVerified:Boolean(verified),tier:limits.tier,quotaExempt:limits.tier!=='trial',limits:{sessions:Number.isFinite(limits.sessions)?limits.sessions:null,retainedViewsPerSession:Number.isFinite(limits.views)?limits.views:null}};
-    return {...details,note:'Tier is a quota entitlement, not administrator authority. Null limit means no trial quota; safety and access limits still apply.',publishRecipe:{tool:'kanvas_publish',operation:'show',privacy:'Contains personal account data. Show only on the intended private display; never publish publicly without consent.',view:{version:1,template:'table',title:'Your Kanvas account',showTitle:true,data:{columns:['Account detail','Value'],rows:[['Name',details.displayName],['Email',email??'Not set'],['Plan / quota tier',details.tier],['Session quota',details.limits.sessions??'No trial quota'],['Retained views per session',details.limits.retainedViewsPerSession??'No trial quota']].map(([key,value])=>({'Account detail':key,Value:value}))}}}};
+    return {...details,note:'Tier is a quota entitlement, not administrator authority. Null limit means no trial quota; safety and access limits still apply.',publishRecipe:{tool:'kanvas_submit',privacy:'Contains personal account data. Show only on the intended private display; never publish publicly without consent.',view:{version:1,template:'table',title:'Your Kanvas account',showTitle:true,data:{columns:['Account detail','Value'],rows:[['Name',details.displayName],['Email',email??'Not set'],['Plan / quota tier',details.tier],['Session quota',details.limits.sessions??'No trial quota'],['Retained views per session',details.limits.retainedViewsPerSession??'No trial quota']].map(([key,value])=>({'Account detail':key,Value:value}))}}}};
   }
   async startPage(principal:AuthPrincipal,offset=0){
     (await this.fullAccount(principal));
@@ -542,7 +542,7 @@ export class KanvasService implements McpService {
     if (before.generation !== display.generation || before.interactionEpoch !== display.interactionEpoch) throw new AppError('REVISION_CONFLICT', 'The display changed while applying this operation.', 409);
     if (kind === 'timer-control' && display.held) throw new AppError('DISPLAY_HELD', 'Release the display hold before controlling this timer.', 409);
     (await this.history.ensure(display));
-    display.view = view?await this.checklists.capture(display.sessionId,view):null; display.revision++; display.generation++; display.updatedAt = now();
+    display.view = view?await (kind==='pin-recall'?this.checklists.restoreSnapshot(display.sessionId,view):this.checklists.capture(display.sessionId,view)):null; display.revision++; display.generation++; display.updatedAt = now();
     if(kind==='pin-recall')display.interactionEpoch=id();
     display.targetAgentId = principal.agentId ?? display.targetAgentId;
     display.delivery = { revision: display.revision, status: 'pending', updatedAt: display.updatedAt };
@@ -836,7 +836,7 @@ export class KanvasService implements McpService {
     (await this.store.transaction(async () => {
       for (const { display, cursor, view, entry } of targets) {
         (await this.history.ensure(display));
-        display.view = view?await this.checklists.capture(display.sessionId,view):null; display.revision++; display.generation++; display.interactionEpoch = entry.interactionEpoch ?? id(); display.targetAgentId = principal.agentId; display.updatedAt = now(); display.delivery = { revision: display.revision, status: 'pending', updatedAt: now() };
+        display.view = view?await this.checklists.restoreSnapshot(display.sessionId,view):null; display.revision++; display.generation++; display.interactionEpoch = entry.interactionEpoch ?? id(); display.targetAgentId = principal.agentId; display.updatedAt = now(); display.delivery = { revision: display.revision, status: 'pending', updatedAt: now() };
         update.revisions[display.id] = display.revision; (await this.store.put('display', display)); (await this.history.moved(display, cursor));
       }
       (await this.store.put('update', update)); (await this.saveRequest(principal, input.sessionId, input.requestId, 'navigate', input, update.id));

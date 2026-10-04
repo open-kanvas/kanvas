@@ -79,6 +79,7 @@ describe('October4 persistent account and session feedback',()=>{
   await h.runtime.service.checklists.update(p,{sessionId:s.id,checklistId:key,expectedRevision:0,requestId:'large',items});
   const page:any=await h.runtime.service.checklists.read(p,{sessionId:s.id,checklistId:key});expect(page.view).toBeUndefined();expect(page.nextOffset).toBeGreaterThan(0);expect(Buffer.byteLength(JSON.stringify(page))).toBeLessThan(44000);
   const rest:any=await h.runtime.service.checklists.read(p,{sessionId:s.id,checklistId:key,offset:page.nextOffset});expect([...page.items,...rest.items]).toEqual(items);
+  const http:any=success(await a.request('GET',`/api/sessions/${s.id}/checklists/${key}?offset=${page.nextOffset}`));expect(http.items).toEqual(rest.items);
  });
  it('retained pre-upgrade checklist can be read and promoted without agent reconstruction',async()=>{
   h=await startHarness();const a=await h.account(),p=await principal(a),s=await a.session(),d=await a.display(s.id);
@@ -86,6 +87,26 @@ describe('October4 persistent account and session feedback',()=>{
   const listed:any=await h.runtime.service.checklists.read(p,{sessionId:s.id});expect(listed.checklists[0].id).toBe('legacy_legacy-frame');
   await h.runtime.service.checklists.show(p,{sessionId:s.id,checklistId:listed.checklists[0].id,displayId:d.id,expectedRevision:0,requestId:'restore-legacy'});
   const current=await h.runtime.service.display(p,s.id,d.id);expect(current.view!.data.checklistId).toBeTruthy();expect((current.view!.data.items as any[])[0].checked).toBe(true);
+ });
+
+ it('historical and pinned snapshots fork without overwriting newer saved checklist state',async()=>{
+  h=await startHarness();const a=await h.account(),p=await principal(a),s=await a.session(),d=await a.display(s.id);
+  await a.submit(s.id,[d.id],view);let current=await h.runtime.service.display(p,s.id,d.id);const key=String(current.view!.data.checklistId),oldRevision=current.revision;
+  const pin:any=await h.runtime.service.execute('kanvas_pin_save',{sessionId:s.id,displayId:d.id,requestId:'pin',label:'Original checklist'},p);
+  await h.runtime.service.edit(p,s.id,d.id,current.revision,{...current.view!.data,items:[{id:'a',text:'Review',checked:true}]});current=await h.runtime.service.display(p,s.id,d.id);
+  await h.runtime.service.navigate(p,{sessionId:s.id,displayIds:[d.id],expectedRevisions:{[d.id]:current.revision},requestId:'back',revision:oldRevision});current=await h.runtime.service.display(p,s.id,d.id);
+  expect(current.view!.data.checklistId).not.toBe(key);expect((current.view!.data.items as any[])[0].checked).toBe(false);
+  const saved:any=await h.runtime.service.checklists.read(p,{sessionId:s.id,checklistId:key});expect(saved.view.data.items[0].checked).toBe(true);
+  await h.runtime.service.execute('kanvas_pin_recall',{sessionId:s.id,displayId:d.id,pinId:pin.id,expectedRevision:current.revision,requestId:'recall'},p);
+  expect(((await h.runtime.service.display(p,s.id,d.id)).view!.data.items as any[])[0].checked).toBe(false);
+ });
+ it('checkbox intent on a stale mirror rebases without losing newer sibling items',async()=>{
+  h=await startHarness();const a=await h.account(),p=await principal(a),s=await a.session(),d=await a.display(s.id),e=await a.display(s.id);await a.submit(s.id,[d.id,e.id],view);
+  let first=await h.runtime.service.display(p,s.id,d.id),second=await h.runtime.service.display(p,s.id,e.id);const key=String(first.view!.data.checklistId);
+  await h.runtime.service.respond(p,s.id,d.id,{revision:first.revision,requestId:'a-click',value:{kind:'checklist.toggle',itemId:'a',checked:true}});
+  await h.runtime.service.respond(p,s.id,e.id,{revision:second.revision,requestId:'b-click',value:{kind:'checklist.toggle',itemId:'b',checked:true}});
+  const saved:any=await h.runtime.service.checklists.read(p,{sessionId:s.id,checklistId:key});expect(saved.view.data.items.map((i:any)=>i.checked)).toEqual([true,true]);
+  second=await h.runtime.service.display(p,s.id,e.id);expect((second.view!.data.items as any[]).map(i=>i.checked)).toEqual([true,true]);
  });
 
 });

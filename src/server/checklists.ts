@@ -43,6 +43,12 @@ export class Checklists {
   const stamp=now();await this.store.put('checklist',{id:key,sessionId,revision:version,view,createdAt:previous?.createdAt??stamp,updatedAt:stamp});
   return view;
  }
+ async latestView(sessionId:string,input:ViewSpec):Promise<ViewSpec>{
+  if(input.template!=='checklist'||!input.data.checklistId)return structuredClone(input);
+  const record=await this.store.get<Checklist>('checklist',String(input.data.checklistId));
+  if(!record||record.sessionId!==sessionId)throw new AppError('NOT_FOUND','This checklist is unavailable.',404);
+  return structuredClone(record.view);
+ }
  /** History/pin recall is a snapshot, not permission to overwrite a newer document. */
  async restoreSnapshot(sessionId:string,input:ViewSpec):Promise<ViewSpec>{
   const view=structuredClone(input);

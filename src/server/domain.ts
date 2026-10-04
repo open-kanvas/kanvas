@@ -891,8 +891,13 @@ export class KanvasService implements McpService {
       response = draftingSelectionFeedback(display.view!, value);
     } else if (value.kind === 'checklist.toggle' && leaf.template === 'checklist') {
       const toggle = z.object({ kind: z.literal('checklist.toggle'), itemId: z.string().min(1).max(128), checked: z.boolean() }).strict().parse(value);
-      const items = structuredClone(leaf.data.items) as { id: string; checked: boolean }[], item = required(items.find(item => item.id === toggle.itemId), 'This checklist item is unavailable.');
-      item.checked = toggle.checked; response = { itemId: item.id, checked: item.checked }; nextView = replaceLeaf(display.view!, { ...leaf.data, items });
+      // A narrow checkbox intent can rebase onto the latest document without
+      // resubmitting stale sibling items. Full-data edits still require CAS.
+      const latest=await this.checklists.latestView(sessionId,leaf),items=structuredClone(latest.data.items) as {id:string;checked:boolean}[],item=items.find(item=>item.id===toggle.itemId);
+      if(item){item.checked=toggle.checked;response={itemId:item.id,checked:item.checked};}
+      else response={itemId:toggle.itemId,applied:false,reason:'Item was removed; the latest saved checklist is now shown.'};
+      const updated={...latest,data:{...latest.data,items}};
+      nextView=display.view!.template==='presentation'?{...display.view!,data:{...display.view!.data,slides:(display.view!.data.slides as ViewSpec[]).map((slide,index)=>index===Number(display.view!.data.index??0)?updated:slide)}}:updated;
     } else if (value.kind === 'planner.review' && leaf.template === 'planner') {
       const decision = z.object({ kind: z.literal('planner.review'), proposalId: z.string().min(1).max(128), decision: z.enum(['accept', 'reject', 'change']), comment: z.string().max(500).optional() }).strict().parse(value);
       const data = plannerDataSchema.parse(leaf.data), proposal = required(data.proposals.find(entry => entry.id === decision.proposalId), 'This proposal is no longer pending.');

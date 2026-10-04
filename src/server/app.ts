@@ -219,8 +219,9 @@ export async function createApp(options: AppOptions = {}) {
   app.get('/api/sessions', async (req, res) => send(res, (await service.sessions((await browser(req))))));
   app.post('/api/sessions', operation('kanvas_session_create'));
   app.get('/api/account/details',operation('kanvas_account_details'));
-  app.get('/api/sessions/:id/checklists',operation('kanvas_checklist_read',sessionArgs));
-  app.get('/api/sessions/:id/checklists/:checklistId',operation('kanvas_checklist_read',req=>({...sessionArgs(req),checklistId:String(req.params.checklistId)})));
+  const checklistPage=(req:Request)=>z.strictObject({offset:z.coerce.number().int().min(0).max(1000).optional(),limit:z.coerce.number().int().min(1).max(100).optional()}).parse(req.query);
+  app.get('/api/sessions/:id/checklists',operation('kanvas_checklist_read',req=>({...sessionArgs(req),...checklistPage(req)})));
+  app.get('/api/sessions/:id/checklists/:checklistId',operation('kanvas_checklist_read',req=>({...sessionArgs(req),...checklistPage(req),checklistId:String(req.params.checklistId)})));
   app.patch('/api/sessions/:id/checklists/:checklistId',operation('kanvas_checklist_update',req=>({...sessionArgs(req),checklistId:String(req.params.checklistId)})));
   app.post('/api/sessions/:id/checklists/:checklistId/show',operation('kanvas_checklist_show',req=>({...sessionArgs(req),checklistId:String(req.params.checklistId)})));
   app.get('/api/sessions/:id', async (req, res) => {

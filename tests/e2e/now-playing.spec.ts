@@ -140,15 +140,20 @@ test('failed replacement artwork retains the real previous view and a newer supp
   await viewer.locator('.now-playing-artwork img').evaluate(element => element.setAttribute('data-original-node', 'yes'));
   const match = (url: URL) => url.pathname === broken.url;
   diagnostics.allowHttp(viewer, broken.url, 404);
-  await viewer.route(match, route => route.fulfill({ status: 404, contentType: 'text/plain', body: 'Supplied artwork unavailable in this acceptance case' }));
+  let unavailable = true;
+  // Keep interception (and its cache mode) stable while the source recovers.
+  await viewer.route(match, route => unavailable ? route.fulfill({ status: 404, contentType: 'text/plain', body: 'Supplied artwork unavailable in this acceptance case' }) : route.continue());
   await publishPrepared(page, sessionId, [displayId], snapshot({ track: 'Unpainted replacement', artwork: { url: broken.url, alt: 'Unavailable new cover' } }));
   await expect(viewer.locator('.viewer-shell')).toHaveAttribute('data-render-status', 'failed');
   const failed = await waitForDisplay(page, sessionId, displayId, value => value.revision === 2 && value.delivery?.status === 'failed');
   expect(failed.appliedRevision).toBe(1);
   await expect(viewer.locator('.viewer-last-good .now-playing-track')).toHaveText(base.track);
   await expect(viewer.locator('.viewer-last-good .now-playing-artwork img')).toHaveAttribute('data-original-node', 'yes');
-  await viewer.unroute(match);
-  await publishPrepared(page, sessionId, [displayId], snapshot({ track: 'Recovered supplied title', artwork: { url: broken.url, alt: 'Recovered supplied cover' } })); await ready(page, viewer, sessionId, displayId, 3);
+  unavailable = false;
+  const recoveredBytes = viewer.waitForResponse(response => new URL(response.url()).pathname === broken.url && response.status() === 200);
+  await publishPrepared(page, sessionId, [displayId], snapshot({ track: 'Recovered supplied title', artwork: { url: broken.url, alt: 'Recovered supplied cover' } }));
+  await recoveredBytes; await ready(page, viewer, sessionId, displayId, 3);
   await expect(viewer.locator('.now-playing-track')).toHaveText('Recovered supplied title'); await expect(viewer.locator('.viewer-last-good')).toHaveCount(0);
   expect(await viewer.locator('.now-playing-artwork img').evaluate(element => (element as HTMLImageElement).naturalWidth)).toBe(512);
+  await viewer.unroute(match);
 });

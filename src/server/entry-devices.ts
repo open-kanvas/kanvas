@@ -156,6 +156,9 @@ export function mountEntryDevices(app:Express,devices:EntryDevices,browser:(req:
   const closes=new Set<()=>void>();
   app.get('/api/devices/:deviceId/events',async (req,res)=>{
     const p=(await browser(req)),stream=(await devices.stream(p,String(req.params.deviceId),data=>res.write(`data: ${JSON.stringify(data)}\n\n`)));
+    // A disconnect during asynchronous receiver registration must not leave
+    // an unreachable live-device/window count behind.
+    if(req.destroyed||res.destroyed){stream.close();return;}
     res.set({'Content-Type':'text/event-stream','Cache-Control':'no-store','Connection':'keep-alive','X-Accel-Buffering':'no'});res.flushHeaders();
     const close=()=>{clearInterval(timer);stream.close();closes.delete(close);res.end();};
     const tick=async ()=>{try{(await stream.push());}catch{res.write('data: {"unavailable":true}\n\n');close();}};
@@ -163,6 +166,9 @@ export function mountEntryDevices(app:Express,devices:EntryDevices,browser:(req:
   });
   app.get('/api/devices/:deviceId/windows/:windowId/events',async (req,res)=>{
     const stream=(await devices.windows.stream((await browser(req)),String(req.params.deviceId),String(req.params.windowId),data=>res.write(`data: ${JSON.stringify(data)}\n\n`)));
+    // A disconnect during asynchronous receiver registration must not leave
+    // an unreachable live-device/window count behind.
+    if(req.destroyed||res.destroyed){stream.close();return;}
     res.set({'Content-Type':'text/event-stream','Cache-Control':'no-store','Connection':'keep-alive','X-Accel-Buffering':'no'});res.flushHeaders();
     const close=()=>{clearInterval(timer);stream.close();closes.delete(close);res.end();};
     const tick=async ()=>{try{(await stream.push());}catch{res.write('data: {"unavailable":true}\n\n');close();}};

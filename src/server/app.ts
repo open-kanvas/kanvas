@@ -348,6 +348,9 @@ export async function createApp(options: AppOptions = {}) {
     });
     const heartbeat = setInterval(async () => { try { (await service.access(principal, sessionId)); receiving?.touch(); (await windowReceiver?.push());res.write(': keepalive\n\n'); } catch { (await finish()); } }, 15_000); heartbeat.unref();
     streams.add(finish); req.on('close', () => { void finish().catch(() => {}); });
+    // Setup above crosses asynchronous registration boundaries after headers
+    // are sent. The peer can disconnect before the close listener is installed.
+    if (req.destroyed || res.destroyed) { await finish(); return; }
     try{(await windowReceiver?.push());}catch{(await finish());}
   });
 

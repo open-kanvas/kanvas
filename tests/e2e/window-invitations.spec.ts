@@ -25,7 +25,13 @@ test('one physical browser has independent reload-stable windows, cloned tabs an
   await expect(a.locator('.viewer-candidate')).toContainText('Requested window target');await expect(b.locator('.viewer-candidate')).toContainText('Second window stays independent');await expect(clone.locator('.viewer-candidate')).toContainText('First window stays independent');
   await expect.poll(async()=> (await list()).windows.find((w:any)=>w.id===ad.window.id)?.command?.status).toBe('applied');
   const reloaded=a.waitForResponse(r=>new URL(r.url()).pathname==='/api/devices/register');await a.reload();expect((await(await reloaded).json()).data.window.id).toBe(ad.window.id);await expect(a.locator('.viewer-candidate')).toContainText('Requested window target');
-  current=await list();expect((await business(page,'/api/devices/present','POST',{deviceId:ad.id,sessionId:s,displayId:target.id,expectedVersion:current.version,requestId:randomUUID()})).status).toBe(200);
+  current=await list();
+  // This broadcast intentionally navigates the initiating management window.
+  // Observe its real HTTP response outside that soon-to-be-destroyed JS realm;
+  // never resend the mutation when navigation races response JSON decoding.
+  const broadcastResponse=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/devices/present'&&r.request().method()==='POST');
+  const broadcasting=business(page,'/api/devices/present','POST',{deviceId:ad.id,sessionId:s,displayId:target.id,expectedVersion:current.version,requestId:randomUUID()}).catch(error=>{if(!/Execution context was destroyed/.test(String(error)))throw error;});
+  expect((await broadcastResponse).status()).toBe(200);await broadcasting;
   for(const receiver of [page,a,b,clone])await expect(receiver.locator('.viewer-candidate')).toContainText('Requested window target');
   await expect.poll(async()=> (await list()).command.status).toBe('applied');await b.close();await expect.poll(async()=> (await list()).windows.find((w:any)=>w.id===bd.window.id)?.connected).toBe(false);
   const state=await list(),offline=state.windows.find((w:any)=>w.id===bd.window.id);diagnostics.allowHttp(page,`/api/devices/${ad.id}/windows/${bd.window.id}/present`,409);

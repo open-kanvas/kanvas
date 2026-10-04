@@ -1,12 +1,16 @@
 import {afterEach,describe,it,expect} from 'vitest';
+import {randomUUID} from 'node:crypto';
 import type {Response} from 'express';
 import {startHarness,type Harness,success} from './harness.js';
 let h:Harness;
 afterEach(async()=>{delete process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT;await h?.close();});
 describe('idle receiver registration',()=>{
  it('registers an idle root at quota without creating Home, while a new session still fails honestly',async()=>{
-  process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT='1';h=await startHarness();const a=await h.account();await a.session();
-  const browser=await h.runtime.auth.issueBrowser(a.user!.id,{cookie:()=>{}} as unknown as Response),p={userId:a.user!.id,browserId:browser.id};
+  process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT='1';h=await startHarness();
+  // Existing pre-entry account: auth record without signup Home provisioning.
+  const user=await h.runtime.auth.register({username:'idle_'+randomUUID().slice(0,8),password:randomUUID()});
+  const browser=await h.runtime.auth.issueBrowser(user.id,{cookie:()=>{}} as unknown as Response),p={userId:user.id,browserId:browser.id};
+  await h.runtime.service.createSession(p,'Existing work');
   const device=await h.runtime.service.devices.register(p,{installationId:'quota-root',provisionHome:false},'Mozilla/5.0');expect(device.home).toBeUndefined();
   expect((await h.runtime.service.sessions(p))).toHaveLength(1);expect(await h.runtime.store.get('account-entry',p.userId)).toBeUndefined();
   const window=await h.runtime.service.devices.windows.register(p,device.id,'root-tab'),stream=await h.runtime.service.devices.windows.stream(p,device.id,window.id,()=>{});await stream.push();
@@ -16,10 +20,10 @@ describe('idle receiver registration',()=>{
   expect((await h.runtime.service.sessions(p))).toHaveLength(1);
  });
  it('the HTTP opt-out is accepted and explicit entry opening lazily creates one reusable Home',async()=>{
-  h=await startHarness();const a=await h.account();
-  const device:any=success(await a.request('POST','/api/devices/register',{installationId:'idle-http',windowId:'console-tab',provisionHome:false}));expect(device.home).toBeUndefined();expect((await h.runtime.store.list('session'))).toHaveLength(0);
-  const opened:any=success(await a.request('POST','/api/entry/open',{deviceId:device.id}));expect(opened.sessionId).toBeTruthy();expect((await h.runtime.store.list('session'))).toHaveLength(1);
-  const again:any=success(await a.request('POST','/api/entry/open',{deviceId:device.id}));expect(again).toEqual(opened);expect((await h.runtime.store.list('session'))).toHaveLength(1);
+  h=await startHarness();const a=await h.account(),initialSessions=(await h.runtime.store.list('session')).length;
+  const device:any=success(await a.request('POST','/api/devices/register',{installationId:'idle-http',windowId:'console-tab',provisionHome:false}));expect(device.home).toBeUndefined();expect((await h.runtime.store.list('session'))).toHaveLength(initialSessions);
+  const opened:any=success(await a.request('POST','/api/entry/open',{deviceId:device.id}));expect(opened.sessionId).toBeTruthy();expect((await h.runtime.store.list('session'))).toHaveLength(initialSessions);
+  const again:any=success(await a.request('POST','/api/entry/open',{deviceId:device.id}));expect(again).toEqual(opened);expect((await h.runtime.store.list('session'))).toHaveLength(initialSessions);
   const registered:any=success(await a.request('POST','/api/devices/register',{installationId:'idle-http',windowId:'console-tab',provisionHome:false}));expect(registered.home).toEqual(opened);
  });
 });

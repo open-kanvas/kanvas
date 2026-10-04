@@ -295,7 +295,7 @@ export class ParityWorld {
       case 'kanvas_view_validate': await this.dataset(); return { sessionId: this.sessionId, view: { version: 1, template: 'table', data: { binding: { datasetId: this.ids.dataset } } } };
       case 'kanvas_styles_list': return {};
       case 'kanvas_preferences_get':
-        await this.canonical('kanvas_preferences_update', { expectedRevision: 0, config: { density: 'compact' } }); return {};
+        await this.canonical('kanvas_preferences_update', { expectedRevision: 0, config: { readingFontSize:28 } }); return {};
       case 'kanvas_pairings_read': (await this.pairing()); return { sessionId: this.sessionId };
       case 'kanvas_viewers_read': (await this.viewer()); return this.base();
       case 'kanvas_display_inspect': (await this.viewer()); return { ...this.base(), viewerId: this.ids.viewer, fresh: false };
@@ -332,8 +332,8 @@ export class ParityWorld {
         return name==='kanvas_pins_read'?this.base():name==='kanvas_pin_remove'?{...this.base(),pinId:pin.id}:{...(await this.request()),pinId:pin.id};
       }
       case 'kanvas_procedure_control': await this.publish(structuredClone(samples.procedure)); return { ...(await this.request()), action: 'start' };
-      case 'kanvas_config_update': return { sessionId: this.sessionId, expectedRevision: (await this.session()).configRevision, config: { theme: 'light', density: 'compact' } };
-      case 'kanvas_preferences_update': return { expectedRevision: 0, config: { theme: 'light', density: 'compact', } };
+      case 'kanvas_config_update': return { sessionId: this.sessionId, expectedRevision: (await this.session()).configRevision, config: { theme: 'light', readingFontSize:28 } };
+      case 'kanvas_preferences_update': return { expectedRevision: 0, config: { theme: 'light', readingFontSize:28, } };
       case 'kanvas_dataset_import': return { sessionId: this.sessionId, name: 'Exact numeric source', json: EXACT_JSON, source: EXACT_SOURCE };
       case 'kanvas_asset_import': return { sessionId: this.sessionId, name: 'Literal kanvas_submit.png', mimeType: 'image/png', base64: PNG.toString('base64') };
       case 'kanvas_interaction_ack': await this.interaction(); await this.report(); return { sessionId: this.sessionId, interactionId: this.ids.interaction };
@@ -381,7 +381,7 @@ export async function verifySuccessfulFixture(name: CanonicalFixture, w: ParityW
     case 'kanvas_display_current': expect(result).toMatchObject({ id: w.displayId, view: fact(), latestUpdate: { status: 'prepared' } }); break;
     case 'kanvas_view_validate': expect(result).toMatchObject({ valid: true, published: false, view: { template: 'table', data: { rows: EXACT_ROWS }, source: EXACT_SOURCE } }); break;
     case 'kanvas_styles_list': expect((result as { styles: unknown[] }).styles).toHaveLength(8); break;
-    case 'kanvas_preferences_get': expect(result).toMatchObject({ revision: 1, config: { density: 'compact' } }); break;
+    case 'kanvas_preferences_get': expect(result).toMatchObject({ revision: 1, config: { readingFontSize:28 } }); break;
     case 'kanvas_pairings_read': expect(result).toMatchObject([{ id: w.ids.pairing, status: 'pending', label: 'Violet Otter 23' }]); expect((result as object[])[0]).not.toHaveProperty('proofHash'); break;
     case 'kanvas_viewers_read': expect(result).toMatchObject([{ id: w.ids.viewer, text: LITERAL, context: { location: { latitude: 58.4612345678, longitude: 8.7723456789, accuracy: 3.125 } } }]); break;
     case 'kanvas_display_inspect': expect(result).toMatchObject({ source: 'receiving-browser-dom', available: true, observations: [{ text: LITERAL, status: 'ready', fresh: true }] }); break;
@@ -418,7 +418,7 @@ export async function verifySuccessfulFixture(name: CanonicalFixture, w: ParityW
     case 'kanvas_pin_remove': expect(result).toMatchObject({removed:true}); expect((await w.store.list('view-pin'))).toHaveLength(0); break;
     case 'kanvas_pins_read': expect(result).toHaveLength(1); break;
     case 'kanvas_procedure_control': expect(result).toMatchObject({ interaction: { status: 'pending', value: { action: 'start' } } }); expect(current.revision).toBe(w.before.revision + 1); expect(current.view?.template).toBe('procedure'); break;
-    case 'kanvas_config_update': expect((await w.session())).toMatchObject({ configRevision: 1, config: { theme: 'light', density: 'compact' } }); expect(current).toEqual(w.before); break;
+    case 'kanvas_config_update': expect((await w.session())).toMatchObject({ configRevision: 1, config: { theme: 'light', readingFontSize:28 } }); expect(current).toEqual(w.before); break;
     case 'kanvas_preferences_update': expect(result).toMatchObject({ revision: 1, config: { theme: 'light', } }); expect((await w.store.get('preferences', w.principal.userId))).toMatchObject({ revision: 1 }); expect((await w.session()).config.theme).not.toBe('light'); break;
     case 'kanvas_dataset_import': expect(result).toMatchObject({ rows: EXACT_ROWS, source: EXACT_SOURCE }); expect((await w.store.list<DatasetRecord>('dataset'))[0].rows).toEqual(EXACT_ROWS); expect((await w.store.list('dataset-summary'))).toHaveLength(1); break;
     case 'kanvas_asset_import': {

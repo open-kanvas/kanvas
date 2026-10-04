@@ -72,11 +72,11 @@ describe('independent account groups and live session grants',()=>{
     h=await startHarness();const owner=await h.account(),person=await h.account(),s=await owner.session();let org=await group(owner,'organization'),team=await group(owner);
     team=await member(owner,team,person,'member');
     org=success(await owner.request<any>('PATCH','/api/groups/'+org.id,{expectedRevision:org.revision,defaults:{theme:'light',accent:'#112233'},branding:{palette:['#112233'],logo:photo}}));
-    team=success(await owner.request<any>('PATCH','/api/groups/'+team.id,{expectedRevision:team.revision,defaults:{density:'compact'},branding:{palette:['#445566']}}));
+    team=success(await owner.request<any>('PATCH','/api/groups/'+team.id,{expectedRevision:team.revision,defaults:{readingFontSize:28},branding:{palette:['#445566']}}));
     const c=success(await owner.request<any>('POST','/api/sessions/'+s.id+'/context',{expectedRevision:0,organizationId:org.id,teamId:team.id,overrides:{},showBranding:true}));
-    denied(await person.request('GET','/api/sessions/'+s.id));expect(c.effective).toMatchObject({theme:'light',density:'compact',accent:'#112233',branding:{name:team.name}});
+    denied(await person.request('GET','/api/sessions/'+s.id));expect(c.effective).toMatchObject({theme:'light',readingFontSize:28,accent:'#112233',branding:{name:team.name}});
     success(await owner.request('PATCH','/api/preferences',{expectedRevision:0,config:{theme:'dark'}}));
-    const effective=(await owner.detail(s.id)).session.config;expect(effective).toMatchObject({theme:'dark',density:'compact',accent:'#112233'});
+    const effective=(await owner.detail(s.id)).session.config;expect(effective).toMatchObject({theme:'dark',readingFontSize:28,accent:'#112233'});
     success(await owner.request('POST','/api/sessions/'+s.id+'/context',{expectedRevision:1,overrides:{theme:'system'},showBranding:false}));
     const after=(await owner.detail(s.id)).session;expect(after.config.theme).toBe('system');expect(after.config.branding).toBeUndefined();
     const raw=(await h.runtime.store.get<any>('session',s.id)).config;

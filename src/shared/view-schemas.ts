@@ -114,20 +114,23 @@ const coordinates = z.object({ lat: finite.min(-90).max(90), lng: finite.min(-18
 const color = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 const geometry = z.object({ name: short.optional(), coordinates: z.array(coordinates).min(2).max(5000), color: color.optional() }).strict();
 export const mapDataSchema = z.object({
-  markers: z.array(coordinates.extend({ label: short.optional(), description: short.optional(), color:color.optional(), iconUrl:safeUrlSchema.optional(), popupHtml:z.string().max(6000).optional().describe('Safe formatted popup: b/strong/em/i/p/br/ul/ol/li/a/code only; scripts, styles and active content are removed.') }).strict()).max(500).default([]),
+  markers: z.array(coordinates.extend({ label: short.optional(), description: short.optional(), color:color.optional(), iconUrl:safeUrlSchema.optional(), popupHtml:z.string().max(6000).optional().describe('Passive HTML including headings, div/span, lists and tables. Inline colors, bounded spacing/sizing, text and flex/grid layout are allowlisted. Scripts, stylesheets, selectors, URLs in CSS, images, event handlers and active content are removed.'), contentDisplay:z.enum(['popup','permanent']).optional().describe('permanent displays sanitized popupHtml (or label/description) as an always-visible tooltip; overrides map default.') }).strict()).max(500).default([]),
+  contentDisplay:z.enum(['popup','permanent']).default('popup'),
   routes: z.array(geometry).max(12).default([]),
   polygons: z.array(geometry.refine((v) => v.coordinates.length >= 3, 'Polygon needs at least three coordinates')).max(12).default([]),
   center: coordinates.optional(), zoom: finite.min(1).max(20).default(11),
 }).strict().refine((v) => Boolean(v.center || v.markers.length || v.routes.length || v.polygons.length), 'Map needs supplied geometry or a center');
+const codePanelSchema=z.object({id:identifier,path:short.optional(),kind:z.enum(['code','diff']).default('code'),language:z.string().max(50).optional(),code:z.string().max(100000).optional(),before:z.string().max(100000).optional(),after:z.string().max(100000).optional(),startLine:positiveInteger.max(1000000).default(1),highlightLines:z.array(positiveInteger.max(1000000)).max(200).optional()}).strict().refine(v=>v.kind==='code'?v.code!==undefined:v.before!==undefined&&v.after!==undefined,'Supply source code or both diff versions');
 export const codeDataSchema = z.object({
-  kind: z.enum(['code', 'diff', 'tree', 'tools', 'terminal']).default('code'), path: short.optional(), language: z.string().max(50).optional(),
+  kind: z.enum(['code', 'diff', 'tree', 'tools', 'terminal', 'split']).default('code'), path: short.optional(), language: z.string().max(50).optional(),
   code: z.string().max(100_000).optional(), before: z.string().max(100_000).optional(), after: z.string().max(100_000).optional(),
+  panels:z.array(codePanelSchema).min(2).max(3).refine(uniqueIds,'Panel IDs must be unique').optional().describe('kind split: two or three independent code/diff panels; target navigation with panelId and optional side before/after.'),
   files: z.array(z.object({ path: label, kind: z.enum(['file', 'directory']).default('file'), status: z.enum(['added', 'modified', 'deleted', 'unchanged']).optional() }).strict()).max(1000).optional(),
   tools: z.array(z.object({ id: identifier, name: label, status: z.enum(['pending', 'running', 'success', 'error']), summary: short.optional() }).strict()).max(100).refine(uniqueIds, 'Tool IDs must be unique').optional(),
   entries:z.array(z.object({id:identifier,command:z.string().min(1).max(10000),stdout:z.string().max(100000).optional(),stderr:z.string().max(100000).optional(),status:z.enum(['pending','running','success','error']).optional(),exitCode:z.number().int().optional(),timestamp:z.string().datetime().optional(),cwd:short.optional()}).strict()).max(100).refine(uniqueIds,'Entry IDs must be unique').optional(),
   highlightLines: z.array(positiveInteger.max(1_000_000)).max(200).optional(), startLine: positiveInteger.max(1_000_000).default(1),
 }).strict().superRefine((v, ctx) => {
-  const valid = v.kind === 'code' ? v.code !== undefined : v.kind === 'diff' ? v.before !== undefined && v.after !== undefined : v.kind === 'tree' ? Boolean(v.files?.length) : v.kind === 'terminal' ? Boolean(v.entries?.length) : Boolean(v.tools?.length);
+  const valid = v.kind==='split'?Boolean(v.panels?.length):v.kind === 'code' ? v.code !== undefined : v.kind === 'diff' ? v.before !== undefined && v.after !== undefined : v.kind === 'tree' ? Boolean(v.files?.length) : v.kind === 'terminal' ? Boolean(v.entries?.length) : Boolean(v.tools?.length);
   if (!valid) ctx.addIssue({ code: 'custom', message: `Missing content for ${v.kind} layout` });
 });
 const position = finite.min(-100_000).max(100_000);

@@ -55,17 +55,17 @@ export function MediaReadyGate({ children, onReady, onError }: { children: React
   </MediaReadiness.Provider>;
 }
 
-/** Only actual image load / video frame readiness can finish a pending resource. */
-export function useMediaResource(initial: ResourceStatus = 'pending', timeoutCode: MediaFailureCode = 'MEDIA_TIMEOUT', timeoutMs=MEDIA_LOAD_TIMEOUT_MS) {
+/** Failed images may finish as an explicit placeholder; video readiness still requires a real frame. */
+export function useMediaResource(initial: ResourceStatus = 'pending', timeoutCode: MediaFailureCode = 'MEDIA_TIMEOUT', timeoutMs=MEDIA_LOAD_TIMEOUT_MS, degradedImage=false) {
   const registry = useContext(MediaReadiness), id = useId();
   const current = useRef<ResourceStatus>(initial);
   const [status, setStatus] = useState<ResourceStatus>(initial);
   const [failure, setFailure] = useState<MediaFailureCode>('MEDIA_UNAVAILABLE');
   const report = useCallback((next: ResourceStatus, code?: MediaFailureCode) => {
     if (current.current === 'failed' || current.current === 'unverified' || current.current === next) return;
-    current.current = next; setStatus(next); if (code) setFailure(code); registry?.report(id, next, code);
-  }, [id, registry]);
-  useLayoutEffect(() => registry?.register(id, current.current), [id, registry]);
+    current.current = next; setStatus(next); if (code) setFailure(code); registry?.report(id, degradedImage && next === 'failed' ? 'ready' : next, code);
+  }, [id, registry, degradedImage]);
+  useLayoutEffect(() => registry?.register(id, degradedImage && current.current === 'failed' ? 'ready' : current.current), [id, registry, degradedImage]);
   useEffect(() => {
     if (status !== 'pending') return;
     const timer = setTimeout(() => report('failed', timeoutCode), timeoutMs);

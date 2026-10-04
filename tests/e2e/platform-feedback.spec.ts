@@ -6,7 +6,7 @@ test('settings show visible options, focused dimensions and responsive sections'
  await register(page);const sessionId=await createSession(page,'Synthetic settings acceptance'),display=await createDisplay(page,sessionId,'Settings');const viewer=await openViewer(page,sessionId,display.id);
  await publishPrepared(page,sessionId,[display.id],{version:1,template:'settings',data:{dimension:'all'}});
  await waitForDisplay(page,sessionId,display.id,d=>d.appliedRevision===d.revision&&d.revision>0);
- const form=viewer.locator('.viewer-candidate .surface-settings');await expect(form).toBeVisible();await expect(form.locator('select')).toHaveCount(0);
+ const form=viewer.locator('.viewer-candidate .surface-settings');await expect(form).toBeVisible();await expect(form.getByRole('combobox',{name:'Apply to'})).toBeVisible();
  await expect(form.getByRole('radio',{name:'Neutral',exact:true})).toBeVisible();await expect(form.getByRole('radio',{name:'Lime',exact:true})).toBeVisible();
  expect(await form.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
  await viewer.screenshot({path:info.outputPath('settings-all.png'),animations:'disabled'});
@@ -14,7 +14,7 @@ test('settings show visible options, focused dimensions and responsive sections'
  await publishPrepared(page,sessionId,[display.id],{version:1,template:'settings',data:{dimension:'timeFormat'}});
  await waitForDisplay(page,sessionId,display.id,d=>d.appliedRevision===d.revision&&d.revision>before);
  await expect(form.getByRole('radio',{name:'24-hour · 14:30',exact:true})).toBeVisible();await expect(form.getByRole('radio',{name:'Lime',exact:true})).toHaveCount(0);
- await form.getByRole('radio',{name:'24-hour · 14:30',exact:true}).check();await form.getByRole('button',{name:'Apply settings',exact:true}).click();await expect.poll(async()=>(await sessionDetail(page,sessionId)).session.config.timeFormat).toBe('24h');
+ await form.getByRole('radio',{name:'24-hour · 14:30',exact:true}).check();await expect.poll(async()=>(await sessionDetail(page,sessionId)).session.config.timeFormat).toBe('24h');
  await viewer.screenshot({path:info.outputPath('settings-time-focused.png'),animations:'disabled'});
  await page.goto('/console');await expect(page.locator('.workspace')).toBeVisible();const menu=page.getByRole('button',{name:'Open navigation',exact:true});if(await menu.isVisible())await menu.click();await page.locator('.sidebar-overview').click();await expect(page.locator('.sessions-home-row').filter({hasText:'Synthetic settings acceptance'})).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2)).toBe(true);await page.screenshot({path:info.outputPath('console-refresh.png'),animations:'disabled'});
 });

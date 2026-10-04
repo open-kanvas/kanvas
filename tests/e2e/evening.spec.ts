@@ -33,11 +33,11 @@ test('long documents start with the supplied content and scroll to the exact las
   expect((await sessionDetail(page,s)).displays[0].view?.data.text).toBe(text);expect(await viewer.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await photo(viewer,info,'document-bottom');
 });
 
-test('settings show the selected draft, keep Apply visible and notify the agent after saving',async({page},info)=>{
+test('settings apply selections immediately and notify the agent',async({page},info)=>{
   const {s,d,viewer}=await setup(page,info);await publishPrepared(page,s,[d.id],{version:1,template:'settings',data:{description:'Choose your appearance'}});await ready(page,s,d.id,'settings');
-  await viewer.getByRole('button',{name:'Iris',exact:true}).click();await viewer.getByLabel('Theme',{exact:true}).selectOption('light');await expect(viewer.getByRole('button',{name:'Iris',exact:true})).toHaveAttribute('aria-pressed','true');
-  await expect(viewer.getByRole('status').filter({hasText:'not applied yet'})).toBeVisible();await expect(viewer.getByRole('button',{name:'Apply settings',exact:true})).toBeInViewport();
-  await viewer.waitForTimeout(4500);await expect(viewer.getByLabel('Theme',{exact:true})).toHaveValue('light');await viewer.getByRole('button',{name:'Apply settings',exact:true}).click();
+  await viewer.getByRole('radio',{name:'Iris',exact:true}).check();await expect.poll(async()=>(await sessionDetail(page,s)).session.config.style).toBe('iris');
+  await viewer.getByRole('radio',{name:'Light',exact:true}).check();await expect.poll(async()=>(await sessionDetail(page,s)).session.config.theme).toBe('light');
+  await expect(viewer.getByRole('radio',{name:'Iris',exact:true})).toBeChecked();await expect(viewer.getByRole('button',{name:'Apply settings',exact:true})).toHaveCount(0);
   await expect(viewer.getByText('Settings saved.',{exact:true})).toBeVisible();await expect(viewer.locator('.viewer-shell')).toHaveClass(/theme-light/);
   const detail=await sessionDetail(page,s);expect(detail.session.config).toMatchObject({style:'iris',theme:'light'});expect(detail.interactions.some(x=>x.actionId==='settings.changed')).toBe(true);await photo(viewer,info,'settings');
 });

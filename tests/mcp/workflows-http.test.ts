@@ -14,6 +14,27 @@ describe('workflows over both MCP protocols',()=>{
     const c=legacy?new LegacyClient({name:'workflows',version:'1'}):new Client({name:'workflows',version:'1'}),url=new URL(path,h.baseUrl);
     if(c instanceof Client)await c.connect(new StreamableHTTPClientTransport(url,{requestInit:{headers}}));else await c.connect(new LegacyTransport(url,{requestInit:{headers}}));return c;
   }
+  it.each([false,true])('exports portable bytes, patches own reports and begins without guessing a receiver (legacy=%s)',async legacy=>{
+    h=await startHarness({mcpProfile:'twelve'});const owner=await h.account(),other=await h.account(),session=await owner.session();
+    const issued=await h.runtime.auth.issueToken(owner.user!.id,'Feedback protocol fixture',['read','publish']);
+    const foreign=await h.runtime.auth.issueToken(other.user!.id,'Other account fixture',['read','publish']);
+    const read=await h.runtime.auth.issueToken(owner.user!.id,'Read export fixture',['read']);
+    const c=await connect(legacy,'/mcp',{Authorization:`Bearer ${issued.value}`}),stranger=await connect(legacy,'/mcp',{Authorization:`Bearer ${foreign.value}`}),reader=await connect(legacy,'/mcp',{Authorization:`Bearer ${read.value}`});
+    const call=async(name:string,operation:string,args:Record<string,unknown>={})=>{const r=await c.callTool({name,arguments:{operation,...args}});expect(r.isError,JSON.stringify(r.structuredContent)).not.toBe(true);return (r.structuredContent as any).data;};
+    try{
+      const report=await call('kanvas_feedback','submit',{scope:'account',requestId:'wire-report',title:'Synthetic finding',description:'Initial observation',category:'feature'});
+      expect(await call('kanvas_feedback','patch',{reportId:report.id,expectedRevision:0,note:'Follow-up observation'})).toMatchObject({revision:1,history:[{note:'Follow-up observation'}]});
+      expect((await stranger.callTool({name:'kanvas_feedback',arguments:{operation:'patch',reportId:report.id,expectedRevision:1,note:'Foreign'}})).isError).toBe(true);
+      const pixel='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6Ot8AAAAASUVORK5CYII=';
+      const asset=await call('kanvas_import','asset.import',{sessionId:session.id,name:'wire.png',mimeType:'image/png',base64:pixel});
+      expect(await call('kanvas_import','asset.export',{sessionId:session.id,assetId:asset.id})).toMatchObject({base64:pixel,complete:true});
+      const readExport=await reader.callTool({name:'kanvas_import',arguments:{operation:'asset.export',sessionId:session.id,assetId:asset.id}});expect(readExport.isError).not.toBe(true);expect((readExport.structuredContent as any).data.base64).toBe(pixel);
+      expect((await stranger.callTool({name:'kanvas_import',arguments:{operation:'asset.export',sessionId:session.id,assetId:asset.id}})).isError).toBe(true);
+      const before=await h.runtime.service.sessions({userId:owner.user!.id,tokenId:issued.token.id});
+      expect(await call('kanvas_control','start.begin',{requestId:'wire-start'})).toMatchObject({status:'needs_display'});
+      expect(await h.runtime.service.sessions({userId:owner.user!.id,tokenId:issued.token.id})).toEqual(before);
+    }finally{await c.close();await stranger.close();await reader.close();}
+  });
   it.each([false,true])('routes every device operation with account ownership, scope and pending-paint semantics (legacy=%s)',async legacy=>{
     h=await startHarness({mcpProfile:'twelve'});const owner=await h.account(),s=await owner.session(),d=await owner.display(s.id);await owner.submit(s.id,[d.id],{version:1,template:'fact',data:{text:'Device source 1.2300'}});
     const session=(await h.runtime.auth.issueBrowser(owner.user!.id,{cookie:()=>{}} as unknown as Response)),receiver={userId:owner.user!.id,browserId:session.id},device=(await h.runtime.service.devices.register(receiver,{installationId:'wire-receiver'},'Browser'));

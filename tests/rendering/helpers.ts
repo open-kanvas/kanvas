@@ -3,7 +3,7 @@ import { extendedExamples } from '../../src/shared/extended-templates.js';
 import type { InterpretationInput, TemplateId, ViewSpec } from '../../src/shared/types.js';
 
 export function input(overrides: Partial<InterpretationInput> = {}): InterpretationInput {
-  return { submission: { requestId: 'test-request', sessionId: 'session-1', displayIds: ['display-1'], data: { text: 'A clear, supplied fact.' } }, config: { theme: 'dark', accent: '#60a5fa', density: 'comfortable' }, display: { width: 1200, height: 800, view: null }, datasets: [], assets: [], ...overrides };
+  return { submission: { requestId: 'test-request', sessionId: 'session-1', displayIds: ['display-1'], data: { text: 'A clear, supplied fact.' } }, config: { theme: 'dark', accent: '#60a5fa' }, display: { width: 1200, height: 800, view: null }, datasets: [], assets: [], ...overrides };
 }
 export const source = { title: 'Source ledger', url: 'https://example.com/source', locator: 'Table 2', timestamp: '2026-09-08T12:00:00Z' };
 export const cases: {template:TemplateId;data:Record<string, unknown>}[] = [

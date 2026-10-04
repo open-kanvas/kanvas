@@ -9,7 +9,7 @@ afterEach(async()=>{for(const s of stores.splice(0))await s.close();for(const db
 describe('visualizer-only data migration',()=>{
   it('removes retired data, safely normalizes history, preserves exact unrelated source and remains schema-v1 compatible',async()=>{
     const db=testDatabase();databases.push(db);const s=new Store(db);stores.push(s);await s.ready;
-    const config={mode:'translation',modeExplicit:true,model:'synthetic/retired',language:'nb',sourceLanguage:'en',retainOriginal:true,updatePolicy:'proactive',theme:'light',accent:'#123456',density:'compact',syncMode:'shared'};
+    const config={density:'compact',mode:'translation',modeExplicit:true,model:'synthetic/retired',language:'nb',sourceLanguage:'en',retainOriginal:true,updatePolicy:'proactive',theme:'light',accent:'#123456',readingFontSize:28,syncMode:'shared'};
     await s.put('session',{id:'session',config});await s.put('preferences',{id:'user',config});
     for(const kind of ['game','game-receipt','demo','demo-receipt'])await s.put(kind,{id:'retired'});
     const view={version:1,template:'game',data:{gameId:'retired'}};
@@ -20,7 +20,7 @@ describe('visualizer-only data migration',()=>{
     await s.query('INSERT INTO documents(kind,id,value) VALUES($1,$2,$3)',['dataset','literal',raw]);
     await s.query('DELETE FROM data_migrations');const client=await s.pool.connect();try{await migrateDatabase(client,s.schema);await migrateDatabase(client,s.schema);}finally{client.release();}
     for(const kind of ['game','game-receipt','demo','demo-receipt'])expect(await s.list(kind)).toEqual([]);
-    const session=await s.get<any>('session','session');expect(session.config).toEqual({theme:'light',accent:'#123456',density:'compact',syncMode:'shared'});
+    const session=await s.get<any>('session','session');expect(session.config).toEqual({theme:'light',accent:'#123456',readingFontSize:28,syncMode:'shared'});
     expect((await s.get<any>('display','display'))).toMatchObject({revision:7,view:{template:'fact'}});
     expect((await s.get<any>('display-history','history')).view.data.slides[1].data.text).toBe('Keep this.');
     expect((await s.get<any>('view-pin','pin')).view.template).toBe('fact');expect((await s.get<any>('deck','deck')).slides[0].template).toBe('fact');
@@ -29,8 +29,12 @@ describe('visualizer-only data migration',()=>{
     expect((await s.query('SELECT value FROM documents WHERE kind=$1 AND id=$2',['dataset','literal'])).rows[0].value).toBe(raw);
     expect((await s.query('SELECT version FROM schema_migrations')).rows).toEqual([{version:1}]);expect((await s.query('SELECT version FROM data_migrations')).rows).toEqual([{version:1}]);
     await s.put('display-history',{id:'late-history',view});expect((await s.get<any>('display-history','late-history')).view.template).toBe('fact');
+    await s.put('preferences',{id:'old-defaults',config:{theme:'dark',accent:'#123456',density:'compact'},configOverrides:{density:'compact'},appearanceOverrides:{density:'compact'}});
+    const old=await s.get<any>('preferences','old-defaults');expect(old.config).not.toHaveProperty('density');expect(old.configOverrides).not.toHaveProperty('density');expect(old.appearanceOverrides).not.toHaveProperty('density');
+    await s.put('display-history',{id:'old-settings',view:{version:1,template:'settings',data:{dimension:'density'}}});
+    expect((await s.get<any>('display-history','old-settings')).view.data.dimension).toBe('all');
   });
-  it.each(['mode','modeExplicit','model','language','sourceLanguage','retainOriginal','updatePolicy'])('rejects retired setting %s at the public boundary',key=>{
+  it.each(['density','mode','modeExplicit','model','language','sourceLanguage','retainOriginal','updatePolicy'])('rejects retired setting %s at the public boundary',key=>{
     expect(configPatchSchema.safeParse({theme:'dark',[key]:'retired'}).success).toBe(false);
   });
 });

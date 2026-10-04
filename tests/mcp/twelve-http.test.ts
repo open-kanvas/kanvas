@@ -258,9 +258,9 @@ describe.each(ERAS)('twelve profile on the real %s SDK and application', era => 
     const held = data<DisplayRecord>(await call(editorPeer, 'kanvas_control', 'display.update', { sessionId: session.id, displayId: display.id, expectedRevision: 0, held: true }));
     expect(held.held).toBe(true);
     data(await call(editorPeer, 'kanvas_control', 'display.update', { sessionId: session.id, displayId: display.id, expectedRevision: held.revision, held: false }));
-    data(await call(ownerPeer, 'kanvas_configure', 'preferences.update', { expectedRevision: 0, config: { density: 'compact' } }));
-    failure(await call(readPeer, 'kanvas_configure', 'preferences.update', { expectedRevision: 1, config: { density: 'comfortable' } }));
-    failure(await call(selectedPeer, 'kanvas_configure', 'preferences.update', { expectedRevision: 1, config: { density: 'comfortable' } }));
+    data(await call(ownerPeer, 'kanvas_configure', 'preferences.update', { expectedRevision: 0, config: { readingFontSize:28 } }));
+    failure(await call(readPeer, 'kanvas_configure', 'preferences.update', { expectedRevision: 1, config: { readingFontSize:22 } }));
+    failure(await call(selectedPeer, 'kanvas_configure', 'preferences.update', { expectedRevision: 1, config: { readingFontSize:22 } }));
     failure(await call(selectedPeer, 'kanvas_inspect', 'preferences.get'));
     failure(await call(selectedPeer, 'kanvas_session', 'create', { name: 'Cannot widen selected authorization' }));
     const reportArgs = { sessionId: session.id, requestId: 'viewer-product-report', title: 'Viewer feedback', description: 'A report is not a request to grant access.' };

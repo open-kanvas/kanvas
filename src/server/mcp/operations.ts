@@ -48,7 +48,7 @@ export const OPERATION_REGISTRY = {
   },
   kanvas_session: {rename:'kanvas_session_rename', create: 'kanvas_session_create', 'display.register': 'kanvas_display_register', 'display.rename':'kanvas_display_rename', 'address.get': 'kanvas_address_get', 'address.customize':'kanvas_address_customize' },
   kanvas_publish: {'tool-log.append':'kanvas_tool_log_append','chat.append':'kanvas_chat_append', show: 'kanvas_submit', 'progress.append': 'kanvas_progress_append', replace_data: 'kanvas_display_edit', patch: 'kanvas_view_patch', notify: 'kanvas_toast', 'draft.edit': 'kanvas_draft_edit', 'draft.suggest': 'kanvas_draft_suggest', 'draft.review': 'kanvas_draft_review', 'planner.edit': 'kanvas_planner_edit', 'planner.propose': 'kanvas_planner_propose', 'planner.review': 'kanvas_planner_review', 'planner.finalize': 'kanvas_planner_finalize' },
-  kanvas_control: {'autoplay.control':'kanvas_autoplay_control','scoreboard.control':'kanvas_scoreboard_control',
+  kanvas_control: {'start.begin':'kanvas_account_begin','autoplay.control':'kanvas_autoplay_control','scoreboard.control':'kanvas_scoreboard_control',
     'selection.set':'kanvas_selection_set',
     'device.present':'kanvas_device_present',
     'window.present':'kanvas_window_present','connection.redirect':'kanvas_connection_redirect',
@@ -61,9 +61,9 @@ export const OPERATION_REGISTRY = {
     'displays.identify': 'kanvas_displays_identify', 'displays.sync': 'kanvas_displays_sync',
   },
   kanvas_configure: { 'profile.update':'kanvas_profile_update','group.update':'kanvas_group_update','session-context.set':'kanvas_session_context_set', 'session.update': 'kanvas_config_update', 'preferences.update': 'kanvas_preferences_update' },
-  kanvas_import: { 'dataset.import': 'kanvas_dataset_import', 'asset.import': 'kanvas_asset_import' },
+  kanvas_import: { 'dataset.import': 'kanvas_dataset_import', 'asset.import': 'kanvas_asset_import', 'asset.export':'kanvas_asset_export' },
   kanvas_interactions: { acknowledge: 'kanvas_interaction_ack' },
-  kanvas_feedback: { submit: 'kanvas_feedback_submit', 'error.report': 'kanvas_error_report', 'report.update': 'kanvas_report_update' },
+  kanvas_feedback: { submit: 'kanvas_feedback_submit', 'error.report': 'kanvas_error_report', 'report.update': 'kanvas_report_update', patch:'kanvas_report_patch' },
   kanvas_capture: { snapshot: 'kanvas_display_snapshot' },
   kanvas_monitor: { start: 'kanvas_monitoring_start', update: 'kanvas_monitoring_update', stop: 'kanvas_monitoring_stop', push: 'kanvas_live_push' },
   kanvas_access: {'pointing.configure':'kanvas_pointing_configure','session.public':'kanvas_session_public_access','group.create':'kanvas_group_create','group.member.set':'kanvas_group_member_set','group-access.set':'kanvas_group_access_set','invite.create':'kanvas_invite_create','invite.accept':'kanvas_invite_accept','invite.revoke':'kanvas_invite_revoke', 'share.create': 'kanvas_share_create', 'pairing.revoke':'kanvas_pairing_revoke', 'pairing.decide': 'kanvas_pairing_decide', 'member.add': 'kanvas_member_add', 'member.remove': 'kanvas_member_remove' },
@@ -75,7 +75,7 @@ export const OPERATION_REGISTRY = {
  * twelve profile (same name, operations and argument shape): existing agent
  * hosts manage reports through it. */
 export const DOMAIN_REGISTRY = {
-  kanvas_account: { start: 'kanvas_start_read', inventory: 'kanvas_account_inventory', activity: 'kanvas_activity_read', analytics: 'kanvas_analytics_read' },
+  kanvas_account: { begin:'kanvas_account_begin', start: 'kanvas_start_read', inventory: 'kanvas_account_inventory', activity: 'kanvas_activity_read', analytics: 'kanvas_analytics_read' },
   kanvas_profile: { read: 'kanvas_profile_read', update: 'kanvas_profile_update', 'preferences.read': 'kanvas_preferences_get', 'preferences.update': 'kanvas_preferences_update', 'styles.list': 'kanvas_styles_list' },
   kanvas_session_history: { list: 'kanvas_sessions_list' },
   kanvas_archive: { list:'kanvas_archive_list', manage:'kanvas_archive_manage' },
@@ -108,7 +108,7 @@ export const DOMAIN_REGISTRY = {
   kanvas_interactions: { read: 'kanvas_interactions_read', acknowledge: 'kanvas_interaction_ack' },
   kanvas_groups: { list: 'kanvas_groups_list', read: 'kanvas_group_read', create: 'kanvas_group_create', update: 'kanvas_group_update', 'member.set': 'kanvas_group_member_set', 'access.read': 'kanvas_group_access_read', 'access.set': 'kanvas_group_access_set' },
   kanvas_members: { add: 'kanvas_member_add', remove: 'kanvas_member_remove', 'invite.create': 'kanvas_invite_create', 'invite.accept': 'kanvas_invite_accept', 'invite.revoke': 'kanvas_invite_revoke' },
-  kanvas_import: { dataset: 'kanvas_dataset_import', asset: 'kanvas_asset_import' },
+  kanvas_import: { dataset: 'kanvas_dataset_import', asset: 'kanvas_asset_import', 'asset.export':'kanvas_asset_export' },
   kanvas_data_delete: { dataset: 'kanvas_dataset_delete', asset: 'kanvas_asset_delete' },
   kanvas_feedback: OPERATION_REGISTRY.kanvas_feedback,
   kanvas_reports: { read: 'kanvas_reports_read' },
@@ -149,7 +149,7 @@ export const OPERATION_ENTRIES = PROFILE_ENTRIES.twelve;
 export const DOMAIN_TOOL_NAMES = Object.freeze(Object.keys(DOMAIN_REGISTRY) as DomainToolName[]);
 export const DOMAIN_OPERATION_ENTRIES = PROFILE_ENTRIES.domains;
 /** Canonical operations that only read (the twelve profile's kanvas_inspect). */
-export const READ_ONLY_CANONICAL: ReadonlySet<string> = new Set(Object.values(OPERATION_REGISTRY.kanvas_inspect));
+export const READ_ONLY_CANONICAL: ReadonlySet<string> = new Set([...Object.values(OPERATION_REGISTRY.kanvas_inspect), 'kanvas_asset_export']);
 
 export function publicReference(canonical: string, profile?: McpProfile): ToolReference | undefined {
   const entry = lookups[guidanceProfile(profile)].byCanonical.get(canonical);

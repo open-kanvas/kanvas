@@ -26,4 +26,3 @@
 .inbox-from,.inbox-subject,.inbox-snippet,.inbox-message time{min-width:0;overflow-wrap:anywhere}
 
 .inbox-from{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.9em;line-height:1.5}
-.render-surface[data-density=compact] .inbox-message{padding-block:10px;row-gap:4px;font-size:clamp(16px,1.7cqw,24px)}

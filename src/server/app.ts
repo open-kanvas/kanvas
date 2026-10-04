@@ -1,3 +1,4 @@
+import { mountClientCapture } from './client-capture.js';
 import { type DatabaseOptions } from './database-config.js';
 import { mountPublicSessions } from './public-sessions.js';
 import { PublicImages, mountPublicImages, type PublicImageOptions } from './public-images.js';
@@ -158,7 +159,7 @@ export async function createApp(options: AppOptions = {}) {
     next();
   });
   app.use((req: Request, res: Response, next: NextFunction) => {
-    res.set({ 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'strict-origin-when-cross-origin', 'Permissions-Policy': 'camera=(), microphone=(), geolocation=(self)' });
+    res.set({ 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'strict-origin-when-cross-origin', 'Permissions-Policy': 'camera=(), microphone=(), geolocation=(self), display-capture=(self)' });
     res.set('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; frame-src 'self' about: https:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'");
     try {
       if (!allowedHosts.includes(req.hostname)) throw new AppError('INVALID_HOST', 'This host is not configured for KANVAS.', 403);
@@ -319,6 +320,8 @@ export async function createApp(options: AppOptions = {}) {
     send(res, { id: token.id, name: token.name, scopes: token.scopes, sessionIds: token.sessionIds, createdAt: token.createdAt, token: value }, 201);
   });
   app.delete('/api/tokens/:id', async (req, res) => { const principal = (await account(req, 'publish')); (await auth.revokeToken(principal.userId, String(req.params.id))); for (const session of (await service.sessions(principal))) service.emit({ type: 'membership', sessionId: session.id }); send(res, { revoked: true }); });
+
+  mountClientCapture(app, service.clientCapture, browser);
 
   app.get('/api/sessions/:id/events', async (req, res) => {
     const principal = (await browser(req)), sessionId = String(req.params.id);

@@ -49,6 +49,15 @@ export class VisualCapture {
       await page.goto(`${this.origin}/view/${encodeURIComponent(display.sessionId)}/${encodeURIComponent(display.id)}`, { waitUntil: 'domcontentloaded', timeout: 15_000 });
       let readiness = 'timed_out';
       try { await page.waitForFunction(() => ['ready', 'failed'].includes(document.querySelector<HTMLElement>('.viewer-shell')?.dataset.renderStatus ?? ''), undefined, { timeout: 20_000 }); } catch { /* Capture the observable failure/loading surface with its label. */ }
+      // Font and image readiness are bounded: broken/external media must not
+      // hang capture. A separate settle window covers async layout and charts.
+      await page.evaluate(async () => {
+        await Promise.race([
+          Promise.all([document.fonts.ready, ...Array.from(document.images).map(image => image.complete ? Promise.resolve() : new Promise<void>(resolve => { image.addEventListener('load', () => resolve(), {once:true}); image.addEventListener('error', () => resolve(), {once:true}); }))]),
+          new Promise(resolve => setTimeout(resolve, 2500)),
+        ]);
+      });
+      await page.waitForTimeout(1500);
       const observed = await page.locator('.viewer-shell').evaluate(element => ({ revision: Number((element as HTMLElement).dataset.revision), renderedRevision: Number((element as HTMLElement).dataset.renderedRevision), status: (element as HTMLElement).dataset.renderStatus ?? 'unavailable' })).catch(() => null);
       if (observed) readiness = observed.status;
       const current = (await recheck());
@@ -58,7 +67,7 @@ export class VisualCapture {
       // while Chromium encodes the image. Never return a revoked/stale capture.
       if ((await recheck()).revision !== display.revision) throw new AppError('SNAPSHOT_CHANGED', 'The display changed during capture. Retry against the new revision.', 409);
       if (bytes.length > 2 * 1024 * 1024) throw new AppError('SNAPSHOT_TOO_LARGE', 'Capture exceeds the supported image limit. Use a smaller viewport.', 413);
-      return new VisualCaptureResult({ displayId: display.id, sessionId: display.sessionId, revision: display.revision, renderedRevision: observed?.renderedRevision, capturedAt: now(), width, height, source: 'isolated-server-browser', readiness, blockedExternalRequests: blockedExternal, observedViewer: { online: display.online, appliedRevision: display.appliedRevision, delivery: display.delivery }, note: 'Actual KANVAS renderer in an isolated browser, not the physical audience screen. No viewer acknowledgement was sent. External media is blocked in this capture.' }, bytes);
+      return new VisualCaptureResult({ displayId: display.id, sessionId: display.sessionId, revision: display.revision, renderedRevision: observed?.renderedRevision, capturedAt: now(), width, height, source: 'isolated-server-browser', settleMs: 1500, readiness, blockedExternalRequests: blockedExternal, observedViewer: { online: display.online, appliedRevision: display.appliedRevision, delivery: display.delivery }, note: 'Actual KANVAS renderer in an isolated browser, not the physical audience screen. No viewer acknowledgement was sent. External media is blocked in this capture.' }, bytes);
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError('SNAPSHOT_UNAVAILABLE', 'The server browser could not capture this view. Verify Chromium installation and use the viewer URL for inspection.', 503);

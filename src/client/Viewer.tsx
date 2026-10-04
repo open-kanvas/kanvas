@@ -1,3 +1,4 @@
+import { useClientCapture } from './client-capture';
 import { PointingLayer } from './pointing/PointingLayer';
 import { useFilmstrip, FilmstripOverview } from './Filmstrip';
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
@@ -31,6 +32,7 @@ function afterPaint(callback: () => void): () => void {
 export function Viewer({ sessionId, displayId }: ViewerRoute) {
   const auth = useAuth(), state = useSession(sessionId, displayId);
   const display = state.detail?.displays.find(item => item.id === displayId), config = state.detail?.session.config;
+  useClientCapture(sessionId, displayId, Boolean(auth.user) && !auth.viewOnly && !auth.captureOnly && state.connection === 'live');
   const current = useRef(display); current.current = display;
   const shell = useRef<HTMLDivElement>(null);
   const strip=useFilmstrip(sessionId,displayId,display,!auth.captureOnly&&state.connection!=='closed'&&Boolean(display)&&config?.syncMode!=='presenter');

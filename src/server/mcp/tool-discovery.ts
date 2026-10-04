@@ -122,6 +122,8 @@ export const TOOL_DISCOVERY: Readonly<Record<string, ToolDiscoveryEntry>> = {
   kanvas_display_update: { group: 'displays', hint: 'Viewport/hold only, NOT content. Publish with kanvas_submit; a held change also requires expectedRevision.', examples: [{ ...display, width: 443, height: 823 }, { ...current, held: true }] },
   kanvas_display_current: { group: 'displays', hint: 'Read this display’s complete saved view and current revision before editing or controlling it.', examples: [display] },
   kanvas_display_inspect: { group: 'displays', hint: 'Read a freshness-qualified observation from the receiving browser, not just the stored view.', examples: [display] },
+  kanvas_display_request_capture: { group: 'displays', hint: 'Arm a predefined real browser capture; tell the person to click the viewer then choose a surface in the native picker. No remote scripting.', examples: [display] },
+  kanvas_display_capture_status: { group: 'displays', hint: 'Poll the captureId returned by request-capture for consent, failure or the private image asset.', examples: [{ ...display, captureId: 'capture-id' }] },
   kanvas_display_snapshot: { group: 'displays', hint: 'Capture an authorized view in a separate server browser; this is not the human screen or proof of its delivery.', examples: [display] },
   kanvas_display_history: { group: 'displays', hint: 'Read retained revision metadata before navigating to a previous view.', examples: [display] },
   kanvas_display_navigate: { group: 'displays', hint: 'Restore retained history with expectedRevisions for every target and exactly one of direction or revision.', examples: [{ ...targets, requestId: 'navigate-1', expectedRevisions: { 'display-id': 3 }, direction: 'back' }] },

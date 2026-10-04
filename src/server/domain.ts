@@ -1,4 +1,5 @@
 import {Checklists} from './checklists.js';
+import { ClientCapture } from './client-capture.js';
 import { Archive } from './archive.js';
 import { accountUsageLimits, sessionUsageLimits, accountTier } from './usage-limits.js';
 import { devicesViewDataSchema } from '../shared/devices-view.js';
@@ -118,6 +119,7 @@ export class KanvasService implements McpService {
   readonly video: VideoControls;
   readonly engagement: Engagement;
   readonly visualCapture: VisualCapture;
+  readonly clientCapture: ClientCapture;
   readonly patches: ViewPatches;
   readonly timers: TimerControls;
   readonly drafts: DraftDocuments;
@@ -139,6 +141,7 @@ export class KanvasService implements McpService {
     this.publication = new PublishSetup(this, publishSetupEnabled);
     this.experience = new Experience(this);
     this.invitations=new Invitations(this);
+    this.clientCapture = new ClientCapture(this);
     this.archive=new Archive(this); this.history = new DisplayHistory(store); this.video = new VideoControls(store); this.engagement = new Engagement(store); this.visualCapture = new VisualCapture(store, auth, publicUrl);
     this.devices=new EntryDevices(this);
     this.inventory=new AccountInventory(this);
@@ -1212,10 +1215,16 @@ export class KanvasService implements McpService {
       case 'kanvas_display_navigate': return (await this.navigate(principal, a as unknown as Parameters<KanvasService['navigate']>[1]));
       case 'kanvas_video_control': return (await this.videoControl(principal, a as unknown as Parameters<KanvasService['videoControl']>[1]));
       case 'kanvas_video_status': return (await this.video.get((await this.display(principal, a.sessionId, a.displayId)), a.commandId)) ?? null;
+      case 'kanvas_display_request_capture': return this.clientCapture.request(principal, {sessionId:a.sessionId, displayId:a.displayId, viewerId:a.viewerId});
+      case 'kanvas_display_capture_status': return this.clientCapture.status(principal, {sessionId:a.sessionId, displayId:a.displayId, captureId:a.captureId});
       case 'kanvas_display_snapshot': {
         (await this.fullAccount(principal));
         const display = (await this.publicDisplay((await this.display(principal, a.sessionId, a.displayId)), principal));
-        const result = await this.visualCapture.capture(principal.userId, display, a, async () => (await this.publicDisplay((await this.display(principal, a.sessionId, a.displayId)), principal)));
+        const live = (await this.experience.receiving.viewers(a.sessionId, a.displayId))
+          .filter(v => v.connected && v.width > 0 && v.height > 0).sort((x,y) => Number(y.visible) - Number(x.visible) || Date.parse(y.observedAt) - Date.parse(x.observedAt))[0];
+        const dimensions = { width: a.width ?? live?.width ?? display.width, height: a.height ?? live?.height ?? display.height };
+        const result = await this.visualCapture.capture(principal.userId, display, dimensions, async () => (await this.publicDisplay((await this.display(principal, a.sessionId, a.displayId)), principal)));
+        Object.assign(result.metadata, { viewportSource: a.width || a.height ? 'explicit-with-live-defaults' : live ? 'connected-viewer' : 'display-default', ...(live ? { viewportViewerId: live.id } : {}) });
         (await this.access(principal,a.sessionId));
         if(a.includeBase64)result.metadata.export={base64:result.image.toString('base64'),mimeType:result.mimeType,name:`kanvas-snapshot-${display.revision}.jpg`,size:result.image.length};
         // Capturing already-readable pixels may create a bounded derivative asset,

@@ -73,14 +73,14 @@ test('MCP visual readback returns real renderer pixels without impersonating phy
   };
   try {
     const code = await inspect(); expect(code.readiness).toBe('ready'); expect(code.revision).toBe(before.revision); expect(code.observedViewer.online).toBe(false);
-    let after = (await sessionDetail(page, sessionId)).displays[0]; expect(after.online).toBe(false); expect(after.appliedRevision).toBe(before.appliedRevision); expect(after.viewportRevision).toBe(before.viewportRevision);
+    let after = (await sessionDetail(page, sessionId)).displays.find(item => item.id === display.id)!; expect(after.online).toBe(false); expect(after.appliedRevision).toBe(before.appliedRevision); expect(after.viewportRevision).toBe(before.viewportRevision);
     // Own protected media is available to the isolated browser, not anonymously.
     const asset = await sessionApi<AssetRecord>(page, `/api/sessions/${sessionId}/assets`, 'POST', {name: 'Private capture.png', mimeType: 'image/png', base64: PNG.toString('base64')}); expect(asset.status).toBe(201);
     await publishPrepared(page, sessionId, [display.id], {version: 1, template: 'image', data: {images: [{url: asset.data!.url, alt: 'Private captured image'}]}});
     expect((await inspect()).readiness).toBe('ready');
     await publishPrepared(page, sessionId, [display.id], {version: 1, template: 'image', data: {images: [{url: 'https://example.com/not-fetched-for-capture.png', alt: 'External media blocked'}]}});
     const blocked = await inspect(); expect(blocked.readiness).toBe('failed'); expect(blocked.blockedExternalRequests).toBeGreaterThan(0);
-    after = (await sessionDetail(page, sessionId)).displays[0]; expect(after.online).toBe(false); expect(after.appliedRevision).toBe(before.appliedRevision);
+    after = (await sessionDetail(page, sessionId)).displays.find(item => item.id === display.id)!; expect(after.online).toBe(false); expect(after.appliedRevision).toBe(before.appliedRevision);
     const other = await createSession(page, 'Not granted to capture identity');
     const forbidden = await client.callTool({name: 'kanvas_capture', arguments: {operation:'snapshot', sessionId: other, displayId: display.id}}); expect(forbidden.isError).toBe(true);
   } finally { await client.close(); }

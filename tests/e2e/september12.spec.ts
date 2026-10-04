@@ -70,7 +70,7 @@ test('notifications stack and dismiss without replacing content or history',asyn
     const history=await call(client,'kanvas_display_history',{sessionId,displayId:display.id});
     await call(client,'kanvas_toast',{sessionId,displayIds:[display.id],text:'Task completed',severity:'success',sticky:true});await call(client,'kanvas_toast',{sessionId,displayIds:[display.id],text:'A second notice',severity:'warning',durationMs:10000});
     await expect(viewer.locator('.viewer-toast')).toHaveCount(2);await viewer.locator('.viewer-toast').filter({hasText:'Task completed'}).getByRole('button',{name:'Dismiss notification'}).click();await expect(viewer.locator('.viewer-toast')).toHaveCount(1);
-    expect((await sessionDetail(page,sessionId)).displays[0].revision).toBe(before.revision);expect(await call(client,'kanvas_display_history',{sessionId,displayId:display.id})).toEqual(history);await expect(viewer.locator('.fact-text')).toHaveText('Keep the actual view');
+    expect((await sessionDetail(page,sessionId)).displays.find(item => item.id === display.id)!.revision).toBe(before.revision);expect(await call(client,'kanvas_display_history',{sessionId,displayId:display.id})).toEqual(history);await expect(viewer.locator('.fact-text')).toHaveText('Keep the actual view');
   }finally{await client.close();}
 });
 
@@ -110,7 +110,7 @@ test('overview navigates retained views across displays and settings promote onl
     await waitForDisplay(page,sessionId,other.id,d=>d.revision>2&&d.view?.data.text==='First retained value');
     await publishPrepared(page,sessionId,[display.id],{version:1,template:'settings',data:{description:'Choose a palette and save your defaults'}});await painted(page,sessionId,display.id,'settings');
     await viewer.getByRole('radio',{name:'All new sessions',exact:true}).check();await viewer.getByRole('radio',{name:'Iris',exact:true}).check();await expect(viewer.getByText('Saved for all new sessions. This session is unchanged.',{exact:true})).toBeVisible();await viewer.getByRole('radio',{name:'Light',exact:true}).check();await expect(viewer.getByText('Saved for all new sessions. This session is unchanged.',{exact:true})).toBeVisible();
-    const next=await call<{config:{style:string;theme:string}}>(client,'kanvas_session_create',{name:'Inherits chosen defaults'});expect(next.config).toMatchObject({style:'iris',theme:'light'});expect((await sessionDetail(page,sessionId)).displays[0].view?.template).toBe('settings');
+    const next=await call<{config:{style:string;theme:string}}>(client,'kanvas_session_create',{name:'Inherits chosen defaults'});expect(next.config).toMatchObject({style:'iris',theme:'light'});expect((await sessionDetail(page,sessionId)).displays.find(item => item.id === display.id)!.view?.template).toBe('settings');
   }finally{await client.close();}
 });
 

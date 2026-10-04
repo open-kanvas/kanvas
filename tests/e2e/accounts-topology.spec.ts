@@ -74,7 +74,7 @@ test('live topology groups actual windows and distinct devices, shows browser lo
     expect(await v.locator('.browser-logo').evaluateAll(images=>images.every(i=>(i as HTMLImageElement).naturalWidth>0))).toBe(true);
     await expect(v.getByRole('img',{name:'tv',exact:true})).toBeVisible();await photo(v,info,'people-devices-windows');
     await expect(v.locator('.topology-controls,.session-topology select,.topology-toolbar button')).toHaveCount(0);
-    await publishPrepared(page,s,[d.id],{version:1,template:'session-topology',data:{groupBy:'all',includeOffline:true}});await expect(v.locator('.session-topology')).toHaveAttribute('data-group-by','all');await expect(v.locator('.topology-display>header h2')).toHaveText(['Topology','Another display']);
+    await publishPrepared(page,s,[d.id],{version:1,template:'session-topology',data:{groupBy:'all',includeOffline:true}});await expect(v.locator('.session-topology')).toHaveAttribute('data-group-by','all');await expect(v.locator('.topology-display>header h2')).toHaveText(['Main display','Topology','Another display']);
     const displayIcon=await v.locator('.topology-display-icon').first().boundingBox(),deviceIcon=await v.locator('.topology-device>header>svg').first().boundingBox();expect(displayIcon!.width).toBeGreaterThan(deviceIcon!.width*1.5);await photo(v,info,'display-participants');
     await second.close();await expect.poll(()=>v.locator('.topology-window.is-offline').count(),{timeout:12000}).toBeGreaterThanOrEqual(1);
     const topology=await sessionApi<any>(page,'/api/sessions/'+s+'/topology');expect(topology.data.counts.windows).toBe(2);expect(topology.data.counts.offline).toBeGreaterThanOrEqual(1);

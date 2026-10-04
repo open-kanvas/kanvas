@@ -47,7 +47,8 @@ test('minimal local clock ticks without publishing and fits both requested phone
   const before = await instant(viewer);
   await expect.poll(async () => (await instant(viewer)) - before).toBeGreaterThanOrEqual(1000);
   const first = await assertTimes(viewer, { hourFormat: '24h', showSeconds: true, showDate: false }); expect(first[0].size).toBeGreaterThan(50);
-  expect((await sessionDetail(page, sessionId)).displays[0].revision).toBe(1);
+  // Session creation also adds Main display; verify the specific clock target.
+  expect((await sessionDetail(page, sessionId)).displays.find(item => item.id === displayId)!.revision).toBe(1);
   await captureDisplay(viewer, info, 'clock-local');
   if (info.project.name.startsWith('phone')) {
     const resizedViewport = { width: 443, height: 823 };
@@ -101,6 +102,6 @@ test('server-anchored clock catches delayed callbacks and suspended monotonic ti
   await viewer.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow')));
   await expect.poll(async () => Math.abs((await instant(viewer)) - beforeWake - 3_600_000)).toBeLessThan(2000);
   await assertTimes(viewer, { hourFormat: '24h', showSeconds: true, showDate: false });
-  expect((await sessionDetail(page, sessionId)).displays[0].revision).toBe(1);
+  expect((await sessionDetail(page, sessionId)).displays.find(item => item.id === displayId)!.revision).toBe(1);
   await viewer.unroute(ownState);
 });

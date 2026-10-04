@@ -24,7 +24,7 @@ test('failed public image loads recover only after decoded bytes arrive, and rev
   await context.route('**/image-fallback',async route=>{requests.push(route.request().postDataJSON());await bytesReady;await route.fulfill({json:{data:{status:'available',imageUrl:asset.data!.url}}});});
   const view:ViewSpec={version:1,template:'image',data:{images:[{url,alt:'Exact recovered source image'}]}};
   await publishPrepared(page,a.s,[a.d.id],view);await expect.poll(()=>requests.length).toBeGreaterThan(0);
-  const waiting=(await sessionDetail(page,a.s)).displays[0];expect(waiting.appliedRevision??0).toBeLessThan(waiting.revision);
+  const waiting=(await sessionDetail(page,a.s)).displays.find(item => item.id === a.d.id)!;expect(waiting.appliedRevision??0).toBeLessThan(waiting.revision);
   release();await waitForDisplay(page,a.s,a.d.id,d=>d.revision===1&&d.appliedRevision===1);
   await expect(v.locator('.viewer-candidate .image-frame img')).toHaveAttribute('src',asset.data!.url);expect(await v.locator('.viewer-candidate .image-frame img').evaluate((el:HTMLImageElement)=>el.naturalWidth)).toBe(160);await photo(v,info,'image-recovery');
   await publishPrepared(page,a.s,[a.d.id],{...view,title:'Next source revision'});await waitForDisplay(page,a.s,a.d.id,d=>d.revision===2&&d.appliedRevision===2);

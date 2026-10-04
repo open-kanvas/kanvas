@@ -122,6 +122,6 @@ test('agent suggestions and visible-slide feedback stay anchored without pulling
   expect(await source!.evaluate(element => element === document.querySelector('.drafting-source'))).toBe(true);
   await viewer.getByRole('button', { name: 'Go to highlighted passage', exact: true }).click();
   expect(await scrollTop(viewer)).toBeGreaterThan(before + 50);
-  expect(((await sessionDetail(page, sessionId)).displays[0].view?.data.slides as ViewSpec[])[1].data.text).toBe(text + '\n\nA later supplied chunk.');
+  expect(((await sessionDetail(page, sessionId)).displays.find(item => item.id === displayId)!.view?.data.slides as ViewSpec[])[1].data.text).toBe(text + '\n\nA later supplied chunk.');
   await captureDisplay(viewer, info, 'drafting-suggestion-review');
 });

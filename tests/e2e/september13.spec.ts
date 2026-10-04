@@ -39,7 +39,7 @@ test('weather gives conditions and explicit highs/lows the surface, with full de
   await viewer.getByLabel('About this view',{exact:true}).click();await expect(viewer.getByRole('region',{name:'View information'})).toContainText('Synthetic acceptance forecast');await expect(viewer.getByRole('region',{name:'View information'})).toBeInViewport();
   await viewer.keyboard.press('Escape');await expect(viewer.getByRole('region',{name:'View information'})).toBeHidden();
   await viewer.emulateMedia({reducedMotion:'no-preference'});expect(await viewer.locator('.weather-drop').first().evaluate(x=>getComputedStyle(x).animationName)).toBe('weather-rainfall');await viewer.emulateMedia({reducedMotion:'reduce'});
-  expect(external).toEqual([]);expect((await sessionDetail(page,s)).displays[0].view?.data).toEqual(explicit.data);
+  expect(external).toEqual([]);expect((await sessionDetail(page,s)).displays.find(item => item.id === d.id)!.view?.data).toEqual(explicit.data);
 });
 
 test('weather variants stay recognizable and legible on the actual receiving screen',async({page},info)=>{
@@ -61,7 +61,7 @@ test('quiet surfaces keep requested source information and exact supporting text
   await viewer.getByText('Supporting details · 2',{exact:true}).click();await expect(viewer.getByText('Exact source 9007199254740993.0000',{exact:true})).toBeVisible();
   await information.click();await expect(viewer.getByRole('region',{name:'View information'})).toContainText('A redundant generated heading');await expect(viewer.getByRole('link',{name:'Original supplied source ↗',exact:true})).toHaveAttribute('href','https://example.com/source');await photo(viewer,info,'source-information');
   await viewer.keyboard.press('Escape');await show(page,viewer,s,d.id,{...view,showTitle:true});await expect(viewer.locator('.view-heading h1')).toHaveText('A redundant generated heading');
-  expect((await sessionDetail(page,s)).displays[0].view?.data).toEqual(view.data);
+  expect((await sessionDetail(page,s)).displays.find(item => item.id === d.id)!.view?.data).toEqual(view.data);
 });
 
 test('long browser feedback has an accurate counter and survives save/reload as complete text',async({page})=>{

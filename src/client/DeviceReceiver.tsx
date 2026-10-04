@@ -4,7 +4,7 @@ import { api, errorMessage, viewerPath } from './api';
 import { useAuth } from './hooks';
 import { viewerTabId } from './window-identity';
 
-type Device={id:string;name:string;home:{sessionId:string;displayId:string};window?:{id:string;name:string;version:number}};
+type Device={id:string;name:string;home?:{sessionId:string;displayId:string};window?:{id:string;name:string;version:number}};
 type Command={id:string;sessionId:string;displayId:string};
 const Context=createContext<{device?:Device;error?:string}>({});
 export const useDevice=()=>useContext(Context);
@@ -25,7 +25,7 @@ export function DeviceReceiver({children}:{children:ReactNode}){
       if(data.command){const c=data.command;command.current=c;const path=viewerPath(c.sessionId,c.displayId);if(location.pathname!==path){location.assign(path);return;}window.dispatchEvent(new Event('kanvas:return-live'));report();}else command.current=undefined;
     };
     const commandEvent=(event:Event)=>receive((event as CustomEvent).detail);window.addEventListener('kanvas:window-command',commandEvent);
-    const start=async()=>{try{registered=await api<Device>('/api/devices/register',{method:'POST',body:{installationId:installationId(),windowId:viewerTabId()}});if(stopped)return;setDevice(registered);setError(undefined);report();
+    const start=async()=>{try{registered=await api<Device>('/api/devices/register',{method:'POST',body:{installationId:installationId(),windowId:viewerTabId(),...(['/', '/console'].includes(location.pathname)?{provisionHome:false}:{})}});if(stopped)return;setDevice(registered);setError(undefined);report();
       // A viewer carries targeted commands on its content stream. Two streams
       // per tab exhaust HTTP/1.1's six-connection origin limit.
       if(registered.window&&/^\/view\//.test(location.pathname)){window.dispatchEvent(new Event('kanvas:device-registered'));return;}

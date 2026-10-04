@@ -14,7 +14,7 @@ export const devicePresentSchema=z.object({deviceId:identifier,sessionId:identif
 export const deviceRenameSchema=z.object({deviceId:identifier,name:z.string().trim().min(1).max(100),expectedVersion:z.number().int().nonnegative()}).strict();
 interface Entry {id:string;sessionId:string;displayId:string}
 export interface DeviceCommand {id:string;sessionId:string;displayId:string;issuedAt:string;expiresAt:number;status:'pending'|'applied';appliedAt?:string;renderedRevision?:number;windowIds?:string[]}
-export interface Device {id:string;ownerId:string;installation:string;browserId:string;name:string;context:ReturnType<typeof browserContext>;homeSessionId:string;homeDisplayId:string;version:number;createdAt:string;lastSeenAt:string;sessionId?:string;displayId?:string;renderedRevision?:number;command?:DeviceCommand}
+export interface Device {id:string;ownerId:string;installation:string;browserId:string;name:string;context:ReturnType<typeof browserContext>;homeSessionId?:string;homeDisplayId?:string;version:number;createdAt:string;lastSeenAt:string;sessionId?:string;displayId?:string;renderedRevision?:number;command?:DeviceCommand}
 interface Connected {principal:AuthPrincipal;count:number;lastSeenAt:string}
 
 /** A device ID is an address, never authority. Browser sessions bind receivers;
@@ -50,22 +50,39 @@ export class EntryDevices {
   private async online(d:Device){if((await this.windows.hasOnline(d)))return true;const c=this.connected.get(d.id);if(!c?.count||c.principal.browserId!==d.browserId)return false;try{(await this.receiver(c.principal,d.id));return true;}catch{return false;}}
   private async public(d:Device){const command=d.command?{...d.command,status:(await this.windows.commandSuperseded(d.command))?'superseded':d.command.status==='pending'&&d.command.expiresAt<=Date.now()?'expired':d.command.status}:undefined;
     const windows=(await this.windows.listForDevice(d));
-    return {id:d.id,name:d.name,version:d.version,context:d.context,windows,connected:(await this.online(d)),lastSeenAt:d.lastSeenAt,...(!windows.some(w=>w.current&&(w.current.sessionId!==d.sessionId||w.current.displayId!==d.displayId))&&d.sessionId&&d.displayId?{current:this.target(d.sessionId,d.displayId),renderedRevision:d.renderedRevision}:{}),home:this.target(d.homeSessionId,d.homeDisplayId),command};}
+    return {id:d.id,name:d.name,version:d.version,context:d.context,windows,connected:(await this.online(d)),lastSeenAt:d.lastSeenAt,...(!windows.some(w=>w.current&&(w.current.sessionId!==d.sessionId||w.current.displayId!==d.displayId))&&d.sessionId&&d.displayId?{current:this.target(d.sessionId,d.displayId),renderedRevision:d.renderedRevision}:{}),...(d.homeSessionId&&d.homeDisplayId?{home:this.target(d.homeSessionId,d.homeDisplayId)}:{}),command};}
   async register(p:AuthPrincipal,raw:unknown,userAgent:string){
     return this.service.store.atomic(async () => {
     (await this.account(p,true));if(!p.browserId)throw new AppError('FORBIDDEN','Register from a signed-in browser.',403);
-    const a=z.object({installationId:identifier,name:z.string().trim().min(1).max(100).optional()}).strict().parse(raw),installation=hash(`${p.userId}:${a.installationId}`),prior=(await this.service.store.list<Device>('registered-device')).find(d=>d.ownerId===p.userId&&d.installation===installation);
+    const a=z.object({installationId:identifier,name:z.string().trim().min(1).max(100).optional(),provisionHome:z.boolean().default(true)}).strict().parse(raw),installation=hash(`${p.userId}:${a.installationId}`),prior=(await this.service.store.list<Device>('registered-device')).find(d=>d.ownerId===p.userId&&d.installation===installation);
     if(prior){const rebound=prior.browserId!==p.browserId;if(rebound){prior.browserId=p.browserId;prior.command=undefined;prior.version++;}prior.lastSeenAt=now();(await this.service.store.put('registered-device',prior));if(rebound)this.events.emit(prior.id);return (await this.public(prior));}
     const owned=(await this.service.store.list<Device>('registered-device')).filter(d=>d.ownerId===p.userId);if(owned.length>=48)throw new AppError('LIMIT_REACHED','This account has reached its 48-device limit.',429);
-    return (await this.service.store.transaction(async ()=>{const entry=(await this.provision(p)),context=browserContext(userAgent),stamp=now();
-      const display=owned.some(d=>d.homeDisplayId===entry.displayId)?(await this.service.createDisplay(p,entry.sessionId,{name:a.name??`${context.device} home`,width:1280,height:800})):(await this.service.publicDisplay((await this.service.display(p,entry.sessionId,entry.displayId))));
-      (await this.service.publishHome(p,entry.sessionId,display.id));
-      const d:Device={id:id(),ownerId:p.userId,installation,browserId:p.browserId!,name:a.name??`${context.device} · ${context.browser}`,context,homeSessionId:entry.sessionId,homeDisplayId:display.id,version:0,createdAt:stamp,lastSeenAt:stamp};(await this.service.store.put('registered-device',d));return (await this.public(d));
+    return (await this.service.store.transaction(async ()=>{
+      const context=browserContext(userAgent),stamp=now();
+      const d:Device={id:id(),ownerId:p.userId,installation,browserId:p.browserId!,name:a.name??`${context.device} · ${context.browser}`,context,version:0,createdAt:stamp,lastSeenAt:stamp};
+      // Idle account windows must be connectable even at the session quota.
+      // /start still provisions its existing Home workflow; root/console do not.
+      if(a.provisionHome)await this.ensureHome(p,d,a.name);
+      await this.service.store.put('registered-device',d);return await this.public(d);
     }));
 
     });
   }
-  async open(p:AuthPrincipal,deviceId:string){const d=(await this.receiver(p,deviceId));(await this.service.publishHome(p,d.homeSessionId,d.homeDisplayId));return this.target(d.homeSessionId,d.homeDisplayId);}
+  private async ensureHome(p:AuthPrincipal,d:Device,homeName?:string){
+    if(d.homeSessionId&&d.homeDisplayId)return this.target(d.homeSessionId,d.homeDisplayId);
+    const entry=await this.provision(p),owned=(await this.service.store.list<Device>('registered-device')).filter(item=>item.ownerId===p.userId);
+    const display=owned.some(item=>item.id!==d.id&&item.homeDisplayId===entry.displayId)?await this.service.createDisplay(p,entry.sessionId,{name:homeName??`${d.context.device} home`,width:1280,height:800}):await this.service.publicDisplay(await this.service.display(p,entry.sessionId,entry.displayId));
+    d.homeSessionId=entry.sessionId;d.homeDisplayId=display.id;
+    await this.service.publishHome(p,entry.sessionId,display.id);
+    return this.target(entry.sessionId,display.id);
+  }
+  async open(p:AuthPrincipal,deviceId:string){
+    return this.service.store.atomic(async()=>this.service.store.transaction(async()=>{
+      const d=await this.receiver(p,deviceId),hadHome=Boolean(d.homeSessionId&&d.homeDisplayId),target=await this.ensureHome(p,d);
+      if(hadHome)await this.service.publishHome(p,target.sessionId,target.displayId);
+      await this.service.store.put('registered-device',d);return target;
+    }));
+  }
   async list(p:AuthPrincipal){(await this.account(p));return {devices:(await asyncMap((await this.service.store.list<Device>('registered-device')).filter(d=>d.ownerId===p.userId), async d=>(await this.public(d)))),note:'Connected means an authenticated receiver stream is open. Pending targeting is not a painted-display acknowledgement.'};}
   async rename(p:AuthPrincipal,raw:unknown){
     return this.service.store.atomic(async () => {const a=deviceRenameSchema.parse(raw),d=(await this.device(p,a.deviceId,true));this.service.assertRevision(a.expectedVersion,d.version);d.name=a.name;d.version++;(await this.service.store.put('registered-device',d));return (await this.public(d));
@@ -112,7 +129,7 @@ export class EntryDevices {
 
 export function mountEntryDevices(app:Express,devices:EntryDevices,browser:(req:Request)=>Promise<Awaited<AuthPrincipal>>){
   app.post('/api/devices/register',async (req,res)=>{
-    const {windowId,...raw}=z.object({installationId:identifier,name:z.string().optional(),windowId:identifier.optional()}).strict().parse(req.body),p=(await browser(req));
+    const {windowId,...raw}=z.object({installationId:identifier,name:z.string().optional(),windowId:identifier.optional(),provisionHome:z.boolean().optional()}).strict().parse(req.body),p=(await browser(req));
     const device=(await devices.register(p,raw,req.get('user-agent')??''));
     res.json({data:{...device,...(windowId?{window:(await devices.windows.register(p,device.id,windowId))}:{})}});
   });

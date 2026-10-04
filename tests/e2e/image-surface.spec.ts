@@ -150,7 +150,7 @@ test('all gallery images remain reachable and caption/source/utility flags work 
   await expect(surface.locator('figcaption,.image-original-link')).toHaveCount(0); await expect(viewer.locator('.viewer-candidate .view-information')).toHaveCount(0);
 });
 
-test('a delayed then corrupt gallery image cannot replace or acknowledge the last successful image frame', async ({ page }, info) => {
+test('a delayed gallery preserves the last frame until a corrupt image resolves to an explicit placeholder', async ({ page }, info) => {
   test.setTimeout(90_000);
   const { sessionId, display, viewer } = await setup(page), assets = await uploadImages(page, sessionId);
   const good = await show(page, viewer, sessionId, display.id, imageView([imageEntry(assets[0])]));
@@ -167,12 +167,16 @@ test('a delayed then corrupt gallery image cannot replace or acknowledge the las
     await expect(viewer.locator('.viewer-candidate .image-surface img')).toHaveCount(2);
     await expect.poll(() => viewer.locator('.viewer-candidate .image-surface img').first().evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(1200);
     await twoFrames(viewer); expect((await sessionDetail(page, sessionId)).displays.find(item => item.id === display.id)?.appliedRevision).toBe(good.revision);
-    release(); await expect(viewer.locator('.viewer-shell')).toHaveAttribute('data-render-status', 'failed');
-    const failed = await waitForDisplay(page, sessionId, display.id, item => item.delivery?.revision === candidate.revision && item.delivery.status === 'failed');
-    expect(failed.appliedRevision).toBe(good.revision); await expect(viewer.locator('.viewer-shell')).toHaveAttribute('data-rendered-revision', String(good.revision));
-    await expect(viewer.locator('.viewer-last-good .image-surface img')).toBeVisible(); fullFrame(await imageGeometry(viewer, '.viewer-last-good'));
-    await expect(viewer.locator('.viewer-candidate .media-readiness-error')).toHaveCount(1);
-    await mkdir(info.outputPath('visuals'), { recursive: true }); await viewer.screenshot({ path: `${info.outputPath('visuals')}/${info.project.name}-last-successful-image-after-failure.png`, animations: 'disabled' });
+    release(); await expect(viewer.locator('.viewer-shell')).toHaveAttribute('data-render-status', 'ready');
+    const degraded = await waitForDisplay(page, sessionId, display.id, item => item.appliedRevision === candidate.revision);
+    expect(degraded.view?.data.images).toEqual([imageEntry(assets[0]), imageEntry(assets[1], { alt: 'Delayed corrupt second image' })]);
+    await expect(viewer.locator('.viewer-shell')).toHaveAttribute('data-rendered-revision', String(candidate.revision));
+    await expect(viewer.locator('.viewer-last-good')).toHaveCount(0);
+    await expect(viewer.locator('.viewer-candidate .media-unavailable')).toBeVisible();
+    await expect(viewer.locator('.viewer-candidate .media-unavailable')).toContainText('Delayed corrupt second image');
+    await expect(viewer.locator('.viewer-candidate .image-surface img')).toHaveCount(1);
+    expect(await viewer.locator('.viewer-candidate .image-surface img').evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(1200);
+    await mkdir(info.outputPath('visuals'), { recursive: true }); await viewer.screenshot({ path: `${info.outputPath('visuals')}/${info.project.name}-gallery-with-explicit-placeholder.png`, animations: 'disabled' });
   } finally { release(); await viewer.unroute(route); }
   await show(page, viewer, sessionId, display.id, imageView([imageEntry(assets[2])])); await expect(viewer.locator('.viewer-last-good')).toHaveCount(0);
   expect((await imageGeometry(viewer)).natural).toEqual({ width: 900, height: 900 });

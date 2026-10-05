@@ -1,3 +1,4 @@
+import { discoveryToolDefinitions, discoveryResult, isDiscoveryTool } from './discovery.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
 import express, { type ErrorRequestHandler, type Express, type Request, type Response } from 'express';
@@ -103,7 +104,7 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
   const sessions = new Map<string, LegacySession>();
   const initializing = new Map<string, number>();
   const modernSubscriptions = new Map<string, number>();
-  const toolDefinitions = listToolDefinitions(profile);
+  const toolDefinitions = discoveryToolDefinitions();
   let closing = false;
 
   const current = (): RequestContext => {
@@ -113,45 +114,55 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
   };
 
   const makeServer = (legacy?: LegacySession): Server => {
-    const server = new Server({ ...SERVER_INFO,title:'Kanvas',...(icons?{icons}:{}), description: profileDescription(profile) }, {
+    const server = new Server({ ...SERVER_INFO,title:'Kanvas',...(icons?{icons}:{}), description: profileDescription('discovery') }, {
       capabilities: { tools: {}, resources: { subscribe: true, listChanged: true } },
-      instructions: profileInstructions(profile),
+      instructions: profileInstructions('discovery'),
       supportedProtocolVersions: LEGACY_PROTOCOL_VERSIONS,
     });
     // Explicitly no logging/sampling/elicitation capability: this adapter does
     // not request model turns or place credentials into model-visible forms.
     server.onerror = () => {};
     server.setRequestHandler('tools/list', async () => ({ tools: toolDefinitions }));
-    server.setRequestHandler('tools/call', async request => {
+    server.setRequestHandler('tools/call', async (request, extra) => {
+      if (isDiscoveryTool(request.params.name) && request.params.name !== 'kanvas_tool_use') {
+        return profileScope.run('discovery', () => {
+          try { return discoveryResult(request.params.name, request.params.arguments, { principal: current().principal, signal: extra.mcpReq.signal }); }
+          catch (error) { return toolFailure(error, undefined, 'discovery'); }
+        });
+      }
+      const callProfile = isDiscoveryTool(request.params.name) ? 'discovery' : profile;
+      return profileScope.run(callProfile, async () => {
       const invocationId=randomUUID(),started=Date.now();
-      const call = resolveToolCall(profile, request.params.name, request.params.arguments);
+      const call = resolveToolCall(callProfile, request.params.name, request.params.arguments);
       const context = call.reference && call.canonicalName ? { ...call.reference, canonicalName: call.canonicalName } : undefined;
       // A failed read is still read-only. Validation and execution errors must
       // not allocate diagnostic or lifecycle records in either profile.
       const mayRecordFailure = call.canonicalName !== undefined && !READ_ONLY_CANONICAL.has(call.canonicalName);
       const record=async(status:'completed'|'failed',result?:unknown)=>{
         if(!call.canonicalName||!call.reference||(status==='failed'&&READ_ONLY_CANONICAL.has(call.canonicalName)))return;
-        const raw=request.params.arguments??{},out=result as {id?:unknown;sessionId?:unknown;session?:{id?:unknown}}|undefined;
+        const outer=request.params.arguments??{},raw=request.params.name==='kanvas_tool_use'&&outer.arguments&&typeof outer.arguments==='object'?outer.arguments as Record<string,unknown>:outer,out=result as {id?:unknown;sessionId?:unknown;session?:{id?:unknown}}|undefined;
         const sessionId=typeof raw.sessionId==='string'?raw.sessionId:typeof out?.sessionId==='string'?out.sessionId:typeof out?.session?.id==='string'?out.session.id:call.canonicalName==='kanvas_session_create'&&typeof out?.id==='string'?out.id:undefined;
         try{await service.recordToolCall?.(current().principal,{id:invocationId,tool:call.reference.tool,operation:call.reference.operation,sessionId,timestamp:new Date(started).toISOString(),status,durationMs:Date.now()-started});}catch{/* Instrumentation must never change the tool result. */}
       };
       if (call.error) {
-        const raw = request.params.arguments ?? {};
+        const raw = request.params.name === 'kanvas_tool_use' ? (request.params.arguments?.arguments as Record<string, unknown> | undefined) ?? {} : request.params.arguments ?? {};
         let diagnosticId: string | undefined;
         try { if (mayRecordFailure) diagnosticId = await inToolContext(context, () => service.recordFailure?.(call.canonicalName!, raw, current().principal, call.error)); } catch { /* Preserve the original error. */ }
         await record('failed');
-        return toolFailure(call.error, diagnosticId, profile);
+        return toolFailure(call.error, diagnosticId, callProfile);
       }
       try {
-        const result = await inToolContext(context, () => service.execute(call.canonicalName, call.args, current().principal));
+        extra.mcpReq.signal.throwIfAborted();
+        const result = await inToolContext(context, () => service.execute(call.canonicalName, call.args, current().principal, { signal: extra.mcpReq.signal }));
         await record('completed',result);
-        return toolSuccess(result, call.args.sessionId, call.canonicalName, profile);
+        return toolSuccess(result, call.args.sessionId, call.canonicalName, callProfile);
       } catch (error) {
         let diagnosticId: string | undefined;
         try { if (mayRecordFailure) diagnosticId = await inToolContext(context, () => service.recordFailure?.(call.canonicalName, call.args, current().principal, error)); } catch { /* Diagnostic failure must not replace this result. */ }
         await record('failed');
-        return toolFailure(error, diagnosticId, profile);
+        return toolFailure(error, diagnosticId, callProfile);
       }
+    });
     });
     server.setRequestHandler('resources/list', async request => {
       let resources;
@@ -159,13 +170,13 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
       catch (error) { throw resourceFailure(error); }
       return pageResources(resources, request.params?.cursor);
     });
-    server.setRequestHandler('resources/templates/list', async () => ({ resourceTemplates: profile === 'legacy' ? RESOURCE_TEMPLATES : RESOURCE_TEMPLATES.map(template => ({ ...template, ...(template.description ? { description: publicGuidanceText(template.description, profile) } : {}) })) }));
+    server.setRequestHandler('resources/templates/list', async () => ({ resourceTemplates: RESOURCE_TEMPLATES.map(template => ({ ...template, ...(template.description ? { description: publicGuidanceText(template.description, 'discovery') } : {}) })) }));
     server.setRequestHandler('resources/read', async request => {
       const uri = requireResourceUri(request.params.uri);
       let value;
       try { value = await service.readResource(uri, current().principal); }
       catch (error) { throw resourceFailure(error); }
-      return { contents: [{ uri, mimeType: 'application/json', text: resourceText(profileResourceData(uri, value, profile), profile) }] };
+      return { contents: [{ uri, mimeType: 'application/json', text: profileScope.run('discovery', () => resourceText(profileResourceData(uri, value, 'discovery'), 'discovery')) }] };
     });
     server.setRequestHandler('resources/subscribe', async request => {
       if (!legacy) throw new ProtocolError(-32601, 'Use subscriptions/listen for this protocol revision.');

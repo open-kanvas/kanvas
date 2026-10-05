@@ -15,7 +15,7 @@ services:
       KANVAS_PG_USER: "${KANVAS_PG_USER:-kanvas}"
       KANVAS_PG_SSL: "${KANVAS_PG_SSL:-verify-full}"
       KANVAS_PG_PASSWORD_FILE: /run/secrets/kanvas_database_password
-      KANVAS_MCP_PROFILE: "${KANVAS_MCP_PROFILE:-twelve}"
+      KANVAS_MCP_PROFILE: "${KANVAS_MCP_PROFILE:-discovery}"
       KANVAS_ALLOW_REGISTRATION: "${KANVAS_ALLOW_REGISTRATION:-false}"
     ports:
       - "127.0.0.1:8787:8787"

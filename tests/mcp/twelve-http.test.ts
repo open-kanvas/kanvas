@@ -1,3 +1,4 @@
+import { DISCOVERY_TOOL_NAMES } from '../../src/server/mcp/operations.js';
 import { legacySelectedCode } from '../core/legacy-oauth-fixture.js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
@@ -19,7 +20,7 @@ import { ControlledInterpreter, ORIGIN, PNG, denied, fact, startHarness, success
 // protocol metadata, never headers, request bodies, source text or bearers.
 const ERAS = ['modern', 'legacy'] as const;
 type Era = typeof ERAS[number];
-const TOOLS = ['kanvas_inspect', 'kanvas_session', 'kanvas_publish', 'kanvas_control', 'kanvas_configure', 'kanvas_import', 'kanvas_interactions', 'kanvas_feedback', 'kanvas_capture', 'kanvas_monitor', 'kanvas_access', 'kanvas_remove'];
+const TOOLS = DISCOVERY_TOOL_NAMES;
 const CALLBACK = 'http://127.0.0.1:41357/callback';
 const RESOURCE = `${ORIGIN}/mcp`;
 interface WireItem { method?: string; uri?: string; subscriptionId?: string | number }
@@ -202,8 +203,8 @@ describe.each(ERAS)('twelve profile on the real %s SDK and application', era => 
     const h = await server(), owner = await h.account(), peer = await connect(h, era, (await grant(h, owner)).value);
     const list = await peer.client.listTools();
     expect(list.tools.map(tool => tool.name).sort()).toEqual([...TOOLS].sort());
-    expect(list.tools.every(tool => tool.inputSchema.type === 'object' && tool.inputSchema.required?.includes('operation'))).toBe(true);
-    expect(list.tools.find(tool => tool.name === 'kanvas_inspect')?.annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false, idempotentHint: true });
+    expect(list.tools.every(tool => tool.inputSchema.type === 'object')).toBe(true);
+    expect(list.tools.find(tool => tool.name === 'kanvas_tool_search')?.annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false, idempotentHint: true });
     failure(await peer.client.callTool({ name: 'kanvas_submit', arguments: {} }), ['INVALID_ARGUMENT']);
     failure(await peer.client.callTool({ name: 'kanvas_publish', arguments: {} }), ['INVALID_ARGUMENT']);
     const session = data<SessionRecord>(await call(peer, 'kanvas_session', 'create', { name: 'HTTP scripted workflow' }));
@@ -514,7 +515,7 @@ describe.each(ERAS)('twelve profile on the real %s SDK and application', era => 
     const stable = (await old.runtime.store.list<Token>('token'))[0];
     expect(stable.resource).toBe(RESOURCE); expect(stable.sessionIds).toEqual([session.id]);
     const before = await connect(old, era, original.tokens.access_token);
-    expect((await before.client.listTools()).tools).toHaveLength(OPERATION_ENTRIES.length);
+    expect((await before.client.listTools()).tools).toHaveLength(7);
     const submission = { sessionId: session.id, displayIds: [display.id], requestId: 'identical-across-profile-restart', view: fact('Grant and retry identity survive a catalogue-only release.') };
     const first = data<UpdateRecord>(await before.client.callTool({ name: 'kanvas_submit', arguments: submission }));
     expect((await owner.settle(session.id, submission.requestId)).update.status).toBe('prepared');

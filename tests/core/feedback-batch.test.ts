@@ -1,3 +1,4 @@
+import { operationId, DISCOVERY_TOOL_NAMES } from '../../src/server/mcp/operations.js';
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
@@ -181,7 +182,8 @@ describe('feedback batch: real display history, controls, participation and diag
     await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', h.baseUrl), {requestInit: {headers: {Authorization: `Bearer ${issued.token}`}}}));
     try {
       const tools = await client.listTools();
-      for (const name of ['kanvas_feedback_submit', 'kanvas_error_report', 'kanvas_display_snapshot', 'kanvas_video_control', 'kanvas_display_history']) expect(tools.tools.some(tool => tool.name === name)).toBe(true);
+      expect(tools.tools.map(tool => tool.name)).toEqual(DISCOVERY_TOOL_NAMES);
+      for (const name of ['kanvas_feedback_submit', 'kanvas_error_report', 'kanvas_display_snapshot', 'kanvas_video_control', 'kanvas_display_history']) { const result = await client.callTool({name:'kanvas_tool_search',arguments:{query:operationId(name)}}); expect((result.structuredContent as any).data.results[0].operationId).toBe(operationId(name)); }
       const category = await client.callTool({name: 'kanvas_feedback_submit', arguments: {sessionId, requestId: randomUUID(), title: 'Wrong category', description: 'Minimal report', category: 'bug'}});
       expect(category.isError).toBe(true); expect(JSON.stringify(category.structuredContent)).toContain('usability');
       const long = await client.callTool({name: 'kanvas_submit', arguments: {sessionId, displayIds: [displayId], requestId: randomUUID(), intent: 'x'.repeat(1001)}});

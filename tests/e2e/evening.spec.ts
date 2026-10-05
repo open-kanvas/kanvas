@@ -30,7 +30,7 @@ test('long documents start with the supplied content and scroll to the exact las
   await expect(viewer.locator('.document-article>p').first()).toBeInViewport({ratio:1});
   await expect(viewer.locator('.document-article')).toContainText('Supplied paragraph 1.');await photo(viewer,info,'document-top');
   await viewer.getByRole('region',{name:'Document reader'}).evaluate(el=>{el.scrollTop=el.scrollHeight;});await expect(viewer.getByText('The final supplied paragraph.',{exact:true})).toBeInViewport();
-  expect((await sessionDetail(page,s)).displays[0].view?.data.text).toBe(text);expect(await viewer.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await photo(viewer,info,'document-bottom');
+  expect((await sessionDetail(page,s)).displays.find(item => item.id === d.id)!.view?.data.text).toBe(text);expect(await viewer.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await photo(viewer,info,'document-bottom');
 });
 
 test('settings apply selections immediately and notify the agent',async({page},info)=>{
@@ -60,7 +60,7 @@ test('recipe steps stay pre-staged and advance from both the screen and MCP voic
     await publishPrepared(page,s,[d.id],{version:1,template:'recipe',data:{name:'Illustrative waffle guide',materials:['A bowl','A whisk','Supplied ingredients'],steps}});await ready(page,s,d.id,'recipe');await viewer.getByRole('button',{name:'Start step-by-step',exact:false}).click();
     await expect(viewer.locator('.viewer-candidate .procedure-instruction')).toHaveText(steps[0]);await ready(page,s,d.id);await viewer.getByRole('button',{name:'Next step',exact:false}).click();await expect(viewer.locator('.viewer-candidate .procedure-instruction')).toHaveText(steps[1]);
     const current=await ready(page,s,d.id);await call(client,'kanvas_procedure_control',{sessionId:s,displayId:d.id,requestId:randomUUID(),expectedRevision:current.revision,action:'next'});await expect(viewer.locator('.viewer-candidate .procedure-instruction')).toHaveText(steps[2]);await ready(page,s,d.id);
-    await viewer.getByRole('button',{name:'Back',exact:true}).click();await expect(viewer.locator('.viewer-candidate .procedure-instruction')).toHaveText(steps[1]);expect((await sessionDetail(page,s)).displays[0].view?.data.steps).toEqual(steps);await photo(viewer,info,'procedure');
+    await viewer.getByRole('button',{name:'Back',exact:true}).click();await expect(viewer.locator('.viewer-candidate .procedure-instruction')).toHaveText(steps[1]);expect((await sessionDetail(page,s)).displays.find(item => item.id === d.id)!.view?.data.steps).toEqual(steps);await photo(viewer,info,'procedure');
   }finally{await client.close();}
 });
 

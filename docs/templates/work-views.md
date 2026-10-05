@@ -6,7 +6,7 @@ These source-driven templates extend KANVAS without connecting it to email, chat
 | --- | --- |
 | `email` | `messages`: from/to/cc/subject/timestamp/body; exact text and thread boundaries |
 | `inbox` | `items`: sender, subject, snippet, timestamp and unread; read-only rows with paging or scrolling, no embedded full-message actions |
-| `chat` | `messages`: stable id, sender, source timestamp and exact text; optional `contextLabel`, `conversationLabel` and `participants`; `kanvas_publish` `chat.append` accumulates new messages |
+| `chat` | `messages`: stable id, sender, source timestamp and exact text; optional `contextLabel`, `conversationLabel` and `participants`; `kanvas_tool_use` with `operationId:"kanvas.chat.append"` and nested `arguments` accumulates new messages |
 | `cards` | Generic records with id/title, free status, labels, assignees and custom scalar fields |
 | `bookmarks` | External URL collection with optional categories/favicon; Web view drilldown and viewer-activated new-tab link |
 | `tool-inventory` | Persistent left integration rail and independently scrollable selected tools; `activeGroup` supplies the initial selection; agent paging changes groups |
@@ -15,11 +15,11 @@ These source-driven templates extend KANVAS without connecting it to email, chat
 | `developer` | `kind`: pull-request, pipeline, commits or review; issues can use generic cards |
 | `operations` | `kind`: environments, alerts, access, cost or rollout; free-form supplied status/fields/stages |
 
-Get each exact contract and a ready example through `kanvas_inspect` `template.get`. The [public schema index](https://kanvas.creatrix.no/docs/index.json) is generated from the same runtime definitions.
+Get each exact contract and a ready example through `kanvas_tool_use` with `operationId:"kanvas.template.get"` and nested `arguments`. The [public schema index](https://kanvas.creatrix.no/docs/index.json) is generated from the same runtime definitions.
 
 ## Agent-authored selection
 
-`kanvas_control` `selection.set` requires sessionId, displayId, requestId, expectedRevision and selection. The view stores the original complete source and a separate selection instruction. Setting selection to null restores all records in their original order.
+`kanvas_tool_use` with `operationId:"kanvas.selection.set"` and nested `arguments` requires sessionId, displayId, requestId, expectedRevision and selection. The view stores the original complete source and a separate selection instruction. Setting selection to null restores all records in their original order.
 
 ```json
 {
@@ -37,7 +37,7 @@ Email, inbox and chat are read-oriented surfaces: they accept no generic reply/i
 
 ## Incremental chat
 
-`kanvas_publish` `chat.append` accepts up to 100 supplied messages per call, up to 1,000 in a thread, each with a stable unique ID. The original sender, text and timestamp remain exact. Same requestId plus identical input retries once; competing revisions and repeated message IDs are rejected. A viewer who has scrolled back is not pulled to the latest message. There is no send-to-Slack/email/WhatsApp action.
+`kanvas_tool_use` with `operationId:"kanvas.chat.append"` and nested `arguments` accepts up to 100 supplied messages per call, up to 1,000 in a thread, each with a stable unique ID. The original sender, text and timestamp remain exact. Same requestId plus identical input retries once; competing revisions and repeated message IDs are rejected. A viewer who has scrolled back is not pulled to the latest message. There is no send-to-Slack/email/WhatsApp action.
 
 ## Bookmarks and tabs
 

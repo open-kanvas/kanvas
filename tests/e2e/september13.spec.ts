@@ -39,7 +39,7 @@ test('weather gives conditions and explicit highs/lows the surface, with full de
   await viewer.getByLabel('About this view',{exact:true}).click();await expect(viewer.getByRole('region',{name:'View information'})).toContainText('Synthetic acceptance forecast');await expect(viewer.getByRole('region',{name:'View information'})).toBeInViewport();
   await viewer.keyboard.press('Escape');await expect(viewer.getByRole('region',{name:'View information'})).toBeHidden();
   await viewer.emulateMedia({reducedMotion:'no-preference'});expect(await viewer.locator('.weather-drop').first().evaluate(x=>getComputedStyle(x).animationName)).toBe('weather-rainfall');await viewer.emulateMedia({reducedMotion:'reduce'});
-  expect(external).toEqual([]);expect((await sessionDetail(page,s)).displays[0].view?.data).toEqual(explicit.data);
+  expect(external).toEqual([]);expect((await sessionDetail(page,s)).displays.find(item => item.id === d.id)!.view?.data).toEqual(explicit.data);
 });
 
 test('weather variants stay recognizable and legible on the actual receiving screen',async({page},info)=>{
@@ -61,7 +61,7 @@ test('quiet surfaces keep requested source information and exact supporting text
   await viewer.getByText('Supporting details · 2',{exact:true}).click();await expect(viewer.getByText('Exact source 9007199254740993.0000',{exact:true})).toBeVisible();
   await information.click();await expect(viewer.getByRole('region',{name:'View information'})).toContainText('A redundant generated heading');await expect(viewer.getByRole('link',{name:'Original supplied source ↗',exact:true})).toHaveAttribute('href','https://example.com/source');await photo(viewer,info,'source-information');
   await viewer.keyboard.press('Escape');await show(page,viewer,s,d.id,{...view,showTitle:true});await expect(viewer.locator('.view-heading h1')).toHaveText('A redundant generated heading');
-  expect((await sessionDetail(page,s)).displays[0].view?.data).toEqual(view.data);
+  expect((await sessionDetail(page,s)).displays.find(item => item.id === d.id)!.view?.data).toEqual(view.data);
 });
 
 test('long browser feedback has an accurate counter and survives save/reload as complete text',async({page})=>{
@@ -73,16 +73,20 @@ test('long browser feedback has an accurate counter and survives save/reload as 
 });
 
 test('all current templates retain a settled full-screen visual without default information controls',async({page},info)=>{
-  test.setTimeout(360000);const {s,d,viewer}=await setup(page);
-  await viewer.route('https://tile.openstreetmap.org/**',route=>route.fulfill({contentType:'image/png',body:PNG}));
-  await viewer.route('https://**/*',route=>route.request().isNavigationRequest()&&route.request().frame()!==viewer.mainFrame()?route.fulfill({contentType:'text/html',body:'<!doctype html><h1>Supplied website fixture</h1>'}):route.fallback());
+  test.setTimeout(360000);let {s,d,viewer}=await setup(page);
+  const prepareViewer=async()=>{
+    await viewer.route('https://tile.openstreetmap.org/**',route=>route.fulfill({contentType:'image/png',body:PNG}));
+    await viewer.route('https://**/*',route=>route.request().isNavigationRequest()&&route.request().frame()!==viewer.mainFrame()?route.fulfill({contentType:'text/html',body:'<!doctype html><h1>Supplied website fixture</h1>'}):route.fallback());
+  };await prepareViewer();
   // Deterministic, explicitly synthetic source media; no outside image/video hosts.
   const image=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=1200;canvas.height=800;const c=canvas.getContext('2d')!;const sky=c.createLinearGradient(0,0,0,800);sky.addColorStop(0,'#244863');sky.addColorStop(1,'#accccd');c.fillStyle=sky;c.fillRect(0,0,1200,800);c.fillStyle='#f4dca4';c.beginPath();c.arc(900,190,90,0,Math.PI*2);c.fill();c.fillStyle='#264b55';c.beginPath();c.moveTo(0,650);c.lineTo(410,180);c.lineTo(790,750);c.lineTo(1200,460);c.lineTo(1200,800);c.lineTo(0,800);c.fill();return canvas.toDataURL('image/png').split(',')[1];});
   async function asset(name:string,mimeType:string,base64:string){const result=await sessionApi<AssetRecord>(page,`/api/sessions/${s}/assets`,'POST',{name,mimeType,base64});expect(result.status).toBe(201);return result.data!;}
-  const landscape=await asset('Synthetic landscape.png','image/png',image),video=await asset('Supplied test video.mp4','video/mp4',(await readFile(new URL('../rendering/fixtures/sample.mp4',import.meta.url))).toString('base64'));
-  const qr=await asset('Illustrative join code.png','image/png',(await QRCode.toBuffer('https://example.com/join',{width:512,margin:2})).toString('base64'));
+  const loadAssets=async()=>({landscape:await asset('Synthetic landscape.png','image/png',image),video:await asset('Supplied test video.mp4','video/mp4',(await readFile(new URL('../rendering/fixtures/sample.mp4',import.meta.url))).toString('base64')),qr:await asset('Illustrative join code.png','image/png',(await QRCode.toBuffer('https://example.com/join',{width:512,margin:2})).toString('base64'))});
+  let {landscape,video,qr}=await loadAssets();
   const audit:unknown[]=[];
   for(const template of TEMPLATE_IDS){
+    // Cover every real template without bypassing the trial's 50-view quota.
+    if(audit.length===40){await viewer.close();s=await createSession(page,'Remaining template acceptance');d=await createDisplay(page,s,'Remaining source templates');viewer=await openViewer(page,s,d.id);await prepareViewer();({landscape,video,qr}=await loadAssets());}
     const input=structuredClone(samples[template]);
     if(template==='image')input.data={images:[{url:landscape.url,alt:'Synthetic landscape',caption:'A supplied image, given the surface.'}]};
     if(template==='image-gallery')input.data={mode:'grid',images:[{url:landscape.url,alt:'Synthetic landscape one'},{url:landscape.url,alt:'Synthetic landscape two'}]};

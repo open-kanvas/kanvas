@@ -193,7 +193,7 @@ export async function createApp(options: AppOptions = {}) {
   app.post('/api/sessions/:id/displays/:displayId/chat',operation('kanvas_chat_append',displayArgs));
   app.post('/api/sessions/:id/displays/:displayId/selection',operation('kanvas_selection_set',displayArgs));
   const tiles=mapConfig();app.get('/api/map/config',(_req,res)=>res.json({data:tiles}));
-  app.get('/healthz', (_req, res) => res.json({ status: 'ok', version: KANVAS_VERSION, mcpProfile: profile }));
+  app.get('/healthz', (_req, res) => res.json({ status: 'ok', version: KANVAS_VERSION, mcpProfile: 'discovery' }));
   app.get('/readyz', async (_req, res) => {
     try { await store.query('SELECT 1'); res.json({ status: 'ready', version: KANVAS_VERSION, database: 'postgresql' }); }
     catch { res.status(503).json({ status: 'unavailable' }); }
@@ -348,6 +348,9 @@ export async function createApp(options: AppOptions = {}) {
     });
     const heartbeat = setInterval(async () => { try { (await service.access(principal, sessionId)); receiving?.touch(); (await windowReceiver?.push());res.write(': keepalive\n\n'); } catch { (await finish()); } }, 15_000); heartbeat.unref();
     streams.add(finish); req.on('close', () => { void finish().catch(() => {}); });
+    // Setup above crosses asynchronous registration boundaries after headers
+    // are sent. The peer can disconnect before the close listener is installed.
+    if (req.destroyed || res.destroyed) { await finish(); return; }
     try{(await windowReceiver?.push());}catch{(await finish());}
   });
 

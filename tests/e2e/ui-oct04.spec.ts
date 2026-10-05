@@ -7,13 +7,18 @@ test('marker tables retain rich safe content in popup and permanent modes',async
  const html='<strong>Regional transport</strong><table><tr><td>Daily departures</td><td>310</td></tr><tr><td>Connections</td><td>48</td></tr></table><script>window.untrustedExecuted=true</script><img src="https://evil.test/pixel"><a href="javascript:alert(1)" onclick="alert(1)">Safe text</a>';
  for(const permanent of [false,true]){
   await publishPrepared(page,s,[d.id],{version:1,template:'map',data:{markers:[{lat:59.9,lng:10.7,label:'Plain fallback',popupHtml:html,contentDisplay:permanent?'permanent':'popup'}]}});
+  await waitForDisplay(page,s,d.id,x=>x.appliedRevision===x.revision&&x.revision>0);
   await expect(v.locator('.viewer-candidate .leaflet-interactive').first()).toBeVisible();
   if(!permanent)await v.locator('.viewer-candidate .leaflet-interactive').first().click();
   const box=v.locator(permanent?'.viewer-candidate .map-permanent-content':'.viewer-candidate .map-rich-popup');
-  await expect(box).toHaveCount(1);await expect(box.locator('strong')).toHaveText('Regional transport');await expect(box.locator('table')).toBeVisible();await expect(box).not.toContainText('Plain fallback');
-  await expect(box.locator('script,img,[onclick],a[href^="javascript:"]')).toHaveCount(0);expect(unwanted).toEqual([]);
-  const geometry=await box.evaluate(e=>{const cells=e.querySelectorAll('td'),a=cells[0].getBoundingClientRect(),b=cells[1].getBoundingClientRect(),r=e.getBoundingClientRect(),map=e.closest('.map-surface')!.getBoundingClientRect(),range=document.createRange();range.selectNodeContents(cells[0]);return{width:r.width,left:r.left,right:r.right,mapLeft:map.left,mapRight:map.right,lines:range.getClientRects().length,cellWidth:a.width,secondLeft:b.left,firstRight:a.right};});
-  expect(geometry.cellWidth).toBeGreaterThan(100);expect(geometry.lines).toBeLessThanOrEqual(2);expect(geometry.secondLeft).toBeGreaterThanOrEqual(geometry.firstRight-1);expect(geometry.left).toBeGreaterThanOrEqual(geometry.mapLeft);expect(geometry.right).toBeLessThanOrEqual(geometry.mapRight);
+  // Leaflet redraws may briefly retain the previous fading tooltip. Assert
+  // the complete unique, sanitized and contained result after that transition.
+  await expect(async()=>{
+    await expect(box).toHaveCount(1);await expect(box.locator('strong')).toHaveText('Regional transport');await expect(box.locator('table')).toBeVisible();await expect(box).not.toContainText('Plain fallback');
+    await expect(box.locator('script,img,[onclick],a[href^="javascript:"]')).toHaveCount(0);expect(unwanted).toEqual([]);
+    const geometry=await box.evaluate(e=>{const cells=e.querySelectorAll('td'),a=cells[0].getBoundingClientRect(),b=cells[1].getBoundingClientRect(),r=e.getBoundingClientRect(),map=e.closest('.map-surface')!.getBoundingClientRect(),range=document.createRange();range.selectNodeContents(cells[0]);return{width:r.width,left:r.left,right:r.right,mapLeft:map.left,mapRight:map.right,lines:range.getClientRects().length,cellWidth:a.width,secondLeft:b.left,firstRight:a.right};});
+    expect(geometry.cellWidth).toBeGreaterThan(100);expect(geometry.lines).toBeLessThanOrEqual(2);expect(geometry.secondLeft).toBeGreaterThanOrEqual(geometry.firstRight-1);expect(geometry.left).toBeGreaterThanOrEqual(geometry.mapLeft);expect(geometry.right).toBeLessThanOrEqual(geometry.mapRight);
+  }).toPass({timeout:10000});
   await v.screenshot({path:info.outputPath(permanent?'permanent-table.png':'popup-table.png'),animations:'disabled'});
  }
 });

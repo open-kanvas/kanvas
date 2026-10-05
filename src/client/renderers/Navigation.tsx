@@ -120,7 +120,9 @@ export function BrowsingProvider({view,sessionId,displayId,revision,config,enabl
       if(cancelled||!el.isConnected)return;
       const caps=navigationCapabilities(view,state),panel=state.panelId?[...el.querySelectorAll<HTMLElement>('[data-code-panel]')].find(p=>p.getAttribute('data-code-panel')===state.panelId):el;let scroll=scrollElement(panel??el);
       const scrollKey=JSON.stringify([state.scroll,state.page,revision,snapshot?.commandId]);
-      if(caps.scroll&&!nativeScrollPending.current&&scroll.dataset.readingAuto!=='true'&&scrollKey!==lastScroll.current&&((snapshot?.version??0)>0||busy.current||local)){const x=state.scroll.x*Math.max(0,scroll.scrollWidth-scroll.clientWidth),y=state.scroll.y*Math.max(0,scroll.scrollHeight-scroll.clientHeight);if(Math.abs(scroll.scrollLeft-x)>1||Math.abs(scroll.scrollTop-y)>1){suppress.current=Date.now()+150;scroll.scrollLeft=x;scroll.scrollTop=y;}}
+      // Only this revision's navigation can move a retained reader. An old
+      // request may still be draining while the new revision starts at defaults.
+      if(caps.scroll&&!nativeScrollPending.current&&scroll.dataset.readingAuto!=='true'&&scrollKey!==lastScroll.current&&((snapshot?.revision===revision&&snapshot.version>0)||(busy.current&&pendingRevision.current===revision)||local)){const x=state.scroll.x*Math.max(0,scroll.scrollWidth-scroll.clientWidth),y=state.scroll.y*Math.max(0,scroll.scrollHeight-scroll.clientHeight);if(Math.abs(scroll.scrollLeft-x)>1||Math.abs(scroll.scrollTop-y)>1){suppress.current=Date.now()+150;scroll.scrollLeft=x;scroll.scrollTop=y;}}
       lastScroll.current=scrollKey;
       const ranges=caps.search?textRanges(el,state.query):[],highlights=caps.highlight?textRanges(el,state.highlight):[];
       const css=CSS as typeof CSS&{highlights?:Map<string,unknown>},HighlightClass=(globalThis as unknown as {Highlight?:new(...ranges:Range[])=>unknown}).Highlight;

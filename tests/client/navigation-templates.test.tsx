@@ -1,3 +1,5 @@
+import { operationCatalog, discoveryToolDefinitions } from '../../src/server/mcp/discovery';
+import { operationId } from '../../src/server/mcp/operations';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe,expect,it } from 'vitest';
 import { z } from 'zod';
@@ -35,8 +37,13 @@ describe('source-preserving templates and regional display',()=>{
     const number=validateView({version:1,template:'number',data:{value:12345.67}}),before=structuredClone(number);expect(renderToStaticMarkup(<Renderer view={number} config={{...DEFAULT_CONFIG,numberLocale:'de-DE'}}/>)).toContain('12.345,67');expect(number).toEqual(before);
   });
 });
-it('lists each operation’s required input names before its general description, from the runtime schema, including new Help/navigation/pins',()=>{
-  const tools=listToolDefinitions('twelve'),canonical=canonicalToolDefinitions();expect(tools).toHaveLength(12);
-  for(const entry of OPERATION_ENTRIES){const tool=tools.find(x=>x.name===entry.tool)!,definition=canonical.find(x=>x.name===entry.canonical)!;const summary=`${entry.operation}(${definition.inputSchema.required?.join(',')||'none'})`;expect(tool.description,entry.operation).toContain(summary);expect(tool.description).toContain('Required: operation.');}
-  expect(resolveToolCall('twelve','kanvas_inspect',{operation:'help.read',topic:'navigation'}).canonicalName).toBe('kanvas_help');
+it('exposes each operation’s required inputs and full runtime schema through the seven-tool discovery facade',()=>{
+  expect(discoveryToolDefinitions()).toHaveLength(7);
+  const canonical=canonicalToolDefinitions();
+  for(const item of operationCatalog()){
+    const detail=item.detail(),definition=canonical.find(x=>operationId(x.name)===item.id)!;
+    expect(detail.requiredInputs,item.id).toEqual(definition.inputSchema.required??[]);
+    expect((detail.inputSchema as {required?:string[]}).required??[],item.id).toEqual(definition.inputSchema.required??[]);
+  }
+  expect(resolveToolCall('discovery','kanvas_tool_use',{operationId:'kanvas.help',arguments:{topic:'navigation'}}).canonicalName).toBe('kanvas_help');
 });

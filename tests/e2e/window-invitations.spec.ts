@@ -12,18 +12,27 @@ async function tracked(page:Page,path:string){const response=page.waitForRespons
 test('one physical browser has independent reload-stable windows, cloned tabs and painted delivery receipts',async({page,diagnostics})=>{
   await register(page);const s=await createSession(page,'Window-specific content'),first=await createDisplay(page,s,'Window one'),second=await createDisplay(page,s,'Window two'),target=await createDisplay(page,s,'Target');
   for(const [d,text] of [[first,'First window stays independent'],[second,'Second window stays independent'],[target,'Requested window target']] as const)await publishPrepared(page,s,[d.id],{version:1,template:'fact',data:{text}});
+  const initial=(await business(page,'/api/devices')).data.devices;expect(initial).toHaveLength(1);
+  const initialWindows=initial[0].windows;expect(initialWindows.filter((w:any)=>w.connected)).toHaveLength(1);
+  // The signed-in management tab is also a quota-neutral registered window.
   const a=await page.context().newPage(),b=await page.context().newPage(),ad=await tracked(a,`/view/${s}/${first.id}`),bd=await tracked(b,`/view/${s}/${second.id}`);expect(ad.id).toBe(bd.id);expect(ad.window.id).not.toBe(bd.window.id);
-  await expect.poll(async()=> (await business(page,'/api/devices')).data.devices.find((d:any)=>d.id===ad.id).windows.filter((w:any)=>w.connected).length).toBe(2);
+  await expect.poll(async()=> (await business(page,'/api/devices')).data.devices.find((d:any)=>d.id===ad.id).windows.filter((w:any)=>w.connected).length).toBe(initialWindows.length+2);
   const cloned=a.waitForEvent('popup');await a.evaluate(path=>{window.open(path,'kanvas-test-clone');},`/view/${s}/${first.id}`);const clone=await cloned;diagnostics.watch(clone);await expect(clone.locator('.viewer-shell')).toHaveAttribute('data-render-status','ready');
-  await expect.poll(async()=> (await business(page,'/api/devices')).data.devices.find((d:any)=>d.id===ad.id).windows.filter((w:any)=>w.connected).length).toBe(3);
+  await expect.poll(async()=> (await business(page,'/api/devices')).data.devices.find((d:any)=>d.id===ad.id).windows.filter((w:any)=>w.connected).length).toBe(initialWindows.length+3);
   const list=() => business(page,'/api/devices').then(r=>r.data.devices.find((d:any)=>d.id===ad.id));
-  let current=await list();expect(new Set(current.windows.map((w:any)=>w.id)).size).toBe(3);
+  let current=await list();expect(new Set(current.windows.map((w:any)=>w.id)).size).toBe(initialWindows.length+3);
   const command=await business(page,`/api/devices/${ad.id}/windows/${ad.window.id}/present`,'POST',{sessionId:s,displayId:target.id,expectedVersion:current.windows.find((w:any)=>w.id===ad.window.id).version,requestId:randomUUID()});expect(command.status).toBe(200);
   await expect(a.locator('.viewer-candidate')).toContainText('Requested window target');await expect(b.locator('.viewer-candidate')).toContainText('Second window stays independent');await expect(clone.locator('.viewer-candidate')).toContainText('First window stays independent');
   await expect.poll(async()=> (await list()).windows.find((w:any)=>w.id===ad.window.id)?.command?.status).toBe('applied');
   const reloaded=a.waitForResponse(r=>new URL(r.url()).pathname==='/api/devices/register');await a.reload();expect((await(await reloaded).json()).data.window.id).toBe(ad.window.id);await expect(a.locator('.viewer-candidate')).toContainText('Requested window target');
-  current=await list();expect((await business(page,'/api/devices/present','POST',{deviceId:ad.id,sessionId:s,displayId:target.id,expectedVersion:current.version,requestId:randomUUID()})).status).toBe(200);
-  for(const receiver of [a,b,clone])await expect(receiver.locator('.viewer-candidate')).toContainText('Requested window target');
+  current=await list();
+  // This broadcast intentionally navigates the initiating management window.
+  // Observe its real HTTP response outside that soon-to-be-destroyed JS realm;
+  // never resend the mutation when navigation races response JSON decoding.
+  const broadcastResponse=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/devices/present'&&r.request().method()==='POST');
+  const broadcasting=business(page,'/api/devices/present','POST',{deviceId:ad.id,sessionId:s,displayId:target.id,expectedVersion:current.version,requestId:randomUUID()}).catch(error=>{if(!/Execution context was destroyed/.test(String(error)))throw error;});
+  expect((await broadcastResponse).status()).toBe(200);await broadcasting;
+  for(const receiver of [page,a,b,clone])await expect(receiver.locator('.viewer-candidate')).toContainText('Requested window target');
   await expect.poll(async()=> (await list()).command.status).toBe('applied');await b.close();await expect.poll(async()=> (await list()).windows.find((w:any)=>w.id===bd.window.id)?.connected).toBe(false);
   const state=await list(),offline=state.windows.find((w:any)=>w.id===bd.window.id);diagnostics.allowHttp(page,`/api/devices/${ad.id}/windows/${bd.window.id}/present`,409);
   expect((await business(page,`/api/devices/${ad.id}/windows/${bd.window.id}/present`,'POST',{sessionId:s,displayId:first.id,expectedVersion:offline.version,requestId:randomUUID()})).code).toBe('WINDOW_OFFLINE');

@@ -8,8 +8,11 @@ import type {ViewSpec} from '../../src/shared/types';
 import {test,expect,register,createSession,createDisplay,openViewer,publishPrepared,waitForDisplay,sessionApi,sessionDetail,isolatedContext,tab} from './support';
 
 const fact=(text:string):ViewSpec=>({version:1,template:'fact',data:{text}});
-async function setup(page:Page,info:TestInfo,baseURL:string){
-  await register(page);const s=await createSession(page,'Event acceptance'),d=await createDisplay(page,s,'Main screen'),v=await openViewer(page,s,d.id);
+async function setup(page:Page,info:TestInfo,baseURL:string,useDefaultDisplay=false){
+  await register(page);const s=await createSession(page,'Event acceptance');
+  const defaults=(await sessionDetail(page,s)).displays;expect(defaults).toHaveLength(1);
+  // Session-wide and short-key links open the actual session default.
+  const d=useDefaultDisplay?defaults[0]:await createDisplay(page,s,'Main screen'),v=await openViewer(page,s,d.id);
   const issued=await sessionApi<{token:string}>(page,'/api/tokens','POST',{name:'Disposable event checks',scopes:['read','publish']});expect(issued.status).toBe(201);
   const headers={Authorization:`Bearer ${issued.data!.token}`},client=info.project.name.startsWith('phone')?new LegacyClient({name:'event-legacy',version:'1'}):new Client({name:'event-current',version:'1'});
   if(client instanceof LegacyClient)await client.connect(new LegacyTransport(new URL('/mcp',baseURL),{requestInit:{headers}}));else await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',baseURL),{requestInit:{headers}}));
@@ -64,7 +67,7 @@ test('autoplay advances prepared frames, pauses, resumes, stops and completes on
 });
 
 test('owner opt-in opens all current displays read-only and revocation clears an already-connected public browser',async({page,baseURL,browser,diagnostics},info)=>{
-  const a=await setup(page,info,baseURL!),anonymous=await isolatedContext(browser,info,baseURL!);try{
+  const a=await setup(page,info,baseURL!,true),anonymous=await isolatedContext(browser,info,baseURL!);try{
     await a.show({version:1,template:'scoreboard',data:{sides:[{id:'a',name:'Harbour',score:12},{id:'b',name:'Forest',score:9}]}});
     const second=await createDisplay(page,a.s,'Another screen');await publishPrepared(page,a.s,[second.id],fact('Other published display'));
     await tab(page,'People & access');await page.getByRole('button',{name:'Enable public viewing',exact:true}).click();await expect(page.getByRole('button',{name:'Make session private'})).toBeVisible();
@@ -80,7 +83,7 @@ test('owner opt-in opens all current displays read-only and revocation clears an
 });
 
 test('anonymous short-key entry makes account and pairing explicit, then grants only the approved display',async({page,baseURL,browser,diagnostics},info)=>{
-  const a=await setup(page,info,baseURL!),anonymous=await isolatedContext(browser,info,baseURL!);try{
+  const a=await setup(page,info,baseURL!,true),anonymous=await isolatedContext(browser,info,baseURL!);try{
     await a.show(fact('Approved screen only'));const address=await a.call('kanvas_session','address.get',{sessionId:a.s}),short=new URL(address.url).pathname.split('/').pop()!;
     const guest=await anonymous.newPage();diagnostics.watch(guest);await guest.goto('/');await expect(guest.getByLabel('Password',{exact:true})).toHaveCount(0);await guest.getByLabel('Session key',{exact:true}).fill(short);await guest.getByRole('button',{name:'Open session',exact:true}).click();
     await expect(guest.getByRole('group',{name:'Choose display access'})).toBeVisible();await expect(guest.getByRole('button',{name:'Sign in to my account'})).toBeVisible();

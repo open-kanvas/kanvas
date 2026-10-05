@@ -49,8 +49,8 @@ export default defineConfig({
       HOST: '127.0.0.1',
       PORT: '8799',
       KANVAS_PUBLIC_URL: baseURL,
-      // Browser protocol workflows explicitly target this catalog; packaged smoke covers all profiles.
-      KANVAS_MCP_PROFILE: 'twelve',
+      // Browser workflows use the same seven-tool surface as the deployed default.
+      KANVAS_MCP_PROFILE: 'discovery',
       KANVAS_DB: '',
       KANVAS_PG_HOST: database.host!,
       KANVAS_PG_PORT: String(database.port),

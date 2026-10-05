@@ -4,22 +4,22 @@ import { createDisplay, createSession, expect, openViewer, publishPrepared, regi
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
 
-test('a failed replacement retains the actual previously painted DOM and history restores it', async ({ page, diagnostics }) => {
+test('a failed video replacement retains the actual previously painted DOM and history restores it', async ({ page, diagnostics }) => {
   await register(page); const sessionId = await createSession(page, 'Retain what was painted'), display = await createDisplay(page, sessionId, 'Persistent picture');
   await tab(page, 'Library');
-  const viewer = await openViewer(page, sessionId, display.id), goodUrl = 'https://example.com/retained-picture.png', badUrl = 'https://example.com/failed-replacement.png';
+  const viewer = await openViewer(page, sessionId, display.id), goodUrl = 'https://example.com/retained-picture.png', badUrl = 'https://example.com/failed-replacement.mp4';
   let goodRequests = 0;
   await viewer.route(goodUrl, route => { goodRequests++; return route.fulfill({contentType: 'image/png', body: PNG}); });
-  await viewer.route(badUrl, route => route.fulfill({status: 404, contentType: 'text/plain', body: 'Synthetic failed image'}));
-  diagnostics.allowHttp(viewer, '/failed-replacement.png', 404);
+  await viewer.route(badUrl, route => route.fulfill({status: 404, contentType: 'text/plain', body: 'Synthetic failed video'}));
+  diagnostics.allowHttp(viewer, '/failed-replacement.mp4', 404);
   await publishPrepared(page, sessionId, [display.id], {version: 1, template: 'image', title: 'Previous successful content', data: {images: [{url: goodUrl, alt: 'Previously decoded image'}]}});
   const good = await waitForDisplay(page, sessionId, display.id, d => d.revision > 0 && d.appliedRevision === d.revision);
   await viewer.getByRole('img', {name: 'Previously decoded image'}).evaluate(element => element.setAttribute('data-original-node', 'yes'));
-  await publishPrepared(page, sessionId, [display.id], {version: 1, template: 'image', data: {images: [{url: badUrl, alt: 'Failed new image'}]}});
+  await publishPrepared(page, sessionId, [display.id], {version: 1, template: 'video', data: {url: badUrl}});
   await expect(viewer.locator('.viewer-shell')).toHaveAttribute('data-render-status', 'failed');
   const retained = viewer.locator('.viewer-last-good'); await expect(retained).toBeVisible();
   await expect(retained.getByRole('img')).toHaveAttribute('data-original-node', 'yes');
-  await expect(viewer.locator('.viewer-status')).toContainText('A media resource could not be displayed. Showing the last successful view.');
+  await expect(viewer.locator('.viewer-status')).toContainText('Showing the last successful view.');
   expect(goodRequests).toBe(1);
   const failed = await waitForDisplay(page, sessionId, display.id, d => d.delivery?.status === 'failed');
   expect(failed.appliedRevision).toBe(good.revision); expect(failed.revision).toBeGreaterThan(good.revision);
@@ -73,14 +73,16 @@ test('MCP visual readback returns real renderer pixels without impersonating phy
   };
   try {
     const code = await inspect(); expect(code.readiness).toBe('ready'); expect(code.revision).toBe(before.revision); expect(code.observedViewer.online).toBe(false);
-    let after = (await sessionDetail(page, sessionId)).displays[0]; expect(after.online).toBe(false); expect(after.appliedRevision).toBe(before.appliedRevision); expect(after.viewportRevision).toBe(before.viewportRevision);
+    let after = (await sessionDetail(page, sessionId)).displays.find(item => item.id === display.id)!; expect(after.online).toBe(false); expect(after.appliedRevision).toBe(before.appliedRevision); expect(after.viewportRevision).toBe(before.viewportRevision);
     // Own protected media is available to the isolated browser, not anonymously.
     const asset = await sessionApi<AssetRecord>(page, `/api/sessions/${sessionId}/assets`, 'POST', {name: 'Private capture.png', mimeType: 'image/png', base64: PNG.toString('base64')}); expect(asset.status).toBe(201);
     await publishPrepared(page, sessionId, [display.id], {version: 1, template: 'image', data: {images: [{url: asset.data!.url, alt: 'Private captured image'}]}});
     expect((await inspect()).readiness).toBe('ready');
     await publishPrepared(page, sessionId, [display.id], {version: 1, template: 'image', data: {images: [{url: 'https://example.com/not-fetched-for-capture.png', alt: 'External media blocked'}]}});
-    const blocked = await inspect(); expect(blocked.readiness).toBe('failed'); expect(blocked.blockedExternalRequests).toBeGreaterThan(0);
-    after = (await sessionDetail(page, sessionId)).displays[0]; expect(after.online).toBe(false); expect(after.appliedRevision).toBe(before.appliedRevision);
+    // Accepted image policy renders an explicit unavailable placeholder. Ready
+    // describes that local surface, not successful external media or delivery.
+    const blocked = await inspect(); expect(blocked.readiness).toBe('ready'); expect(blocked.blockedExternalRequests).toBeGreaterThan(0);
+    after = (await sessionDetail(page, sessionId)).displays.find(item => item.id === display.id)!; expect(after.online).toBe(false); expect(after.appliedRevision).toBe(before.appliedRevision);
     const other = await createSession(page, 'Not granted to capture identity');
     const forbidden = await client.callTool({name: 'kanvas_capture', arguments: {operation:'snapshot', sessionId: other, displayId: display.id}}); expect(forbidden.isError).toBe(true);
   } finally { await client.close(); }

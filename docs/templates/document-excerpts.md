@@ -12,7 +12,7 @@ Optional `headings: [{start, end, level}]` uses exact nonoverlapping offsets int
 {"version":1,"template":"document","title":"A supplied article","data":{"text":"Opening heading\n\nThe exact source paragraph remains intact.\n\nAnother supplied paragraph.","layout":"reading","headings":[{"start":0,"end":15,"level":2}]}}
 ```
 
-Read `kanvas_inspect` (`operation: "template.get"`) for current fields and bounds. The original discussion below explains why focused excerpts still matter; its full-document deferral was superseded only for explicitly supplied reading text, not document retrieval or OCR.
+Read `kanvas_tool_use` with `operationId:"kanvas.template.get"` and nested `arguments` for current fields and bounds. The original discussion below explains why focused excerpts still matter; its full-document deferral was superseded only for explicitly supplied reading text, not document retrieval or OCR.
 
 ## Candidate layouts
 

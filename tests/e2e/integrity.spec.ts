@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Page } from '@playwright/test';
 import type { AssetRecord, DatasetRecord, DisplayRecord, UpdateRecord, ViewSpec } from '../../src/shared/types';
-import { MEDIA_LOAD_TIMEOUT_MS } from '../../src/client/renderers/readiness';
 import { createDisplay, createSession, expect, openViewer, publishPrepared, register, sessionApi, sessionDetail, tab, test, waitForDisplay } from './support';
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
@@ -206,11 +205,12 @@ test('image galleries, document crops, snapshots, presentation media and videos 
   }
 });
 
-test('broken media cannot apply and website frames never claim verified remote content', async ({ page, diagnostics }) => {
+test('broken images render placeholders, videos cannot apply, and website frames never claim verified remote content', async ({ page, diagnostics }) => {
   const { sessionId, display } = await workspace(page, 'Unverified media');
   const viewer = await openViewer(page, sessionId, display.id);
   // A prior failed-media report can arrive after the next revision is installed.
   diagnostics.allowHttp(viewer, `/api/sessions/${sessionId}/displays/${display.id}/delivery`, 409);
+  await viewer.route('**/image-fallback', route => route.fulfill({ json: { data: { status: 'unavailable', message: 'Controlled missing image' } } }));
   let revision = 0;
   for (const template of ['image', 'video'] as const) {
     const url = `https://example.com/kanvas-integrity/broken-${template}`;
@@ -219,8 +219,16 @@ test('broken media cannot apply and website frames never claim verified remote c
     const view: ViewSpec = { version: 1, template, data: template === 'image' ? { images: [{ url, alt: 'Unavailable fixture image' }] } : { url } };
     await publishPrepared(page, sessionId, [display.id], view);
     const current = await waitForDisplay(page, sessionId, display.id, d => d.revision > revision);
-    await expect(viewer.locator('.media-readiness-error')).toBeVisible(); await twoFrames(viewer);
-    expect((await sessionDetail(page, sessionId)).displays.find(d => d.id === display.id)!.appliedRevision ?? 0).toBeLessThan(current.revision);
+    if (template === 'image') {
+      await expect(viewer.locator('.viewer-candidate .media-unavailable')).toBeVisible();
+      await expect(viewer.locator('.viewer-candidate .media-unavailable')).toContainText('Unavailable fixture image');
+      await waitForDisplay(page, sessionId, display.id, d => d.appliedRevision === current.revision);
+    } else {
+      await expect(viewer.locator('.viewer-shell')).toHaveAttribute('data-render-status', 'failed');
+      await expect(viewer.locator('.viewer-status')).toContainText('browser rejected this video source');
+      await expect(viewer.locator('.viewer-last-good .media-unavailable')).toBeVisible(); await twoFrames(viewer);
+      expect((await sessionDetail(page, sessionId)).displays.find(d => d.id === display.id)!.appliedRevision ?? 0).toBeLessThan(current.revision);
+    }
     revision = current.revision;
   }
   const embeddedUrl = 'https://player.vimeo.com/video/123456';
@@ -235,7 +243,7 @@ test('broken media cannot apply and website frames never claim verified remote c
   expect(frame.view?.data.pages).toMatchObject([{ url: embeddedUrl, title: 'Opaque publisher content' }]);
 });
 
-test('a stalled image reaches a bounded visible failure and cannot acknowledge a later load', async ({ page }) => {
+test('a stalled image reaches a bounded explicit placeholder and a late load cannot remove that evidence', async ({ page }) => {
   const { sessionId, display } = await workspace(page, 'Bounded media waiting');
   const viewer = await openViewer(page, sessionId, display.id);
   await viewer.clock.install();
@@ -243,16 +251,21 @@ test('a stalled image reaches a bounded visible failure and cannot acknowledge a
   let release!: () => void;
   const stalled = new Promise<void>(resolve => { release = resolve; });
   await viewer.route(url, async route => { await stalled; await route.fulfill({ contentType: 'image/png', body: PNG }); });
+  await viewer.route('**/image-fallback', async route => { await stalled; await route.fulfill({ json: { data: { status: 'unavailable' } } }); });
   try {
     await publishPrepared(page, sessionId, [display.id], { version: 1, template: 'image', data: { images: [{ url, alt: 'Stalled image' }] } });
     await viewer.clock.runFor(200);
     await expect(viewer.getByText('Loading media…', { exact: true })).toBeVisible();
-    await viewer.clock.fastForward(MEDIA_LOAD_TIMEOUT_MS + 50);
-    await expect(viewer.locator('.media-readiness-error')).toBeVisible();
+    // Images allow thirty seconds for anonymous fallback before the accepted
+    // degraded-image policy acknowledges an explicit unavailable surface.
+    await viewer.clock.fastForward(30_000 + 50);
+    await expect(viewer.locator('.viewer-candidate .media-unavailable')).toBeVisible();
+    await expect(viewer.locator('.viewer-candidate .media-unavailable')).toContainText('Stalled image');
     release(); await viewer.clock.runFor(200);
-    const current = (await sessionDetail(page, sessionId)).displays.find(d => d.id === display.id)!;
-    expect(current.revision).toBeGreaterThan(0);
-    expect(current.appliedRevision ?? 0).toBeLessThan(current.revision);
+    const current = await waitForDisplay(page, sessionId, display.id, d => d.revision > 0 && d.appliedRevision === d.revision);
+    expect(current.view?.data.images).toEqual([{ url, alt: 'Stalled image' }]);
+    await expect(viewer.locator('.viewer-candidate .media-unavailable')).toBeVisible();
+    await expect(viewer.locator('.viewer-candidate img')).toHaveCount(0);
   } finally { release(); }
 });
 

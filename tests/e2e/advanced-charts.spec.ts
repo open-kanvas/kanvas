@@ -16,7 +16,7 @@ test('all fifteen advanced chart families paint supplied data with readable narr
   const audit: unknown[] = [];
   for (const [kind, sample] of Object.entries(advancedChartExamples)) {
     const view = validateView(structuredClone(sample));
-    const prior = (await sessionDetail(page, sessionId)).displays[0].revision;
+    const prior = (await sessionDetail(page, sessionId)).displays.find(item => item.id === display.id)!.revision;
     await publishPrepared(page, sessionId, [display.id], view);
     const ready = await waitForDisplay(page, sessionId, display.id, d => d.revision > prior && d.appliedRevision === d.revision);
     expect(ready.view?.data).toEqual(view.data);

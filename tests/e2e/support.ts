@@ -29,20 +29,27 @@ class BrowserDiagnostics {
       try { pathname = new URL(message.location().url).pathname; } catch { /* Non-URL console locations are retained. */ }
       this.errors.push({ page, kind: 'console', pathname, message: message.text().slice(0, 600) });
     });
-    page.on('response', response => {
-      const pathname = new URL(response.url()).pathname;
+    // A response event only means headers arrived. Viewer reloads can cancel
+    // the body; do not leave teardown awaiting JSON for an unfinished request.
+    // These reads establish narrow diagnostic exemptions, not app success.
+    page.on('requestfinished', request => {
+      const pathname = new URL(request.url()).pathname;
       const displayPath = /^\/api\/sessions\/[^/]+\/displays\/[^/]+\/(navigation|applied)$/.exec(pathname);
       const gridPath = /^\/api\/sessions\/[^/]+\/displays\/[^/]+\/grid$/.test(pathname);
-      const sessionRead = /^\/api\/sessions\/[^/]+$/.test(pathname) && response.request().method() === 'GET';
+      const sessionRead = /^\/api\/sessions\/[^/]+$/.test(pathname) && request.method() === 'GET';
       if (!displayPath && !sessionRead && !gridPath) return;
       this.responseChecks.push((async () => {
+        const response = await request.response();
+        if (!response) return;
         const payload = await response.json();
         if (sessionRead && response.ok() && Array.isArray(payload.data?.displays)) {
           const reads = this.revisionReads.get(page) ?? new Map<string, number>();
           for (const display of payload.data.displays) {
             if (typeof display.id !== 'string' || !Number.isInteger(display.revision)) continue;
-            const path = `${pathname}/displays/${display.id}/applied`;
-            reads.set(path, Math.max(reads.get(path) ?? -1, display.revision));
+            for (const action of ['applied', 'navigation']) {
+              const path = `${pathname}/displays/${display.id}/${action}`;
+              reads.set(path, Math.max(reads.get(path) ?? -1, display.revision));
+            }
             const grids = this.gridReads.get(page) ?? new Map<string, { gridRevision: number; replacementRevision: number }>();
             const gridPath = `${pathname}/displays/${display.id}/grid`;
             const grid = grids.get(gridPath) ?? { gridRevision: -1, replacementRevision: -1 };

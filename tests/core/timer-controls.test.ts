@@ -317,7 +317,8 @@ function toolFailure(result: ToolResult, code: string) {
 describe.each(['modern', 'legacy'] as const)('%s MCP timer control integration', protocol => {
   it('publishes direct pause/resume receipts, replays the original action, and returns safe state conflicts', async () => {
     const { h, account, session, display, client, call, interpret } = await protocolSetup(protocol);
-    const discovery = await client.listTools(); expect(discovery.tools.some(tool => tool.name === 'kanvas_timer_control')).toBe(true);
+    const discovery = await client.listTools(); expect(discovery.tools.some(tool => tool.name === 'kanvas_tool_use')).toBe(true);
+    const found = await client.callTool({name:'kanvas_tool_search',arguments:{query:'kanvas.timer.control'}}); expect((found.structuredContent as any).data.results[0].operationId).toBe('kanvas.timer.control');
     await account.submit(session.id, [display.id], timer({ endsAt: iso(Date.now() + 120000), completeText: 'Finished' }));
     const before = (await account.detail(session.id)).displays[0];
     const request = { expectedRevision: before.revision, requestId: randomUUID(), action: 'pause' };

@@ -16,10 +16,10 @@ it('compacted presentation schema preserves valid leaves and rejection boundarie
   // retain every validator; the bounded-preview fallback is never a contract.
   for(const profile of ['legacy','domains','twelve'] as const){
     const result=toolSuccess({template:'presentation',name:templateNames.presentation,schema:compact,example:samples.presentation,displayGuidance:TEMPLATE_DISPLAY_GUIDANCE.presentation,note:'Complete view schema, not submit arguments. Preserve supplied source values.'},undefined,'kanvas_template_get',profile);
-    expect(result.structuredContent?.truncated,profile).not.toBe(true);
+    expect((result.structuredContent as Record<string,unknown>)?.truncated,profile).not.toBe(true);
     const text=result.content.find(item=>item.type==='text');expect(text?.type).toBe('text');
     if(text?.type==='text')expect(Buffer.byteLength(text.text),profile).toBeLessThanOrEqual(MAX_TOOL_RESULT_BYTES);
-    expect((result.structuredContent?.data as {schema:unknown}).schema).toEqual(compact);
+    expect(((result.structuredContent as Record<string,unknown>)?.data as {schema:unknown}).schema).toEqual(compact);
   }
   for(const sample of Object.values(samples).filter(v=>v.template!=='presentation')){
     const deck=(leaf:unknown)=>({version:1,template:'presentation',data:{slides:[leaf],index:0}});

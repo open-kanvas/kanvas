@@ -8,9 +8,9 @@ Materials and numbered steps, with optional duration, yield, image and descripti
 
 Up to 100 materials and 100 steps. Ordered instructions and quantities are preserved. No tool execution, cooking timer or recipe retrieval is implied.
 
-The template supports `mode: overview | steps` (overview by default). The overview offers **Start step-by-step**; steps mode presents one large instruction, progress, back/next, materials/intro and completion. `stage: intro | step | complete` and zero-based `index` select the prepared card. `kanvas_control` (`operation: "procedure.control"`) advances immediately without republishing after a voice-agent command; browser controls work too. See the shared [procedure contract](procedure.md), now explicitly accepted for non-food how-to guides as well.
+The template supports `mode: overview | steps` (overview by default). The overview offers **Start step-by-step**; steps mode presents one large instruction, progress, back/next, materials/intro and completion. `stage: intro | step | complete` and zero-based `index` select the prepared card. `kanvas_tool_use` with `operationId:"kanvas.procedure.control"` and nested `arguments` advances immediately without republishing after a voice-agent command; browser controls work too. See the shared [procedure contract](procedure.md), now explicitly accepted for non-food how-to guides as well.
 
-Read `kanvas_inspect` (`operation: "template.get"`) for `recipe` before constructing a prepared view. It returns the exact same schema used by `kanvas_inspect` (`operation: "view.validate"`) and publishing.
+Read `kanvas_tool_use` with `operationId:"kanvas.template.get"` and nested `arguments` for `recipe` before constructing a prepared view. It returns the exact same schema used by `kanvas_tool_use` with `operationId:"kanvas.view.validate"` and nested `arguments` and publishing.
 
 ## Illustrative example
 

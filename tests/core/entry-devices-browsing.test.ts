@@ -40,14 +40,14 @@ describe('live entry and registered-device authority',()=>{
     h=await startHarness();const a=await h.account(),b=await h.account(),p=(await receiver(a.user!.id)),p2=(await receiver(a.user!.id)),outsider=(await receiver(b.user!.id)),s=await a.session('Device content'),display=await a.display(s.id);
     await a.submit(s.id,[display.id],fact('Retained 1.2300'));
     const service=h.runtime.service,first=(await service.devices.register(p,{installationId:'computer',name:'Office PC'},'Mozilla/5.0 Chrome/140')),second=(await service.devices.register(p2,{installationId:'television',name:'TV'},'Mozilla/5.0 Safari/604'));
-    expect(first.home.displayId).not.toBe(second.home.displayId);
+    expect(first.home!.displayId).not.toBe(second.home!.displayId);
     expect((await service.devices.list(p)).devices).toHaveLength(2);expect((await service.devices.list(outsider)).devices).toHaveLength(0);
     const input={deviceId:first.id,sessionId:s.id,displayId:display.id,expectedVersion:first.version,requestId:randomUUID()};
     (await expect((async ()=>(await service.devices.present(p,input)))()).rejects.toThrow(/Open KANVAS/));
     const received:any[]=[];const stream=(await service.devices.stream(p,first.id,v=>received.push(v)));(await stream.push());
     const sent=(await service.devices.present(p,input));expect(sent.device.command?.status).toBe('pending');await vi.waitFor(()=>expect(received.at(-1)?.command?.id).toBe(sent.commandId));
     expect((await service.devices.present(p,input)).commandId).toBe(sent.commandId);
-    (await expect((async ()=>(await service.devices.present(p,{...input,displayId:second.home.displayId,sessionId:second.home.sessionId})))()).rejects.toThrow(/different device command/));
+    (await expect((async ()=>(await service.devices.present(p,{...input,displayId:second.home!.displayId,sessionId:second.home!.sessionId})))()).rejects.toThrow(/different device command/));
     (await expect((async ()=>(await service.devices.present(outsider,input)))()).rejects.toThrow(/unavailable/));
     const current=(await service.display(p,s.id,display.id)),ack={sessionId:s.id,displayId:display.id,renderedRevision:current.revision,commandId:sent.commandId};
     (await expect((async ()=>(await service.devices.report(p2,first.id,ack)))()).rejects.toThrow(/Only this device/));
@@ -59,14 +59,14 @@ describe('live entry and registered-device authority',()=>{
   it('removes revoked browser authority and never exposes registered devices to session-limited grants',async()=>{
     h=await startHarness();const a=await h.account(),p=(await receiver(a.user!.id)),service=h.runtime.service,d=(await service.devices.register(p,{installationId:'revocable'},'Mozilla/5.0'));
     const stream=(await service.devices.stream(p,d.id,()=>{}));expect((await service.devices.list(p)).devices[0].connected).toBe(true);
-    (await h.runtime.store.delete('browser',p.browserId));(await expect((async ()=>(await service.devices.report(p,d.id,{sessionId:d.home.sessionId,displayId:d.home.displayId,renderedRevision:1})))()).rejects.toThrow(/Sign in/));
+    (await h.runtime.store.delete('browser',p.browserId));(await expect((async ()=>(await service.devices.report(p,d.id,{sessionId:d.home!.sessionId,displayId:d.home!.displayId,renderedRevision:1})))()).rejects.toThrow(/Sign in/));
     const other=(await receiver(a.user!.id));expect((await service.devices.list(other)).devices[0].connected).toBe(false);stream.close();
-    const limited=(await h.runtime.auth.issueToken(a.user!.id,'Selected session only',['read','publish'],[d.home.sessionId]));
+    const limited=(await h.runtime.auth.issueToken(a.user!.id,'Selected session only',['read','publish'],[d.home!.sessionId]));
     const principal=(await h.runtime.auth.authorize({get:()=>`Bearer ${limited.value}`} as unknown as Request));
     (await expect((async ()=>(await service.devices.list(principal)))()).rejects.toThrow(/account-wide/));
     (await expect((async ()=>(await service.devices.rename(principal,{deviceId:d.id,name:'Not authorized',expectedVersion:d.version})))()).rejects.toThrow(/account-wide/));
-    (await expect((async ()=>(await service.devices.present(principal,{deviceId:d.id,sessionId:d.home.sessionId,displayId:d.home.displayId,expectedVersion:d.version,requestId:randomUUID()})))()).rejects.toThrow(/account-wide/));
-    denied(await (await h.account()).request('POST',`/api/devices/${d.id}/report`,{sessionId:d.home.sessionId,displayId:d.home.displayId,renderedRevision:1}));
+    (await expect((async ()=>(await service.devices.present(principal,{deviceId:d.id,sessionId:d.home!.sessionId,displayId:d.home!.displayId,expectedVersion:d.version,requestId:randomUUID()})))()).rejects.toThrow(/account-wide/));
+    denied(await (await h.account()).request('POST',`/api/devices/${d.id}/report`,{sessionId:d.home!.sessionId,displayId:d.home!.displayId,renderedRevision:1}));
   });
   it('discards obsolete paint telemetry without an HTTP error or a false receipt, retaining ownership enforcement',async()=>{
     h=await startHarness();const a=await h.account(),s=await a.session('Rapid publication'),display=await a.display(s.id);

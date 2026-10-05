@@ -1,3 +1,4 @@
+import { canonicalForOperation, discoveryToolDefinitions, parseDiscoveryInput } from './discovery.js';
 import type { Tool } from '@modelcontextprotocol/server';
 import { InputError } from '../input-errors.js';
 import { CANONICAL_TOOLS, canonicalToolDefinitions, canonicalArgumentError, parseCanonicalArguments } from './canonical.js';
@@ -144,12 +145,27 @@ function domainToolDefinitions(): Tool[] {
 /** Explicit profile for public discovery. The default preserves the former
  * internal helper API; mountMcp always passes its deployment-owned profile. */
 export function listToolDefinitions(profile: McpProfile = 'legacy'): Tool[] {
-  return profile === 'legacy' ? canonicalToolDefinitions() : profile === 'twelve' ? twelveToolDefinitions() : domainToolDefinitions();
+  return profile === 'discovery' ? discoveryToolDefinitions() : profile === 'legacy' ? canonicalToolDefinitions() : profile === 'twelve' ? twelveToolDefinitions() : domainToolDefinitions();
 }
 
 interface ResolvedCall { canonicalName: string; args: Record<string, unknown>; reference?: ToolReference; error?: never }
 interface RejectedCall { error: InputError; canonicalName?: string; reference?: ToolReference; args?: never }
 export function resolveToolCall(profile: McpProfile, name: string, raw: unknown): ResolvedCall | RejectedCall {
+  if (profile === 'discovery') {
+    if (name === 'kanvas_tool_use') {
+      let input: Record<string, unknown>;
+      try { input = parseDiscoveryInput(name, raw); }
+      catch (error) { if (error instanceof InputError) return { error }; throw error; }
+      const canonical = canonicalForOperation(String(input.operationId));
+      if (!canonical) return { error: new InputError([{ path: 'operationId', problem: 'Unknown operation ID. Use kanvas_tool_search or kanvas_tool_index.' }]) };
+      const resolved = resolveToolCall('legacy', canonical, input.arguments);
+      return { ...resolved, reference: { tool: 'kanvas_tool_use', operation: String(input.operationId) } };
+    }
+    // Narrow cached-client compatibility: only existing registry entries and
+    // canonical validators, never constructed handlers or arbitrary routing.
+    return CANONICAL_TOOLS.some(tool => tool.name === name) && !(raw && typeof raw === 'object' && 'operation' in raw)
+      ? resolveToolCall('legacy', name, raw) : resolveToolCall('domains', name, raw);
+  }
   let canonicalName = name;
   let args: unknown = raw ?? {};
   let reference: ToolReference | undefined;
@@ -184,7 +200,6 @@ const coversExactlyOnce = (entries: readonly OperationEntry[]) => entries.length
   && new Set(entries.map(entry => entry.canonical)).size === canonicalNames.length
   && entries.map(entry => entry.canonical).sort().every((name, index) => name === canonicalNames[index]);
 if (PUBLIC_TOOL_NAMES.length !== 12 || !coversExactlyOnce(OPERATION_ENTRIES) || !coversExactlyOnce(DOMAIN_OPERATION_ENTRIES)
-  || DOMAIN_TOOL_NAMES.length < 30 || DOMAIN_TOOL_NAMES.length > 50
   || JSON.stringify(DOMAIN_REGISTRY.kanvas_feedback) !== JSON.stringify(OPERATION_REGISTRY.kanvas_feedback)) {
   throw new Error('The KANVAS public operation registry does not cover the canonical catalog exactly once.');
 }

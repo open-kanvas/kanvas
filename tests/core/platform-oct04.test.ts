@@ -39,7 +39,7 @@ describe('October4 persistent account and session feedback',()=>{
   h=await startHarness();const a=await h.account(),p=await principal(a),q=await principal(await h.account());
   const device=await h.runtime.service.devices.register(p,{installationId:'test-install'},'Mozilla/5.0');const window=await h.runtime.service.devices.windows.register(p,device.id,'idle-tab');
   const stream=await h.runtime.service.devices.windows.stream(p,device.id,window.id,()=>{});await stream.push();
-  try{const topology:any=await h.runtime.service.topology.acrossSessions(p,{});expect(topology.availableWindows).toContainEqual(expect.objectContaining({windowId:window.id,current:null,connected:true}));expect((await h.runtime.service.topology.acrossSessions(q,{})).availableWindows).toEqual([]);
+  try{const topology:any=await h.runtime.service.topology.acrossSessions(p,{});expect(topology.availableWindows).toContainEqual(expect.objectContaining({windowId:window.id,current:null,connected:true}));const otherTopology=await h.runtime.service.topology.acrossSessions(q,{});if(!('availableWindows' in otherTopology))throw new Error('Expected account-wide topology');expect(otherTopology.availableWindows).toEqual([]);
    const started:any=await h.runtime.service.beginSession(p,{requestId:'begin-idle',name:'Work'});expect(started.status).toBe('started');expect(started.windowId).toBe(window.id);
   }finally{stream.close();}
  });

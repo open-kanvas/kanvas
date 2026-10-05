@@ -14,7 +14,7 @@ for(const era of ['modern','legacy'] as const)it(`event workflows and navigation
     if(era==='modern'){client=new Client({name:'event-feedback',version:'1'},{versionNegotiation:{mode:{pin:'2026-07-28'}}});await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',h.baseUrl),options));}
     else{client=new LegacyClient({name:'event-feedback',version:'1'});await client.connect(new LegacyTransport(new URL('/mcp',h.baseUrl),options));}
     const call=async(name:string,operation:string,args:Record<string,unknown>={})=>{const r=await client!.callTool({name,arguments:{operation,...args}});expect(r.isError,JSON.stringify(r.content)).not.toBe(true);expect((r.structuredContent as any).truncated).not.toBe(true);return (r.structuredContent as any).data;};
-    const catalog=await client.listTools();expect(catalog.tools).toHaveLength(12);const control=catalog.tools.find(t=>t.name==='kanvas_control')!;expect(control.description).toMatch(/SCROLL\/PAGE/);expect(control.description).toMatch(/BACK\/UNDO/);
+    const catalog=await client.listTools();expect(catalog.tools).toHaveLength(7);expect(catalog.tools.some(t=>t.name==='kanvas_tool_use')).toBe(true);
     for(const template of ['scoreboard','standings','tool-call-log']){const schema=await call('kanvas_inspect','template.get',{template});expect(JSON.stringify(schema)).toContain(template);}
     await owner.submit(s.id,[d.id],eventViewExamples.scoreboard);
     const score={sessionId:s.id,displayId:d.id,expectedRevision:1,requestId:randomUUID(),sideId:'home',action:'increase'};

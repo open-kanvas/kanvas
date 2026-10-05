@@ -10,7 +10,7 @@ For testing, save a separate connector for `https://dev.kanvas.host/mcp`; enable
 
 Kanvas is a shared visual workspace for agents and people. Agents publish structured content through the Model Context Protocol (MCP); signed-in or explicitly approved browsers receive responsive views and return real interaction and delivery receipts.
 
-Release: **0.20.0**. Publication candidate; no license has been selected yet.
+Release: **0.21.0**. Publication candidate; no license has been selected yet.
 
 ## What it does
 
@@ -23,15 +23,22 @@ Kanvas does not run a language model, listen to audio, translate text, or genera
 
 ## Agent connection
 
-Connect an MCP client to `https://<your-host>/mcp` and complete its OAuth flow. The default `domains` profile exposes task-oriented tools. Read `kanvas_help`, inspect an unfamiliar template with `kanvas_template`, then publish a complete view:
+Connect an MCP client to `https://<your-host>/mcp` and complete its OAuth flow. Every connection exposes exactly seven tools: help, template and operation search/index pairs, plus `kanvas_tool_use`. Use `kanvas_tool_search` with natural language or a stable operation ID for full schemas and executable examples (default top five). Use `kanvas_template_search` for an unfamiliar view, then execute:
 
 ```json
 {
-  "operation": "show",
-  "requestId": "first-visual",
-  "view": {"version": 1, "template": "fact", "data": {"text": "Exact supplied words."}}
+  "name": "kanvas_tool_use",
+  "arguments": {
+    "operationId": "kanvas.submit",
+    "arguments": {
+      "requestId": "first-visual",
+      "view": {"version": 1, "template": "fact", "data": {"text": "Exact supplied words."}}
+    }
+  }
 }
 ```
+
+Indices are exhaustive across pages: follow `nextCursor` until null, and search an exact ID for details. [Discovery architecture and migration](docs/architecture/mcp-discovery.md).
 
 The result identifies the session, display, update and actual viewer URL. A URL locates a view; it does not grant access. Continue with the returned target reference, check publication status, and verify receiving-browser delivery before claiming it was shown.
 

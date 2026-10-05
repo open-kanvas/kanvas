@@ -46,6 +46,36 @@ describe('NATO recognition, owner notices and actual receiving browsers',()=>{
     b.abort();c.abort();await vi.waitFor(async()=>expect((await list()).filter(x=>x.connected)).toHaveLength(0));
     await vi.waitFor(async()=>expect(success(await owner.request<ToastRecord[]>('GET','/api/account/notices')).some(x=>/disconnected/.test(x.text))).toBe(true),{timeout:3000});
   });
+  it.each(['session','device','window'] as const)('releases a %s stream aborted during asynchronous receiver setup',async(kind)=>{
+    const {owner,s,d}=await setup(),service=h.runtime.service,devices=service.devices;
+    const device=success(await owner.request<{id:string;window:{id:string}}>('POST','/api/devices/register',{installationId:'setup-abort-device',windowId:'setup-abort-tab',provisionHome:false}));
+    let enter!:()=>void,release!:()=>void,disconnected!:()=>void;
+    const entered=new Promise<void>(r=>{enter=r;}),held=new Promise<void>(r=>{release=r;}),socketClosed=new Promise<void>(r=>{disconnected=r;});
+    const hold=async<T,>(value:T)=>{enter();await held;return value;};
+    const originalConnect=service.connectDisplay.bind(service),originalDevice=devices.stream.bind(devices),originalWindow=devices.windows.stream.bind(devices.windows);
+    const spy=kind==='session'?vi.spyOn(service,'connectDisplay').mockImplementation(async(...args)=>hold(await originalConnect(...args)))
+      :kind==='device'?vi.spyOn(devices,'stream').mockImplementation(async(...args)=>hold(await originalDevice(...args)))
+      :vi.spyOn(devices.windows,'stream').mockImplementation(async(...args)=>hold(await originalWindow(...args)));
+    const path=kind==='session'?`/api/sessions/${s}/events?displayId=${d}&tabId=setup-abort-tab`
+      :kind==='device'?`/api/devices/${device.id}/events`:`/api/devices/${device.id}/windows/${device.window.id}/events`;
+    const controller=new AbortController();
+    h.server.once('request',(_req,res)=>res.once('close',disconnected));
+    const request=owner.raw(path,{},{signal:controller.signal}).then(response=>response.status,error=>error.name);
+    try{
+      await entered;
+      if(kind==='session')expect(await request).toBe(200); // Headers arrived before setup completed.
+      controller.abort();await socketClosed; // Prove the server observed close before releasing setup.
+      release();
+      await vi.waitFor(async()=>{
+        const listed=success(await owner.request<{devices:{id:string;connected:boolean;windows:{connected:boolean}[]}[]}>('GET','/api/devices')).devices.find(x=>x.id===device.id)!;
+        expect(listed.connected).toBe(false);expect(listed.windows.every(w=>!w.connected)).toBe(true);
+        if(kind==='session'){
+          expect((await owner.detail(s)).displays.find(x=>x.id===d)?.online).toBe(false);
+          expect(success(await owner.request<ViewerPresence[]>('GET',`/api/sessions/${s}/viewers`)).filter(x=>x.connected)).toHaveLength(0);
+        }
+      },{timeout:3000,interval:20});
+    }finally{release();controller.abort();await request;spy.mockRestore();}
+  });
   it('drains a disconnect already in progress before closing its store', async () => {
     const { owner, s, d } = await setup();
     const presence = h.runtime.service.experience.receiving;

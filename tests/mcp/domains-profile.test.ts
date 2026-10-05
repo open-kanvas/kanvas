@@ -1,3 +1,4 @@
+import { DISCOVERY_TOOL_NAMES } from '../../src/server/mcp/operations.js';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CANONICAL_TOOLS } from '../../src/server/mcp/canonical.js';
@@ -18,7 +19,7 @@ afterEach(async () => {
 
 describe('domains profile catalog', () => {
   it('is the default profile and groups every canonical operation exactly once into 30-50 resource tools', () => {
-    expect(mcpProfile()).toBe('domains');
+    expect(mcpProfile()).toBe('discovery');
     expect(DOMAIN_TOOL_NAMES.length).toBeGreaterThanOrEqual(30);
     expect(DOMAIN_TOOL_NAMES.length).toBeLessThanOrEqual(50);
     const canonical = CANONICAL_TOOLS.map(tool => tool.name).sort();
@@ -99,7 +100,7 @@ describe('domains profile over HTTP', () => {
     const client = new Client({ name: 'domains-acceptance', version: '1' }); client.onerror = () => {}; clients.push(client);
     await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', h.baseUrl), { requestInit: { headers: { Authorization: `Bearer ${token.value}` } } }));
     const listed = (await client.listTools()).tools.map(tool => tool.name);
-    expect(listed).toEqual([...DOMAIN_TOOL_NAMES]);
+    expect(listed).toEqual([...DISCOVERY_TOOL_NAMES]);
     expect(listed).not.toContain('kanvas_inspect');
     const call = async (name: string, operation: string, args: Record<string, unknown> = {}) => {
       const result = await client.callTool({ name, arguments: { operation, ...args } }) as { isError?: boolean; structuredContent: Record<string, unknown> };
@@ -144,15 +145,15 @@ describe('domains profile over HTTP', () => {
   it('documents the domain names publicly with a former-name map', async () => {
     const h = await startHarness({ mcpProfile: 'domains' }); harnesses.push(h);
     const index = await (await fetch(`${h.baseUrl}/docs/index.json`)).json() as { profile: string; tools: { name: string }[] };
-    expect(index.profile).toBe('domains');
-    expect(index.tools.map(tool => tool.name)).toEqual([...DOMAIN_TOOL_NAMES]);
+    expect(index.profile).toBe('discovery');
+    expect(index.tools.map(tool => tool.name)).toEqual([...DISCOVERY_TOOL_NAMES]);
     const reference = await (await fetch(`${h.baseUrl}/docs/reference.md`)).text();
-    expect(reference).toContain('## kanvas_session_history · list');
-    expect(reference).toContain('`kanvas_inspect · sessions.list` → `kanvas_session_history · list`');
-    expect((await fetch(`${h.baseUrl}/docs/operations/kanvas_inspect.json`)).status).toBe(200);
+    expect(reference).toContain('## kanvas.sessions.list');
+    expect(reference).toContain('kanvas_tool_search');
+    expect((await fetch(`${h.baseUrl}/docs/operations/kanvas_tool_search.json`)).status).toBe(200);
     const navigation = await (await fetch(`${h.baseUrl}/docs/navigation.md`)).text();
-    expect(navigation).toContain('kanvas_view_navigation');
+    expect(navigation).toContain('kanvas_tool_use');
     expect(navigation).not.toContain('kanvas_control');
-    expect((await fetch(`${h.baseUrl}/docs/operations/kanvas_planner.json`)).status).toBe(200);
+    expect((await fetch(`${h.baseUrl}/docs/operations/kanvas.planner.read.json`)).status).toBe(200);
   });
 });

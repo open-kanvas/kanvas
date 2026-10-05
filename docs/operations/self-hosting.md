@@ -21,7 +21,7 @@ Set `KANVAS_PG_HOST`, `KANVAS_PG_PORT`, `KANVAS_PG_DATABASE`, `KANVAS_PG_USER`, 
 
 Registration can be disabled with `KANVAS_ALLOW_REGISTRATION=false`; provision an initial account with `npm run create-user` according to that command’s protected-input instructions. For email sign-in, enable `KANVAS_EMAIL_SIGNIN=true`, set an appropriate `KANVAS_MAIL_FROM`, and supply the `kanvas-mailer` service credential through the host’s protected credential mechanism. The application fails startup if the required credential is absent. Do not enable email sign-in until delivery and the public origin are verified.
 
-`KANVAS_MCP_PROFILE=domains` is the default. Clients connect to `/mcp` and follow OAuth discovery and consent. Keep proxy forwarding and origin settings consistent; do not make a viewer URL public merely to bypass authentication.
+`KANVAS_MCP_PROFILE=discovery` is the default. All accepted former profile settings also expose only the same seven discovery tools; they retain narrow cached-client aliases, not alternate public catalogs. Clients connect to `/mcp` and follow OAuth discovery and consent. Keep proxy forwarding and origin settings consistent; do not make a viewer URL public merely to bypass authentication.
 
 ## Containers
 

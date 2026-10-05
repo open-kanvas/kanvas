@@ -1,3 +1,4 @@
+import { operationId } from '../../src/server/mcp/operations.js';
 import {randomUUID} from 'node:crypto';
 import {Client,StreamableHTTPClientTransport} from '@modelcontextprotocol/client';
 import {Client as LegacyClient} from '@modelcontextprotocol/sdk/client/index.js';
@@ -20,8 +21,8 @@ it.each(['modern','legacy'])('%s MCP exposes and executes every account/history/
     expect(result.isError,tool+' '+operation).not.toBe(true);
     seen.add(tool+':'+operation);return (result.structuredContent as {data:any}).data;
   };
-  const catalog=await client.listTools();expect(catalog.tools).toHaveLength(12);
-  for(const [,tool,operation] of ACCOUNT_MAPPING)expect(JSON.stringify(catalog.tools.find(t=>t.name===tool)?.inputSchema)).toContain(operation);
+  const catalog=await client.listTools();expect(catalog.tools).toHaveLength(7);
+  for(const [canonical] of ACCOUNT_MAPPING){const found=await client.callTool({name:'kanvas_tool_search',arguments:{query:operationId(canonical)}});expect((found.structuredContent as any).data.results[0].operationId).toBe(operationId(canonical));}
   const profile=await call('kanvas_inspect','profile.read');
   expect((await call('kanvas_configure','profile.update',{expectedRevision:profile.revision,displayName:'MCP profile'})).user.displayName).toBe('MCP profile');
   let group=await call('kanvas_access','group.create',{kind:'team',name:'MCP team',requestId:randomUUID()});

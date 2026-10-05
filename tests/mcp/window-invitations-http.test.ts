@@ -3,7 +3,7 @@ import type { Response } from 'express';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { Client as LegacyClient } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport as LegacyTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { startHarness, success } from '../core/harness.js';
 
 for(const era of ['modern','legacy'] as const)it(`new window/rename/group operations work end-to-end over the ${era} MCP protocol`,async()=>{
@@ -29,7 +29,7 @@ for(const era of ['modern','legacy'] as const)it(`new window/rename/group operat
     const device=(await h.runtime.service.devices.register(p,{installationId:'mcp-browser'},'Chrome/140')),window=(await h.runtime.service.devices.windows.register(p,device.id,'mcp-tab')),seen:any[]=[];
     const stream=(await h.runtime.service.devices.windows.stream(p,device.id,window.id,x=>seen.push(x)));try{
       const listed=await call(a,'kanvas_inspect','devices.read',{});expect(listed.devices[0].windows[0].id).toBe(window.id);
-      const command=await call(a,'kanvas_control','window.present',{deviceId:device.id,windowId:window.id,sessionId:s.id,displayId:d.id,expectedVersion:window.version,requestId:randomUUID()});expect(seen.at(-1).command.id).toBe(command.commandId);expect(command.window.command.status).toBe('pending');
+      const command=await call(a,'kanvas_control','window.present',{deviceId:device.id,windowId:window.id,sessionId:s.id,displayId:d.id,expectedVersion:window.version,requestId:randomUUID()});await vi.waitFor(()=>expect(seen.at(-1)?.command?.id).toBe(command.commandId));expect(command.window.command.status).toBe('pending');
       (await h.runtime.service.devices.windows.report(p,device.id,window.id,{sessionId:s.id,displayId:d.id,renderedRevision:renamed.revision,commandId:command.commandId}));
       expect((await call(a,'kanvas_inspect','devices.read',{})).devices[0].windows[0].command.status).toBe('applied');
     }finally{stream.close();}

@@ -323,7 +323,7 @@ describe.each(ERAS)('twelve profile on the real %s SDK and application', era => 
     failure(invalid, ['INVALID_ARGUMENT']);
     expect(toolResult(invalid).structuredContent.error).toMatchObject({
       issues: [{ path: 'approve', problem: 'Required boolean (true or false).' }, { path: 'confirm', problem: expect.stringContaining('owner confirms') }],
-      schemaTool: 'kanvas_discover', schemaArguments: {catalog:'help',action:'search',query:'tools'}, topic: 'tools',
+      schemaTool: 'kanvas_discover', schemaArguments: {catalog:'help',action:'get',id:'kanvas.help.tools.discovery'}, topic: 'tools',
     });
     denied(await guest.request('GET', `/api/sessions/${session.id}`), [401]);
     denied(await otherBrowser.request('GET', `/api/pairings/${pair.id}/status`), [401, 403, 404]);

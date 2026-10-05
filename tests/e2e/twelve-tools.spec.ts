@@ -106,13 +106,17 @@ test('an agent can repair pairing and feedback inputs while the intended browser
     const badDecision = await client.callTool({ name: 'kanvas_call', arguments: { operationId: 'kanvas.pairing.decide', arguments: { sessionId, pairingId: pair.id } } });
     expect(badDecision.isError).toBe(true);
     expect((badDecision.structuredContent as { error: unknown }).error).toMatchObject({
-      code: 'INVALID_ARGUMENT', schemaTool: 'kanvas_call', schemaArguments: { operationId: 'kanvas.guide', arguments: { topic: 'tools' } }, topic: 'tools',
+      code: 'INVALID_ARGUMENT', schemaTool: 'kanvas_discover', schemaArguments: { catalog: 'help', action: 'get', id: 'kanvas.help.tools.discovery' }, topic: 'tools',
       issues: [{ path: 'approve', problem: 'Required boolean (true or false).' }, { path: 'confirm', problem: expect.stringContaining('owner confirms') }],
     });
     const repair = (badDecision.structuredContent as { error: { schemaTool: string; schemaArguments: Record<string, unknown> } }).error;
-    const repaired = await client.callTool(operationRequest({ name: repair.schemaTool, arguments: repair.schemaArguments }));
+    const repaired = await client.callTool({ name: repair.schemaTool, arguments: repair.schemaArguments });
     expect(repaired.isError).not.toBe(true);
-    expect((repaired.structuredContent as { data: { tools: string[] } }).data.tools).toEqual([...DISCOVERY_TOOL_NAMES]);
+    expect((repaired.structuredContent as { data: unknown }).data).toMatchObject({
+      catalog: 'help', action: 'get', entry: { id: 'kanvas.help.tools.discovery' },
+    });
+    expect(JSON.stringify(repaired.structuredContent)).toContain('kanvas_discover');
+    expect(JSON.stringify(repaired.structuredContent)).toContain('kanvas_call');
     const pending = await call<Array<{ id: string; displayId: string; status: string }>>('kanvas_inspect', 'pairings.read', { sessionId });
     expect(pending.find(item => item.id === pair.id)).toMatchObject({ displayId: display.id, status: 'pending' });
     await expect(guest.locator('.viewer-shell')).toHaveCount(0);
@@ -171,7 +175,7 @@ test('JSON-encoded tool arguments still require consent and produce an acknowled
     expect(invalid.isError).toBe(true);
     const error = (invalid.structuredContent as { error: { diagnosticId: string } }).error;
     const state = await call<{ recentDiagnostics: { diagnosticId: string; operation: string }[] }>('kanvas_inspect', 'session.state', { sessionId });
-    expect(state.recentDiagnostics.some(item => item.diagnosticId === error.diagnosticId && item.operation === 'pairing.decide')).toBe(true);
+    expect(state.recentDiagnostics.some(item => item.diagnosticId === error.diagnosticId && item.operation === 'kanvas.pairing.decide')).toBe(true);
     await expect(guest.locator('.viewer-shell')).toHaveCount(0);
     await call('kanvas_access', 'pairing.decide', { sessionId, pairingId: pair.id, approve: 'true', confirm: 'true', interactive: 'false' });
     await expect(guest.locator('.viewer-shell')).toBeVisible();

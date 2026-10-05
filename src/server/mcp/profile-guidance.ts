@@ -30,7 +30,9 @@ export function trustedGuidance(value: unknown): unknown {
       output[key] = 'kanvas_discover';
       output[key === 'tool' ? 'arguments' : `${key.slice(0, -4)}Arguments`] = isTemplate && input.template
         ? { catalog: 'templates', action: 'get', id: `kanvas.template.${input.template}` }
-        : { catalog: isTemplate ? 'templates' : 'help', action: 'search', query: String(input.topic ?? (isTemplate ? 'display' : 'getting started')) };
+        : !isTemplate && input.topic === 'tools'
+          ? { catalog: 'help', action: 'get', id: 'kanvas.help.tools.discovery' }
+          : { catalog: isTemplate ? 'templates' : 'help', action: 'search', query: String(input.topic ?? (isTemplate ? 'display' : 'getting started')) };
       continue;
     }
     const reference = typeof item === 'string' && (key === 'tool' || key.endsWith('Tool')) ? publicReference(item) : undefined;

@@ -5,7 +5,11 @@ test('signed-in root registers a receiver and opens the ready default display wi
  let device:any,window:any;
  await expect.poll(async()=>{const result:any=await sessionApi(page,'/api/devices');device=result.data?.devices?.find((d:any)=>d.windows.some((w:any)=>w.connected));window=device?.windows.find((w:any)=>w.connected);return Boolean(window);}).toBe(true);
  const created:any=await sessionApi(page,'/api/sessions','POST',{name:'Immediate ready screen'});expect(created.status).toBe(200);expect(created.data.displays).toHaveLength(1);const display=created.data.displays[0];
- const result=await sessionApi(page,`/api/devices/${device.id}/windows/${window.id}/present`,'POST',{sessionId:created.data.id,displayId:display.id,expectedVersion:window.version,requestId:randomUUID()});expect(result.status).toBe(200);
+ // Present intentionally navigates this same page; observe HTTP success
+ // outside its old JavaScript context and never resend the mutation.
+ const path=`/api/devices/${device.id}/windows/${window.id}/present`,response=page.waitForResponse(r=>new URL(r.url()).pathname===path&&r.request().method()==='POST');
+ const presenting=sessionApi(page,path,'POST',{sessionId:created.data.id,displayId:display.id,expectedVersion:window.version,requestId:randomUUID()}).catch(error=>{if(!/Execution context was destroyed/.test(String(error)))throw error;});
+ expect((await response).status()).toBe(200);await presenting;
  await expect(page).toHaveURL(new RegExp(`/view/${created.data.id}/${display.id}$`));await expect(page.locator('.viewer-shell')).toBeVisible();
 });
 test('checked items persist after other content, then recall on another display with account details recipe',async({page},info)=>{

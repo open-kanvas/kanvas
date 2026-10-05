@@ -1,3 +1,4 @@
+import { operationRequest } from '../mcp/requests.js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import type { Page } from '@playwright/test';
@@ -93,7 +94,7 @@ test('account connection needs no session and grants creation only after explici
   expect((await sessionApi<SessionRecord[]>(page,'/api/sessions')).data?.map(s=>s.id)).toEqual([home[0].id]);
   const client = await mcpClient(baseURL!, tokens.access_token);
   try {
-    const created = await client.callTool({ name: 'kanvas_session', arguments: { operation: 'create', name: 'Started directly by the agent' } });
+    const created = await client.callTool(operationRequest({ name: 'kanvas_session', arguments: { operation: 'create', name: 'Started directly by the agent' } }));
     expect(created.isError).not.toBe(true);
     const session = (created.structuredContent as { data: SessionRecord }).data;
     expect((await sessionApi<SessionRecord[]>(page, '/api/sessions')).data?.map(item => item.id).sort()).toEqual([home[0].id,session.id].sort());
@@ -112,10 +113,10 @@ test('read-only account consent does not claim or grant session creation', async
   expect(tokens.scope).toBe('read');
   const client = await mcpClient(baseURL!, tokens.access_token);
   try {
-    const sessions = await client.callTool({ name: 'kanvas_inspect', arguments: { operation: 'sessions.list' } });
+    const sessions = await client.callTool(operationRequest({ name: 'kanvas_inspect', arguments: { operation: 'sessions.list' } }));
     expect(sessions.isError).not.toBe(true);
     const retained=(sessions.structuredContent as {data:SessionRecord[]}).data;expect(retained).toHaveLength(1);expect(retained[0].name).toBe('Home');
-    const attempted = await client.callTool({ name: 'kanvas_session', arguments: { operation: 'create', name: 'Must remain forbidden' } });
+    const attempted = await client.callTool(operationRequest({ name: 'kanvas_session', arguments: { operation: 'create', name: 'Must remain forbidden' } }));
     expect(attempted.isError).toBe(true);
   } finally { await client.close(); }
 });

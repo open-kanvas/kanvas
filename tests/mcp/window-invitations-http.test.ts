@@ -1,3 +1,4 @@
+import { operationRequest } from './requests.js';
 import { randomUUID } from 'node:crypto';
 import type { Response } from 'express';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
@@ -18,7 +19,7 @@ for(const era of ['modern','legacy'] as const)it(`new window/rename/group operat
     };
     const a=await connect(owner.user!.id),b=await connect(person.user!.id);
     const call=async(client:Client|LegacyClient,name:string,operation:string,args:Record<string,unknown>)=>{
-      const result=await client.callTool({name,arguments:{operation,...args}});expect(result.isError).not.toBe(true);return (result.structuredContent as any).data;
+      const result=await client.callTool(operationRequest({name,arguments:{operation,...args}}));expect(result.isError).not.toBe(true);return (result.structuredContent as any).data;
     };
     const renamed=await call(a,'kanvas_session','display.rename',{sessionId:s.id,displayId:d.id,expectedRevision:0,name:'Window source'});expect(renamed.name).toBe('Window source');
     const group=await call(a,'kanvas_access','group.create',{kind:'team',name:'Protocol team',requestId:randomUUID()});

@@ -1,3 +1,4 @@
+import { operationRequest } from '../mcp/requests.js';
 import { randomUUID } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
@@ -14,7 +15,7 @@ async function setup(page:Page,info:TestInfo,baseURL:string){
   const headers={Authorization:`Bearer ${issued.data!.token}`};
   const client=info.project.name.startsWith('phone')?new LegacyClient({name:'navigation-legacy',version:'1'}):new Client({name:'navigation-current',version:'1'});
   if(client instanceof LegacyClient)await client.connect(new LegacyTransport(new URL('/mcp',baseURL),{requestInit:{headers}}));else await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',baseURL),{requestInit:{headers}}));
-  const call=async<T=any>(tool:string,operation:string,args:Record<string,unknown>={})=>{const result=await client.callTool({name:tool,arguments:{operation,...args}});expect(result.isError,`${tool} ${operation} succeeds`).not.toBe(true);return (result.structuredContent as {data:T}).data;};
+  const call=async<T=any>(tool:string,operation:string,args:Record<string,unknown>={})=>{const result=await client.callTool(operationRequest({name:tool,arguments:{operation,...args}}));expect(result.isError,`${tool} ${operation} succeeds`).not.toBe(true);return (result.structuredContent as {data:T}).data;};
   const current=()=>waitForDisplay(page,sessionId,display.id,d=>d.revision>0&&d.appliedRevision===d.revision);
   const show=async(view:ViewSpec)=>{await publishPrepared(page,sessionId,[display.id],view);return current();};
   const nav=async(navigation:unknown,viewerId?:string)=>{const d=await current();return call('kanvas_control','navigation.control',{sessionId,displayId:display.id,requestId:randomUUID(),expectedRevision:d.revision,navigation,...(viewerId?{viewerId}:{})});};

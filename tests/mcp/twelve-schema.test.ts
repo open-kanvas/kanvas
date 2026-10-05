@@ -1,3 +1,4 @@
+import { operationRequest } from './requests.js';
 import { DISCOVERY_TOOL_NAMES } from '../../src/server/mcp/operations.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Ajv2020 } from 'ajv/dist/2020.js';
@@ -141,7 +142,7 @@ describe('twelve-tool strict published and runtime contract', () => {
     const connection = await server[protocol](server.service.issue('owner'));
     const listed = await connection.client.listTools();
     expect(listed.tools.map(tool => tool.name)).toEqual(DISCOVERY_TOOL_NAMES);
-    const result = await connection.client.callTool({ name: 'kanvas_inspect', arguments: { operation: 'session.state', sessionId: 'alpha' } });
+    const result = await connection.client.callTool(operationRequest({ name: 'kanvas_inspect', arguments: { operation: 'session.state', sessionId: 'alpha' } }));
     expect(result.isError).not.toBe(true);
     expect(server.service.calls.at(-1)).toMatchObject({ name: 'kanvas_session_state', args: { sessionId: 'alpha' }, userId: 'owner' });
     const callCount = server.service.calls.length;

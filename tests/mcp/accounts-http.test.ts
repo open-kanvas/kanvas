@@ -1,3 +1,4 @@
+import { operationRequest } from './requests.js';
 import { operationId } from '../../src/server/mcp/operations.js';
 import {randomUUID} from 'node:crypto';
 import {Client,StreamableHTTPClientTransport} from '@modelcontextprotocol/client';
@@ -17,12 +18,12 @@ it.each(['modern','legacy'])('%s MCP exposes and executes every account/history/
   else{client=new LegacyClient({name:'account-legacy',version:'1'});await client.connect(new LegacyTransport(new URL('/mcp',h.baseUrl),{requestInit:{headers}}));}
   const seen=new Set<string>();
   const call=async(tool:string,operation:string,args:Record<string,unknown>={})=>{
-    const result=await client.callTool({name:tool,arguments:{operation,...args}});
+    const result=await client.callTool(operationRequest({name:tool,arguments:{operation,...args}}));
     expect(result.isError,tool+' '+operation).not.toBe(true);
     seen.add(tool+':'+operation);return (result.structuredContent as {data:any}).data;
   };
-  const catalog=await client.listTools();expect(catalog.tools).toHaveLength(7);
-  for(const [canonical] of ACCOUNT_MAPPING){const found=await client.callTool({name:'kanvas_tool_search',arguments:{query:operationId(canonical)}});expect((found.structuredContent as any).data.results[0].operationId).toBe(operationId(canonical));}
+  const catalog=await client.listTools();expect(catalog.tools).toHaveLength(2);
+  for(const [canonical] of ACCOUNT_MAPPING){const found=await client.callTool({name: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id:operationId(canonical)}});expect((found.structuredContent as any).data.entry.operationId).toBe(operationId(canonical));}
   const profile=await call('kanvas_inspect','profile.read');
   expect((await call('kanvas_configure','profile.update',{expectedRevision:profile.revision,displayName:'MCP profile'})).user.displayName).toBe('MCP profile');
   let group=await call('kanvas_access','group.create',{kind:'team',name:'MCP team',requestId:randomUUID()});
@@ -48,5 +49,5 @@ it.each(['modern','legacy'])('%s MCP exposes and executes every account/history/
   expect((await call('kanvas_inspect','archive.list')).items.some((item:any)=>item.targetId===archived.id)).toBe(true);
   await call('kanvas_remove','archive.manage',{sessionId:archived.id,resource:'session',action:'restore'});
   expect(ACCOUNT_MAPPING.every(([,tool,operation])=>seen.has(tool+':'+operation))).toBe(true);
-  const forbidden=await client.callTool({name:'kanvas_inspect',arguments:{operation:'analytics.read',scope:'service'}});expect(forbidden.isError).toBe(true);expect(JSON.stringify(forbidden.structuredContent)).toContain('FORBIDDEN');
+  const forbidden=await client.callTool(operationRequest({name:'kanvas_inspect',arguments:{operation:'analytics.read',scope:'service'}}));expect(forbidden.isError).toBe(true);expect(JSON.stringify(forbidden.structuredContent)).toContain('FORBIDDEN');
 },30000);

@@ -10,7 +10,7 @@ Changes require editor permission and the current configuration revision. Saving
 
 The UI separates selection from application: selected palettes are visibly marked, drafts survive normal refreshes, and a reachable footer shows pending/saving/saved or conflict state. **Apply settings** persists the change and emits `settings.changed` for the agent. Interactive guests can submit `settings.request` proposals, but cannot mutate configuration. View-only screens explain their permission boundary before showing disabled controls. A received proposal is not an applied change.
 
-Read `kanvas_tool_use` with `operationId:"kanvas.template.get"` and nested `arguments` for `settings` before constructing a prepared view. It returns the exact same schema used by `kanvas_tool_use` with `operationId:"kanvas.view.validate"` and nested `arguments` and publishing.
+Read `kanvas_call` with `operationId:"kanvas.template.get"` and nested `arguments` for `settings` before constructing a prepared view. It returns the exact same schema used by `kanvas_call` with `operationId:"kanvas.view.validate"` and nested `arguments` and publishing.
 
 ## Illustrative example
 

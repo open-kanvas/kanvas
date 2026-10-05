@@ -90,7 +90,7 @@ function authorizationSnapshot(req: Request): Request {
 /** Mount one authenticated endpoint; the SDK classifies and serves each protocol era. */
 export function mountMcp(app: Express, service: McpService, options: McpOptions = {}): McpMount {
   const path = options.path ?? '/mcp';
-  const profile = mcpProfile(options.profile);
+  mcpProfile(options.profile); // Validate historical settings; the wire contract is always discovery.
   const allowedHosts: string[] = options.allowedHosts ?? app.locals.mcpAllowedHosts ?? ['localhost', '127.0.0.1', '[::1]'];
   const allowedOrigins: string[] | undefined = options.allowedOrigins ?? app.locals.mcpAllowedOrigins;
   const metadataUrl=options.resourceMetadataUrl ?? app.locals.mcpResourceMetadataUrl;
@@ -124,13 +124,13 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
     server.onerror = () => {};
     server.setRequestHandler('tools/list', async () => ({ tools: toolDefinitions }));
     server.setRequestHandler('tools/call', async (request, extra) => {
-      if (isDiscoveryTool(request.params.name) && request.params.name !== 'kanvas_tool_use') {
+      if (isDiscoveryTool(request.params.name) && request.params.name !== 'kanvas_call') {
         return profileScope.run('discovery', () => {
           try { return discoveryResult(request.params.name, request.params.arguments, { principal: current().principal, signal: extra.mcpReq.signal }); }
           catch (error) { return toolFailure(error, undefined, 'discovery'); }
         });
       }
-      const callProfile = isDiscoveryTool(request.params.name) ? 'discovery' : profile;
+      const callProfile = 'discovery' as const;
       return profileScope.run(callProfile, async () => {
       const invocationId=randomUUID(),started=Date.now();
       const call = resolveToolCall(callProfile, request.params.name, request.params.arguments);
@@ -140,12 +140,12 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
       const mayRecordFailure = call.canonicalName !== undefined && !READ_ONLY_CANONICAL.has(call.canonicalName);
       const record=async(status:'completed'|'failed',result?:unknown)=>{
         if(!call.canonicalName||!call.reference||(status==='failed'&&READ_ONLY_CANONICAL.has(call.canonicalName)))return;
-        const outer=request.params.arguments??{},raw=request.params.name==='kanvas_tool_use'&&outer.arguments&&typeof outer.arguments==='object'?outer.arguments as Record<string,unknown>:outer,out=result as {id?:unknown;sessionId?:unknown;session?:{id?:unknown}}|undefined;
+        const outer=request.params.arguments??{},raw=request.params.name==='kanvas_call'&&outer.arguments&&typeof outer.arguments==='object'?outer.arguments as Record<string,unknown>:outer,out=result as {id?:unknown;sessionId?:unknown;session?:{id?:unknown}}|undefined;
         const sessionId=typeof raw.sessionId==='string'?raw.sessionId:typeof out?.sessionId==='string'?out.sessionId:typeof out?.session?.id==='string'?out.session.id:call.canonicalName==='kanvas_session_create'&&typeof out?.id==='string'?out.id:undefined;
         try{await service.recordToolCall?.(current().principal,{id:invocationId,tool:call.reference.tool,operation:call.reference.operation,sessionId,timestamp:new Date(started).toISOString(),status,durationMs:Date.now()-started});}catch{/* Instrumentation must never change the tool result. */}
       };
       if (call.error) {
-        const raw = request.params.name === 'kanvas_tool_use' ? (request.params.arguments?.arguments as Record<string, unknown> | undefined) ?? {} : request.params.arguments ?? {};
+        const raw = request.params.name === 'kanvas_call' ? (request.params.arguments?.arguments as Record<string, unknown> | undefined) ?? {} : request.params.arguments ?? {};
         let diagnosticId: string | undefined;
         try { if (mayRecordFailure) diagnosticId = await inToolContext(context, () => service.recordFailure?.(call.canonicalName!, raw, current().principal, call.error)); } catch { /* Preserve the original error. */ }
         await record('failed');
@@ -295,7 +295,7 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
       watchedUris: new Set(), watchList: false, knownResources: '',
       disconnect: () => { res.destroy(); },
     };
-    await profileScope.run(profile, () => requests.run(context, async () => {
+    await profileScope.run('discovery', () => requests.run(context, async () => {
       try {
         const request = await toWebRequest(req, req.body);
         if (!(await isLegacyRequest(request, req.body))) {

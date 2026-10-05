@@ -1,3 +1,4 @@
+import { operationRequest } from '../mcp/requests.js';
 import { randomUUID } from 'node:crypto';
 import { publicReference } from '../../src/server/mcp/operations';
 import { mkdir } from 'node:fs/promises';
@@ -13,7 +14,7 @@ async function connect(page:Page,baseURL:string,sessionId?:string){
   expect(issued.status).toBe(201);const client=new Client({name:'september-acceptance',version:'1'});
   await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',baseURL),{requestInit:{headers:{Authorization:`Bearer ${issued.data!.token}`}}}));return client;
 }
-async function call<T=unknown>(client:Client,name:string,args:Record<string,unknown>):Promise<T>{const ref=publicReference(name);if(!ref)throw new Error('Missing public mapping');const result=await client.callTool({name:ref.tool,arguments:{operation:ref.operation,...args}});expect(result.isError,`${name} succeeds`).not.toBe(true);return (result.structuredContent as {data:T}).data;}
+async function call<T=unknown>(client:Client,name:string,args:Record<string,unknown>):Promise<T>{const ref=publicReference(name);if(!ref)throw new Error('Missing public mapping');const result=await client.callTool(operationRequest({name:ref.tool,arguments:{operation:ref.operation,...args}}));expect(result.isError,`${name} succeeds`).not.toBe(true);return (result.structuredContent as {data:T}).data;}
 async function setup(page:Page){await register(page);const sessionId=await createSession(page,'September display lab'),display=await createDisplay(page,sessionId,'Receiving screen');return {sessionId,display};}
 async function painted(page:Page,sessionId:string,displayId:string,template:string){return waitForDisplay(page,sessionId,displayId,d=>d.view?.template===template&&d.appliedRevision===d.revision&&d.revision>0);}
 

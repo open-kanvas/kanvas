@@ -1,3 +1,4 @@
+import { operationRequest } from '../mcp/requests.js';
 import { operationId, DISCOVERY_TOOL_NAMES } from '../../src/server/mcp/operations.js';
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -183,12 +184,12 @@ describe('feedback batch: real display history, controls, participation and diag
     try {
       const tools = await client.listTools();
       expect(tools.tools.map(tool => tool.name)).toEqual(DISCOVERY_TOOL_NAMES);
-      for (const name of ['kanvas_feedback_submit', 'kanvas_error_report', 'kanvas_display_snapshot', 'kanvas_video_control', 'kanvas_display_history']) { const result = await client.callTool({name:'kanvas_tool_search',arguments:{query:operationId(name)}}); expect((result.structuredContent as any).data.results[0].operationId).toBe(operationId(name)); }
-      const category = await client.callTool({name: 'kanvas_feedback_submit', arguments: {sessionId, requestId: randomUUID(), title: 'Wrong category', description: 'Minimal report', category: 'bug'}});
+      for (const name of ['kanvas_feedback_submit', 'kanvas_error_report', 'kanvas_display_snapshot', 'kanvas_video_control', 'kanvas_display_history']) { const result = await client.callTool({name: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id:operationId(name)}}); expect((result.structuredContent as any).data.entry.operationId).toBe(operationId(name)); }
+      const category = await client.callTool(operationRequest({name: 'kanvas_feedback_submit', arguments: {sessionId, requestId: randomUUID(), title: 'Wrong category', description: 'Minimal report', category: 'bug'}}));
       expect(category.isError).toBe(true); expect(JSON.stringify(category.structuredContent)).toContain('usability');
-      const long = await client.callTool({name: 'kanvas_submit', arguments: {sessionId, displayIds: [displayId], requestId: randomUUID(), intent: 'x'.repeat(1001)}});
+      const long = await client.callTool(operationRequest({name: 'kanvas_submit', arguments: {sessionId, displayIds: [displayId], requestId: randomUUID(), intent: 'x'.repeat(1001)}}));
       expect(long.isError).toBe(true); expect(JSON.stringify(long.structuredContent)).toContain('1000');
-      const imported = await client.callTool({name: 'kanvas_dataset_import', arguments: {sessionId, name: 'Exact', json: '[{"value":9007199254740993.123456789}]'}});
+      const imported = await client.callTool(operationRequest({name: 'kanvas_dataset_import', arguments: {sessionId, name: 'Exact', json: '[{"value":9007199254740993.123456789}]'}}));
       expect(imported.isError).not.toBe(true);
       expect((imported.structuredContent as {data: {rows: unknown[]}}).data.rows).toEqual([{value: '9007199254740993.123456789'}]);
     } finally { await client.close(); }

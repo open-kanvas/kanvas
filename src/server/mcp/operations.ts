@@ -6,7 +6,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 export type McpProfile = 'discovery' | 'domains' | 'twelve' | 'legacy';
 export type GroupedProfile = Exclude<McpProfile, 'legacy' | 'discovery'>;
 export function mcpProfile(value: unknown = 'discovery'): McpProfile {
-  if (value !== 'discovery' && value !== 'domains' && value !== 'twelve' && value !== 'legacy') throw new Error('KANVAS_MCP_PROFILE must be discovery, domains, twelve or legacy (all expose seven discovery tools).');
+  if (value !== 'discovery' && value !== 'domains' && value !== 'twelve' && value !== 'legacy') throw new Error('KANVAS_MCP_PROFILE must be discovery, domains, twelve or legacy (all advertise two discovery tools).');
   return value;
 }
 export const isGrouped = (profile: McpProfile): boolean => profile !== 'legacy';
@@ -118,7 +118,7 @@ export const DOMAIN_REGISTRY = {
 export type TwelveToolName = keyof typeof OPERATION_REGISTRY;
 export type DomainToolName = keyof typeof DOMAIN_REGISTRY;
 export type PublicToolName = TwelveToolName | DomainToolName;
-export interface ToolReference { tool: PublicToolName | 'kanvas_tool_use'; operation: string }
+export interface ToolReference { tool: PublicToolName | 'kanvas_call'; operation: string }
 export interface OperationEntry { readonly tool: PublicToolName; readonly operation: string; readonly canonical: string }
 export const REGISTRIES: Readonly<Record<GroupedProfile, Readonly<Record<string, Readonly<Record<string, string>>>>>> = Object.freeze({ twelve: OPERATION_REGISTRY, domains: DOMAIN_REGISTRY });
 
@@ -153,7 +153,8 @@ export const READ_ONLY_CANONICAL: ReadonlySet<string> = new Set([...Object.value
 
 export function publicReference(canonical: string, profile?: McpProfile): ToolReference | undefined {
   const entry = lookups[guidanceProfile(profile)].byCanonical.get(canonical);
-  if (entry && (profile ?? profileScope.getStore()) === 'discovery') return { tool: 'kanvas_tool_use', operation: operationId(canonical) };
+  if ((profile ?? profileScope.getStore()) === 'discovery' && ['kanvas_help', 'kanvas_guide', 'kanvas_template_get'].includes(canonical)) return undefined;
+  if (entry && (profile ?? profileScope.getStore()) === 'discovery') return { tool: 'kanvas_call', operation: operationId(canonical) };
   return entry ? { tool: entry.tool, operation: entry.operation } : undefined;
 }
 /** Resolve a stored or supplied tool+operation. The active profile wins;
@@ -227,32 +228,43 @@ export function publicExample<T>(example: T, profile?: McpProfile): T {
 
 /** Stable public operation IDs are independent of a grouping or transport era. */
 export const operationId = (canonical: string): string => `kanvas.${canonical.replace(/^kanvas_/, '').replaceAll('_', '.')}`;
-export const DISCOVERY_TOOL_NAMES = Object.freeze(['kanvas_help_search', 'kanvas_help_index', 'kanvas_template_search', 'kanvas_template_index', 'kanvas_tool_search', 'kanvas_tool_index', 'kanvas_tool_use'] as const);
+export const DISCOVERY_TOOL_NAMES = Object.freeze(['kanvas_discover', 'kanvas_call'] as const);
 export function discoveryExample<T>(example: T): T {
   if (!example || typeof example !== 'object' || Array.isArray(example)) return example;
   const input = example as Record<string, unknown>;
-  if (input.tool === 'kanvas_tool_use') return example;
+  if (input.tool === 'kanvas_call' || input.tool === 'kanvas_discover') return example;
   const args = input.arguments && typeof input.arguments === 'object' && !Array.isArray(input.arguments) ? input.arguments as Record<string, unknown> : typeof input.operation === 'string' ? Object.fromEntries(Object.entries(input).filter(([key]) => key !== 'tool')) : undefined;
   if (typeof input.tool !== 'string' || !args) return example;
   const entry = operationEntry(input.tool, args.operation) ?? OPERATION_ENTRIES.find(entry => entry.canonical === input.tool);
   if (!entry) return example;
   const { operation: _operation, ...rest } = args;
-  return { ...input, tool: 'kanvas_tool_use', arguments: { operationId: operationId(entry.canonical), arguments: rest } } as T;
+  if (entry.canonical === 'kanvas_template_get') return { ...input, tool: 'kanvas_discover', arguments: { catalog: 'templates', action: 'get', id: `kanvas.template.${rest.template}` } } as T;
+  if (entry.canonical === 'kanvas_help' || entry.canonical === 'kanvas_guide') return { ...input, tool: 'kanvas_discover', arguments: { catalog: 'help', action: 'search', query: String(rest.topic ?? 'getting started') } } as T;
+  return { ...input, tool: 'kanvas_call', arguments: { operationId: operationId(entry.canonical), arguments: rest } } as T;
+}
+/** Reference migration for server-authored prose, never user/source values. */
+function discoveryReferenceText(canonical: string): string {
+  if (canonical === 'kanvas_template_get') return 'kanvas_discover catalog templates action get by exact template ID';
+  if (canonical === 'kanvas_help' || canonical === 'kanvas_guide') return 'kanvas_discover catalog help action search';
+  return `kanvas_call with operationId:"${operationId(canonical)}" and arguments:{…}`;
 }
 /** Authored prose only. Never run this on user sources, schemas or literal examples. */
 export function discoveryGuidanceText(text: string): string {
   let result = text.replace(/\b(kanvas_[a-z_]+)(?: operation | )([a-z][a-z0-9_-]*(?:\.[a-z0-9_-]+)*)/g, (match, tool, operation) => {
     const entry = operationEntry(tool, operation);
-    return entry ? `kanvas_tool_use with operationId:"${operationId(entry.canonical)}" and arguments:{…}` : match;
+    return entry ? discoveryReferenceText(entry.canonical) : match;
   });
+  result = result.replace(/\bkanvas_template_get\b|\btemplate_get\b/g, 'kanvas_discover catalog templates action get by exact template ID')
+    .replace(/\bkanvas_guide(?: (?:operation )?(tour|getting-started|tools|publishing|visual-intent|templates|viewer-context|feedback))?\b/g, (_match, topic) => `kanvas_discover catalog help action search for "${topic ?? 'getting started'}"`)
+    .replace(/\bkanvas_help\b/g, 'kanvas_discover catalog help action search');
   result = result.replace(/\b(?:kanvas_[a-z_]+|[a-z]+(?:_[a-z]+)+)\b/g, name => {
     if ((DISCOVERY_TOOL_NAMES as readonly string[]).includes(name)) return name;
     const entry = OPERATION_ENTRIES.find(entry => entry.canonical === (name.startsWith('kanvas_') ? name : `kanvas_${name}`));
-    if (entry) return `kanvas_tool_use with operationId:"${operationId(entry.canonical)}" and arguments:{…}`;
-    return Object.hasOwn(DOMAIN_REGISTRY, name) || Object.hasOwn(OPERATION_REGISTRY, name) ? `kanvas_tool_search for "${name.replace(/^kanvas_/, '').replaceAll('_', ' ')}"` : name;
+    if (entry) return discoveryReferenceText(entry.canonical);
+    return Object.hasOwn(DOMAIN_REGISTRY, name) || Object.hasOwn(OPERATION_REGISTRY, name) ? `kanvas_discover catalog tools action search for "${name.replace(/^kanvas_/, '').replaceAll('_', ' ')}"` : name;
   });
   return result.replace(/(?<![\w./"-])([a-z][a-z0-9-]*(?:\.[a-z0-9-]+)+)(?![\w/"-])/g, (match, operation) => {
     const entry = bareTwelveOperations.get(operation);
-    return entry ? `kanvas_tool_use with operationId:"${operationId(entry.canonical)}" and arguments:{…}` : match;
+    return entry ? discoveryReferenceText(entry.canonical) : match;
   });
 }

@@ -8,7 +8,7 @@ An ordered ranking where the supplied order and values are the message.
 
 Up to 100 items. Rank, score, name and change remain source strings. KANVAS neither re-sorts nor recomputes rankings. Optional source images and long lists use responsive layout.
 
-Read `kanvas_tool_use` with `operationId:"kanvas.template.get"` and nested `arguments` for `leaderboard` before constructing a prepared view. It returns the exact same schema used by `kanvas_tool_use` with `operationId:"kanvas.view.validate"` and nested `arguments` and publishing.
+Read `kanvas_call` with `operationId:"kanvas.template.get"` and nested `arguments` for `leaderboard` before constructing a prepared view. It returns the exact same schema used by `kanvas_call` with `operationId:"kanvas.view.validate"` and nested `arguments` and publishing.
 
 ## Illustrative example
 

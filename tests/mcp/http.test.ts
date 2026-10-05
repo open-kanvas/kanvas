@@ -1,3 +1,4 @@
+import { operationRequest } from './requests.js';
 import { profileDescription } from '../../src/server/mcp/profile-guidance.js';
 import { DISCOVERY_TOOL_NAMES } from '../../src/server/mcp/operations.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -26,8 +27,8 @@ describe('authenticated MCP HTTP using published SDK clients', () => {
     expect(modernTools.tools.map(t => t.name)).toEqual(legacyTools.tools.map(t => t.name));
     expect(modernTools.tools.map(tool => tool.name)).toEqual(DISCOVERY_TOOL_NAMES);
     for (const list of [modernTools.tools, legacyTools.tools]) {
-      for (const tool of list) expect(tool.annotations?.readOnlyHint).toBe(tool.name !== 'kanvas_tool_use');
-      expect(list.find(tool => tool.name === 'kanvas_tool_use')?.annotations?.destructiveHint).toBe(true);
+      for (const tool of list) expect(tool.annotations?.readOnlyHint).toBe(tool.name !== 'kanvas_call');
+      expect(list.find(tool => tool.name === 'kanvas_call')?.annotations?.destructiveHint).toBe(true);
     }
     expect(modern.transport.protocolVersion).toBe('2026-07-28');
     expect(legacy.transport.sessionId).toBeTruthy();
@@ -43,17 +44,17 @@ describe('authenticated MCP HTTP using published SDK clients', () => {
   it('round-trips session creation, independent displays, selected data and acceptance/status without fabricating applied state', async () => {
     server = await harness();
     const { client } = await server.modern(server.service.issue('owner'));
-    const session = data(await client.callTool({ name: 'kanvas_session_create', arguments: { name: 'Meeting' } }));
+    const session = data(await client.callTool(operationRequest({ name: 'kanvas_session_create', arguments: { name: 'Meeting' } })));
     const sessionId = session.id;
-    const left = data(await client.callTool({ name: 'kanvas_display_register', arguments: { sessionId, name: 'Facts', width: 400, height: 800 } }));
-    const right = data(await client.callTool({ name: 'kanvas_display_register', arguments: { sessionId, name: 'Plot', width: 1920, height: 1080, pixelRatio: 1 } }));
-    const result = data(await client.callTool({ name: 'kanvas_submit', arguments: { sessionId, requestId: 'request-1', displayIds: [left.id, right.id], data: { value: 42.125, unit: 'kg' }, source: { title: 'Measured source' } } }));
+    const left = data(await client.callTool(operationRequest({ name: 'kanvas_display_register', arguments: { sessionId, name: 'Facts', width: 400, height: 800 } })));
+    const right = data(await client.callTool(operationRequest({ name: 'kanvas_display_register', arguments: { sessionId, name: 'Plot', width: 1920, height: 1080, pixelRatio: 1 } })));
+    const result = data(await client.callTool(operationRequest({ name: 'kanvas_submit', arguments: { sessionId, requestId: 'request-1', displayIds: [left.id, right.id], data: { value: 42.125, unit: 'kg' }, source: { title: 'Measured source' } } })));
     expect(result.status).toBe('accepted');
     expect(result.displayIds).toEqual([left.id, right.id]);
-    const status = data(await client.callTool({ name: 'kanvas_update_status', arguments: { sessionId, requestId: 'request-1' } }));
+    const status = data(await client.callTool(operationRequest({ name: 'kanvas_update_status', arguments: { sessionId, requestId: 'request-1' } })));
     expect(status.status).toBe('accepted');
     server.service.updates.get(String(result.id))!.status = 'applied';
-    const applied = data(await client.callTool({ name: 'kanvas_update_status', arguments: { sessionId, updateId: result.id } }));
+    const applied = data(await client.callTool(operationRequest({ name: 'kanvas_update_status', arguments: { sessionId, updateId: result.id } })));
     expect(applied.status).toBe('applied');
     const original = server.service.calls.find(call => call.name === 'kanvas_submit')!;
     expect(original.args.data).toEqual({ value: 42.125, unit: 'kg' });
@@ -71,10 +72,10 @@ describe('authenticated MCP HTTP using published SDK clients', () => {
       { name: 'kanvas_member_add', arguments: { sessionId: 'alpha', username: 'other', role: 'owner' } },
       { name: 'kanvas_submit', arguments: { sessionId: 'alpha', displayIds: ['display'], requestId: 'x', principal: { userId: 'other' } } },
     ];
-    for (const input of badInputs) expect((await client.callTool(input)).isError).toBe(true);
+    for (const input of badInputs) expect((await client.callTool(operationRequest(input))).isError).toBe(true);
     expect(server.service.calls).toHaveLength(before);
     server.service.failWithPrivateError = true;
-    const failed = await client.callTool({ name: 'kanvas_session_state', arguments: { sessionId: 'alpha' } });
+    const failed = await client.callTool(operationRequest({ name: 'kanvas_session_state', arguments: { sessionId: 'alpha' } }));
     expect(failed.isError).toBe(true);
     expect(JSON.stringify(failed).includes(server.service.privateErrorMarker)).toBe(false);
     // Modern MCP repeats public server discovery metadata on tool results.
@@ -85,7 +86,7 @@ describe('authenticated MCP HTTP using published SDK clients', () => {
     expect(JSON.stringify(metadata).length).toBeLessThan(2000);
     server.service.failWithPrivateError = false;
     server.service.oversizedResult = true;
-    const large = await client.callTool({ name: 'kanvas_session_state', arguments: { sessionId: 'alpha' } });
+    const large = await client.callTool(operationRequest({ name: 'kanvas_session_state', arguments: { sessionId: 'alpha' } }));
     expect(large.isError).not.toBe(true);
     expect((large.structuredContent as { truncated: boolean }).truncated).toBe(true);
     expect(Buffer.byteLength((large.content[0] as { text: string }).text)).toBeLessThanOrEqual(MAX_TOOL_RESULT_BYTES);
@@ -118,7 +119,7 @@ describe('authenticated MCP HTTP using published SDK clients', () => {
     await expect(modern.client.readResource({ uri: 'kanvas://sessions/beta/state' })).rejects.toThrow();
     await expect(modern.client.listen({ resourceSubscriptions: ['kanvas://sessions/beta/interactions'] })).rejects.toThrow();
     await expect(legacy.client.subscribeResource({ uri: 'kanvas://sessions/beta/config' })).rejects.toThrow();
-    const forbidden = await modern.client.callTool({ name: 'kanvas_clear', arguments: { sessionId: 'alpha', displayIds: ['display'], requestId: 'read-only' } });
+    const forbidden = await modern.client.callTool(operationRequest({ name: 'kanvas_clear', arguments: { sessionId: 'alpha', displayIds: ['display'], requestId: 'read-only' } }));
     expect(forbidden.isError).toBe(true);
     expect((forbidden.structuredContent as { error: { code: string } }).error.code).toBe('FORBIDDEN');
   });
@@ -136,7 +137,7 @@ describe('authenticated MCP HTTP using published SDK clients', () => {
     expect(wire[0].method).toBe('notifications/subscriptions/acknowledged');
     const subscriptionId = wire[0].subscriptionId;
     expect(subscriptionId).toBeDefined();
-    await client.callTool({ name: 'kanvas_config_update', arguments: { sessionId: 'alpha', expectedRevision: 0, config: { theme: 'light' } } });
+    await client.callTool(operationRequest({ name: 'kanvas_config_update', arguments: { sessionId: 'alpha', expectedRevision: 0, config: { theme: 'light' } } }));
     const id = server.service.interact('alpha');
     server.service.interact('alpha', 'agent-b');
     server.service.emit({ type: 'config', sessionId: 'beta', data: { mustNotLeak: true } });
@@ -145,13 +146,13 @@ describe('authenticated MCP HTTP using published SDK clients', () => {
     expect(wire.filter(item => item.method === 'notifications/resources/updated').every(item => item.subscriptionId === subscriptionId)).toBe(true);
     const config = await client.readResource({ uri: configUri });
     expect(JSON.parse((config.contents[0] as { text: string }).text).config.theme).toBe('light');
-    const inbox = data(await client.callTool({ name: 'kanvas_interactions_read', arguments: { sessionId: 'alpha' } }));
+    const inbox = data(await client.callTool(operationRequest({ name: 'kanvas_interactions_read', arguments: { sessionId: 'alpha' } })));
     expect((inbox.interactions as { id: string }[]).map(item => item.id)).toEqual([id]);
     const readAgain = await client.readResource({ uri: inboxUri });
     expect(JSON.parse((readAgain.contents[0] as { text: string }).text).interactions).toHaveLength(1);
-    await client.callTool({ name: 'kanvas_interaction_ack', arguments: { sessionId: 'alpha', interactionId: id } });
-    await client.callTool({ name: 'kanvas_interaction_ack', arguments: { sessionId: 'alpha', interactionId: id } });
-    const empty = data(await client.callTool({ name: 'kanvas_interactions_read', arguments: { sessionId: 'alpha' } }));
+    await client.callTool(operationRequest({ name: 'kanvas_interaction_ack', arguments: { sessionId: 'alpha', interactionId: id } }));
+    await client.callTool(operationRequest({ name: 'kanvas_interaction_ack', arguments: { sessionId: 'alpha', interactionId: id } }));
+    const empty = data(await client.callTool(operationRequest({ name: 'kanvas_interactions_read', arguments: { sessionId: 'alpha' } })));
     expect(empty.interactions).toEqual([]);
     await subscription.close();
     expect(await subscription.closed).toBe('local');
@@ -174,7 +175,7 @@ describe('authenticated MCP HTTP using published SDK clients', () => {
     await second.client.subscribeResource({ uri });
     const inbox = await second.client.readResource({ uri });
     expect(JSON.parse((inbox.contents[0] as { text: string }).text).interactions.map((item: { id: string }) => item.id)).toEqual([firstId, offlineId]);
-    const ack = await second.client.callTool({ name: 'kanvas_interaction_ack', arguments: { sessionId: 'alpha', interactionId: offlineId } });
+    const ack = await second.client.callTool(operationRequest({ name: 'kanvas_interaction_ack', arguments: { sessionId: 'alpha', interactionId: offlineId } }));
     expect(ack.isError).not.toBe(true);
   });
 
@@ -188,7 +189,7 @@ describe('authenticated MCP HTTP using published SDK clients', () => {
     await first.client.close();
     const offlineId = server.service.interact('alpha');
     const second = await server.modern(bearer);
-    const fallback = data(await second.client.callTool({ name: 'kanvas_interactions_read', arguments: { sessionId: 'alpha', limit: 1 } }));
+    const fallback = data(await second.client.callTool(operationRequest({ name: 'kanvas_interactions_read', arguments: { sessionId: 'alpha', limit: 1 } })));
     expect((fallback.interactions as { id: string }[])[0].id).toBe(offlineId);
     const subscription = await second.client.listen({ resourceSubscriptions: [uri] });
     const inbox = await second.client.readResource({ uri });

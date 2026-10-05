@@ -23,4 +23,4 @@ On your own instance, `/docs/` provides task-oriented help for navigation, accou
 
 Source code lives under `src/shared` (contracts), `src/server` (service) and `src/client` (receiving UI). Tests use only synthetic/disposable data. Contributor and reporting guidance are in the root CONTRIBUTING and SECURITY documents.
 
-- [Seven-tool MCP discovery, catalog/search decisions and migration](architecture/mcp-discovery.md)
+- [Two-tool MCP discovery, catalog/search decisions and migration](architecture/mcp-discovery.md)

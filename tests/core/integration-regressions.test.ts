@@ -1,3 +1,4 @@
+import { operationRequest } from '../mcp/requests.js';
 import { randomUUID } from 'node:crypto';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -118,7 +119,7 @@ async function publisher(h: Harness, owner: Browser, sessionId: string): Promise
 }
 
 async function tool<T>(client: Client, name: string, args: Record<string, unknown>): Promise<T> {
-  const result = await client.callTool({ name, arguments: args });
+  const result = await client.callTool(operationRequest({ name, arguments: args }));
   expect(result.isError).not.toBe(true);
   expect(result.structuredContent).toHaveProperty('data');
   return (result.structuredContent as { data: T }).data;
@@ -166,13 +167,13 @@ describe('the published MCP feedback pagination contract', () => {
     // Reading any page must not consume pending feedback.
     expect((await tool<Inbox>(client, 'kanvas_interactions_read', { sessionId: session.id, limit: 100 })).interactions.map(item => item.id)).toEqual(ids);
 
-    const invalid = await client.callTool({ name: 'kanvas_interactions_read', arguments: { sessionId: session.id, afterId: 'unknown-cursor' } });
+    const invalid = await client.callTool(operationRequest({ name: 'kanvas_interactions_read', arguments: { sessionId: session.id, afterId: 'unknown-cursor' } }));
     expect(invalid.isError).toBe(true);
     const error = (invalid.structuredContent as { error: { code: string; message: string } }).error;
     expect(['INVALID_CURSOR', 'INVALID_ARGUMENT']).toContain(error.code);
     expect(error.message.length).toBeLessThan(300);
     for (const limit of [0, 101]) {
-      const invalidLimit = await client.callTool({ name: 'kanvas_interactions_read', arguments: { sessionId: session.id, limit } });
+      const invalidLimit = await client.callTool(operationRequest({ name: 'kanvas_interactions_read', arguments: { sessionId: session.id, limit } }));
       expect(invalidLimit.isError).toBe(true);
     }
   });

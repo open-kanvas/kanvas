@@ -1,3 +1,4 @@
+import { operationRequest } from './requests.js';
 import { OPERATION_ENTRIES } from '../../src/server/mcp/operations.js';
 import {randomUUID} from 'node:crypto';
 import {Client,StreamableHTTPClientTransport} from '@modelcontextprotocol/client';
@@ -19,14 +20,14 @@ it.each(['modern','legacy'] as const)('exercises every new operation through the
   try{
     const owner=await h.account(),guest=await h.account(),s=(await owner.session()).id,d=(await owner.display(s)).id;
     const host=await connect(owner),other=await connect(guest),reader=await connect(owner,['read']);
-    const call=async<T>(tool:string,operation:string,args:Record<string,unknown>={},client:Client|LegacyClient=host):Promise<T>=>{const result=await client.callTool({name:tool,arguments:{operation,...args}});expect(result.isError,JSON.stringify(result.structuredContent)).not.toBe(true);seen.add(`${tool}:${operation}`);return (result.structuredContent as {data:T}).data;};
-    const catalog=await host.listTools();expect(catalog.tools).toHaveLength(7);expect(catalog.tools.some(t=>t.name==='kanvas_tool_search')).toBe(true);
-    const composite=await host.callTool({name:'kanvas_inspect',arguments:{operation:'template.get',template:'presentation'}});
+    const call=async<T>(tool:string,operation:string,args:Record<string,unknown>={},client:Client|LegacyClient=host):Promise<T>=>{const result=await client.callTool(operationRequest({name:tool,arguments:{operation,...args}}));expect(result.isError,JSON.stringify(result.structuredContent)).not.toBe(true);seen.add(`${tool}:${operation}`);return (result.structuredContent as {data:T}).data;};
+    const catalog=await host.listTools();expect(catalog.tools).toHaveLength(2);expect(catalog.tools.some(t=>t.name==='kanvas_discover')).toBe(true);
+    const composite=await host.callTool(operationRequest({name:'kanvas_inspect',arguments:{operation:'template.get',template:'presentation'}}));
     expect(composite.isError).not.toBe(true);expect(composite.structuredContent).not.toHaveProperty('truncated');
     // Composite leaf growth may omit the illustrative example, never the complete schema.
-    expect((composite.structuredContent as {data:{schema:unknown}}).data.schema).toHaveProperty('type','object');
-    expect(JSON.stringify((composite.structuredContent as {data:{schema:unknown}}).data.schema)).toContain('progress');
-    expect(Buffer.byteLength((composite.content as {text:string}[])[0].text)).toBeLessThanOrEqual(MAX_TOOL_RESULT_BYTES);
+    expect((composite.structuredContent as {data:{entry:{schema:unknown}}}).data.entry.schema).toHaveProperty('type','object');
+    expect(JSON.stringify((composite.structuredContent as {data:{entry:{schema:unknown}}}).data.entry.schema)).toContain('progress');
+    expect(Buffer.byteLength((composite.content as {text:string}[])[0].text)).toBeLessThanOrEqual(384 * 1024);
     expect(catalog.tools.some(t=>t.name==='kanvas_games')).toBe(false);
     await call('kanvas_publish','show',{sessionId:s,displayIds:[d],requestId:'progress-seed',view:{version:1,template:'progress',data:{task:'Verify exact source',events:[]}}});await owner.settle(s,'progress-seed');
     await call('kanvas_publish','progress.append',{sessionId:s,displayId:d,expectedRevision:1,requestId:'append-1',event:{id:'source',title:'Source checked',description:'9007199254740993.001',status:'completed'}});

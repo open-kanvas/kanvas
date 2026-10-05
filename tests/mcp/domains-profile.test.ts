@@ -1,3 +1,4 @@
+import { operationRequest } from './requests.js';
 import { DISCOVERY_TOOL_NAMES } from '../../src/server/mcp/operations.js';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -103,7 +104,7 @@ describe('domains profile over HTTP', () => {
     expect(listed).toEqual([...DISCOVERY_TOOL_NAMES]);
     expect(listed).not.toContain('kanvas_inspect');
     const call = async (name: string, operation: string, args: Record<string, unknown> = {}) => {
-      const result = await client.callTool({ name, arguments: { operation, ...args } }) as { isError?: boolean; structuredContent: Record<string, unknown> };
+      const result = await client.callTool(operationRequest({ name, arguments: { operation, ...args } })) as { isError?: boolean; structuredContent: Record<string, unknown> };
       return result;
     };
     const data = <T>(result: { isError?: boolean; structuredContent: Record<string, unknown> }) => { expect(result.isError, JSON.stringify(result.structuredContent).slice(0, 300)).toBeFalsy(); return result.structuredContent.data as T; };
@@ -128,7 +129,7 @@ describe('domains profile over HTTP', () => {
     // Server-authored guidance uses this profile's names.
     const failed = await call('kanvas_display', 'current', { sessionId: session.id });
     expect(failed.isError).toBe(true);
-    expect((failed.structuredContent.docs as { help: { tool: string; operation: string } }).help).toMatchObject({ tool: 'kanvas_help', operation: 'read' });
+    expect((failed.structuredContent.docs as { help: { tool: string; operation: string } }).help).toMatchObject({ tool: 'kanvas_discover', arguments: {catalog:'help',action:'get',id:'kanvas.help.recovery'} });
     // kanvas_feedback: same name, operations and arguments as before.
     const report = data<{ id: string; revision: number }>(await call('kanvas_feedback', 'submit', { sessionId: session.id, requestId: 'domains-report', title: 'Domains check', description: 'Filed through the unchanged feedback tool.' }));
     const updated = data<{ status: string; revision: number }>(await call('kanvas_feedback', 'report.update', { sessionId: session.id, reportId: report.id, expectedRevision: report.revision, status: 'resolved', note: 'Verified in the domains profile test.' }));
@@ -136,10 +137,10 @@ describe('domains profile over HTTP', () => {
     const reports = data<{ reports: { id: string }[] }>(await call('kanvas_reports', 'read', { sessionId: session.id }));
     expect(reports.reports.some(entry => entry.id === report.id)).toBe(true);
     const help = data<unknown>(await call('kanvas_help', 'read', { topic: 'navigation' }));
-    expect(JSON.stringify(help)).toContain('kanvas_view_navigation');
+    expect(JSON.stringify(help)).toContain('kanvas.navigation');
     expect(JSON.stringify(help)).not.toContain('kanvas_control');
     const server = shown.structuredContent.server as { profile: string; tools: number; operations: number };
-    expect(server).toMatchObject({ profile: 'domains', tools: DOMAIN_TOOL_NAMES.length, operations: CANONICAL_TOOLS.length });
+    expect(server).toMatchObject({ profile: 'discovery', tools: 2, operations: CANONICAL_TOOLS.length - 3 });
   });
 
   it('documents the domain names publicly with a former-name map', async () => {
@@ -149,10 +150,10 @@ describe('domains profile over HTTP', () => {
     expect(index.tools.map(tool => tool.name)).toEqual([...DISCOVERY_TOOL_NAMES]);
     const reference = await (await fetch(`${h.baseUrl}/docs/reference.md`)).text();
     expect(reference).toContain('## kanvas.sessions.list');
-    expect(reference).toContain('kanvas_tool_search');
-    expect((await fetch(`${h.baseUrl}/docs/operations/kanvas_tool_search.json`)).status).toBe(200);
+    expect(reference).toContain('kanvas_discover');
+    expect((await fetch(`${h.baseUrl}/docs/operations/kanvas_discover.json`)).status).toBe(200);
     const navigation = await (await fetch(`${h.baseUrl}/docs/navigation.md`)).text();
-    expect(navigation).toContain('kanvas_tool_use');
+    expect(navigation).toContain('kanvas_call');
     expect(navigation).not.toContain('kanvas_control');
     expect((await fetch(`${h.baseUrl}/docs/operations/kanvas.planner.read.json`)).status).toBe(200);
   });

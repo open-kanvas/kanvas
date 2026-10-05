@@ -8,7 +8,7 @@
 {"version":1,"template":"progress","data":{"task":"Prepare a release","events":[{"id":"source","title":"Source reviewed","timestamp":"2026-09-16T14:00:00Z","status":"completed"}]}}
 ```
 
-Append with `kanvas_tool_use` with `operationId:"kanvas.progress.append"` and nested `arguments`: `sessionId`, `displayId`, `expectedRevision`, `requestId`, `event`, optional overall `status`. A missing event timestamp uses server time. Earlier events remain; a retry of the identical request reuses its result. A stale revision, duplicate event ID or unauthorized target fails without partial changes. Use ordinary `patch` for an intentional correction. Prepared and browser-applied delivery remain distinct.
+Append with `kanvas_call` with `operationId:"kanvas.progress.append"` and nested `arguments`: `sessionId`, `displayId`, `expectedRevision`, `requestId`, `event`, optional overall `status`. A missing event timestamp uses server time. Earlier events remain; a retry of the identical request reuses its result. A stale revision, duplicate event ID or unauthorized target fails without partial changes. Use ordinary `patch` for an intentional correction. Prepared and browser-applied delivery remain distinct.
 
 `timeline` is the static supplied-event alternative with `start`, optional `end`, lane and URL. Its continuous spine, points and duration marks are not a task-progress percentage.
 

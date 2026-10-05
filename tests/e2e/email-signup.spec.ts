@@ -1,3 +1,4 @@
+import { operationRequest } from '../mcp/requests.js';
 import { testDatabase } from '../postgres.js';
 import {createServer} from 'node:http';
 import {createHash,randomBytes,randomUUID} from 'node:crypto';
@@ -19,7 +20,7 @@ test('normal OAuth provisions via email and grants access only after explicit br
     await page.goto(mail[0].link);await expect(page.getByRole('heading',{name:'Connect Chosen email connector'})).toBeVisible();await expect(page.getByRole('button',{name:'Sign in here and connect',exact:true})).toBeVisible();expect(Number(((await runtime.store.db.prepare('SELECT COUNT(*) n FROM users').get()) as {n:number}).n)).toBe(0);
     await page.getByRole('button',{name:'Sign in here and connect',exact:true}).click();await expect(page.getByRole('heading',{name:'Connected client'})).toBeVisible();const code=await receipt;expect(Boolean(code)).toBe(true);
     const exchange=await page.request.post(`${base}/oauth/token`,{form:{grant_type:'authorization_code',client_id:client.client_id,redirect_uri:redirect,resource:`${base}/mcp`,code,code_verifier:verifier}});expect(exchange.status()).toBe(200);const granted=await exchange.json();
-    const connected=new Client({name:'verified-email-client',version:'1'});try{await connected.connect(new StreamableHTTPClientTransport(new URL('/mcp',base),{requestInit:{headers:{Authorization:`Bearer ${granted.access_token}`}}}));const start=await connected.callTool({name:'kanvas_inspect',arguments:{operation:'start.read'}});expect(Boolean(start.isError)).toBe(false);}finally{await connected.close();}
+    const connected=new Client({name:'verified-email-client',version:'1'});try{await connected.connect(new StreamableHTTPClientTransport(new URL('/mcp',base),{requestInit:{headers:{Authorization:`Bearer ${granted.access_token}`}}}));const start=await connected.callTool(operationRequest({name:'kanvas_inspect',arguments:{operation:'start.read'}}));expect(Boolean(start.isError)).toBe(false);}finally{await connected.close();}
     await page.goto(`${base}/start`);await expect(page.getByRole('region',{name:'Your sessions'})).toBeVisible();await expect(page.locator('.viewer-shell')).toBeVisible();expect((await runtime.store.list('account-entry'))).toHaveLength(1);
   }finally{await page.close();server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));await runtime.close();}
 });

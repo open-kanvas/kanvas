@@ -1,3 +1,4 @@
+import { operationRequest } from '../mcp/requests.js';
 import { DISCOVERY_TOOL_NAMES } from '../../src/server/mcp/operations.js';
 import { randomUUID } from 'node:crypto';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
@@ -26,17 +27,17 @@ describe.each(['modern','legacy'] as const)('%s September 13 feedback and agent 
     clients.push(client);
     if(client instanceof Client)await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',h.baseUrl),{requestInit}));
     else await client.connect(new LegacyTransport(new URL('/mcp',h.baseUrl),{requestInit}));
-    return {client,call:async(name:string,args:Record<string,unknown>={}):Promise<Result>=>await client.callTool({name,arguments:args}) as Result};
+    return {client,call:async(name:string,args:Record<string,unknown>={}):Promise<Result>=>await client.callTool(operationRequest({name,arguments:args})) as Result};
   }
 
   it('seeds orientation before a naive caller searches for a guide, without rewriting operation data',async()=>{
     const owner=await h.account(),session=await owner.session(),p=await connect(owner,[session.id]);
     const index=await p.client.listTools();
     expect(index.tools.map(tool => tool.name)).toEqual(DISCOVERY_TOOL_NAMES);
-    const lookup=async(query:string)=>(await p.client.callTool({name:'kanvas_tool_search',arguments:{query}})).structuredContent as any;
-    const submit=(await lookup('kanvas.submit')).data.results[0],viewer=(await lookup('kanvas.viewers.read')).data.results[0];
+    const lookup=async(query:string)=>(await p.client.callTool({name:'kanvas_discover',arguments:{catalog:'tools',action:'get',id:query}})).structuredContent as any;
+    const submit=(await lookup('kanvas.submit')).data.entry,viewer=(await lookup('kanvas.viewers.read')).data.entry;
     expect(JSON.stringify(submit)).toMatch(/current displays and revisions/);
-    expect(JSON.stringify(submit)).toContain('kanvas_tool_use');
+    expect(JSON.stringify(submit)).toContain('kanvas_call');
     expect(viewer.description?.slice(0,500)).toMatch(/location.*weather|weather.*location/i);
     expect(p.client.getServerVersion()?.description).toMatch(/weather|near-me/);
     expect(p.client.getInstructions()).toContain('glanceable');
@@ -44,7 +45,7 @@ describe.each(['modern','legacy'] as const)('%s September 13 feedback and agent 
     expect(p.client.getInstructions()).toContain('never bypasses host approvals');
     const result=await p.call('kanvas_sessions_list');
     expect(value<SessionRecord[]>(result).map(x=>x.id)).toEqual([session.id]);
-    expect(result.structuredContent?.orientation?.guide).toEqual({tool:'kanvas_guide',topic:'getting-started'});
+    expect(result.structuredContent?.orientation?.guide).toEqual({tool:'kanvas_discover',arguments:{catalog:'help',action:'search',query:'getting-started'}});
     const display=value<DisplayRecord>(await p.call('kanvas_display_register',{sessionId:session.id,name:'Screen',width:1280,height:800}));
     const accepted=await p.call('kanvas_submit',{sessionId:session.id,displayIds:[display.id],requestId:'quiet-publish',view:fact('One useful visual')});
     expect(value<UpdateRecord>(accepted).status).toBe('accepted');
@@ -55,14 +56,13 @@ describe.each(['modern','legacy'] as const)('%s September 13 feedback and agent 
   it('makes focused guidance read-only and keeps dynamic modes/policy in current state',async()=>{
     const owner=await h.account(),session=await owner.session(),p=await connect(owner,[session.id]);
     const original=(await owner.detail(session.id)).session;
-    for(const topic of GUIDE_TOPICS){
-      const r=await p.call('kanvas_guide',{topic}),g=value<{topic:string;catalogue?:{template:string}[];limits?:{descriptionCharacters:number}}>(r);
-      expect(g.topic).toBe(topic);
-      expect(Buffer.byteLength(JSON.stringify(r))).toBeLessThan(64*1024);
-      if(topic==='templates')expect(g.catalogue?.map(x=>x.template).sort()).toEqual([...TEMPLATE_IDS].sort());
-      if(topic==='feedback')expect(g.limits?.descriptionCharacters).toBe(12000);
-    }
-    expect(value<{topic:string}>(await p.call('kanvas_guide')).topic).toBe('getting-started');
+    const inventory=await p.client.callTool({name:'kanvas_discover',arguments:{catalog:'help',action:'list'}});
+    const text=(inventory.content as {text:string}[])[0].text;
+    for(const topic of GUIDE_TOPICS) expect(text).toContain(`kanvas.help.${topic}`);
+    const feedback=value<{entry:{content:{descriptionCharacters:number}}}>(await p.client.callTool({name:'kanvas_discover',arguments:{catalog:'help',action:'get',id:'kanvas.help.feedback.limits'}}) as Result);
+    expect(feedback.entry.content.descriptionCharacters).toBe(12000);
+    const templates=await p.client.callTool({name:'kanvas_discover',arguments:{catalog:'templates',action:'list'}});
+    expect((templates.content as {text:string}[])[0].text.split('\n').filter(line=>line.includes(' — '))).toHaveLength(TEMPLATE_IDS.length);
     expect((await owner.detail(session.id)).session).toEqual(original);
     const previous=await p.call('kanvas_session_state',{sessionId:session.id});
     const next=value<SessionRecord>(await p.call('kanvas_config_update',{sessionId:session.id,expectedRevision:original.configRevision,config:{theme:'light'}}));
@@ -71,7 +71,7 @@ describe.each(['modern','legacy'] as const)('%s September 13 feedback and agent 
     expect(value<{session:SessionRecord}>(updated).session.config).toMatchObject({theme:'light'});
     expect(updated.structuredContent?.orientation).toEqual(previous.structuredContent?.orientation);
     expect(JSON.stringify(updated.structuredContent?.orientation)).not.toContain('"config"');
-    expect(value<{note:string}>(await p.call('kanvas_guide',{topic:'templates'})).note).toContain('static');
+    const topic=value<{entry:{note:string}}>(await p.client.callTool({name:'kanvas_discover',arguments:{catalog:'help',action:'get',id:'kanvas.help.templates.publishing'}}) as Result); expect(topic.entry.note).toContain('Static');
   });
 
   it('retains long Unicode reports, replay identity, paginated full text and review notes',async()=>{
@@ -100,7 +100,7 @@ describe.each(['modern','legacy'] as const)('%s September 13 feedback and agent 
     const marker=randomUUID(),description=marker+'x'.repeat(12001-marker.length);
     const e=invalid(await p.call('kanvas_error_report',{sessionId:session.id,requestId:'large',title:'Oversized',description}));
     expect(e.message).toContain('description');expect(e.message).toContain('12000');expect(e.message).toContain('12001');
-    expect(e).toMatchObject({schemaTool:'kanvas_guide',topic:'feedback',issues:[{path:'description',maximum:12000,actual:12001,unit:'characters'}]});
+    expect(e).toMatchObject({schemaTool:'kanvas_discover',topic:'feedback',issues:[{path:'description',maximum:12000,actual:12001,unit:'characters'}]});
     expect(JSON.stringify(e)).not.toContain(marker);
     const repaired=value<ReportRecord>(await p.call('kanvas_error_report',{sessionId:session.id,requestId:'large',title:'Oversized',description:'x'.repeat(12000)}));
     expect(repaired.description.length).toBe(12000);

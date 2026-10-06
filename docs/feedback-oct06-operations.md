@@ -59,3 +59,6 @@ with pages clamped to available content and automatic reading paused. Browser
 scroll restoration prefers a unique visible text block, then pixel position
 when that anchor changed or is ambiguous. Explicit navigation still wins. New
 content does not inherit a previous document's scroll position.
+
+The signed-in Table viewer keeps its established source-aware reconciliation: metadata-only replacements retain filters/page; changed row sets clamp the page and reset invalid filters. Its renderer is not remounted by the generic navigation identity.
+Public read-only viewers retain in-place edits but reset on a new submission, as before.

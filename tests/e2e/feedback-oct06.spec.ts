@@ -16,3 +16,16 @@ for(const isPublic of [false,true])test(`${isPublic?'Public':'Signed-in'} in-pla
  await publishPrepared(page,sessionId,[display.id],view);await waitForDisplay(page,sessionId,display.id,d=>d.revision>current.revision&&d.appliedRevision===d.revision);await expect.poll(()=>reader.evaluate(el=>el.scrollTop)).toBeLessThan(5);
  await anonymous?.close();await ownerViewer.close();
 });
+
+// Drafting retains its collaborative renderer intentionally; browsing reset must
+// not rely on unmounting that editor when a fresh publication replaces the draft.
+test('retained drafting renderer resets reading position for a fresh submission',async({page})=>{
+ await register(page);const sessionId=await createSession(page,'Fresh draft reading'),display=await createDisplay(page,sessionId,'Draft'),viewer=await openViewer(page,sessionId,display.id);
+ const view={version:1 as const,template:'drafting' as const,data:{text:Array.from({length:80},(_,i)=>`Unique draft paragraph ${i}. Supplied content for a scrollable draft.`).join('\n\n'),status:'drafting' as const,purpose:'Reader reset'}};
+ await publishPrepared(page,sessionId,[display.id],view);let current=await waitForDisplay(page,sessionId,display.id,d=>d.revision>0&&d.appliedRevision===d.revision);
+ const reader=viewer.locator('.drafting-scroll');await expect(reader).toBeVisible();await reader.evaluate(el=>{el.scrollTop=800;el.dispatchEvent(new Event('scroll'));});await expect(viewer.locator('.drafting-content')).toHaveAttribute('data-following','false');await expect.poll(()=>reader.evaluate(el=>el.scrollTop)).toBeGreaterThan(500);
+ const node=await viewer.locator('.drafting-source').elementHandle();
+ await publishPrepared(page,sessionId,[display.id],{...view,data:{...view.data,text:'Fresh replacement.\n\n'+view.data.text}});await waitForDisplay(page,sessionId,display.id,d=>d.revision>current.revision&&d.appliedRevision===d.revision);
+ await expect.poll(()=>reader.evaluate(el=>el.scrollTop)).toBeLessThan(5);
+ expect(await node!.evaluate(el=>el===document.querySelector('.viewer-candidate .drafting-source'))).toBe(true);await viewer.close();
+});

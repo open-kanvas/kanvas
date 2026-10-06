@@ -36,20 +36,21 @@ function textRanges(root:HTMLElement,query:string){
 }
 export type PublicNavigation=Pick<NavigationSnapshot,'revision'|'version'|'state'>;
 export interface PositionalNavigation{step:(direction:-1|1)=>void;home:()=>void;end:()=>void;overview:()=>void}
-export function BrowsingProvider({view,sessionId,displayId,revision,config,enabled,children,local=false,initialPage=0,positional,remoteNavigation}:{view:ViewSpec;sessionId:string;displayId:string;revision:number;config?:SessionConfig;enabled:boolean;children:ReactNode;local?:boolean;initialPage?:number;positional?:PositionalNavigation;remoteNavigation?:PublicNavigation}){
+export function BrowsingProvider({view,sessionId,displayId,revision,config,enabled,children,local=false,initialPage=0,positional,remoteNavigation,contentIdentity}:{view:ViewSpec;sessionId:string;displayId:string;revision:number;config?:SessionConfig;enabled:boolean;children:ReactNode;local?:boolean;initialPage?:number;positional?:PositionalNavigation;remoteNavigation?:PublicNavigation;contentIdentity?:number}){
   const initial=():NavigationState=>remoteNavigation?.revision===revision?structuredClone(remoteNavigation.state):({...initialNavigation(navigationLeaf(view)),...(local?{page:initialPage<0?navigationCapabilities(view).pageCount-1:initialPage}:{}),reading:readingDefaults(config??{})}),[state,setState]=useState<NavigationState>(initial),[snapshot,setSnapshot]=useState<NavigationSnapshot|null>(null),[error,setError]=useState('');
   const handlers=useRef(new Set<(direction:-1|1)=>boolean>());
   const [registerInternal]=useState(()=>(handler:(direction:-1|1)=>boolean)=>{handlers.current.add(handler);return()=>{handlers.current.delete(handler);};});
   const root=useRef<HTMLDivElement>(null),latest=useRef({view,revision,state,enabled});latest.current={view,revision,state,enabled};
+  const identity=JSON.stringify([sessionId,displayId,contentIdentity]),previousIdentity=useRef(identity);
   const anchor=useRef<{text:string;offset:number;top:number;left:number}|null>(null);
   useLayoutEffect(()=>{
     const el=root.current;if(!el)return;
-    const capture=()=>{const scroller=scrollElement(el);if(scroller.dataset.readingAuto==='true')return;const box=scroller.getBoundingClientRect();const block=[...scroller.querySelectorAll<HTMLElement>('p,li,h1,h2,h3,h4,pre,tr,[data-code-line]')].find(node=>node.getBoundingClientRect().bottom>box.top+2&&node.getBoundingClientRect().top<box.bottom&&Boolean(node.textContent?.trim()));anchor.current={text:block?.textContent?.trim()??'',offset:block?block.getBoundingClientRect().top-box.top:0,top:scroller.scrollTop,left:scroller.scrollLeft};};
+    const capture=()=>{const scroller=scrollElement(el);if(scroller.dataset.readingAuto==='true'||scroller.closest('.drafting-content[data-following="true"]'))return;const box=scroller.getBoundingClientRect();const block=[...scroller.querySelectorAll<HTMLElement>('p,li,h1,h2,h3,h4,pre,tr,[data-code-line]')].find(node=>node.getBoundingClientRect().bottom>box.top+2&&node.getBoundingClientRect().top<box.bottom&&Boolean(node.textContent?.trim()));anchor.current={text:block?.textContent?.trim()??'',offset:block?block.getBoundingClientRect().top-box.top:0,top:scroller.scrollTop,left:scroller.scrollLeft};};
     el.addEventListener('scroll',capture,true);return()=>el.removeEventListener('scroll',capture,true);
   },[]);
   useLayoutEffect(()=>{
-    const el=root.current,saved=anchor.current;if(!el||!saved)return;
-    const scroller=scrollElement(el);if(scroller.dataset.readingAuto==='true')return;
+    const el=root.current,saved=anchor.current;if(!el||!saved||previousIdentity.current!==identity)return;
+    const scroller=scrollElement(el);if(scroller.dataset.readingAuto==='true'||scroller.closest('.drafting-content[data-following="true"]'))return;
     const matches=saved.text?[...scroller.querySelectorAll<HTMLElement>('p,li,h1,h2,h3,h4,pre,tr,[data-code-line]')].filter(node=>node.textContent?.trim()===saved.text):[];
     scroller.scrollTop=matches.length===1?scroller.scrollTop+matches[0].getBoundingClientRect().top-scroller.getBoundingClientRect().top-saved.offset:saved.top;
     scroller.scrollLeft=saved.left;
@@ -59,7 +60,17 @@ export function BrowsingProvider({view,sessionId,displayId,revision,config,enabl
   const viewKey=JSON.stringify(view);
   const [tabId]=useState(viewerTabId);
   const mode=local?'independent':config?.syncMode??'independent',canNavigate=enabled&&(mode!=='presenter'||snapshot?.canNavigate===true);
-  useLayoutEffect(()=>{version.current=-1;lastCommand.current='';queue.current=[];pendingRevision.current=null;setState(previous=>({...previous,page:Math.min(previous.page,Math.max(0,navigationCapabilities(view,previous).pageCount-1)),...(previous.reading?{reading:{...previous.reading,playing:false}}:{})}));setSnapshot(null);setError('');},[revision,sessionId,displayId]);
+  useLayoutEffect(()=>{
+    version.current=-1;lastCommand.current='';queue.current=[];pendingRevision.current=null;
+    // Collaborative renderers intentionally retain their DOM across fresh
+    // publications. Reset browsing independently, without discarding editor drafts.
+    if(previousIdentity.current!==identity){
+      previousIdentity.current=identity;anchor.current=null;lastFocus.current='';lastScroll.current='';inputEpoch.current++;nativeScrollPending.current=false;
+      const next=initial();latest.current.state=next;setState(next);
+      const el=root.current;if(el){const scroller=scrollElement(el);suppress.current=Date.now()+200;scroller.scrollTop=0;scroller.scrollLeft=0;}
+    }else setState(previous=>({...previous,page:Math.min(previous.page,Math.max(0,navigationCapabilities(view,previous).pageCount-1)),...(previous.reading?{reading:{...previous.reading,playing:false}}:{})}));
+    setSnapshot(null);setError('');
+  },[revision,sessionId,displayId,identity]);
   useLayoutEffect(()=>{
     if(!local||!remoteNavigation||remoteNavigation.version===0||remoteNavigation.revision!==revision||version.current===remoteNavigation.version)return;
     version.current=remoteNavigation.version;const next=structuredClone(remoteNavigation.state);latest.current.state=next;setState(next);lastScroll.current='';lastFocus.current='';

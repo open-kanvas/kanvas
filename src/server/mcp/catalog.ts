@@ -152,19 +152,16 @@ interface ResolvedCall { canonicalName: string; args: Record<string, unknown>; r
 interface RejectedCall { error: InputError; canonicalName?: string; reference?: ToolReference; args?: never }
 export function resolveToolCall(profile: McpProfile, name: string, raw: unknown): ResolvedCall | RejectedCall {
   if (profile === 'discovery') {
-    if (name === 'kanvas_tool_use') {
+    if (name === 'kanvas_call') {
       let input: Record<string, unknown>;
       try { input = parseDiscoveryInput(name, raw); }
       catch (error) { if (error instanceof InputError) return { error }; throw error; }
       const canonical = canonicalForOperation(String(input.operationId));
-      if (!canonical) return { error: new InputError([{ path: 'operationId', problem: 'Unknown operation ID. Use kanvas_tool_search or kanvas_tool_index.' }]) };
+      if (!canonical) return { error: new InputError([{ path: 'operationId', problem: 'Unknown operation ID. Use kanvas_discover with catalog tools and action list or search, then get the exact ID.' }]) };
       const resolved = resolveToolCall('legacy', canonical, input.arguments);
-      return { ...resolved, reference: { tool: 'kanvas_tool_use', operation: String(input.operationId) } };
+      return { ...resolved, reference: { tool: 'kanvas_call', operation: String(input.operationId) } };
     }
-    // Narrow cached-client compatibility: only existing registry entries and
-    // canonical validators, never constructed handlers or arbitrary routing.
-    return CANONICAL_TOOLS.some(tool => tool.name === name) && !(raw && typeof raw === 'object' && 'operation' in raw)
-      ? resolveToolCall('legacy', name, raw) : resolveToolCall('domains', name, raw);
+    return { error: new InputError([{ path: 'tool', problem: 'Unknown tool. This connection exposes only kanvas_discover and kanvas_call. Refresh tools/list and use kanvas_discover to find the operation.' }]) };
   }
   let canonicalName = name;
   let args: unknown = raw ?? {};

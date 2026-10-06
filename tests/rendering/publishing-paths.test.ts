@@ -64,7 +64,7 @@ describe('inspectable publishing recipes without mandatory schema lookup', () =>
     for (const example of examples) {
       const recipe = PUBLISHING_RECIPES.find(candidate => candidate.arguments.requestId === example.arguments.arguments.requestId);
       expect(recipe).toBeDefined();
-      expect(example).toEqual({ name: 'kanvas_tool_use', arguments: { operationId: 'kanvas.submit', arguments: recipe!.arguments } });
+      expect(example).toEqual({ name: 'kanvas_call', arguments: { operationId: 'kanvas.submit', arguments: recipe!.arguments } });
       const resolved = resolveToolCall('discovery', example.name, example.arguments);
       expect(resolved.error).toBeUndefined();
       expect(resolved.canonicalName).toBe('kanvas_submit');

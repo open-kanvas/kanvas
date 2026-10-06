@@ -71,7 +71,8 @@ test('live topology groups actual windows and distinct devices, shows browser lo
     await waitForDisplay(page,s,d.id,x=>x.appliedRevision===x.revision&&x.revision>0);
     await expect(v.locator('.session-topology')).toBeVisible();await expect.poll(()=>v.locator('.topology-window.is-connected').count()).toBeGreaterThanOrEqual(3);await expect(v.locator('.topology-person>header')).toHaveCount(1);
     await expect.poll(()=>v.locator('.topology-device').count()).toBeGreaterThanOrEqual(2);await expect(v.locator('.browser-logo').first()).toBeVisible();
-    expect(await v.locator('.browser-logo').evaluateAll(images=>images.every(i=>(i as HTMLImageElement).naturalWidth>0))).toBe(true);
+    // Visibility precedes image decoding; verify every actual logo eventually loads, not just the first visible element.
+    await expect.poll(()=>v.locator('.browser-logo').evaluateAll(images=>images.length>0&&images.every(i=>(i as HTMLImageElement).complete&&(i as HTMLImageElement).naturalWidth>0))).toBe(true);
     await expect(v.getByRole('img',{name:'tv',exact:true})).toBeVisible();await photo(v,info,'people-devices-windows');
     await expect(v.locator('.topology-controls,.session-topology select,.topology-toolbar button')).toHaveCount(0);
     await publishPrepared(page,s,[d.id],{version:1,template:'session-topology',data:{groupBy:'all',includeOffline:true}});await expect(v.locator('.session-topology')).toHaveAttribute('data-group-by','all');await expect(v.locator('.topology-display>header h2')).toHaveText(['Main display','Topology','Another display']);

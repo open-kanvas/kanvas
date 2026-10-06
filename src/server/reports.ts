@@ -7,7 +7,8 @@ import { type AuthPrincipal, hash } from './auth.js';
 import { AppError, id, now, required, Store } from './store.js';
 import { safeError } from './mcp/results.js';
 import { currentToolContext } from './mcp/call-context.js';
-import { operationEntry, publicReference } from './mcp/operations.js';
+import { canonicalForOperation } from './mcp/discovery.js';
+import { operationEntry, publicReference, profileScope } from './mcp/operations.js';
 
 interface Access {
   session(principal: AuthPrincipal, sessionId: string, role: Role, write: boolean, reviewExisting?: boolean): Promise<Awaited<SessionRecord>>;
@@ -43,9 +44,13 @@ export class SessionReports {
     const rows = (await this.store.db.prepare("SELECT value FROM documents WHERE kind='diagnostic' AND session_id=? ORDER BY rowid DESC LIMIT 10").all(sessionId));
     return rows.map(row => {
       const record = JSON.parse(String(row.value)) as DiagnosticRecord;
-      const reference = publicReference(record.operation);
+      const historicalOrigin = record.publicTool && record.publicOperation ? operationEntry(record.publicTool, record.publicOperation)?.canonical : undefined;
+      const currentOrigin = record.publicTool === 'kanvas_call' && record.publicOperation ? canonicalForOperation(record.publicOperation) : historicalOrigin;
+      const reference = publicReference(currentOrigin ?? record.operation);
+      // Recovery routes name the current interface; persisted provenance remains untouched.
+      const savedOrigin = profileScope.getStore() === 'discovery' ? reference : record.publicTool ? {tool:record.publicTool,operation:record.publicOperation} : reference;
       return { diagnosticId: record.id, createdAt: record.createdAt, code: record.code, phase: record.phase,
-        ...(record.publicTool ? { tool: record.publicTool, operation: record.publicOperation } : reference ?? {}),
+        ...(savedOrigin ?? {}),
         ...(record.issues?.length ? { issues: record.issues } : {}) };
     });
   }
@@ -62,8 +67,8 @@ export class SessionReports {
       // identical: presentation cues, camera controls and guest QR publication
       // all delegate to submit. Retain both identities without changing args,
       // request digests or the canonical diagnostic operation.
-      const origin = context && operationEntry(context.tool, context.operation);
-      const hasOrigin = context && origin?.canonical === context.canonicalName;
+      const origin = context && (context.tool === 'kanvas_call' ? canonicalForOperation(context.operation) : operationEntry(context.tool, context.operation)?.canonical);
+      const hasOrigin = context && origin === context.canonicalName;
       const record: DiagnosticRecord = {
         id: id(), sessionId, operation, code: failure.code,
         ...(hasOrigin ? { publicTool: context.tool, publicOperation: context.operation } : {}),

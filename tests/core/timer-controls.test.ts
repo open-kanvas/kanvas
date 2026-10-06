@@ -1,3 +1,4 @@
+import { operationRequest } from '../mcp/requests.js';
 import { testDatabase } from '../postgres.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -305,20 +306,20 @@ async function protocolSetup(protocol: 'modern' | 'legacy') {
   clients.push(client);
   if (client instanceof Client) await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', h.baseUrl), { requestInit }));
   else await client.connect(new LegacyTransport(new URL('/mcp', h.baseUrl), { requestInit }));
-  const call = async (name: string, args: Record<string, unknown>) => await client.callTool({ name, arguments: { sessionId: session.id, displayId: display.id, ...args } }) as ToolResult;
+  const call = async (name: string, args: Record<string, unknown>) => await client.callTool(operationRequest({ name, arguments: { sessionId: session.id, displayId: display.id, ...args } })) as ToolResult;
   return { h, account, session, display, client, call, interpret, issued };
 }
 function toolFailure(result: ToolResult, code: string) {
   expect(result.isError).toBe(true); expect(result.structuredContent?.error?.code).toBe(code);
-  expect(JSON.parse(result.content?.find(item => item.type === 'text')?.text ?? '{}')).toEqual(result.structuredContent);
+  expect(JSON.parse(result.content?.find(item => item.type === 'text' && item.text?.startsWith('{'))?.text ?? '{}')).toEqual(result.structuredContent);
   return result.structuredContent!.error!;
 }
 
 describe.each(['modern', 'legacy'] as const)('%s MCP timer control integration', protocol => {
   it('publishes direct pause/resume receipts, replays the original action, and returns safe state conflicts', async () => {
     const { h, account, session, display, client, call, interpret } = await protocolSetup(protocol);
-    const discovery = await client.listTools(); expect(discovery.tools.some(tool => tool.name === 'kanvas_tool_use')).toBe(true);
-    const found = await client.callTool({name:'kanvas_tool_search',arguments:{query:'kanvas.timer.control'}}); expect((found.structuredContent as any).data.results[0].operationId).toBe('kanvas.timer.control');
+    const discovery = await client.listTools(); expect(discovery.tools.some(tool => tool.name === 'kanvas_call')).toBe(true);
+    const found = await client.callTool({name: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id:'kanvas.timer.control'}}); expect((found.structuredContent as any).data.entry.operationId).toBe('kanvas.timer.control');
     await account.submit(session.id, [display.id], timer({ endsAt: iso(Date.now() + 120000), completeText: 'Finished' }));
     const before = (await account.detail(session.id)).displays[0];
     const request = { expectedRevision: before.revision, requestId: randomUUID(), action: 'pause' };

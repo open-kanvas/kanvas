@@ -1,3 +1,4 @@
+import { operationRequest } from './requests.js';
 import { operationId, publicGuidanceText } from '../../src/server/mcp/operations.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { listToolDefinitions } from '../../src/server/mcp/catalog.js';
@@ -95,27 +96,27 @@ describe('real guide, catalogue and MCP result integration', () => {
     const connections = await Promise.all([server.modern(identity), server.legacy(identity)]);
     for (const { client } of connections) {
       const listed = await client.listTools();
-    expect(listed.tools).toHaveLength(7);
+    expect(listed.tools).toHaveLength(2);
     for (const tool of entryPoints) {
-      const found = await client.callTool({ name: 'kanvas_tool_search', arguments: { query: operationId(tool) } });
-      const detail = (found.structuredContent as any).data.results[0];
+      const found = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id: operationId(tool) } });
+      const detail = (found.structuredContent as any).data.entry;
       expect(detail.description).toContain(publicGuidanceText(VIEWER_LINK_TOOL_GUIDANCE[tool], 'discovery'));
     }
-      const created = envelope(await client.callTool({ name: 'kanvas_session_create', arguments: { name: 'First viewer handoff' } }));
-      expect(created.orientation?.viewerLink).toBe(viewerLinkGuidanceFor('kanvas_session_create')); expect(created.data).not.toHaveProperty('viewerUrl');
+      const created = envelope(await client.callTool(operationRequest({ name: 'kanvas_session_create', arguments: { name: 'First viewer handoff' } })));
+      expect(created.orientation?.viewerLink).toBe(publicGuidanceText(viewerLinkGuidanceFor('kanvas_session_create')!, 'discovery')); expect(created.data).not.toHaveProperty('viewerUrl');
       const sessionId = created.data.id;
-      const registered = envelope(await client.callTool({ name: 'kanvas_display_register', arguments: { sessionId, name: 'Intended display', width: 443, height: 823 } }));
-      expect(registered.orientation?.viewerLink).toBe(viewerLinkGuidanceFor('kanvas_display_register')); expect(registered.data.revision).toBe(0);
+      const registered = envelope(await client.callTool(operationRequest({ name: 'kanvas_display_register', arguments: { sessionId, name: 'Intended display', width: 443, height: 823 } })));
+      expect(registered.orientation?.viewerLink).toBe(publicGuidanceText(viewerLinkGuidanceFor('kanvas_display_register')!, 'discovery')); expect(registered.data.revision).toBe(0);
       for (const requestId of ['first-publication', 'next-revision']) {
-        const submitted = envelope(await client.callTool({ name: 'kanvas_submit', arguments: { sessionId, displayIds: [registered.data.id], requestId, view: { version: 1, template: 'fact', data: { text: 'Exact supplied content.' } } } }));
-        expect(submitted.orientation?.viewerLink).toBe(viewerLinkGuidanceFor('kanvas_submit')); expect(submitted.data.status).toBe('accepted');
+        const submitted = envelope(await client.callTool(operationRequest({ name: 'kanvas_submit', arguments: { sessionId, displayIds: [registered.data.id], requestId, view: { version: 1, template: 'fact', data: { text: 'Exact supplied content.' } } } })));
+        expect(submitted.orientation?.viewerLink).toBe(publicGuidanceText(viewerLinkGuidanceFor('kanvas_submit')!, 'discovery')); expect(submitted.data.status).toBe('accepted');
         expect(submitted.data).not.toHaveProperty('viewerUrl'); expect(submitted.data).not.toHaveProperty('appliedRevision');
       }
       // This protocol fixture deliberately does not implement locator fields;
       // the adapter must still return the hint without inventing a live URL.
       for (const selected of [{ sessionId, displayId: registered.data.id }, { sessionId }]) {
-        const addressed = envelope(await client.callTool({ name: 'kanvas_address_get', arguments: selected }));
-        expect(addressed.orientation?.viewerLink).toBe(viewerLinkGuidanceFor('kanvas_address_get')); expect(addressed.data).not.toHaveProperty('viewerUrl');
+        const addressed = envelope(await client.callTool(operationRequest({ name: 'kanvas_address_get', arguments: selected })));
+        expect(addressed.orientation?.viewerLink).toBe(publicGuidanceText(viewerLinkGuidanceFor('kanvas_address_get')!, 'discovery')); expect(addressed.data).not.toHaveProperty('viewerUrl');
       }
     }
     const operations = server.service.calls.map(call => call.name);

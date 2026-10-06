@@ -38,7 +38,7 @@ describe('actual guide and protocol metadata delivery', () => {
     for (const { client } of [modern, legacy]) {
       expect(client.getServerVersion()).toMatchObject({ name: 'kanvas', description: profileDescription('discovery') });
       expect(client.getInstructions()).toBe(profileInstructions('discovery'));
-      expect(client.getInstructions()).toContain('kanvas_tool_search');
+      expect(client.getInstructions()).toContain('kanvas_discover');
       // Publishing a cue neither requests a model turn nor enables a new
       // permission/elicitation channel behind the host's back.
       const capabilities = client.getServerCapabilities();
@@ -48,12 +48,12 @@ describe('actual guide and protocol metadata delivery', () => {
     expect(JSON.stringify(modern.client.getDiscoverResult())).toContain('go-to visual display');
     const [current, previous] = await Promise.all([modern.client.listTools(), legacy.client.listTools()]);
     for (const published of [current, previous]) {
-      expect(published.tools).toHaveLength(7);
-      expect(published.tools.some(tool => tool.name === 'kanvas_tool_search')).toBe(true);
+      expect(published.tools).toHaveLength(2);
+      expect(published.tools.some(tool => tool.name === 'kanvas_discover')).toBe(true);
     }
     for (const { client } of [modern, legacy]) {
-      const result = await client.callTool({ name: 'kanvas_tool_search', arguments: { query: 'kanvas.submit' } });
-      expect((result.structuredContent as any).data.results[0].description).toContain(VISUAL_INTENT_SUBMIT_HINT);
+      const result = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id: 'kanvas.submit' } });
+      expect((result.structuredContent as any).data.entry.description).toContain(VISUAL_INTENT_SUBMIT_HINT);
     }
     expect(server.service.calls).toHaveLength(0);
   });

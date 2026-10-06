@@ -1,3 +1,4 @@
+import { operationRequest } from '../mcp/requests.js';
 import {Client,StreamableHTTPClientTransport} from '@modelcontextprotocol/client';
 import {Client as LegacyClient} from '@modelcontextprotocol/sdk/client/index.js';
 import {StreamableHTTPClientTransport as LegacyTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
@@ -27,7 +28,7 @@ async function setup(page:Page,baseURL:string,mode:'success'|'denied'|'unsupport
   if(client instanceof LegacyClient)await client.connect(new LegacyTransport(new URL('/mcp',baseURL),options));
   else await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',baseURL),options));
   const call=async(operation:string,args:Record<string,unknown>={})=>{
-    const result=await client.callTool({name:'kanvas_capture',arguments:{operation,sessionId,displayId:display.id,...args}});
+    const result=await client.callTool(operationRequest({name:'kanvas_capture',arguments:{operation,sessionId,displayId:display.id,...args}}));
     expect(result.isError).not.toBe(true);return (result.structuredContent as any).data;
   };
   await expect.poll(async()=>{const result=await sessionApi<any[]>(page,`/api/sessions/${sessionId}/viewers`);return result.data?.filter(v=>v.connected&&v.displayId===display.id).length;}).toBe(1);

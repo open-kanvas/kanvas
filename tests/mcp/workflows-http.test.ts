@@ -1,3 +1,4 @@
+import { operationRequest } from './requests.js';
 import { asyncMap } from '../../src/server/async-collections.js';
 import {randomBytes,randomUUID,createHash} from 'node:crypto';
 import {afterEach,describe,expect,it} from 'vitest';
@@ -20,16 +21,16 @@ describe('workflows over both MCP protocols',()=>{
     const foreign=await h.runtime.auth.issueToken(other.user!.id,'Other account fixture',['read','publish']);
     const read=await h.runtime.auth.issueToken(owner.user!.id,'Read export fixture',['read']);
     const c=await connect(legacy,'/mcp',{Authorization:`Bearer ${issued.value}`}),stranger=await connect(legacy,'/mcp',{Authorization:`Bearer ${foreign.value}`}),reader=await connect(legacy,'/mcp',{Authorization:`Bearer ${read.value}`});
-    const call=async(name:string,operation:string,args:Record<string,unknown>={})=>{const r=await c.callTool({name,arguments:{operation,...args}});expect(r.isError,JSON.stringify(r.structuredContent)).not.toBe(true);return (r.structuredContent as any).data;};
+    const call=async(name:string,operation:string,args:Record<string,unknown>={})=>{const r=await c.callTool(operationRequest({name,arguments:{operation,...args}}));expect(r.isError,JSON.stringify(r.structuredContent)).not.toBe(true);return (r.structuredContent as any).data;};
     try{
       const report=await call('kanvas_feedback','submit',{scope:'account',requestId:'wire-report',title:'Synthetic finding',description:'Initial observation',category:'feature'});
       expect(await call('kanvas_feedback','patch',{reportId:report.id,expectedRevision:0,note:'Follow-up observation'})).toMatchObject({revision:1,history:[{note:'Follow-up observation'}]});
-      expect((await stranger.callTool({name:'kanvas_feedback',arguments:{operation:'patch',reportId:report.id,expectedRevision:1,note:'Foreign'}})).isError).toBe(true);
+      expect((await stranger.callTool(operationRequest({name:'kanvas_feedback',arguments:{operation:'patch',reportId:report.id,expectedRevision:1,note:'Foreign'}}))).isError).toBe(true);
       const pixel='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6Ot8AAAAASUVORK5CYII=';
       const asset=await call('kanvas_import','asset.import',{sessionId:session.id,name:'wire.png',mimeType:'image/png',base64:pixel});
       expect(await call('kanvas_import','asset.export',{sessionId:session.id,assetId:asset.id})).toMatchObject({base64:pixel,complete:true});
-      const readExport=await reader.callTool({name:'kanvas_import',arguments:{operation:'asset.export',sessionId:session.id,assetId:asset.id}});expect(readExport.isError).not.toBe(true);expect((readExport.structuredContent as any).data.base64).toBe(pixel);
-      expect((await stranger.callTool({name:'kanvas_import',arguments:{operation:'asset.export',sessionId:session.id,assetId:asset.id}})).isError).toBe(true);
+      const readExport=await reader.callTool(operationRequest({name:'kanvas_import',arguments:{operation:'asset.export',sessionId:session.id,assetId:asset.id}}));expect(readExport.isError).not.toBe(true);expect((readExport.structuredContent as any).data.base64).toBe(pixel);
+      expect((await stranger.callTool(operationRequest({name:'kanvas_import',arguments:{operation:'asset.export',sessionId:session.id,assetId:asset.id}}))).isError).toBe(true);
       const before=await h.runtime.service.sessions({userId:owner.user!.id,tokenId:issued.token.id});
       expect(await call('kanvas_control','start.begin',{requestId:'wire-start'})).toMatchObject({status:'needs_display'});
       expect(await h.runtime.service.sessions({userId:owner.user!.id,tokenId:issued.token.id})).toEqual(before);
@@ -40,15 +41,15 @@ describe('workflows over both MCP protocols',()=>{
     const session=(await h.runtime.auth.issueBrowser(owner.user!.id,{cookie:()=>{}} as unknown as Response)),receiver={userId:owner.user!.id,browserId:session.id},device=(await h.runtime.service.devices.register(receiver,{installationId:'wire-receiver'},'Browser'));
     const stream=(await h.runtime.service.devices.stream(receiver,device.id,()=>{})),issued=(await h.runtime.auth.issueToken(owner.user!.id,'Device wire test',['read','publish'])),read=(await h.runtime.auth.issueToken(owner.user!.id,'Read device wire test',['read'])),limited=(await h.runtime.auth.issueToken(owner.user!.id,'Selected session',['read','publish'],[s.id]));
     const c=await connect(legacy,'/mcp',{Authorization:`Bearer ${issued.value}`}),reader=await connect(legacy,'/mcp',{Authorization:`Bearer ${read.value}`}),selected=await connect(legacy,'/mcp',{Authorization:`Bearer ${limited.value}`}),seen=new Set<string>();
-    const call=async(name:string,operation:string,args:Record<string,unknown>={})=>{const result=await c.callTool({name,arguments:{operation,...args}});expect(result.isError).not.toBe(true);seen.add(`${name}:${operation}`);return(result.structuredContent as any).data;};
+    const call=async(name:string,operation:string,args:Record<string,unknown>={})=>{const result=await c.callTool(operationRequest({name,arguments:{operation,...args}}));expect(result.isError).not.toBe(true);seen.add(`${name}:${operation}`);return(result.structuredContent as any).data;};
     try{
       expect((await call('kanvas_inspect','devices.read')).devices[0]).toMatchObject({id:device.id,connected:true});
       const renamed=await call('kanvas_control','device.rename',{deviceId:device.id,name:'Living room TV',expectedVersion:device.version});expect(renamed.name).toBe('Living room TV');
       const input={deviceId:device.id,sessionId:s.id,displayId:d.id,expectedVersion:renamed.version,requestId:randomUUID()},sent=await call('kanvas_control','device.present',input);expect(sent.device.command.status).toBe('pending');expect((await call('kanvas_control','device.present',input)).commandId).toBe(sent.commandId);
       expect((await call('kanvas_inspect','participants.read',{sessionId:s.id})).participants.filter((v:any)=>v.connected)).toEqual([]);
-      expect((await selected.callTool({name:'kanvas_inspect',arguments:{operation:'devices.read'}})).isError).toBe(true);
-      expect((await reader.callTool({name:'kanvas_control',arguments:{operation:'device.present',...input}})).isError).toBe(true);
-      expect((await reader.callTool({name:'kanvas_control',arguments:{operation:'device.rename',deviceId:device.id,name:'Refused',expectedVersion:sent.device.version}})).isError).toBe(true);
+      expect((await selected.callTool(operationRequest({name:'kanvas_inspect',arguments:{operation:'devices.read'}}))).isError).toBe(true);
+      expect((await reader.callTool(operationRequest({name:'kanvas_control',arguments:{operation:'device.present',...input}}))).isError).toBe(true);
+      expect((await reader.callTool(operationRequest({name:'kanvas_control',arguments:{operation:'device.rename',deviceId:device.id,name:'Refused',expectedVersion:sent.device.version}}))).isError).toBe(true);
       expect([...seen].sort()).toEqual(DEVICE_MAPPING.map(([,name,operation])=>`${name}:${operation}`).sort());
     }finally{stream.close();await c.close();await reader.close();await selected.close();}
   });
@@ -57,15 +58,15 @@ describe('workflows over both MCP protocols',()=>{
     const token=(await h.runtime.auth.issueToken(owner.user!.id,'Isolated wire verification',['read','publish'],[s.id]));
     const readToken=(await h.runtime.auth.issueToken(owner.user!.id,'Isolated read scope',['read'],[s.id]));
     const c=await connect(legacy,'/mcp',{Authorization:`Bearer ${token.value}`}),reader=await connect(legacy,'/mcp',{Authorization:`Bearer ${readToken.value}`}),seen=new Set<string>();
-    const call=async(tool:string,operation:string,args:Record<string,unknown>)=>{const result=await c.callTool({name:tool,arguments:{operation,...args}});expect(result.isError,JSON.stringify(result.structuredContent)).not.toBe(true);seen.add(`${tool}:${operation}`);return (result.structuredContent as any).data;};
+    const call=async(tool:string,operation:string,args:Record<string,unknown>)=>{const result=await c.callTool(operationRequest({name:tool,arguments:{operation,...args}}));expect(result.isError,JSON.stringify(result.structuredContent)).not.toBe(true);seen.add(`${tool}:${operation}`);return (result.structuredContent as any).data;};
     try{
       const snapshot=async ()=>(await asyncMap(['session','display','short-address','navigation','diagnostic'], async kind=>[kind,(await h.runtime.store.list(kind))]));const before=(await snapshot());
       const start=await call('kanvas_inspect','start.read',{});expect(start.sessions.map((x:any)=>x.id)).toEqual([s.id]);expect(start.canCreate).toBe(false);expect((await snapshot())).toEqual(before); // HTTP authentication may update its own token's last-used record.
       const config=(await owner.detail(s.id)).session;
       const rename={sessionId:s.id,expectedRevision:config.configRevision,name:'Chosen source session'};
       expect(await call('kanvas_session','rename',rename)).toMatchObject({name:rename.name,configRevision:config.configRevision+1});
-      expect((await reader.callTool({name:'kanvas_session',arguments:{operation:'rename',...rename,expectedRevision:config.configRevision+1}})).isError).toBe(true);
-      const foreign=await other.session();expect((await c.callTool({name:'kanvas_session',arguments:{operation:'rename',...rename,sessionId:foreign.id}})).isError).toBe(true);
+      expect((await reader.callTool(operationRequest({name:'kanvas_session',arguments:{operation:'rename',...rename,expectedRevision:config.configRevision+1}}))).isError).toBe(true);
+      const foreign=await other.session();expect((await c.callTool(operationRequest({name:'kanvas_session',arguments:{operation:'rename',...rename,sessionId:foreign.id}}))).isError).toBe(true);
       const original={id:'source-1',sender:'Exact author',text:'  Exact 1.2300\nSecond line.'};
       await owner.submit(s.id,[d.id],{version:1,template:'chat',data:{messages:[original]}});
       const append={sessionId:s.id,displayId:d.id,expectedRevision:1,requestId:randomUUID(),messages:[{id:'source-2',sender:'Other author',text:'9007199254740993.001'}]};
@@ -73,8 +74,8 @@ describe('workflows over both MCP protocols',()=>{
       const select={sessionId:s.id,displayId:d.id,expectedRevision:2,requestId:randomUUID(),selection:{where:[{field:'sender',op:'eq',value:'Other author'}],highlight:[{field:'id',op:'eq',value:'source-2'}]}};
       const selected=await call('kanvas_control','selection.set',select);expect((await call('kanvas_control','selection.set',select)).id).toBe(selected.id);
       const current=(await owner.detail(s.id)).displays[0];expect(current.view!.data.messages).toEqual([original,append.messages[0]]);expect(current.view!.selection?.where?.[0].value).toBe('Other author');
-      expect((await c.callTool({name:'kanvas_publish',arguments:{operation:'selection.set',...select}})).isError).toBe(true);
-      for(const [tool,operation,args]of [['kanvas_publish','chat.append',append],['kanvas_control','selection.set',select]] as const)expect((await reader.callTool({name:tool,arguments:{operation,...args,expectedRevision:current.revision,requestId:randomUUID()}})).isError).toBe(true);
+      expect((await c.callTool(operationRequest({name:'kanvas_publish',arguments:{operation:'selection.set',...select}}))).isError).toBe(true);
+      for(const [tool,operation,args]of [['kanvas_publish','chat.append',append],['kanvas_control','selection.set',select]] as const)expect((await reader.callTool(operationRequest({name:tool,arguments:{operation,...args,expectedRevision:current.revision,requestId:randomUUID()}}))).isError).toBe(true);
       expect([...seen].sort()).toEqual(WORK_MAPPING.map(([,tool,op])=>`${tool}:${op}`).sort());
     }finally{await c.close();await reader.close();}
   });
@@ -85,10 +86,10 @@ describe('workflows over both MCP protocols',()=>{
       for(const length of [1000,1800,8000])for(const headings of [undefined,[],[{start:0,end:8,level:2}]])for(const encoded of [false,true]){
         const text=Array.from({length:4},(_,i)=>`${i+1}: ${'Exact words 1.2300. '.repeat(Math.ceil(length/80))}`).join('\n\n');
         const view={version:1,template:'document',data:{text,...(headings?{headings}:{})}};
-        const requestId=randomUUID();const result=await c.callTool({name:'kanvas_publish',arguments:{operation:'show',sessionId:s.id,displayIds:[d.id],requestId,view:encoded?JSON.stringify(view):view}});
+        const requestId=randomUUID();const result=await c.callTool(operationRequest({name:'kanvas_publish',arguments:{operation:'show',sessionId:s.id,displayIds:[d.id],requestId,view:encoded?JSON.stringify(view):view}}));
         expect(Boolean(result.isError),`document ${length} ${encoded}`).toBe(false);await b.settle(s.id,requestId);const stored=(await b.detail(s.id)).displays[0];expect(stored.view!.data.text).toBe(text);expect(stored.view!.data.headings??[]).toEqual(headings??[]);
       }
-      const malformed=await c.callTool({name:'kanvas_publish',arguments:{operation:'show',sessionId:s.id,displayIds:[d.id],requestId:randomUUID(),view:'{"version":1,"template":"document","data":{"text":"first\nsecond"}}'}});
+      const malformed=await c.callTool(operationRequest({name:'kanvas_publish',arguments:{operation:'show',sessionId:s.id,displayIds:[d.id],requestId:randomUUID(),view:'{"version":1,"template":"document","data":{"text":"first\nsecond"}}'}}));
       expect(malformed.isError).toBe(true);expect(JSON.stringify(malformed)).toContain('escaped');
     }finally{await c.close();}
   });
@@ -108,7 +109,7 @@ describe('workflows over both MCP protocols',()=>{
       const login=success(await b.request<any>('POST','/api/auth/email/consume',{token,confirm:true}));b.csrf=login.csrfToken;expect((await h.runtime.store.list('oauth-grant'))).toHaveLength(0);
       const consent=success(await b.request<any>('POST','/api/oauth/approve',{requestId,approve:true,accessMode:'account'})),code=new URL(consent.redirectUri).searchParams.get('code')!;
       const exchange=await b.raw('/oauth/token',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',client_id:registered.client_id,redirect_uri:redirect,resource:`${ORIGIN}/mcp`,code,code_verifier:verifier}).toString()});expect(exchange.status).toBe(200);const credential=await exchange.json();expect(Boolean(credential.access_token)).toBe(true);
-      const connected=await connect(legacy,'/mcp',{Authorization:`Bearer ${credential.access_token}`});try{const start=await connected.callTool({name:'kanvas_inspect',arguments:{operation:'start.read'}});expect(Boolean(start.isError)).toBe(false);expect((start.structuredContent as any).data.sessions).toEqual([]);}finally{await connected.close();}
+      const connected=await connect(legacy,'/mcp',{Authorization:`Bearer ${credential.access_token}`});try{const start=await connected.callTool(operationRequest({name:'kanvas_inspect',arguments:{operation:'start.read'}}));expect(Boolean(start.isError)).toBe(false);expect((start.structuredContent as any).data.sessions).toEqual([]);}finally{await connected.close();}
       const reused=await b.request('POST','/api/auth/email/consume',{token,confirm:true});expect(reused.status).toBe(410);
     }
   });

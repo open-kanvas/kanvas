@@ -1,3 +1,4 @@
+import { operationRequest } from '../mcp/requests.js';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { InteractionRecord, UpdateRecord, ViewSpec } from '../../src/shared/types.js';
@@ -13,7 +14,7 @@ async function connect(h: Harness, owner: Browser, sessionIds: string[], scopes 
   return { client, issued, async close() { await client.close(); } };
 }
 async function call<T>(client: Client, name: string, args: Record<string, unknown>): Promise<T> {
-  const result = await client.callTool({ name, arguments: args });
+  const result = await client.callTool(operationRequest({ name, arguments: args }));
   expect(result.isError).not.toBe(true);
   expect(result.structuredContent).toHaveProperty('data');
   return (result.structuredContent as Record<string, unknown>).data as T;
@@ -29,9 +30,9 @@ describe('real MCP SDK against persisted publisher authorization', () => {
     const connection = await connect(h, owner, [a.id], ['read']); connections.push(connection);
     const sessions = await call<{ id: string }[]>(connection.client, 'kanvas_sessions_list', {});
     expect(sessions.map(session => session.id)).toEqual([a.id]);
-    const forbiddenRead = await connection.client.callTool({ name: 'kanvas_session_state', arguments: { sessionId: b.id } });
+    const forbiddenRead = await connection.client.callTool(operationRequest({ name: 'kanvas_session_state', arguments: { sessionId: b.id } }));
     expect(forbiddenRead.isError).toBe(true);
-    const forbiddenWrite = await connection.client.callTool({ name: 'kanvas_submit', arguments: { sessionId: a.id, requestId: 'read-only', displayIds: [display.id], view: fact('Not authorized') } });
+    const forbiddenWrite = await connection.client.callTool(operationRequest({ name: 'kanvas_submit', arguments: { sessionId: a.id, requestId: 'read-only', displayIds: [display.id], view: fact('Not authorized') } }));
     expect(forbiddenWrite.isError).toBe(true);
     expect((await owner.detail(a.id)).updates).toHaveLength(0);
     const listed = await owner.request<Record<string, unknown>[]>('GET', '/api/tokens');
@@ -41,7 +42,7 @@ describe('real MCP SDK against persisted publisher authorization', () => {
     expect(metadata.some(record => Object.keys(record).some(key => /token$|hash|secret|password/i.test(key)))).toBe(false);
     expect(listed.text.includes(connection.issued.token)).toBe(false);
     success(await owner.request('DELETE', `/api/tokens/${connection.issued.id}`));
-    await expect(connection.client.callTool({ name: 'kanvas_sessions_list', arguments: {} })).rejects.toThrow();
+    await expect(connection.client.callTool(operationRequest({ name: 'kanvas_sessions_list', arguments: {} }))).rejects.toThrow();
   });
 
   it('does not convert a publisher bearer into a browser login or a browser cookie into MCP authorization', async () => {
@@ -69,7 +70,7 @@ describe('real MCP SDK against persisted publisher authorization', () => {
     expect(inboxA.interactions.map(item => item.id)).toEqual([clicked.id]);
     expect(inboxB.interactions).toHaveLength(0);
     expect(inboxA.interactions[0].status).toBe('pending');
-    const foreignAck = await b.client.callTool({ name: 'kanvas_interaction_ack', arguments: { sessionId: session.id, interactionId: clicked.id } });
+    const foreignAck = await b.client.callTool(operationRequest({ name: 'kanvas_interaction_ack', arguments: { sessionId: session.id, interactionId: clicked.id } }));
     expect(foreignAck.isError).toBe(true);
     expect((await call<{ interactions: InteractionRecord[] }>(a.client, 'kanvas_interactions_read', { sessionId: session.id })).interactions[0].status).toBe('pending');
     await call(a.client, 'kanvas_interaction_ack', { sessionId: session.id, interactionId: clicked.id });

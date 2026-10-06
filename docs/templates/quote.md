@@ -8,7 +8,7 @@ A highlighted statement with attribution, optional role, portrait and source lin
 
 Text is preserved as source; quotes must retain exact source wording. Up to 8,000 characters, subject to the full-view budget. Attribution is a supplied claim, not independently verified by KANVAS.
 
-Read `kanvas_tool_use` with `operationId:"kanvas.template.get"` and nested `arguments` for `quote` before constructing a prepared view. It returns the exact same schema used by `kanvas_tool_use` with `operationId:"kanvas.view.validate"` and nested `arguments` and publishing.
+Read `kanvas_call` with `operationId:"kanvas.template.get"` and nested `arguments` for `quote` before constructing a prepared view. It returns the exact same schema used by `kanvas_call` with `operationId:"kanvas.view.validate"` and nested `arguments` and publishing.
 
 ## Illustrative example
 

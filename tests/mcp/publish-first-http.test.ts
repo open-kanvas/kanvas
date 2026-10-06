@@ -1,3 +1,4 @@
+import { operationRequest } from './requests.js';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { Client as LegacyClient } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport as LegacyTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
@@ -17,12 +18,16 @@ it.each(['modern', 'legacy'] as const)('performs first publication and ordinary 
   clients.push(client);
   await client.connect(era === 'modern' ? new StreamableHTTPClientTransport(new URL('/mcp', h.baseUrl), options) : new LegacyTransport(new URL('/mcp', h.baseUrl), options));
   const call = async <T>(name: string, operation: string, args: Record<string, unknown> = {}) => {
-    const result = await client.callTool({ name, arguments: { operation, ...args } });
+    const result = await client.callTool(operationRequest({ name, arguments: { operation, ...args } }));
     expect(result.isError).not.toBe(true); return (result.structuredContent as { data: T }).data;
   };
-  const catalog = await client.listTools(); expect(catalog.tools).toHaveLength(7);
-  const inventory=await client.callTool({name:'kanvas_tool_index',arguments:{}});expect((inventory.structuredContent as any).data.total).toBe(OPERATION_ENTRIES.length);
-  expect(await call('kanvas_inspect', 'guide.get', { topic: 'getting-started' })).toHaveProperty('capabilities.publishSetup', true);
+  const catalog = await client.listTools(); expect(catalog.tools).toHaveLength(2);
+  const inventory=await client.callTool({name:'kanvas_discover',arguments:{catalog:'tools',action:'list'}});expect(((inventory.content as {text:string}[])[0]).text.split('\n').filter(line=>line.includes(' — '))).toHaveLength(OPERATION_ENTRIES.length - 3);
+  const contract=await client.callTool({name:'kanvas_discover',arguments:{catalog:'tools',action:'get',id:'kanvas.submit'}});
+  const definition=(contract.structuredContent as any).data.entry;
+  expect(definition.requiredInputs).not.toContain('sessionId');
+  expect(definition.inputSchema.properties).toHaveProperty('newSession');
+  expect(definition.description).toContain('targetRef');
   const receipt = await call<UpdateRecord & { targetRef: string; targets: { viewerUrl: string; shortUrl: string }[] }>('kanvas_publish', 'show', {
     requestId: 'first', view: JSON.stringify({ version: 1, template: 'presentation', data: { slides: [fact('First'), fact('Second')], index: 0 } }),
   });

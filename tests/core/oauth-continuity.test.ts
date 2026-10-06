@@ -1,3 +1,4 @@
+import { operationRequest } from '../mcp/requests.js';
 import { legacySelectedCode } from './legacy-oauth-fixture.js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { Request } from 'express';
@@ -81,7 +82,7 @@ async function call(h: Harness, bearer: string, name: string, args: Record<strin
   const client = new Client({ name: 'oauth-scope-check', version: '1' }, { versionNegotiation: { mode: { pin: '2026-07-28' } } });
   try {
     await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', h.baseUrl), { requestInit: { headers: { Authorization: `Bearer ${bearer}` } } }));
-    return await client.callTool({ name, arguments: args });
+    return await client.callTool(operationRequest({ name, arguments: args }));
   } finally { await client.close(); }
 }
 function data<T>(result: unknown): T {
@@ -158,15 +159,15 @@ describe('OAuth refresh continuity and explicit account consent', () => {
       await sdk.connect(transport);
       const legacySessionId = transport.sessionId;
       const submission = { sessionId: session.id, displayIds: [display.id], requestId: 'renewal-idempotency', view: { ...fact('Continue this conversation'), actions: [{ id: 'next', kind: 'button', label: 'Next' }] } };
-      const first = data<UpdateRecord>(await sdk.callTool({ name: 'kanvas_submit', arguments: submission }));
+      const first = data<UpdateRecord>(await sdk.callTool(operationRequest({ name: 'kanvas_submit', arguments: submission })));
       const settled = await owner.settle(session.id, submission.requestId);
       const clicked = success(await owner.request<InteractionRecord>('POST', `/api/sessions/${session.id}/interactions`, {
         displayId: display.id, revision: settled.detail.displays[0].revision, actionId: 'next', value: true, requestId: 'before-refresh-click',
       }));
       const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 65 * 60_000);
-      const retried = data<UpdateRecord>(await sdk.callTool({ name: 'kanvas_submit', arguments: submission }));
+      const retried = data<UpdateRecord>(await sdk.callTool(operationRequest({ name: 'kanvas_submit', arguments: submission })));
       expect(retried.id).toBe(first.id);
-      const inbox = data<{ interactions: InteractionRecord[] }>(await sdk.callTool({ name: 'kanvas_interactions_read', arguments: { sessionId: session.id } }));
+      const inbox = data<{ interactions: InteractionRecord[] }>(await sdk.callTool(operationRequest({ name: 'kanvas_interactions_read', arguments: { sessionId: session.id } })));
       expect(inbox.interactions.map(item => item.id)).toEqual([clicked.id]);
       expect(renewals).toBe(1); expect(redirects).toBe(0);
       expect(tokens.access_token !== original.tokens.access_token && tokens.refresh_token !== original.tokens.refresh_token).toBe(true);
@@ -177,7 +178,7 @@ describe('OAuth refresh continuity and explicit account consent', () => {
       expect(row.id).toBe(oldPrincipal.tokenId); expect(row.agentId).toBe(oldPrincipal.agentId); expect(row.sessionIds).toEqual([session.id]);
       expect((await h.runtime.store.list('token'))).toHaveLength(1);
       clock.mockReturnValue(Date.now() + 65 * 60_000);
-      data(await sdk.callTool({ name: 'kanvas_sessions_list', arguments: {} }));
+      data(await sdk.callTool(operationRequest({ name: 'kanvas_sessions_list', arguments: {} })));
       expect(renewals).toBe(2); expect(redirects).toBe(0);
     } finally { await sdk.close(); }
   });

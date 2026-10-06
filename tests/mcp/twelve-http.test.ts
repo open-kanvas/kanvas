@@ -1,3 +1,4 @@
+import { operationRequest } from './requests.js';
 import { DISCOVERY_TOOL_NAMES } from '../../src/server/mcp/operations.js';
 import { legacySelectedCode } from '../core/legacy-oauth-fixture.js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
@@ -85,7 +86,7 @@ async function grant(h: Harness, browser: Browser, scopes = ['read', 'publish'],
   return (await h.runtime.auth.issueToken(browser.user!.id, 'Disposable HTTP acceptance connection', scopes, sessionIds));
 }
 function call(peer: Peer, name: string, operation: string, args: Record<string, unknown> = {}) {
-  return peer.client.callTool({ name, arguments: { operation, ...args } });
+  return peer.client.callTool(operationRequest({ name, arguments: { operation, ...args } }));
 }
 function toolResult(value: unknown): ToolResult {
   // Both SDKs also type task/deferred variants. This application returns an
@@ -179,11 +180,11 @@ describe.each(ERAS)('twelve profile on the real %s SDK and application', era => 
       assets: (await h.runtime.store.db.prepare("SELECT id,encode(bytes,'hex') AS bytes FROM assets ORDER BY id").all()),
     })).digest('hex');
     const before = (await snapshot());
-    for (const entry of OPERATION_ENTRIES.filter(entry => entry.tool === 'kanvas_inspect')) {
+    for (const entry of OPERATION_ENTRIES.filter(entry => entry.tool === 'kanvas_inspect' && !['kanvas_help','kanvas_guide','kanvas_template_get'].includes(entry.canonical))) {
       const args = { sessionId: session.id, unrecognizedField: 'Not stored as diagnostic material' };
       const result = profile === 'twelve'
         ? await call(peer, entry.tool, entry.operation, args)
-        : await peer.client.callTool({ name: entry.canonical, arguments: args });
+        : await peer.client.callTool(operationRequest({ name: entry.canonical, arguments: args }));
       expect(failure(result, ['INVALID_ARGUMENT']).diagnosticId).toBeUndefined();
       expect((await snapshot()),'read-only snapshot for '+entry.canonical).toBe(before);
     }
@@ -192,7 +193,7 @@ describe.each(ERAS)('twelve profile on the real %s SDK and application', era => 
       const args = operation === 'display.current' ? { sessionId: session.id, displayId: 'missing-display' }
         : { sessionId: session.id, view: { version: 1, template: 'fact', data: { unsupported: 'Do not save' } } };
       const result = profile === 'twelve' ? await call(peer, entry.tool, operation, args)
-        : await peer.client.callTool({ name: entry.canonical, arguments: args });
+        : await peer.client.callTool(operationRequest({ name: entry.canonical, arguments: args }));
       expect(failure(result, ['NOT_FOUND', 'INVALID_ARGUMENT']).diagnosticId).toBeUndefined();
       expect((await snapshot()),'read-only snapshot for '+entry.canonical).toBe(before);
     }
@@ -204,9 +205,9 @@ describe.each(ERAS)('twelve profile on the real %s SDK and application', era => 
     const list = await peer.client.listTools();
     expect(list.tools.map(tool => tool.name).sort()).toEqual([...TOOLS].sort());
     expect(list.tools.every(tool => tool.inputSchema.type === 'object')).toBe(true);
-    expect(list.tools.find(tool => tool.name === 'kanvas_tool_search')?.annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false, idempotentHint: true });
-    failure(await peer.client.callTool({ name: 'kanvas_submit', arguments: {} }), ['INVALID_ARGUMENT']);
-    failure(await peer.client.callTool({ name: 'kanvas_publish', arguments: {} }), ['INVALID_ARGUMENT']);
+    expect(list.tools.find(tool => tool.name === 'kanvas_discover')?.annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false, idempotentHint: true });
+    failure(await peer.client.callTool(operationRequest({ name: 'kanvas_submit', arguments: {} })), ['INVALID_ARGUMENT']);
+    failure(await peer.client.callTool(operationRequest({ name: 'kanvas_publish', arguments: {} })), ['INVALID_ARGUMENT']);
     const session = data<SessionRecord>(await call(peer, 'kanvas_session', 'create', { name: 'HTTP scripted workflow' }));
     const display = data<DisplayRecord>(await call(peer, 'kanvas_session', 'display.register', { sessionId: session.id, name: 'Notes', width: 1000, height: 700 }));
     expect(display.pixelRatio).toBe(1); expect(display.viewerUrl).toBe(`${ORIGIN}/view/${session.id}/${display.id}`);
@@ -322,7 +323,7 @@ describe.each(ERAS)('twelve profile on the real %s SDK and application', era => 
     failure(invalid, ['INVALID_ARGUMENT']);
     expect(toolResult(invalid).structuredContent.error).toMatchObject({
       issues: [{ path: 'approve', problem: 'Required boolean (true or false).' }, { path: 'confirm', problem: expect.stringContaining('owner confirms') }],
-      schemaTool: 'kanvas_inspect', schemaOperation: 'guide.get', topic: 'tools',
+      schemaTool: 'kanvas_discover', schemaArguments: {catalog:'help',action:'get',id:'kanvas.help.tools.discovery'}, topic: 'tools',
     });
     denied(await guest.request('GET', `/api/sessions/${session.id}`), [401]);
     denied(await otherBrowser.request('GET', `/api/pairings/${pair.id}/status`), [401, 403, 404]);
@@ -370,7 +371,7 @@ describe.each(ERAS)('twelve profile on the real %s SDK and application', era => 
     const invalid = await call(peer, 'kanvas_access', 'pairing.decide', { ...decision, confirm: 'yes' });
     const invalidId = failure(invalid, ['INVALID_ARGUMENT']).diagnosticId;
     expect(invalidId).toBeDefined();
-    expect(toolResult(invalid).structuredContent.server).toMatchObject({ version: KANVAS_VERSION, profile: 'twelve', tools: 12, operations: OPERATION_ENTRIES.length });
+    expect(toolResult(invalid).structuredContent.server).toMatchObject({ version: KANVAS_VERSION, profile: 'discovery', tools: 2, operations: OPERATION_ENTRIES.length - 3 });
     expect((invalid.content as Array<{ text?: string }>)[0].text).toContain('confirm');
     expect((invalid.content as Array<{ text?: string }>)[0].text).toContain('session.state');
     failure(await call(reader, 'kanvas_access', 'pairing.decide', { ...decision, confirm: 'true' }));
@@ -405,9 +406,9 @@ describe.each(ERAS)('twelve profile on the real %s SDK and application', era => 
 
     type Recovery = { recentDiagnostics: { diagnosticId: string; tool: string; operation: string; code: string; issues?: { path: string }[] }[] };
     const result = await call(reader, 'kanvas_inspect', 'session.state', { sessionId: session.id });
-    expect(toolResult(result).structuredContent.server).toMatchObject({ version: KANVAS_VERSION, tools: 12, operations: OPERATION_ENTRIES.length });
+    expect(toolResult(result).structuredContent.server).toMatchObject({ version: KANVAS_VERSION, tools: 2, operations: OPERATION_ENTRIES.length - 3 });
     const diagnostics = data<Recovery>(result).recentDiagnostics;
-    expect(diagnostics.find(item => item.diagnosticId === invalidId)).toMatchObject({ tool: 'kanvas_access', operation: 'pairing.decide', code: 'INVALID_ARGUMENT', issues: [{ path: 'confirm' }] });
+    expect(diagnostics.find(item => item.diagnosticId === invalidId)).toMatchObject({ tool: 'kanvas_call', operation: 'kanvas.pairing.decide', code: 'INVALID_ARGUMENT', issues: [{ path: 'confirm' }] });
     expect(diagnostics.length).toBeLessThanOrEqual(10);
     expect(JSON.stringify(diagnostics)).not.toContain(source);
     expect(data<Recovery>(await call(peer, 'kanvas_inspect', 'session.state', { sessionId: other.id })).recentDiagnostics).toEqual([]);
@@ -515,9 +516,9 @@ describe.each(ERAS)('twelve profile on the real %s SDK and application', era => 
     const stable = (await old.runtime.store.list<Token>('token'))[0];
     expect(stable.resource).toBe(RESOURCE); expect(stable.sessionIds).toEqual([session.id]);
     const before = await connect(old, era, original.tokens.access_token);
-    expect((await before.client.listTools()).tools).toHaveLength(7);
+    expect((await before.client.listTools()).tools).toHaveLength(2);
     const submission = { sessionId: session.id, displayIds: [display.id], requestId: 'identical-across-profile-restart', view: fact('Grant and retry identity survive a catalogue-only release.') };
-    const first = data<UpdateRecord>(await before.client.callTool({ name: 'kanvas_submit', arguments: submission }));
+    const first = data<UpdateRecord>(await before.client.callTool(operationRequest({ name: 'kanvas_submit', arguments: submission })));
     expect((await owner.settle(session.id, submission.requestId)).update.status).toBe('prepared');
     const oldMetadata = await protectedResource(old); expect(oldMetadata.resource).toBe(RESOURCE);
     await disconnect(before); await old.shutdown();
@@ -562,6 +563,16 @@ describe.each(ERAS)('twelve profile on the real %s SDK and application', era => 
     expect(afterRevocation.status).toBe(400); expect(afterRevocation.body.error).toBe('invalid_grant');
   }, 20_000);
 
+  it('returns current recovery routes for historical diagnostics without rewriting persisted provenance', async () => {
+    const h = await server(), owner = await h.account(), session = await owner.session();
+    const peer = await connect(h, era, (await grant(h, owner)).value);
+    const historical: DiagnosticRecord = { id: 'historical-route-fixture', sessionId: session.id, operation:'kanvas_submit', publicTool:'kanvas_control', publicOperation:'presentation.cue', phase:'rendering', code:'INVALID_SOURCE_CONTENT', createdAt:new Date().toISOString() };
+    await h.runtime.store.put('diagnostic', historical);
+    const state=data<{recentDiagnostics:{diagnosticId:string;tool:string;operation:string}[]}>(await call(peer,'kanvas_inspect','session.state',{sessionId:session.id}));
+    expect(state.recentDiagnostics.find(item=>item.diagnosticId===historical.id)).toMatchObject({tool:'kanvas_call',operation:'kanvas.presentation.cue'});
+    expect(await h.runtime.store.get('diagnostic', historical.id)).toEqual(historical);
+  });
+
   it('records content-free public routing context for synchronous validation and deferred rendering failures', async () => {
     const interpreter = new ControlledInterpreter(), h = await server({ interpreter }), owner = await h.account(), session = await owner.session(), display = await owner.display(session.id);
     const peer = await connect(h, era, (await grant(h, owner)).value);
@@ -569,7 +580,7 @@ describe.each(ERAS)('twelve profile on the real %s SDK and application', era => 
     const sync = failure(await call(peer, 'kanvas_publish', 'patch', { sessionId: session.id, displayId: display.id, requestId: 'invalid-patch-context', expectedRevision: -1, operations: [{ op: 'appendText', path: '/data/text', value: source }], [unknownKey]: source }), ['INVALID_ARGUMENT']);
     expect(typeof sync.diagnosticId).toBe('string');
     const syncReport = data<ReportRecord>(await call(peer, 'kanvas_feedback', 'error.report', { sessionId: session.id, requestId: 'link-sync-diagnostic', title: 'Synchronous validation failure', description: 'Bounded diagnostic metadata only.', diagnosticId: sync.diagnosticId }));
-    expect(syncReport.diagnostic).toMatchObject({ operation: 'kanvas_view_patch', publicTool: 'kanvas_publish', publicOperation: 'patch', phase: 'validation', code: 'INVALID_ARGUMENT' });
+    expect(syncReport.diagnostic).toMatchObject({ operation: 'kanvas_view_patch', publicTool: 'kanvas_call', publicOperation: 'kanvas.view.patch', phase: 'validation', code: 'INVALID_ARGUMENT' });
     data(await call(peer, 'kanvas_publish', 'show', { sessionId: session.id, displayIds: [display.id], requestId: 'deferred-public-context', context: source }));
     await interpreter.waitFor(1);
     // Interleave a different successful route while the real async render is
@@ -579,7 +590,7 @@ describe.each(ERAS)('twelve profile on the real %s SDK and application', era => 
     const failed = await terminal(peer, session.id, 'deferred-public-context');
     expect(failed.status).toBe('failed'); expect(failed.errorCode).toBe('INVALID_SOURCE_CONTENT'); expect(typeof failed.diagnosticId).toBe('string');
     const asyncReport = data<ReportRecord>(await call(peer, 'kanvas_feedback', 'error.report', { sessionId: session.id, requestId: 'link-render-diagnostic', title: 'Deferred rendering failure', description: 'Safe report links the originating route.', updateId: failed.id, diagnosticId: failed.diagnosticId }));
-    expect(asyncReport.diagnostic).toMatchObject({ operation: 'kanvas_submit', publicTool: 'kanvas_publish', publicOperation: 'show', phase: 'rendering', code: 'INVALID_SOURCE_CONTENT', updateId: failed.id });
+    expect(asyncReport.diagnostic).toMatchObject({ operation: 'kanvas_submit', publicTool: 'kanvas_call', publicOperation: 'kanvas.submit', phase: 'rendering', code: 'INVALID_SOURCE_CONTENT', updateId: failed.id });
     const read = data<ReportPage>(await call(peer, 'kanvas_inspect', 'reports.read', { sessionId: session.id, kind: 'error' }));
     expect(read.reports.map(report => report.diagnosticId)).toEqual([failed.diagnosticId, sync.diagnosticId]);
     const diagnostics = (await h.runtime.store.list<DiagnosticRecord>('diagnostic', session.id));
@@ -620,7 +631,7 @@ describe.each(ERAS)('twelve profile on the real %s SDK and application', era => 
     const failed = await terminal(peer, session.id, accepted.requestId);list.mockRestore();expect(removed).toBe(true);
     expect(failed.status).toBe('failed'); expect(typeof failed.diagnosticId).toBe('string');
     const diagnostic = (await h.runtime.store.get<DiagnosticRecord>('diagnostic', failed.diagnosticId!));
-    expect(diagnostic).toMatchObject({ operation: 'kanvas_submit', publicTool: operation === 'presentation.cue' ? 'kanvas_control' : 'kanvas_access', publicOperation: operation, phase: 'rendering', updateId: accepted.id });
+    expect(diagnostic).toMatchObject({ operation: 'kanvas_submit', publicTool: 'kanvas_call', publicOperation: `kanvas.${operation}`, phase: 'rendering', updateId: accepted.id });
     expect(data<DisplayRecord>(await call(peer, 'kanvas_inspect', 'display.current', { sessionId: session.id, displayId: display.id })).view).toBeNull();
   });
 });

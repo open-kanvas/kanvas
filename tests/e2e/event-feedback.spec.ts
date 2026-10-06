@@ -1,3 +1,4 @@
+import { operationRequest } from '../mcp/requests.js';
 import {randomUUID} from 'node:crypto';
 import {mkdir} from 'node:fs/promises';
 import {Client,StreamableHTTPClientTransport} from '@modelcontextprotocol/client';
@@ -16,7 +17,7 @@ async function setup(page:Page,info:TestInfo,baseURL:string,useDefaultDisplay=fa
   const issued=await sessionApi<{token:string}>(page,'/api/tokens','POST',{name:'Disposable event checks',scopes:['read','publish']});expect(issued.status).toBe(201);
   const headers={Authorization:`Bearer ${issued.data!.token}`},client=info.project.name.startsWith('phone')?new LegacyClient({name:'event-legacy',version:'1'}):new Client({name:'event-current',version:'1'});
   if(client instanceof LegacyClient)await client.connect(new LegacyTransport(new URL('/mcp',baseURL),{requestInit:{headers}}));else await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',baseURL),{requestInit:{headers}}));
-  const call=async(name:string,operation:string,args:Record<string,unknown>={})=>{const r=await client.callTool({name,arguments:{operation,...args}});expect(r.isError,`${name} ${operation}: ${JSON.stringify(r.isError?r.content:[])}`).not.toBe(true);expect((r.structuredContent as any).truncated).not.toBe(true);return(r.structuredContent as any).data;};
+  const call=async(name:string,operation:string,args:Record<string,unknown>={})=>{const r=await client.callTool(operationRequest({name,arguments:{operation,...args}}));expect(r.isError,`${name} ${operation}: ${JSON.stringify(r.isError?r.content:[])}`).not.toBe(true);expect((r.structuredContent as any).truncated).not.toBe(true);return(r.structuredContent as any).data;};
   const current=()=>waitForDisplay(page,s,d.id,x=>x.revision>0&&x.appliedRevision===x.revision),show=async(view:ViewSpec)=>{const before=(await sessionDetail(page,s)).displays.find(x=>x.id===d.id)!;await publishPrepared(page,s,[d.id],view);const next=await waitForDisplay(page,s,d.id,x=>x.revision>before.revision&&x.appliedRevision===x.revision);await expect(v.locator('.viewer-shell')).toHaveAttribute('data-rendered-revision',String(next.revision));return next;};
   return {s,d,v,client,call,current,show};
 }
@@ -49,7 +50,7 @@ test('tool-call log survives reload, shows newest first and folds consecutive to
     const groups=a.v.locator('.tool-call-content>ol>li').filter({has:a.v.locator('.tool-call-integration',{hasText:'Source'})});await expect(groups).toHaveCount(3);await expect(groups.first()).toContainText('3 consecutive calls');await expect(groups.last()).toContainText('2 consecutive calls');
     await groups.first().locator('summary').click();await expect(groups.first()).toContainText('Exact call 5');await expect(groups.first().locator('details time').first()).toHaveAttribute('dateTime',events[5].timestamp);
     await a.v.reload();await expect(groups).toHaveCount(3);await photo(a.v,info,'tool-calls');
-    const stored=await a.call('kanvas_inspect','tool-log.read',{sessionId:a.s});expect(stored.events.filter((e:any)=>e.integration==='Source').map((e:any)=>e.id)).toEqual([...events].reverse().map(e=>e.id));expect(stored.events.some((e:any)=>e.source==='automatic'&&e.tool==='kanvas_publish'&&e.operation==='tool-log.append')).toBe(true);
+    const stored=await a.call('kanvas_inspect','tool-log.read',{sessionId:a.s});expect(stored.events.filter((e:any)=>e.integration==='Source').map((e:any)=>e.id)).toEqual([...events].reverse().map(e=>e.id));expect(stored.events.some((e:any)=>e.source==='automatic'&&e.tool==='kanvas_call'&&e.operation==='kanvas.tool.log.append')).toBe(true);
   }finally{await a.client.close();}
 });
 

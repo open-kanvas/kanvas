@@ -1,3 +1,4 @@
+import { operationRequest } from '../mcp/requests.js';
 import { randomUUID } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
@@ -14,7 +15,7 @@ async function setup(page:Page,info:TestInfo,baseURL:string){
   const headers={Authorization:`Bearer ${issued.data!.token}`};
   const client=info.project.name.startsWith('phone')?new LegacyClient({name:'navigation-legacy',version:'1'}):new Client({name:'navigation-current',version:'1'});
   if(client instanceof LegacyClient)await client.connect(new LegacyTransport(new URL('/mcp',baseURL),{requestInit:{headers}}));else await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',baseURL),{requestInit:{headers}}));
-  const call=async<T=any>(tool:string,operation:string,args:Record<string,unknown>={})=>{const result=await client.callTool({name:tool,arguments:{operation,...args}});expect(result.isError,`${tool} ${operation} succeeds`).not.toBe(true);return (result.structuredContent as {data:T}).data;};
+  const call=async<T=any>(tool:string,operation:string,args:Record<string,unknown>={})=>{const result=await client.callTool(operationRequest({name:tool,arguments:{operation,...args}}));expect(result.isError,`${tool} ${operation} succeeds`).not.toBe(true);return (result.structuredContent as {data:T}).data;};
   const current=()=>waitForDisplay(page,sessionId,display.id,d=>d.revision>0&&d.appliedRevision===d.revision);
   const show=async(view:ViewSpec)=>{await publishPrepared(page,sessionId,[display.id],view);return current();};
   const nav=async(navigation:unknown,viewerId?:string)=>{const d=await current();return call('kanvas_control','navigation.control',{sessionId,displayId:display.id,requestId:randomUUID(),expectedRevision:d.revision,navigation,...(viewerId?{viewerId}:{})});};
@@ -140,8 +141,13 @@ test('regional settings format display values and focused Help stays public and 
     await expect.poll(async()=>await s.viewer.locator('.number-value').innerText()).toMatch(/1\s234,5/);
     await s.show({version:1,template:'weather',data:{place:'Supplied observations',temperature:'68°F',high:'77°F',low:'50°F',condition:'clear'}});await expect(s.viewer.locator('.weather-temperature')).toContainText('20');await expect(s.viewer.locator('.weather-temperature')).toContainText('°C');expect((await s.current()).view?.data.temperature).toBe('68°F');await photo(s.viewer,info,'weather-regional');
     await s.show(samples.schedule);await expect(s.viewer.locator('h2 time').first()).toHaveText('09/09/2026');
-    const before=await s.current(),help=await s.call('kanvas_inspect','help.read',{topic:'navigation',sessionId:s.sessionId,displayId:s.display.id});expect(help.published).toBe(false);expect(help.docs.primary).toBe(`${baseURL}/docs/`);
-    const docs=await context.newPage();await docs.goto(help.docs.topic);await expect(docs.getByRole('heading',{name:'Navigate, restore history and autoplay prepared views'})).toBeVisible();await docs.getByRole('link',{name:'Recover from a failed call',exact:true}).click();await expect(docs.getByRole('heading',{name:'Recover from a failed call'})).toBeVisible();
-    const md=await docs.request.get(help.docs.markdown);expect(md.ok()).toBe(true);expect(await md.text()).toContain('navigation.control');const index=await (await docs.request.get(help.docs.index)).json();expect(index.templates.map((entry:any)=>entry.template).sort()).toEqual([...TEMPLATE_IDS].sort());expect(index.templates.some((x:any)=>x.template==='web')).toBe(false);expect((await s.current()).revision).toBe(before.revision);await docs.close();
+    const before=await s.current();
+    const response=await s.client.callTool({name:'kanvas_discover',arguments:{catalog:'help',action:'get',id:'kanvas.help.navigation'}});
+    expect(response.isError).not.toBe(true);
+    const help=(response.structuredContent as any).data;
+    expect(help).toMatchObject({catalog:'help',action:'get',entry:{id:'kanvas.help.navigation',title:'Navigate, restore history and autoplay prepared views'}});
+    expect(help.entry.content.steps.length).toBeGreaterThan(0);expect(help.entry.note).toContain('reading help never publishes');
+    const docs=await context.newPage();await docs.goto(`${baseURL}/docs/navigation`);await expect(docs.getByRole('heading',{name:'Navigate, restore history and autoplay prepared views'})).toBeVisible();await docs.getByRole('link',{name:'Recover from a failed call',exact:true}).click();await expect(docs.getByRole('heading',{name:'Recover from a failed call'})).toBeVisible();
+    const md=await docs.request.get(`${baseURL}/docs/navigation.md`);expect(md.ok()).toBe(true);expect(await md.text()).toContain('navigation.control');const index=await (await docs.request.get(`${baseURL}/docs/index.json`)).json();expect(index.templates.map((entry:any)=>entry.template).sort()).toEqual([...TEMPLATE_IDS].sort());expect(index.templates.some((x:any)=>x.template==='web')).toBe(false);expect((await s.current()).revision).toBe(before.revision);await docs.close();
   }finally{await s.client.close();}
 });

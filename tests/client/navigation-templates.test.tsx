@@ -37,13 +37,13 @@ describe('source-preserving templates and regional display',()=>{
     const number=validateView({version:1,template:'number',data:{value:12345.67}}),before=structuredClone(number);expect(renderToStaticMarkup(<Renderer view={number} config={{...DEFAULT_CONFIG,numberLocale:'de-DE'}}/>)).toContain('12.345,67');expect(number).toEqual(before);
   });
 });
-it('exposes each operation’s required inputs and full runtime schema through the seven-tool discovery facade',()=>{
-  expect(discoveryToolDefinitions()).toHaveLength(7);
+it('exposes each operation’s required inputs and full runtime schema through the two-tool discovery facade',()=>{
+  expect(discoveryToolDefinitions()).toHaveLength(2);
   const canonical=canonicalToolDefinitions();
   for(const item of operationCatalog()){
     const detail=item.detail(),definition=canonical.find(x=>operationId(x.name)===item.id)!;
     expect(detail.requiredInputs,item.id).toEqual(definition.inputSchema.required??[]);
     expect((detail.inputSchema as {required?:string[]}).required??[],item.id).toEqual(definition.inputSchema.required??[]);
   }
-  expect(resolveToolCall('discovery','kanvas_tool_use',{operationId:'kanvas.help',arguments:{topic:'navigation'}}).canonicalName).toBe('kanvas_help');
+  expect(resolveToolCall('discovery','kanvas_call',{operationId:'kanvas.help',arguments:{topic:'navigation'}}).error).toBeDefined();
 });

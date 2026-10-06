@@ -4,11 +4,11 @@ Prefer a prepared view when the shape is known. Otherwise provide an explicit `t
 
 `context` can carry literal source text. `intent` describes the desired action but never replaces missing source. A prepared view is validated directly, with the same source-access and delivery checks. No backend generation or translation occurs.
 
-The following complete examples are exercised against the current publishing recipes. Replace locator IDs with actual returned targets. Execute these publication recipes with `kanvas_tool_use`, `operationId:"kanvas.submit"` and the recipe fields nested inside `arguments`. Use `kanvas_tool_search` for the full executable contract.
+The following complete examples are exercised against the current publishing recipes. Replace locator IDs with actual returned targets. Execute these publication recipes with `kanvas_call`, `operationId:"kanvas.submit"` and the recipe fields nested inside `arguments`. Use `kanvas_discover` with `{catalog:"tools",action:"get",id:"kanvas.submit"}` for the full executable contract.
 
 ```json
 {
-  "name": "kanvas_tool_use",
+  "name": "kanvas_call",
   "arguments": {
     "operationId": "kanvas.submit",
     "arguments": {
@@ -27,7 +27,7 @@ The following complete examples are exercised against the current publishing rec
 
 ```json
 {
-  "name": "kanvas_tool_use",
+  "name": "kanvas_call",
   "arguments": {
     "operationId": "kanvas.submit",
     "arguments": {
@@ -57,7 +57,7 @@ The following complete examples are exercised against the current publishing rec
 
 ```json
 {
-  "name": "kanvas_tool_use",
+  "name": "kanvas_call",
   "arguments": {
     "operationId": "kanvas.submit",
     "arguments": {
@@ -88,7 +88,7 @@ The following complete examples are exercised against the current publishing rec
 
 ```json
 {
-  "name": "kanvas_tool_use",
+  "name": "kanvas_call",
   "arguments": {
     "operationId": "kanvas.submit",
     "arguments": {
@@ -107,7 +107,7 @@ The following complete examples are exercised against the current publishing rec
 
 ```json
 {
-  "name": "kanvas_tool_use",
+  "name": "kanvas_call",
   "arguments": {
     "operationId": "kanvas.submit",
     "arguments": {
@@ -128,6 +128,6 @@ The following complete examples are exercised against the current publishing rec
 
 ## Errors and delivery
 
-Malformed supplied transcript, table, time, geometry or media receives a safe field-specific error. Do not retry unchanged, invent absent values or replace source with a summary. Correct the source or send a prepared view that passes `kanvas_tool_use with operationId:"kanvas.template.get" and arguments:{…}` / `validate`.
+Malformed supplied transcript, table, time, geometry or media receives a safe field-specific error. Do not retry unchanged, invent absent values or replace source with a summary. Correct the source or send a prepared view that passes `kanvas_call with operationId:"kanvas.template.get" and arguments:{…}` / `validate`.
 
 An update receipt is not proof of display. Check status and actual receiver acknowledgements. Failed validation preserves the previous display. Exact retries are idempotent.

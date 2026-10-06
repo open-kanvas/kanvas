@@ -1,6 +1,6 @@
 # Templates
 
-Read the current catalog through `kanvas_template_index` / `kanvas_template_search` or the instance `/docs/index.json`. Template data is validated against the same runtime schema used by publication. Supply complete prepared views or explicit template-shaped source data. All templates render supplied content; none generates missing facts, media, code or translations.
+Read the current catalog through `kanvas_discover` with `catalog:"templates"`: `action:"list"` for the complete concise inventory, `action:"search"` for ranked summaries and `action:"get",id` for a full schema or the instance `/docs/index.json`. Template data is validated against the same runtime schema used by publication. Supply complete prepared views or explicit template-shaped source data. All templates render supplied content; none generates missing facts, media, code or translations.
 
 ## Guides
 

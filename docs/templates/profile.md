@@ -20,7 +20,7 @@ Biography and plain details remain available below the contact methods. Long nam
 
 The separate `links` array remains unchanged: up to 12 `{label, url}` entries under its existing safe public HTTP(S)/authorized asset-link policy. Optional profile images keep the normal source authorization and actual media-readiness requirements.
 
-Read `kanvas_tool_use` with `operationId:"kanvas.template.get"` and nested `arguments` for `profile` before constructing a prepared view. It returns the exact same schema used by `kanvas_tool_use` with `operationId:"kanvas.view.validate"` and nested `arguments` and publishing. Invalid typed values are rejected at their `details[index].value` field; marking a value `text` or leaving it untyped never creates an action.
+Read `kanvas_call` with `operationId:"kanvas.template.get"` and nested `arguments` for `profile` before constructing a prepared view. It returns the exact same schema used by `kanvas_call` with `operationId:"kanvas.view.validate"` and nested `arguments` and publishing. Invalid typed values are rejected at their `details[index].value` field; marking a value `text` or leaving it untyped never creates an action.
 
 ## Illustrative example
 

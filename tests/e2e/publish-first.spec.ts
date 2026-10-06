@@ -1,3 +1,4 @@
+import { operationRequest } from '../mcp/requests.js';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
@@ -14,7 +15,7 @@ async function connection(page: Page, baseURL: string) {
   const client = new Client({ name: 'publish-first-browser', version: '1' });
   await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', baseURL), { requestInit: { headers: { Authorization: `Bearer ${issued.data!.token}` } } }));
   return { client, async call<T>(name: string, operation: string, args: Record<string, unknown> = {}): Promise<T> {
-    const response = await client.callTool({ name, arguments: { operation, ...args } });
+    const response = await client.callTool(operationRequest({ name, arguments: { operation, ...args } }));
     expect(response.isError, `${name}/${operation}`).not.toBe(true);
     return (response.structuredContent as { data: T }).data;
   } };

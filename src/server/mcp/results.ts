@@ -1,3 +1,4 @@
+import { operationCatalog } from './discovery.js';
 import { ProtocolError, type CallToolResult } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import { InputError, validationIssues, type ValidationIssue } from '../input-errors.js';
@@ -12,7 +13,7 @@ import { KANVAS_VERSION } from '../../shared/version.js';
 
 export const MAX_TOOL_RESULT_BYTES = 64 * 1024;
 export const MAX_RESOURCE_BYTES = 256 * 1024;
-export const mcpServerInfo = (profile: McpProfile) => ({ name: 'kanvas', version: KANVAS_VERSION, profile, tools: isGrouped(profile) ? toolNames(profile).length : operationEntries(profile).length, operations: operationEntries(profile).length });
+export const mcpServerInfo = (profile: McpProfile) => ({ name: 'kanvas', version: KANVAS_VERSION, profile, tools: isGrouped(profile) ? toolNames(profile).length : operationEntries(profile).length, operations: profile === 'discovery' ? operationCatalog().length : operationEntries(profile).length });
 
 export interface SafeError { code: string; message: string; issues?: ValidationIssue[]; schemaTool?: string; topic?: string; template?: TemplateId; diagnosticId?: string }
 
@@ -145,9 +146,9 @@ export function toolFailure(error: unknown, diagnosticId?: string, profile: McpP
   const grouped = isGrouped(profile);
   const help = grouped ? publicReference('kanvas_help', profile)! : { tool: 'kanvas_inspect', operation: 'help.read' };
   const state = grouped ? publicReference('kanvas_session_state', profile)! : { tool: 'kanvas_inspect', operation: 'session.state' };
-  const result = { error: grouped ? trustedGuidance(failure) as typeof failure : failure, server: mcpServerInfo(profile), docs:{path:'/docs/recovery',help:profile === 'discovery' ? { tool: 'kanvas_help_search', arguments: { query: 'kanvas.help.recovery' } } : {...help,topic:'recovery'}} };
+  const result = { error: grouped ? trustedGuidance(failure) as typeof failure : failure, server: mcpServerInfo(profile), docs:{path:'/docs/recovery',help:profile === 'discovery' ? { tool: 'kanvas_discover', arguments: { catalog: 'help', action: 'get', id: 'kanvas.help.recovery' } } : {...help,topic:'recovery'}} };
   const detail = { type: 'text' as const, text: JSON.stringify(result) };
-  const headline = `${result.error.code}: ${result.error.message}${diagnosticId ? ` Diagnostic: ${diagnosticId}. Read recentDiagnostics with ${profile === 'discovery' ? 'kanvas_tool_use {operationId:"kanvas.session.state",arguments:{sessionId}}' : `${state.tool} operation ${state.operation}`} if your host hides error details.` : ''}`;
+  const headline = `${result.error.code}: ${result.error.message}${diagnosticId ? ` Diagnostic: ${diagnosticId}. Read recentDiagnostics with ${profile === 'discovery' ? 'kanvas_call {operationId:"kanvas.session.state",arguments:{sessionId}}' : `${state.tool} operation ${state.operation}`} if your host hides error details.` : ''}`;
   // Standard MCP text is readable without structured-content support. Preserve
   // isError and the machine-readable envelope; never disguise failure as success.
   return { isError: true, content: grouped ? [{ type: 'text', text: headline }, detail] : [detail], structuredContent: result };

@@ -1,3 +1,4 @@
+import { operationRequest } from '../mcp/requests.js';
 import { createInterpreter } from '../../src/server/rendering/interpreter.js';
 import { asyncMap } from '../../src/server/async-collections.js';
 import { randomUUID } from 'node:crypto';
@@ -36,16 +37,16 @@ async function setup(protocol: 'modern' | 'legacy') {
   clients.push(client);
   if (client instanceof Client) await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', h.baseUrl), { requestInit }));
   else await client.connect(new LegacyTransport(new URL('/mcp', h.baseUrl), { requestInit }));
-  const call = async (args: Record<string, unknown>) => await client.callTool({ name: 'kanvas_submit', arguments: { sessionId: session.id, displayIds: [display.id], requestId: randomUUID(), ...args } }) as ToolResult;
-  const readUpdate = async (requestId: string) => await client.callTool({ name: 'kanvas_update_status', arguments: { sessionId: session.id, requestId } }) as ToolResult;
+  const call = async (args: Record<string, unknown>) => await client.callTool(operationRequest({ name: 'kanvas_submit', arguments: { sessionId: session.id, displayIds: [display.id], requestId: randomUUID(), ...args } })) as ToolResult;
+  const readUpdate = async (requestId: string) => await client.callTool(operationRequest({ name: 'kanvas_update_status', arguments: { sessionId: session.id, requestId } })) as ToolResult;
   return { h, owner, session, display, interpret, call, readUpdate };
 }
 
 function failure(result: ToolResult, code = 'INVALID_ARGUMENT') {
   expect(result.isError).toBe(true);
   expect(result.structuredContent?.error?.code).toBe(code);
-  expect(JSON.parse(result.content?.find(item => item.type === 'text')?.text ?? '{}')).toEqual(result.structuredContent);
-  expect(result.structuredContent?.error?.schemaTool).toBe('kanvas_template_get');
+  expect(JSON.parse(result.content?.find(item => item.type === 'text' && item.text?.startsWith('{'))?.text ?? '{}')).toEqual(result.structuredContent);
+  expect(result.structuredContent?.error?.schemaTool).toBe('kanvas_discover');
   return result.structuredContent!.error!;
 }
 

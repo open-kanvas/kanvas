@@ -34,32 +34,33 @@ export interface CatalogProvider {
   list(context: CatalogContext): readonly CatalogItem[];
 }
 const idSchema = z.string().min(1).max(180).regex(/^[a-z0-9][a-z0-9._-]*$/);
-const searchSchema = z.strictObject({ query: z.string().trim().min(1).max(500), limit: z.number().int().min(1).max(10).default(5), cursor: z.string().max(512).optional() });
-const indexSchema = z.strictObject({ limit: z.number().int().min(1).max(100).default(50), cursor: z.string().max(512).optional() });
+const catalogSchema = z.enum(['tools', 'templates', 'help']);
+const cursorSchema = z.string().max(512).optional();
+/** Each action accepts only its own fields: no type facet or accidental narrowing. */
+export const discoverSchema = z.discriminatedUnion('action', [
+  z.strictObject({ catalog: catalogSchema, action: z.literal('list'), cursor: cursorSchema }),
+  z.strictObject({ catalog: catalogSchema, action: z.literal('search'), query: z.string().trim().min(1).max(500), limit: z.number().int().min(1).max(20).default(5), cursor: cursorSchema }),
+  z.strictObject({ catalog: catalogSchema, action: z.literal('get'), id: idSchema }),
+]);
 export const useSchema = z.strictObject({ operationId: idSchema, arguments: z.record(z.string(), z.unknown()) });
+/** Safety budget, not ordinary pagination. Whole entries only; explicit continuation. */
 export const SEARCH_RESULT_BYTES = 384 * 1024;
-const discoverySchemas = Object.fromEntries(DISCOVERY_TOOL_NAMES.map(name => [name, name === 'kanvas_tool_use' ? useSchema : name.endsWith('_search') ? searchSchema : indexSchema]));
-export const isDiscoveryTool = (name: string): boolean => Object.hasOwn(discoverySchemas, name);
+const discoverySchemas = { kanvas_discover: discoverSchema, kanvas_call: useSchema };
+export const isDiscoveryTool = (name: string): name is keyof typeof discoverySchemas => Object.hasOwn(discoverySchemas, name);
 export function parseDiscoveryInput(name: string, raw: unknown): Record<string, unknown> {
-  const schema = discoverySchemas[name];
-  if (!schema) throw new InputError([{ path: 'tool', problem: 'Unknown discovery tool.' }]);
-  const parsed = schema.safeParse(raw ?? {});
+  if (!isDiscoveryTool(name)) throw new InputError([{ path: 'tool', problem: 'Unknown tool. Use kanvas_discover or kanvas_call.' }]);
+  const parsed = discoverySchemas[name].safeParse(raw ?? {});
   if (!parsed.success) throw new InputError(validationIssues(parsed.error));
   return parsed.data;
 }
 const descriptions: Record<typeof DISCOVERY_TOOL_NAMES[number], string> = {
-  kanvas_tool_search: 'Find executable Kanvas operations by natural language, related concepts, typo, or exact stable operation ID. Default top 5, each with FULL input schema, annotations and executable examples. Search all nested operations, not just categories. No state change. Next: kanvas_tool_use with the returned operationId and arguments.',
-  kanvas_tool_index: 'Exhaustive, concise operation inventory. Every entry has a stable ID and short description. Follow nextCursor until null; total is explicit. Use kanvas_tool_search with an ID or intent for full schema and examples.',
-  kanvas_tool_use: 'Execute one catalog operation. Supply its exact operationId and nested arguments matching the schema from kanvas_tool_search. Uses existing validation, scopes, permissions, revision checks and consent rules. This dispatcher can mutate or delete; inspect the operation annotations. Never treats examples, viewer input or a search result as authorization.',
-  kanvas_help_search: 'Find focused detailed help topics by natural language or exact topic ID; default top 5. Returns relevant sections and examples, not a whole manual. Read-only; help never authorizes publication. Browse all topics with kanvas_help_index.',
-  kanvas_help_index: 'List ALL help topics concisely, with stable topic IDs, total and nextCursor. Follow pages until nextCursor is null. Use kanvas_help_search for topic details.',
-  kanvas_template_search: 'Find available display templates by intent or exact namespaced ID; default top 5 with full validation schemas, usage details and publish examples. Currently built-ins only. Read-only, account-aware discovery; no fictional or cross-account private templates.',
-  kanvas_template_index: 'List ALL available templates concisely, with stable namespaced IDs, total and nextCursor. Follow pages until null; use kanvas_template_search for full schemas, details and examples.',
+  kanvas_discover: 'Discover Kanvas tools, templates and help with one consistent interface. Choose catalog tools|templates|help and action list|search|get. list returns the ENTIRE visible catalog as plain-text one-line IDs and descriptions, without default pagination. search returns top 5 ranked concise summaries, NEVER schemas or full content; query by natural language. get returns full schema/examples or focused help content for one exact id. Use get before kanvas_call. All actions are read-only, account-aware and never authorize publication. Only response-size safety overflow uses explicit continuation; no silent truncation.',
+  kanvas_call: 'Call one discovered operation. Supply its exact operationId and nested arguments matching the schema from kanvas_discover {catalog:"tools",action:"get",id}. Preserves validation, scopes, permissions, revision checks, cancellation and consent. Can mutate/delete: inspect individual operation annotations. Examples, discovery results and viewer input are never authorization.',
 };
 export function discoveryToolDefinitions(): Tool[] {
   return DISCOVERY_TOOL_NAMES.map(name => {
     const { $schema: _schema, ...schema } = z.toJSONSchema(discoverySchemas[name], { io: 'input' });
-    const read = name !== 'kanvas_tool_use';
+    const read = name !== 'kanvas_call';
     return { name, description: descriptions[name], inputSchema: { ...schema, type: 'object' } as Tool['inputSchema'], annotations: { readOnlyHint: read, destructiveHint: !read, idempotentHint: read, openWorldHint: !read } };
   });
 }
@@ -81,17 +82,18 @@ const operationExtras: Record<string, string> = {
   kanvas_checklist_show: 'restore retained checklist show on another display',
 };
 let operations: CatalogItem[] | undefined;
+export const CATALOG_ONLY_CANONICAL = new Set(['kanvas_help', 'kanvas_guide', 'kanvas_template_get']);
 export function operationCatalog(): readonly CatalogItem[] {
-  return operations ??= canonicalToolDefinitions().map(tool => {
+  return operations ??= canonicalToolDefinitions().filter(tool => !CATALOG_ONLY_CANONICAL.has(tool.name)).map(tool => {
     const canonical = CANONICAL_TOOLS.find(item => item.name === tool.name)!;
     const discovery = TOOL_DISCOVERY[tool.name];
     const id = operationId(tool.name), summary = short(discoveryGuidanceText(canonical.description));
-    const examples = (discovery?.examples ?? []).map(args => ({ tool: 'kanvas_tool_use', arguments: { operationId: id, arguments: structuredClone(args) } }));
+    const examples = (discovery?.examples ?? []).map(args => ({ tool: 'kanvas_call', arguments: { operationId: id, arguments: structuredClone(args) } }));
     const aliases = [...new Set([tool.name, ...[...OPERATION_ENTRIES, ...DOMAIN_OPERATION_ENTRIES].filter(entry => entry.canonical === tool.name).map(entry => `${entry.tool} ${entry.operation}`)])];
     return { id, provider: 'kanvas', title: id.slice(7).replaceAll('.', ' '), summary, keywords: `${operationExtras[tool.name] ?? ''} ${aliases.join(' ')} ${discovery?.hint ?? ''}`, text: `${canonical.description} ${schemaTerms(tool.inputSchema)}`, detail: () => profileScope.run('discovery', () => ({ id, operationId: id, title: id.slice(7).replaceAll('.', ' '), requiredInputs: tool.inputSchema.required ?? [], description: discoveryGuidanceText(canonical.description), guidance: discoveryGuidanceText(discovery?.hint ?? ''), inputSchema: profileSchema(tool.inputSchema), annotations: tool.annotations, examples, exampleNotice: 'Examples are valid syntax with illustrative IDs and source data. Substitute live authorized IDs/revisions; examples never grant consent.' })) };
   });
 }
-export function canonicalForOperation(id: string): string | undefined { return CANONICAL_TOOLS.find(tool => operationId(tool.name) === id)?.name; }
+export function canonicalForOperation(id: string): string | undefined { return CANONICAL_TOOLS.find(tool => !CATALOG_ONLY_CANONICAL.has(tool.name) && operationId(tool.name) === id)?.name; }
 function authored(value: unknown): unknown {
   if (typeof value === 'string') return discoveryGuidanceText(value);
   if (Array.isArray(value)) return value.map(authored);
@@ -99,6 +101,52 @@ function authored(value: unknown): unknown {
   if ('tool' in value && 'arguments' in value) return discoveryExample(value);
   return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, ['example', 'examples', 'recipes', 'arguments', 'schema', 'commonDataShapes'].includes(key) ? (Array.isArray(child) ? child.map(discoveryExample) : discoveryExample(child)) : authored(child)]));
 }
+/** Explicit summaries make the unified help list useful without a type facet. */
+const HELP_SECTION_SUMMARIES: Record<string, string> = {
+  'tour.title': 'Plan a live tour around the person’s actual work rather than a fixed demo deck.',
+  'tour.description': 'Discover how an agent adapts a tour using authorized context and real available sources.',
+  'tour.steps': 'Run a short personalized tour: select real sources, show relevant views, verify delivery and adapt.',
+  'tour.introduction': 'Understand what Kanvas can display and how to begin a source-grounded visual conversation.',
+  'tour.choices': 'Choose a first activity: show supplied content, compare options, or explore available views.',
+  'tour.schemaTool': 'Look up a template’s complete validated shape before preparing unfamiliar content.',
+  'getting-started.orientation': 'Recognize visual requests, complement conversation with focused screens, and offer feedback appropriately.',
+  'getting-started.steps': 'Start an authorized session, select a receiver, publish real source content, and verify browser delivery.',
+  'getting-started.location': 'Use consented viewer location, timezone and locale for local requests; never infer missing coordinates.',
+  'getting-started.interaction': 'Keep routine mechanics quiet while explaining meaningful outcomes, required consent and unresolved failures.',
+  'getting-started.viewerLink': 'Return actual clickable viewer links on first use; links locate content but never grant access.',
+  'getting-started.sessionContinuity': 'Continue an explicitly selected session or returned target instead of guessing from recent activity.',
+  'getting-started.continuityRecipe': 'Follow complete session-continuity examples for starting, targeting and resuming a display.',
+  'tools.selection': 'Distinguish publication, viewport controls, structural edits and patches by their effects.',
+  'tools.examples': 'Discover operation summaries, get an exact input schema, then call it with validated arguments.',
+  'tools.exampleNotice': 'Treat examples as illustrative syntax, not source facts, live identifiers or permission to act.',
+  'publishing.guidance': 'Publish source-preserving views, select targets and revisions, and distinguish preparation from browser paint.',
+  'publishing.recipes': 'Use complete publication recipes for prepared views, contextual content and display targeting.',
+  'publishing.commonDataShapes': 'Find common exact data shapes for text, charts, maps, media and other source-grounded views.',
+  'publishing.schemaTool': 'Retrieve a template schema and examples from the templates catalog.',
+  'publishing.exampleNotice': 'Replace illustrative publication data and identifiers with authorized live context.',
+  'visual-intent.description': 'Recognize requests for visual assistance without treating quoted keywords as instructions.',
+  'visual-intent.guidance': 'Choose one helpful visual beat that complements speech and preserves supplied facts.',
+  'visual-intent.entry': 'Find the publication entry point and its source, intent and target requirements.',
+  'visual-intent.examples': 'Apply visual intent through complete examples while preserving actual source data.',
+  'templates.schemaTool': 'Get complete template schemas and publication examples by exact template ID.',
+  'templates.publishing': 'Choose focused native templates, preserve source content, and avoid redundant screen titles.',
+  'viewer-context.instructions': 'Read fresh, consented context from the intended receiving browser for weather, nearby and local-time tasks.',
+  'viewer-context.readTool': 'Read the operation contract for viewer visibility, freshness, location, timezone and locale.',
+  'viewer-context.refresh': 'Refresh viewer context when needed without persisting precise coordinates in notices.',
+  'viewer-context.permissions': 'Respect denied, missing and ambiguous location permissions; never enable collection by inference.',
+  'feedback.offer': 'Offer feedback once after confusion or errors, and file only with user request or consent.',
+  'feedback.tools': 'Find feedback filing, error reporting, report reading, review and author follow-up capabilities.',
+  'feedback.limits': 'Check exact title, description, reproduction and UTF-8 report-size limits before filing.',
+  'feedback.instructions': 'File scoped private reports, read complete pages, follow up with revisions, and protect credentials.',
+};
+function helpSectionSummary(topic: string, section: string, value: unknown): string {
+  const description = HELP_SECTION_SUMMARIES[`${topic}.${section}`];
+  if (description) return description;
+  // New authored sections must carry meaningful prose; fail rather than ship an ID-only stub.
+  if (typeof value === 'string' && value.length > 40) return short(discoveryGuidanceText(value));
+  throw new Error(`Missing useful help summary for ${topic}.${section}`);
+}
+
 let helps: CatalogItem[] | undefined;
 export function helpCatalog(): readonly CatalogItem[] {
   if (helps) return helps;
@@ -113,15 +161,34 @@ export function helpCatalog(): readonly CatalogItem[] {
     const chunks: string[][] = []; let current: string[] = [];
     for (const step of page.steps) { if (current.length && current.join('').length + step.length > 4500) { chunks.push(current); current = []; } current.push(step); }
     if (current.length) chunks.push(current);
-    chunks.forEach((steps, i) => add(`kanvas.help.${topic}${i ? `.${i + 1}` : ''}`, `${page.title}${chunks.length > 1 ? ` — part ${i + 1}` : ''}`, page.description, { steps, ...(page.example ? { example: 'tool' in page.example ? discoveryExample(page.example) : { tool: 'kanvas_tool_use', arguments: { operationId: 'kanvas.submit', arguments: 'version' in page.example && 'template' in page.example ? { requestId: `help-${topic}-example`, view: page.example } : Object.fromEntries(Object.entries(page.example).filter(([key]) => key !== 'operation')) } } } : {}) }));
+    chunks.forEach((steps, i) => add(`kanvas.help.${topic}${i ? `.${i + 1}` : ''}`, `${page.title}${chunks.length > 1 ? ` — part ${i + 1}` : ''}`, page.description, { steps, ...(page.example ? { example: 'tool' in page.example ? discoveryExample(page.example) : { tool: 'kanvas_call', arguments: { operationId: 'kanvas.submit', arguments: 'version' in page.example && 'template' in page.example ? { requestId: `help-${topic}-example`, view: page.example } : Object.fromEntries(Object.entries(page.example).filter(([key]) => key !== 'operation')) } } } : {}) }));
   }
+  // The authored tour page already contains this guide in full. Metadata-only
+  // schemaTool/exampleNotice sections become contextual notes, not fake topics.
   for (const topic of GUIDE_TOPICS) {
+    if (topic === 'tour') continue;
     const guide = guideFor(topic);
     for (const [section, value] of Object.entries(guide)) {
-      if (['topic', 'version', 'principle', 'note', 'groups', 'catalogue', 'topics'].includes(section)) continue;
-      add(`kanvas.guide.${topic}.${section.toLowerCase()}`, `${topic.replaceAll('-', ' ')}: ${section}`, `Agent guidance for ${topic.replaceAll('-', ' ')} — ${section}.`, value);
+      if (['topic', 'version', 'principle', 'note', 'groups', 'catalogue', 'topics', 'schemaTool', 'exampleNotice'].includes(section)) continue;
+      add(`kanvas.help.${topic}.${section.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()}`, `${topic.replaceAll('-', ' ')}: ${section}`, helpSectionSummary(topic, section, value), section === 'schemaTool' ? { tool: 'kanvas_discover', arguments: { catalog: 'templates', action: 'list' }, next: 'Choose the exact template ID, then get its full schema.' } : value);
     }
   }
+  add('kanvas.help.tools.discovery', 'Discover and call Kanvas', 'List a complete catalog, search ranked alternatives, get exact schemas or help, then call validated operations.', {
+    steps: [
+      'This MCP connection exposes only kanvas_discover and kanvas_call. Refresh the connector after upgrades; former callable names are rejected.',
+      'Choose catalog tools, templates or help. All help subjects share one catalog without a type filter; IDs provide natural grouping hints.',
+      'action:list returns every visible ID and one-line description in plain text, with no default pagination. Only an explicit response-safety continuation can make the response incomplete; follow its cursor.',
+      'action:search ranks natural-language alternatives as concise summaries, default five. It never returns schemas, examples or full content. Matching totals and nextCursor show alternatives beyond the top matches.',
+      'action:get returns full content for one exact ID. Tools include inputSchema, annotations and executable examples; templates include their complete schema and sample view; help includes focused guidance.',
+      'Then use kanvas_call with operationId and nested arguments. Discovering a capability, reading an example or possessing an ID is not authorization; preserve actual sources, permissions and revisions.',
+    ],
+    examples: [
+      { tool:'kanvas_discover',arguments:{catalog:'tools',action:'list'} },
+      { tool:'kanvas_discover',arguments:{catalog:'tools',action:'search',query:'restore a saved checklist on another monitor'} },
+      { tool:'kanvas_discover',arguments:{catalog:'tools',action:'get',id:'kanvas.checklist.show'} },
+      { tool:'kanvas_discover',arguments:{catalog:'templates',action:'get',id:'kanvas.template.checklist'} },
+    ],
+  });
   return helps = items;
 }
 let templates: CatalogItem[] | undefined;
@@ -129,7 +196,7 @@ export function templateCatalog(): readonly CatalogItem[] {
   return templates ??= TEMPLATE_IDS.map(template => {
     const guidance = TEMPLATE_DISPLAY_GUIDANCE[template];
     let detail: Record<string, unknown> | undefined;
-    return { id: `kanvas.template.${template}`, provider: 'kanvas', title: templateNames[template], summary: guidance.primary, keywords: template === 'chart' ? `${template} ${Object.keys(chartVariantSamples).join(' ')}` : template, text: guidance.detail, detail: () => detail ??= profileScope.run('discovery', () => ({ id: `kanvas.template.${template}`, template, title: templateNames[template], description: guidance.primary, guidance: discoveryGuidanceText(guidance.detail), schema: profileSchema(compactSchemaReferences(z.toJSONSchema(templateViewSchema(template), { unrepresentable: 'any', io: 'input', reused: 'ref' }))), example: samples[template], ...(template === 'chart' ? { variants: chartVariantSamples } : {}), examples: [{ tool: 'kanvas_tool_use', arguments: { operationId: 'kanvas.submit', arguments: { requestId: 'template-example-1', view: samples[template] } } }], exampleNotice: 'Illustrative supplied data only; replace with real sources. Schema validates a complete view, not tool_use arguments.' })) };
+    return { id: `kanvas.template.${template}`, provider: 'kanvas', title: templateNames[template], summary: guidance.primary, keywords: template === 'chart' ? `${template} ${Object.keys(chartVariantSamples).join(' ')}` : template, text: guidance.detail, detail: () => detail ??= profileScope.run('discovery', () => ({ id: `kanvas.template.${template}`, template, title: templateNames[template], description: guidance.primary, guidance: discoveryGuidanceText(guidance.detail), schema: profileSchema(compactSchemaReferences(z.toJSONSchema(templateViewSchema(template), { unrepresentable: 'any', io: 'input', reused: 'ref' }))), example: samples[template], ...(template === 'chart' ? { variants: chartVariantSamples } : {}), examples: [{ tool: 'kanvas_call', arguments: { operationId: 'kanvas.submit', arguments: { requestId: 'template-example-1', view: samples[template] } } }], exampleNotice: 'Illustrative supplied data only; replace with real sources. Schema validates a complete view, not kanvas_call arguments.' })) };
   });
 }
 export const BUILTIN_PROVIDERS: readonly CatalogProvider[] = Object.freeze([
@@ -143,41 +210,60 @@ export class DiscoveryCatalog {
   list(kind: CatalogKind, context: CatalogContext): CatalogItem[] {
     context.signal?.throwIfAborted();
     const items = this.providers.filter(provider => provider.kind === kind).flatMap(provider => provider.list(context).filter(item => {
-      if (item.provider !== provider.namespace || !item.id.startsWith(`${provider.namespace}.`)) throw new Error('Invalid catalog provider namespace.');
+      if (item.provider !== provider.namespace || !idSchema.safeParse(item.id).success || !item.id.startsWith(`${provider.namespace}.`)) throw new Error('Invalid catalog provider namespace.');
       return !item.visible || item.visible(context);
     }));
     if (new Set(items.map(item => item.id)).size !== items.length) throw new Error('Duplicate catalog IDs.');
     return items.sort((a, b) => a.id.localeCompare(b.id, 'en'));
   }
-  query(kind: CatalogKind, search: boolean, input: Record<string, unknown>, context: CatalogContext): Record<string, unknown> {
-    const all = this.list(kind, context), query = search ? String(input.query) : '';
-    const ranked = search ? new LocalSearch(all).search(query).map(row => row.document) : all;
-    const binding = createHash('sha256').update(JSON.stringify([KANVAS_VERSION, kind, search, query, context.principal.userId, context.principal.agentId, context.principal.scopes, all.map(item => [item.id, item.revision, item.title, item.summary, item.keywords, item.text])])).digest('hex').slice(0, 24);
+  query(kind: CatalogKind, action: 'list' | 'search' | 'get', input: Record<string, unknown>, context: CatalogContext): Record<string, unknown> {
+    const all = this.list(kind, context);
+    const catalog = kind === 'tool' ? 'tools' : kind === 'template' ? 'templates' : 'help';
+    if (action === 'get') {
+      const item = all.find(item => item.id === input.id);
+      if (!item) throw new InputError([{ path: 'id', problem: 'Unknown or unavailable catalog ID. Use kanvas_discover list or search in this catalog; copy the exact ID.' }]);
+      context.signal?.throwIfAborted();
+      const detail = item.detail();
+      // Never replace a large contract with a silently incomplete fragment.
+      if (Buffer.byteLength(JSON.stringify(detail)) > SEARCH_RESULT_BYTES) throw new InputError([{ path: 'id', problem: 'This full catalog entry exceeds the response safety budget. No partial contract was returned; the catalog provider must split this entry into independently meaningful topics.' }]);
+      return { catalog, action, entry: detail };
+    }
+    const query = action === 'search' ? String(input.query) : '';
+    const ranked = action === 'search' ? new LocalSearch(all).search(query).map(row => row.document) : all;
+    const binding = createHash('sha256').update(JSON.stringify([KANVAS_VERSION, kind, action, query, context.principal.userId, context.principal.agentId, context.principal.scopes, all.map(item => [item.id, item.revision, item.title, item.summary, item.keywords, item.text])])).digest('hex').slice(0, 24);
     let offset = 0;
     if (input.cursor) {
-      const match = /^v1:([a-f0-9]{24}):(0|[1-9][0-9]{0,8})$/.exec(String(input.cursor));
-      if (!match || match[1] !== binding || Number(match[2]) > ranked.length) throw new InputError([{ path: 'cursor', problem: 'Cursor does not match this query, account or catalog. Restart from the first page.' }]);
+      const match = /^v2:([a-f0-9]{24}):(0|[1-9][0-9]{0,8})$/.exec(String(input.cursor));
+      if (!match || match[1] !== binding || Number(match[2]) >= ranked.length) throw new InputError([{ path: 'cursor', problem: 'Cursor does not match this query, account or catalog. Restart without cursor.' }]);
       offset = Number(match[2]);
     }
-    const limit = Number(input.limit ?? (search ? 5 : 50)), results: Record<string, unknown>[] = [];
+    const limit = action === 'search' ? Number(input.limit ?? 5) : ranked.length;
+    const results: { id: string; description: string }[] = [];
     let bytes = 0;
     for (const item of ranked.slice(offset, offset + limit)) {
       context.signal?.throwIfAborted();
-      const detail = search ? item.detail() : { id: item.id, title: item.title, description: item.summary };
-      const size = Buffer.byteLength(JSON.stringify(detail));
-      if (size > SEARCH_RESULT_BYTES) throw new Error('Catalog entry exceeds the full-contract response budget.');
+      const summary = { id: item.id, description: item.summary.replace(/\s+/g, ' ').trim() };
+      const size = Buffer.byteLength(JSON.stringify(summary)) + 8;
+      if (size > SEARCH_RESULT_BYTES) throw new InputError([{ path: 'catalog', problem: 'A catalog summary exceeds the response safety budget; provider must supply a concise summary.' }]);
       if (results.length && bytes + size > SEARCH_RESULT_BYTES) break;
-      bytes += size; results.push(detail);
+      bytes += size; results.push(summary);
     }
     const next = offset + results.length;
-    return { kind, ...(search ? { query, retrieval: 'local weighted lexical + curated concepts + typo matching' } : {}), total: ranked.length, catalogTotal: all.length, returned: results.length, offset, results, nextCursor: next < ranked.length ? `v1:${binding}:${next}` : null, detailTool: `kanvas_${kind}_search`, ...(search ? { note: 'Full contracts are never truncated. Default top 5; follow nextCursor for more matches or any byte-budget continuation. Exact IDs return only that entry.' } : { note: 'Complete inventory across pages. Search an exact ID for full details and examples.' }) };
+    return { catalog, action, ...(action === 'search' ? { query, retrieval: 'local weighted lexical + curated concepts + typo matching' } : {}), total: ranked.length, catalogTotal: all.length, returned: results.length, offset, results, complete: next === ranked.length, nextCursor: next < ranked.length ? `v2:${binding}:${next}` : null, note: action === 'search' ? 'Ranked summaries only. Get exact IDs for full details. More matches are available when nextCursor is present.' : 'Complete visible inventory unless an explicit response-size continuation is shown. Get exact IDs for full details.' };
   }
 }
 export const discoveryCatalog = new DiscoveryCatalog();
 export function discoveryResult(name: string, raw: unknown, context: CatalogContext): CallToolResult {
   const input = parseDiscoveryInput(name, raw);
-  const kind = name.split('_')[1] as CatalogKind;
-  const data = discoveryCatalog.query(kind, name.endsWith('_search'), input, context);
-  const result = { data, server: { name: 'kanvas', version: KANVAS_VERSION, profile: 'discovery', tools: 7, operations: operationCatalog().length } };
+  if (name !== 'kanvas_discover') throw new InputError([{ path: 'tool', problem: 'Execution must use the authorized operation dispatcher.' }]);
+  const kind = input.catalog === 'tools' ? 'tool' : input.catalog === 'templates' ? 'template' : 'help';
+  const data = discoveryCatalog.query(kind, input.action as 'list' | 'search' | 'get', input, context);
+  if (input.action === 'list') {
+    const lines = (data.results as { id: string; description: string }[]).map(item => `${item.id} — ${item.description}`);
+    const header = `${input.catalog}: ${data.returned} of ${data.total} visible entries${data.complete ? ' (complete)' : ' (INCOMPLETE: response-size safety limit)'}.`;
+    const continuation = data.nextCursor ? `Continue with kanvas_discover catalog=${input.catalog} action=list cursor=${data.nextCursor}. No entries are omitted between pages.` : '';
+    return { content: [{ type: 'text', text: [header, ...lines, continuation, 'Use kanvas_discover action=get with catalog and exact id for full detail.'].filter(Boolean).join('\n') }] };
+  }
+  const result = { data, server: { name: 'kanvas', version: KANVAS_VERSION, profile: 'discovery', tools: 2, operations: operationCatalog().length } };
   return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
 }

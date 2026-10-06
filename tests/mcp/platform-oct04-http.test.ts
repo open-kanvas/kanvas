@@ -1,3 +1,4 @@
+import { operationRequest } from './requests.js';
 import {Client,StreamableHTTPClientTransport} from '@modelcontextprotocol/client';
 import {Client as LegacyClient} from '@modelcontextprotocol/sdk/client/index.js';
 import {StreamableHTTPClientTransport as LegacyTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
@@ -11,9 +12,9 @@ it.each(['modern','legacy'])('%s real MCP restores a durable checklist and expos
  const headers={Authorization:'Bearer '+token.value};
  if(era==='modern'){client=new Client({name:'oct04-current',version:'1'});await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',h.baseUrl),{requestInit:{headers}}));}
  else{client=new LegacyClient({name:'oct04-legacy',version:'1'});await client.connect(new LegacyTransport(new URL('/mcp',h.baseUrl),{requestInit:{headers}}));}
- const call=async(name:string,operation:string,args:Record<string,unknown>={})=>{const result=await client.callTool({name,arguments:{operation,...args}});expect(result.isError,JSON.stringify(result.structuredContent)).not.toBe(true);return (result.structuredContent as {data:any}).data;};
+ const call=async(name:string,operation:string,args:Record<string,unknown>={})=>{const result=await client.callTool(operationRequest({name,arguments:{operation,...args}}));expect(result.isError,JSON.stringify(result.structuredContent)).not.toBe(true);return (result.structuredContent as {data:any}).data;};
  const details=await call('kanvas_inspect','account.details');expect(details.id).toBe(owner.user!.id);expect(details.tier).toBe('trial');
- const invalid=await client.callTool({name:'kanvas_inspect',arguments:{operation:'account.details',accountId:'not-the-owner'}});expect(invalid.isError).toBe(true);
+ const invalid=await client.callTool(operationRequest({name:'kanvas_inspect',arguments:{operation:'account.details',accountId:'not-the-owner'}}));expect(invalid.isError).toBe(true);
  await owner.submit(s.id,[d.id],{version:1,template:'checklist',title:'Checklist',data:{items:[{id:'a',text:'Review',checked:false}]}});
  const list=await call('kanvas_inspect','checklist.read',{sessionId:s.id}),key=list.checklists[0].id;
  const read=await call('kanvas_inspect','checklist.read',{sessionId:s.id,checklistId:key});expect(read.view.data.items[0].checked).toBe(false);

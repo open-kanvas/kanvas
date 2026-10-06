@@ -1,3 +1,4 @@
+import { operationRequest } from '../mcp/requests.js';
 import { legacySelectedCode } from './legacy-oauth-fixture.js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
@@ -98,9 +99,9 @@ describe('OAuth consent, PKCE and single-use grants', () => {
     const sdk = new Client({ name: 'core-oauth-acceptance', version: '1.0' });
     try {
       await sdk.connect(new StreamableHTTPClientTransport(new URL('/mcp', h.baseUrl), { requestInit: { headers: { Authorization: `Bearer ${issued.body.access_token}` } } }));
-      const permitted = await sdk.callTool({ name: 'kanvas_session_state', arguments: { sessionId: allowed.id } });
+      const permitted = await sdk.callTool(operationRequest({ name: 'kanvas_session_state', arguments: { sessionId: allowed.id } }));
       expect(permitted.isError).not.toBe(true);
-      const rejected = await sdk.callTool({ name: 'kanvas_session_state', arguments: { sessionId: excluded.id } });
+      const rejected = await sdk.callTool(operationRequest({ name: 'kanvas_session_state', arguments: { sessionId: excluded.id } }));
       expect(rejected.isError).toBe(true);
     } finally { await sdk.close(); }
   });

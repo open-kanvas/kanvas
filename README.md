@@ -23,11 +23,11 @@ Kanvas does not run a language model, listen to audio, translate text, or genera
 
 ## Agent connection
 
-Connect an MCP client to `https://<your-host>/mcp` and complete its OAuth flow. Every connection exposes exactly seven tools: help, template and operation search/index pairs, plus `kanvas_tool_use`. Use `kanvas_tool_search` with natural language or a stable operation ID for full schemas and executable examples (default top five). Use `kanvas_template_search` for an unfamiliar view, then execute:
+Connect an MCP client to `https://<your-host>/mcp` and complete its OAuth flow. Every connection exposes exactly two tools: `kanvas_discover` and `kanvas_call`. Discover takes `catalog: tools | templates | help` and `action: list | search | get`. List returns all IDs/descriptions in concise plain text with no default pagination. Search returns ranked short summaries (default five), never full detail; get retrieves one exact ID’s complete schema or help content. Get an unfamiliar template or operation before calling it. For example, discover an operation, get its exact schema, then execute:
 
 ```json
 {
-  "name": "kanvas_tool_use",
+  "name": "kanvas_call",
   "arguments": {
     "operationId": "kanvas.submit",
     "arguments": {

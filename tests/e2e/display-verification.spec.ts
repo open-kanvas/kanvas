@@ -1,3 +1,4 @@
+import { operationRequest } from '../mcp/requests.js';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import type { AssetRecord, DisplayRecord } from '../../src/shared/types';
 import { createDisplay, createSession, expect, openViewer, publishPrepared, register, sessionApi, sessionDetail, tab, test, waitForDisplay } from './support';
@@ -54,7 +55,7 @@ test('MCP visual readback returns real renderer pixels without impersonating phy
   const client = new Client({name: 'visual-readback-gate', version: '1'});
   await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', baseURL), {requestInit: {headers: {Authorization: `Bearer ${issued.data!.token}`}}}));
   const inspect = async () => {
-    const result = await client.callTool({name: 'kanvas_capture', arguments: {operation:'snapshot', sessionId, displayId: display.id, width: 640, height: 480}}, {timeout: 60_000});
+    const result = await client.callTool(operationRequest({name: 'kanvas_capture', arguments: {operation:'snapshot', sessionId, displayId: display.id, width: 640, height: 480}}), {timeout: 60_000});
     expect(result.isError).not.toBe(true);
     const metadata = (result.structuredContent as {data: {readiness: string; source: string; revision: number; blockedExternalRequests: number; observedViewer: {online: boolean}; reusable: boolean; assetId: string; assetUrl: string; assetPath: string}}).data;
     const image = result.content.find(item => item.type === 'image'); expect(Boolean(image)).toBe(true);
@@ -84,7 +85,7 @@ test('MCP visual readback returns real renderer pixels without impersonating phy
     const blocked = await inspect(); expect(blocked.readiness).toBe('ready'); expect(blocked.blockedExternalRequests).toBeGreaterThan(0);
     after = (await sessionDetail(page, sessionId)).displays.find(item => item.id === display.id)!; expect(after.online).toBe(false); expect(after.appliedRevision).toBe(before.appliedRevision);
     const other = await createSession(page, 'Not granted to capture identity');
-    const forbidden = await client.callTool({name: 'kanvas_capture', arguments: {operation:'snapshot', sessionId: other, displayId: display.id}}); expect(forbidden.isError).toBe(true);
+    const forbidden = await client.callTool(operationRequest({name: 'kanvas_capture', arguments: {operation:'snapshot', sessionId: other, displayId: display.id}})); expect(forbidden.isError).toBe(true);
   } finally { await client.close(); }
 });
 

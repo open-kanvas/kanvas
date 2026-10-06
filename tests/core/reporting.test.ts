@@ -1,3 +1,4 @@
+import { operationRequest } from '../mcp/requests.js';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { Client as LegacyClient } from '@modelcontextprotocol/sdk/client/index.js';
@@ -27,7 +28,7 @@ describe.each(['modern', 'legacy'] as const)('%s MCP publication contracts and p
     clients.push(client);
     if (client instanceof Client) await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', h.baseUrl), { requestInit }));
     else await client.connect(new LegacyTransport(new URL('/mcp', h.baseUrl), { requestInit }));
-    return { call: async (name: string, args: Record<string, unknown>): Promise<ToolResult> => await client.callTool({ name, arguments: args }) as ToolResult, client, tokenId: issued.token.id };
+    return { call: async (name: string, args: Record<string, unknown>): Promise<ToolResult> => await client.callTool(operationRequest({ name, arguments: args })) as ToolResult, client, tokenId: issued.token.id };
   }
 
   it('explains rejected fact fields without leaking content, then publishes the discovered contract', async () => {
@@ -49,7 +50,7 @@ describe.each(['modern', 'legacy'] as const)('%s MCP publication contracts and p
       const result = await p.call('kanvas_template_get', { template });
       expect(result.isError, `${template}: ${JSON.stringify(result.structuredContent?.error)}`).not.toBe(true);
       expect(result.structuredContent?.truncated, `${template} must return its complete schema`).not.toBe(true);
-      const contract = value<{ schema: unknown; example?: unknown; note?: string }>(result);
+      const contract = value<{ entry: {schema: unknown; example?: unknown; note?: string} }>(result).entry;
       expect(contract.schema).toHaveProperty('type', 'object');
       if(contract.example!==undefined)expect(validateView(contract.example).template).toBe(template);
       else { expect(template).toBe('presentation');expect(contract.note).toContain('Complete view schema'); }

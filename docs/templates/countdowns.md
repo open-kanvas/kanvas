@@ -41,11 +41,11 @@ At zero, a paused down timer remains explicitly paused; an unpaused down timer i
 
 ## Dedicated pause/resume control
 
-Use `kanvas_tool_use` with `operationId:"kanvas.timer.control"` and nested `arguments` for an existing timer. It calculates the exact fractional pause snapshot from authoritative server time and resumes from that stored snapshot directly. Read `kanvas_tool_use` with `operationId:"kanvas.display.current"` and nested `arguments` immediately before a **new** action, then send its display revision and a new request ID:
+Use `kanvas_call` with `operationId:"kanvas.timer.control"` and nested `arguments` for an existing timer. It calculates the exact fractional pause snapshot from authoritative server time and resumes from that stored snapshot directly. Read `kanvas_call` with `operationId:"kanvas.display.current"` and nested `arguments` immediately before a **new** action, then send its display revision and a new request ID:
 
 ```json
 {
-  "name": "kanvas_tool_use",
+  "name": "kanvas_call",
   "arguments": {
     "operationId": "kanvas.timer.control",
     "arguments": {
@@ -69,13 +69,13 @@ New actions reject held/ended/inaccessible displays, stale revisions and unsuppo
 
 ### Editing data directly
 
-The pause fields are supported by both initial submission and `kanvas_tool_use` with `operationId:"kanvas.display.edit"` and nested `arguments`. **`replace_data` replaces the complete `data` object; it is not a partial merge.** Sending only `{"pausedRemainingSeconds":1668}` omits required `endsAt` and must fail validation without changing the revision. An up timer similarly still requires `direction:"up"` and `startedAt`.
+The pause fields are supported by both initial submission and `kanvas_call` with `operationId:"kanvas.display.edit"` and nested `arguments`. **`replace_data` replaces the complete `data` object; it is not a partial merge.** Sending only `{"pausedRemainingSeconds":1668}` omits required `endsAt` and must fail validation without changing the revision. An up timer similarly still requires `direction:"up"` and `startedAt`.
 
-Prefer `kanvas_tool_use` with `operationId:"kanvas.timer.control"` and nested `arguments` when the user asks to pause/resume. For another precise field change, `kanvas_tool_use` with `operationId:"kanvas.view.patch"` and nested `arguments` updates a selected path such as `/data/label` or `/data/pausedRemainingSeconds` while preserving the remaining data. If deliberately using full-data edit, retain all desired data fields from the current view:
+Prefer `kanvas_call` with `operationId:"kanvas.timer.control"` and nested `arguments` when the user asks to pause/resume. For another precise field change, `kanvas_call` with `operationId:"kanvas.view.patch"` and nested `arguments` updates a selected path such as `/data/label` or `/data/pausedRemainingSeconds` while preserving the remaining data. If deliberately using full-data edit, retain all desired data fields from the current view:
 
 ```json
 {
-  "name": "kanvas_tool_use",
+  "name": "kanvas_call",
   "arguments": {
     "operationId": "kanvas.display.edit",
     "arguments": {

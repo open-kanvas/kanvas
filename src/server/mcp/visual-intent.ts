@@ -8,7 +8,7 @@ export const VISUAL_INTENT_GUIDANCE = [
   'Obtain the real source before publishing. For “show me the latest trend of the Alphabet stock”, use available authorized host search/market-data tools to retrieve a timestamped price series. Resolve and label the actual ticker/share class, time range, currency and as-of/source time. A single quote is not a trend; do not invent historical points, interpolate missing observations as facts or label stale data latest. KANVAS renders supplied sources; it does not fetch live stock prices.',
   'Choose the intended session under the shared session-continuity rules: continue the ongoing topic/display, or deliberately resolve an explicit/unambiguous prior reference. A new unrelated topic defaults to an authorized clean, subject-named session, not the newest session or an open unrelated demo. Use kanvas_submit auto-setup for fresh publication or newSession:true for a deliberately new topic; it registers an initial display only if needed. Continue using the scoped targetRef, or resolve needs_target once. If clean creation is blocked by the connection’s scope, explain the actual boundary; do not silently reuse unrelated content or widen access.',
   'Read live kanvas_session_state before publication. An explicit “show” request does not supply missing data or permission. Preserve held displays, existing access and guest consent. Do not change settings, unhold a display, create a sharing grant or approve a browser merely to make the publication possible. Continue routine authorized steps without another “should I show it” question; ask only for a genuinely missing target, source decision or required authorization.',
-  'Publish the relevant source with kanvas_submit and a fitting templateHint or validated view; kanvas_guide publishing already supplies compact shapes and recipes. Inspect kanvas_update_status for preparation versus receiving-browser application. On first use, provide the actual returned viewer URL as literal clickable, copyable text even in voice mode, following the existing viewer-link guidance; do not spell it phonetically or invent a URL.',
+  'Publish the relevant source with kanvas_submit and a fitting templateHint or validated view; kanvas_guide publishing already supplies compact shapes and recipes. Inspect kanvas_update_status for preparation versus receiving-browser application. Prefer connected-screen presentation; for a new user follow device-first help.about/getting-started. When a link is needed provide returned shortUrl first as literal clickable, copyable text, including voice mode; use viewerUrl only without a short locator. Never speak a long path or invent a URL.',
   'KANVAS can publish server description/instructions and tool/guide hints. The host decides whether these are loaded, visible to its model or acted upon. KANVAS cannot inject an always-visible hint into Claude, force tool discovery/approval, obtain new authorization or wake an idle agent. Protocol visibility is testable; reliable live host behavior and browser paint need separate verification.',
 ].join(' ');
 
@@ -25,7 +25,7 @@ export const VISUAL_INTENT_ENTRY = Object.freeze({
   source: 'Current external facts come from authorized host retrieval, not KANVAS. Supplied exact rows/text can be published directly.',
   continuity: SESSION_CONTINUITY_RECIPE.default,
   policy: 'A visual request supplies neither missing source data nor authorization to change access or held displays.',
-  handoff: 'Return the real viewer URL as literal copyable text on first use; URL delivery and browser application are separate.',
+  handoff: 'Prefer an authenticated connected screen; a necessary link uses returned shortUrl first as copyable text. URL delivery and browser application are separate.',
   exampleNotice: 'Scenarios illustrate decisions, not executable calls, actual stock prices, a permission grant or verified host behavior.',
 });
 
@@ -33,7 +33,7 @@ export const VISUAL_INTENT_EXAMPLES = Object.freeze([
   Object.freeze({
     id: 'voice-stock', user: 'Show me the latest trend of the Alphabet stock.',
     context: 'Voice interaction with connected KANVAS; current stock data is not yet supplied.',
-    decision: 'Recognize the visual request immediately. Retrieve a real timestamped series through authorized host tools, identify the actual share class/ticker and range, select the intended session under continuity rules, read its live state, and publish a source-bound chart. Provide the actual viewer link as text on first use.',
+    decision: 'Recognize the visual request immediately. Retrieve a real timestamped series through authorized host tools, identify the actual share class/ticker and range, select the intended session under continuity rules, read its live state, and publish a source-bound chart. Prefer connected-screen presentation; if a link is needed provide the returned shortUrl as text.',
     avoid: 'Do not stop after speaking price figures, require “use KANVAS” again, or create a trend from a single quote or invented milestones.',
   }),
   Object.freeze({

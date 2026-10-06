@@ -1,3 +1,5 @@
+import { profileInstructions } from '../../src/server/mcp/profile-guidance.js';
+import { FIRST_DISPLAY_LINK_GUIDANCE } from '../../src/server/mcp/viewer-link-guidance.js';
 import { describe, it, expect } from 'vitest';
 import { operationCatalog, templateCatalog, helpCatalog, discoveryCatalog, discoveryToolDefinitions } from '../../src/server/mcp/discovery.js';
 import { workflowIds } from '../../src/server/mcp/workflow-guidance.js';
@@ -29,6 +31,6 @@ describe('contextual discovery and first contact',()=>{
   const ids=helpCatalog().map(x=>x.id);expect(ids).toContain('kanvas.help.about');expect(ids).toContain('kanvas.help.what-is-kanvas');expect(ids).toContain('kanvas.help.submit');expect(ids).not.toContain('kanvas.help.publish');
   for(const query of ['about kanvas','what is kanvas']){const out=discoveryCatalog.query('help','search',{query,limit:5},context);expect(JSON.stringify(out.results)).toMatch(/kanvas.help.(about|what-is-kanvas)/);}
   expect(JSON.stringify(helpCatalog().find(x=>x.id==='kanvas.help.getting-started.steps')!.detail())).toContain('Human-facing first instruction');
-  expect(JSON.stringify(discoveryToolDefinitions())).toContain('kanvas.help.about');
+  expect(JSON.stringify(discoveryToolDefinitions())).toContain('kanvas.help.about');expect(profileInstructions('discovery')).toContain('kanvas.help.about');expect(FIRST_DISPLAY_LINK_GUIDANCE).toContain('prefer the returned shortUrl');expect(profileInstructions('discovery')).not.toContain('Show literal returned viewer URLs on first use');
  });
 });

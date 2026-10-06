@@ -56,7 +56,7 @@ describe('bounded first-use viewer handoff guidance', () => {
 
 describe('real guide, catalogue and MCP result integration', () => {
   it('makes the handoff discoverable in initialization, getting-started, each tool description and orientation', () => {
-    expect(KANVAS_INSTRUCTIONS).toContain('literal, clickable viewerUrl/shortUrl');expect(KANVAS_INSTRUCTIONS).toContain('in voice mode also show the actual URL as text');
+    expect(KANVAS_INSTRUCTIONS).toContain('literal, clickable shortUrl first');expect(KANVAS_INSTRUCTIONS).toContain('in voice mode also show the actual URL as text');
     expect(guideFor('getting-started')).toMatchObject({ viewerLink: FIRST_DISPLAY_LINK_GUIDANCE });
     const definitions = listToolDefinitions();
     for (const tool of entryPoints) {

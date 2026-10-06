@@ -252,7 +252,7 @@ export async function pairedDisplayAllowsAsset(store: Store, principal: AuthPrin
  * separate owner-authorized MCP path, requiring an explicit confirmation;
  * invitation/feedback text alone never grants access.
  */
-export function mountAccessFlows(app: Express, options: AccessFlowOptions): () => void {
+export function mountAccessFlows(app: Express, options: AccessFlowOptions): () => Promise<void> {
   const { auth, store, browser, access, emit } = options;
   const failedLimit=options.pairingFailedLimit??ACCESS_LIMITS.pairingFailedLimit;
   if(!Number.isInteger(failedLimit)||failedLimit<10||failedLimit>200)throw new Error('Pairing failed-attempt limit must be 10–200.');
@@ -724,6 +724,21 @@ export function mountAccessFlows(app: Express, options: AccessFlowOptions): () =
     }
     response.json({ data: pairingMetadata(pair) });
   });
-  const sweep=setInterval(async ()=>{for(const pair of (await store.list<PairingRecord>('pairing')))if(['pending','approved'].includes(pair.status))(await expirePair(pair));(await prune());},5000);sweep.unref();
-  return ()=>clearInterval(sweep);
+  // clearInterval does not cancel an already-awaiting sweep. Drain that work
+  // before app.close ends the database pool, and never overlap slow sweeps.
+  let closing = false, activeSweep: Promise<void> | undefined;
+  const sweep = setInterval(() => {
+    if (closing || activeSweep) return;
+    activeSweep = (async () => {
+      for (const pair of await store.list<PairingRecord>('pairing')) {
+        if (['pending', 'approved'].includes(pair.status)) await expirePair(pair);
+      }
+      await prune();
+    })().catch(() => {
+      // Keep operational visibility without leaking record or credential data.
+      console.warn('Access expiry sweep failed; retrying on the next interval.');
+    }).finally(() => { activeSweep = undefined; });
+  }, 5000);
+  sweep.unref();
+  return async () => { closing = true; clearInterval(sweep); await activeSweep; };
 }

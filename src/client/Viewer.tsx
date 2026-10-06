@@ -199,7 +199,8 @@ export function Viewer({ sessionId, displayId }: ViewerRoute) {
       if (slides?.[index]?.template === 'drafting') return `draft:${value.id}:slide:${index}`;
     }
   };
-  const preservingLocalState = failedRevision !== display?.revision && (Boolean(draftKey(display)) && draftKey(display) === draftKey(lastGood?.display)
+  const sameNavigationRoot = Boolean(display?.view && lastGood?.display.view && (display.navigationRoot ?? display.revision) === (lastGood.display.navigationRoot ?? lastGood.display.revision) && display.view.template === lastGood.display.view.template);
+  const preservingLocalState = failedRevision !== display?.revision && (sameNavigationRoot || Boolean(draftKey(display)) && draftKey(display) === draftKey(lastGood?.display)
     || editable && display?.view?.template === 'presentation' && lastGood?.display.view?.template === 'presentation'
     || editable && display?.view?.template === 'whiteboard' && lastGood?.display.view?.template === 'whiteboard'
     || display?.view?.template === 'table' && lastGood?.display.view?.template === 'table' && display.id === lastGood.display.id);
@@ -208,7 +209,7 @@ export function Viewer({ sessionId, displayId }: ViewerRoute) {
   const renderedRevision = retaining ? lastGood!.display.revision : display && !display.view ? display.revision : paintedRevision;
   const responseErrorShown = responseError && responseError.revision !== display?.revision && state.connection !== 'closed' && !auth.captureOnly;
   const sourceStatus = sourceStatusText(display?.monitoring, sourceClock, state.connection === 'live');
-  const stageKey = (value: DisplayRecord) => draftKey(value) ?? (editable && value.view?.template === 'presentation' ? `presentation:${value.id}` : value.view?.template === 'table' ? `table:${value.id}` : editable && value.view?.template === 'whiteboard' ? 'collaborative-board' : `revision:${value.revision}`);
+  const stageKey = (value: DisplayRecord) => draftKey(value) ?? (editable && value.view?.template === 'presentation' ? `presentation:${value.id}` : value.view?.template === 'table' ? `table:${value.id}:${value.navigationRoot ?? value.revision}` : editable && value.view?.template === 'whiteboard' ? 'collaborative-board' : `view:${value.navigationRoot ?? value.revision}:${value.view?.template}`);
   // Stage identity survives becoming last-good; its provider must not remount when primary changes.
   const stages = display?.view ? [
     ...(retaining && lastGood?.display.view ? [{...lastGood, primary: false, key: stageKey(lastGood.display) === stageKey(display) ? `fallback:${lastGood.display.revision}` : stageKey(lastGood.display)}] : []),

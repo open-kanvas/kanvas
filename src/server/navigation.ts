@@ -21,10 +21,12 @@ export class Navigation {
   constructor(readonly service:KanvasService){}
   private key(displayId:string,viewerId?:string){return hash(`${displayId}:${viewerId??'shared'}`);}
   private async position(sessionId:string,displayId:string,viewerId?:string){
-    const d=required((await this.service.store.get<{revision:number;view:ViewSpec|null}>('display',displayId)));
+    const d=required((await this.service.store.get<{revision:number;navigationRoot?:number;view:ViewSpec|null}>('display',displayId)));
     const global=(await this.service.store.get<Position>('navigation',this.key(displayId)));
     const local=viewerId?(await this.service.store.get<Position>('navigation',this.key(displayId,viewerId))):undefined;
-    const found=local&&local.revision===d.revision&&(!global||local.version>global.version)?local:global;
+    const root=d.navigationRoot??d.revision;
+    const found=local&&local.revision>=root&&(!global||global.revision<root||local.version>global.version)?local:global;
+    if(found&&found.revision>=root&&found.revision<d.revision){const state=structuredClone(found.state);state.page=Math.min(state.page,Math.max(0,navigationCapabilities(d.view,state).pageCount-1));if(state.reading)state.reading.playing=false;return {...found,revision:d.revision,version:0,state,commandId:'',action:undefined};}
     return found?.revision===d.revision?found:{id:this.key(displayId,viewerId),sessionId,displayId,revision:d.revision,version:0,state:initialNavigation(navigationLeaf(d.view)),commandId:'',updatedAt:now()};
   }
   /** Anonymous publication includes broadcast position only, never a tab target. */

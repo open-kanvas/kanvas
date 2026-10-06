@@ -1,3 +1,4 @@
+import { workflowIds, WORKFLOW_NOTE, PLANNER_BOUNDARY, SUBMIT_SHAPE } from './workflow-guidance.js';
 import { operationCatalog } from './discovery.js';
 import { ProtocolError, type CallToolResult } from '@modelcontextprotocol/server';
 import { z } from 'zod';
@@ -7,7 +8,7 @@ import { RenderingError } from '../rendering/errors.js';
 import { TEMPLATE_IDS, type TemplateId } from '../../shared/types.js';
 import { VisualCaptureResult } from '../visual-capture.js';
 import { orientationFor } from './guide.js';
-import { isGrouped, operationEntries, publicGuidanceText, publicReference, toolNames, type McpProfile } from './operations.js';
+import { operationId, isGrouped, operationEntries, publicGuidanceText, publicReference, toolNames, type McpProfile } from './operations.js';
 import { interactionRoutes, profileResultData, trustedGuidance } from './profile-guidance.js';
 import { KANVAS_VERSION } from '../../shared/version.js';
 
@@ -141,12 +142,15 @@ export function safeError(error: unknown): SafeError {
   return { code, message: messages[code] };
 }
 
-export function toolFailure(error: unknown, diagnosticId?: string, profile: McpProfile = 'legacy'): CallToolResult {
+export function toolFailure(error: unknown, diagnosticId?: string, profile: McpProfile = 'legacy', canonicalName?: string): CallToolResult {
   const failure = { ...safeError(error), ...(diagnosticId ? { diagnosticId } : {}) };
   const grouped = isGrouped(profile);
   const help = grouped ? publicReference('kanvas_help', profile)! : { tool: 'kanvas_inspect', operation: 'help.read' };
   const state = grouped ? publicReference('kanvas_session_state', profile)! : { tool: 'kanvas_inspect', operation: 'session.state' };
-  const result = { error: grouped ? trustedGuidance(failure) as typeof failure : failure, server: mcpServerInfo(profile), docs:{path:'/docs/recovery',help:profile === 'discovery' ? { tool: 'kanvas_discover', arguments: { catalog: 'help', action: 'get', id: 'kanvas.help.recovery' } } : {...help,topic:'recovery'}} };
+  const operation = canonicalName ? operationCatalog().find(item => item.id === operationId(canonicalName)) : undefined;
+  const recovery = profile === 'discovery' && failure.code === 'INVALID_ARGUMENT' && operation ? { operationId: operation.id, get: { tool: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id: operation.id } }, ...(operation.id === 'kanvas.submit' ? { shape: SUBMIT_SHAPE } : {}), ...(failure.template ? { template: { tool: 'kanvas_discover', arguments: { catalog: 'templates', action: 'get', id: `kanvas.template.${failure.template}` } } } : {}), examples: ((operation.detail().examples ?? []) as unknown[]).filter(example => JSON.stringify(example).length < 2500).slice(0, 1), note: 'Examples are syntax only. Substitute authorized IDs and preserve source data. Validation made no change; do not retry unchanged.' } : undefined;
+  const projected = grouped ? trustedGuidance(failure) as typeof failure : failure;
+  const result = { error: { ...projected, ...(recovery ? { schemaTool: 'kanvas_discover', schemaArguments: recovery.template?.arguments ?? recovery.get.arguments } : {}) }, ...(recovery ? { recovery } : {}), server: mcpServerInfo(profile), docs:{path:'/docs/recovery',help:profile === 'discovery' ? { tool: 'kanvas_discover', arguments: { catalog: 'help', action: 'get', id: 'kanvas.help.recovery' } } : {...help,topic:'recovery'}} };
   const detail = { type: 'text' as const, text: JSON.stringify(result) };
   const headline = `${result.error.code}: ${result.error.message}${diagnosticId ? ` Diagnostic: ${diagnosticId}. Read recentDiagnostics with ${profile === 'discovery' ? 'kanvas_call {operationId:"kanvas.session.state",arguments:{sessionId}}' : `${state.tool} operation ${state.operation}`} if your host hides error details.` : ''}`;
   // Standard MCP text is readable without structured-content support. Preserve
@@ -179,14 +183,19 @@ function preview(value: unknown, depth: number, limit: number, seen = new WeakSe
   return result;
 }
 
-export function toolSuccess(value: unknown, sessionId?: unknown, operation = '', profile: McpProfile = 'legacy'): CallToolResult {
+export function toolSuccess(value: unknown, sessionId?: unknown, operation = '', profile: McpProfile = 'legacy', callArgs?: Record<string, unknown>): CallToolResult {
   const server = mcpServerInfo(profile);
   if (value instanceof VisualCaptureResult) return { content: [{ type: 'text', text: JSON.stringify({ data: value.metadata, server }) }, { type: 'image', mimeType: value.mimeType, data: value.image.toString('base64') }], structuredContent: { data: value.metadata, server } };
   const canonicalOrientation = orientationFor(operation);
   const orientation = isGrouped(profile) ? trustedGuidance(canonicalOrientation) : canonicalOrientation;
   const routing = isGrouped(profile) && operation === 'kanvas_interactions_read' ? { routing: interactionRoutes(profile) } : {};
   const data = profileResultData(operation, value, profile);
-  let result: Record<string, unknown> = { data: data ?? null, server, ...(orientation ? { orientation } : {}), ...routing };
+  const submittedView = callArgs?.view as { template?: string; data?: { status?: string } } | undefined;
+  const template = operation === 'kanvas_submit' ? submittedView?.template : undefined;
+  const relatedOperations = template ? workflowIds(template).flatMap(id => { const item = operationCatalog().find(entry => entry.id === id); return item ? [{ id, description: item.summary }] : []; }) : [];
+  const workflow = relatedOperations.length ? { relatedOperations, instruction: WORKFLOW_NOTE, get: { tool: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id: relatedOperations[0].id } } } : undefined;
+  const commitmentBoundary = operation === 'kanvas_planner_finalize' || template === 'planner' && submittedView?.data?.status === 'committed' ? PLANNER_BOUNDARY : undefined;
+  let result: Record<string, unknown> = { ...(workflow ? { workflow } : {}), ...(commitmentBoundary ? { commitmentBoundary } : {}), data: data ?? null, server, ...(orientation ? { orientation } : {}), ...routing };
   let text = JSON.stringify(result);
   if(operation==='kanvas_template_get'&&orientation&&Buffer.byteLength(text)>MAX_TOOL_RESULT_BYTES){
     // Complete schema constraints take priority over repeated onboarding prose.

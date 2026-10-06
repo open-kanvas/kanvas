@@ -17,6 +17,13 @@ describe('navigation, saved pins and task-focused Help',()=>{
   const browserState=async(browser:Browser,tabId:string)=>success(await browser.request<NavigationSnapshot>('GET',`${path()}/navigation?tabId=${tabId}`));
   const browserMove=async(browser:Browser,tabId:string,page:number)=>browser.request<NavigationSnapshot>('POST',`${path()}/navigation`,{tabId,requestId:randomUUID(),expectedRevision:1,navigation:{action:'page',page}});
   const table={version:1 as const,template:'table' as const,data:{columns:['Label','Amount'],rows:Array.from({length:51},(_,i)=>({Label:`Row ${i+1}`,Amount:'9007199254740993.001'})),pageSize:10}};
+  it('in-place patches retain navigation identity/state; a new submission resets even the same template',async()=>{
+    await owner.submit(s,[d],table);await nav({action:'page',page:3});
+    const before=(await owner.detail(s)).displays[0];
+    await call('kanvas_view_patch',{sessionId:s,displayId:d,expectedRevision:before.revision,requestId:randomUUID(),operations:[{op:'set',path:'/data/rows/0/Label',value:'Changed first row'}]});
+    const after=(await owner.detail(s)).displays[0];expect(after.navigationRoot).toBe(before.navigationRoot);expect((await browserState(owner,'navigation-tab')).state.page).toBe(2);
+    await owner.submit(s,[d],table);expect((await owner.detail(s)).displays[0].navigationRoot).not.toBe(after.navigationRoot);expect((await browserState(owner,'navigation-tab')).state.page).toBe(0);
+  });
   it('pages and searches the exact collection without changing history, source, responses or display revision; retries and late receipts are bounded',async()=>{
     await owner.submit(s,[d],table);const before=await owner.detail(s),history=await call('kanvas_display_history',{sessionId:s,displayId:d});
     const args={requestId:randomUUID()},first=await nav({action:'page',page:6},args);expect(first.state.page).toBe(5);expect((await nav({action:'page',page:6},args)).commandId).toBe(first.commandId);

@@ -5,6 +5,14 @@ import {startHarness,type Harness,success} from './harness.js';
 let h:Harness;
 afterEach(async()=>{delete process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT;await h?.close();});
 describe('idle receiver registration',()=>{
+ it('an authenticated account with zero sessions is visible as an idle connected receiver',async()=>{
+  h=await startHarness();const user=await h.runtime.auth.register({username:'empty_'+randomUUID().slice(0,8),password:randomUUID()});
+  const browser=await h.runtime.auth.issueBrowser(user.id,{cookie:()=>{}} as unknown as Response),p={userId:user.id,browserId:browser.id};
+  expect(await h.runtime.service.sessions(p)).toHaveLength(0);
+  const device=await h.runtime.service.devices.register(p,{installationId:'fresh-root',provisionHome:false},'Mozilla/5.0');
+  const window=await h.runtime.service.devices.windows.register(p,device.id,'fresh-root-tab'),stream=await h.runtime.service.devices.windows.stream(p,device.id,window.id,()=>{});await stream.push();
+  try{expect((await h.runtime.service.devices.list(p)).devices).toContainEqual(expect.objectContaining({id:device.id,connected:true}));expect(await h.runtime.service.sessions(p)).toHaveLength(0);}finally{stream.close();}
+ });
  it('registers an idle root at quota without creating Home, while a new session still fails honestly',async()=>{
   process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT='1';h=await startHarness();
   // Existing pre-entry account: auth record without signup Home provisioning.

@@ -149,18 +149,18 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
         let diagnosticId: string | undefined;
         try { if (mayRecordFailure) diagnosticId = await inToolContext(context, () => service.recordFailure?.(call.canonicalName!, raw, current().principal, call.error)); } catch { /* Preserve the original error. */ }
         await record('failed');
-        return toolFailure(call.error, diagnosticId, callProfile);
+        return toolFailure(call.error, diagnosticId, callProfile, call.canonicalName);
       }
       try {
         extra.mcpReq.signal.throwIfAborted();
         const result = await inToolContext(context, () => service.execute(call.canonicalName, call.args, current().principal, { signal: extra.mcpReq.signal }));
         await record('completed',result);
-        return toolSuccess(result, call.args.sessionId, call.canonicalName, callProfile);
+        return toolSuccess(result, call.args.sessionId, call.canonicalName, callProfile, call.args);
       } catch (error) {
         let diagnosticId: string | undefined;
         try { if (mayRecordFailure) diagnosticId = await inToolContext(context, () => service.recordFailure?.(call.canonicalName, call.args, current().principal, error)); } catch { /* Diagnostic failure must not replace this result. */ }
         await record('failed');
-        return toolFailure(error, diagnosticId, callProfile);
+        return toolFailure(error, diagnosticId, callProfile, call.canonicalName);
       }
     });
     });

@@ -36,19 +36,43 @@ function textRanges(root:HTMLElement,query:string){
 }
 export type PublicNavigation=Pick<NavigationSnapshot,'revision'|'version'|'state'>;
 export interface PositionalNavigation{step:(direction:-1|1)=>void;home:()=>void;end:()=>void;overview:()=>void}
-export function BrowsingProvider({view,sessionId,displayId,revision,config,enabled,children,local=false,initialPage=0,positional,remoteNavigation}:{view:ViewSpec;sessionId:string;displayId:string;revision:number;config?:SessionConfig;enabled:boolean;children:ReactNode;local?:boolean;initialPage?:number;positional?:PositionalNavigation;remoteNavigation?:PublicNavigation}){
+export function BrowsingProvider({view,sessionId,displayId,revision,config,enabled,children,local=false,initialPage=0,positional,remoteNavigation,contentIdentity}:{view:ViewSpec;sessionId:string;displayId:string;revision:number;config?:SessionConfig;enabled:boolean;children:ReactNode;local?:boolean;initialPage?:number;positional?:PositionalNavigation;remoteNavigation?:PublicNavigation;contentIdentity?:number}){
   const initial=():NavigationState=>remoteNavigation?.revision===revision?structuredClone(remoteNavigation.state):({...initialNavigation(navigationLeaf(view)),...(local?{page:initialPage<0?navigationCapabilities(view).pageCount-1:initialPage}:{}),reading:readingDefaults(config??{})}),[state,setState]=useState<NavigationState>(initial),[snapshot,setSnapshot]=useState<NavigationSnapshot|null>(null),[error,setError]=useState('');
   const handlers=useRef(new Set<(direction:-1|1)=>boolean>());
   const [registerInternal]=useState(()=>(handler:(direction:-1|1)=>boolean)=>{handlers.current.add(handler);return()=>{handlers.current.delete(handler);};});
   const root=useRef<HTMLDivElement>(null),latest=useRef({view,revision,state,enabled});latest.current={view,revision,state,enabled};
+  const identity=JSON.stringify([sessionId,displayId,contentIdentity]),previousIdentity=useRef(identity);
+  const anchor=useRef<{text:string;offset:number;top:number;left:number}|null>(null);
+  useLayoutEffect(()=>{
+    const el=root.current;if(!el)return;
+    const capture=()=>{const scroller=scrollElement(el);if(scroller.dataset.readingAuto==='true'||scroller.closest('.drafting-content[data-following="true"]'))return;const box=scroller.getBoundingClientRect();const block=[...scroller.querySelectorAll<HTMLElement>('p,li,h1,h2,h3,h4,pre,tr,[data-code-line]')].find(node=>node.getBoundingClientRect().bottom>box.top+2&&node.getBoundingClientRect().top<box.bottom&&Boolean(node.textContent?.trim()));anchor.current={text:block?.textContent?.trim()??'',offset:block?block.getBoundingClientRect().top-box.top:0,top:scroller.scrollTop,left:scroller.scrollLeft};};
+    el.addEventListener('scroll',capture,true);return()=>el.removeEventListener('scroll',capture,true);
+  },[]);
+  useLayoutEffect(()=>{
+    const el=root.current,saved=anchor.current;if(!el||!saved||previousIdentity.current!==identity)return;
+    const scroller=scrollElement(el);if(scroller.dataset.readingAuto==='true'||scroller.closest('.drafting-content[data-following="true"]'))return;
+    const matches=saved.text?[...scroller.querySelectorAll<HTMLElement>('p,li,h1,h2,h3,h4,pre,tr,[data-code-line]')].filter(node=>node.textContent?.trim()===saved.text):[];
+    scroller.scrollTop=matches.length===1?scroller.scrollTop+matches[0].getBoundingClientRect().top-scroller.getBoundingClientRect().top-saved.offset:saved.top;
+    scroller.scrollLeft=saved.left;
+  },[revision]);
   const version=useRef(-1),busy=useRef(false),pendingRevision=useRef<number|null>(null),suppress=useRef(0),lastCommand=useRef(''),inputEpoch=useRef(0),nativeScrollPending=useRef(false);
   const queue=useRef<{action:NavigationAction;id:string;revision:number}[]>([]),lastFocus=useRef(''),lastScroll=useRef('');
   const viewKey=JSON.stringify(view);
   const [tabId]=useState(viewerTabId);
   const mode=local?'independent':config?.syncMode??'independent',canNavigate=enabled&&(mode!=='presenter'||snapshot?.canNavigate===true);
-  useLayoutEffect(()=>{version.current=-1;lastCommand.current='';queue.current=[];pendingRevision.current=null;setState(initial());setSnapshot(null);setError('');},[revision,sessionId,displayId]);
   useLayoutEffect(()=>{
-    if(!local||!remoteNavigation||remoteNavigation.revision!==revision||version.current===remoteNavigation.version)return;
+    version.current=-1;lastCommand.current='';queue.current=[];pendingRevision.current=null;
+    // Collaborative renderers intentionally retain their DOM across fresh
+    // publications. Reset browsing independently, without discarding editor drafts.
+    if(previousIdentity.current!==identity){
+      previousIdentity.current=identity;anchor.current=null;lastFocus.current='';lastScroll.current='';inputEpoch.current++;nativeScrollPending.current=false;
+      const next=initial();latest.current.state=next;setState(next);
+      const el=root.current;if(el){const scroller=scrollElement(el);suppress.current=Date.now()+200;scroller.scrollTop=0;scroller.scrollLeft=0;}
+    }else setState(previous=>({...previous,page:Math.min(previous.page,Math.max(0,navigationCapabilities(view,previous).pageCount-1)),...(previous.reading?{reading:{...previous.reading,playing:false}}:{})}));
+    setSnapshot(null);setError('');
+  },[revision,sessionId,displayId,identity]);
+  useLayoutEffect(()=>{
+    if(!local||!remoteNavigation||remoteNavigation.version===0||remoteNavigation.revision!==revision||version.current===remoteNavigation.version)return;
     version.current=remoteNavigation.version;const next=structuredClone(remoteNavigation.state);latest.current.state=next;setState(next);lastScroll.current='';lastFocus.current='';
   },[local,remoteNavigation?.version,remoteNavigation?.revision,revision,sessionId,displayId]);
   useEffect(()=>{
@@ -119,7 +143,7 @@ export function BrowsingProvider({view,sessionId,displayId,revision,config,enabl
     const frame=requestAnimationFrame(()=>requestAnimationFrame(()=>{
       if(cancelled||!el.isConnected)return;
       const caps=navigationCapabilities(view,state),panel=state.panelId?[...el.querySelectorAll<HTMLElement>('[data-code-panel]')].find(p=>p.getAttribute('data-code-panel')===state.panelId):el;let scroll=scrollElement(panel??el);
-      const scrollKey=JSON.stringify([state.scroll,state.page,revision,snapshot?.commandId]);
+      const scrollKey=JSON.stringify([state.scroll,state.page,snapshot?.commandId]);
       // Only this revision's navigation can move a retained reader. An old
       // request may still be draining while the new revision starts at defaults.
       if(caps.scroll&&!nativeScrollPending.current&&scroll.dataset.readingAuto!=='true'&&scrollKey!==lastScroll.current&&((snapshot?.revision===revision&&snapshot.version>0)||(busy.current&&pendingRevision.current===revision)||local)){const x=state.scroll.x*Math.max(0,scroll.scrollWidth-scroll.clientWidth),y=state.scroll.y*Math.max(0,scroll.scrollHeight-scroll.clientHeight);if(Math.abs(scroll.scrollLeft-x)>1||Math.abs(scroll.scrollTop-y)>1){suppress.current=Date.now()+150;scroll.scrollLeft=x;scroll.scrollTop=y;}}
@@ -129,7 +153,7 @@ export function BrowsingProvider({view,sessionId,displayId,revision,config,enabl
       if(css.highlights&&HighlightClass){css.highlights.set('kanvas-search',new HighlightClass(...ranges));css.highlights.set('kanvas-highlight',new HighlightClass(...highlights));}
       const line=state.line?panel?.querySelector(`[data-code-${state.side==='before'?'before':'after'}="${state.line}"], [data-code-line="${state.line}"]`):null;if(line?.closest<HTMLElement>('[data-navigation-scroll]'))scroll=line.closest<HTMLElement>('[data-navigation-scroll]')!;const lineRange=line?document.createRange():undefined;if(line&&lineRange)lineRange.selectNodeContents(line);
       const focus=lineRange??(state.focus?.text?textRanges(el,state.focus.text)[0]:ranges.length?ranges[state.match%ranges.length]:undefined);
-      const focusKey=JSON.stringify([state.query,state.match,state.focus,state.line,state.panelId,state.side,state.page,revision]);
+      const focusKey=JSON.stringify([state.query,state.match,state.focus,state.line,state.panelId,state.side,state.page]);
       if(focus&&focusKey!==lastFocus.current){const rect=focus.getBoundingClientRect(),box=scroll.getBoundingClientRect();suppress.current=Date.now()+200;scroll.scrollTop+=rect.top-box.top+rect.height/2-scroll.clientHeight/2;scroll.scrollLeft+=rect.left-box.left+rect.width/2-scroll.clientWidth/2;if(state.panelId&&line instanceof HTMLElement)line.scrollIntoView({block:'nearest',inline:'nearest'});}
       const changedFocus=focusKey!==lastFocus.current;lastFocus.current=focusKey;
       const surface=el.querySelector<HTMLElement>('.render-surface');if(surface&&el.querySelector('.relationship-diagram')){surface.style.transform='';const region=state.focus?.region;if(changedFocus&&region){suppress.current=Date.now()+200;scroll.scrollLeft=(region.x+region.width/2)*scroll.scrollWidth-scroll.clientWidth/2;scroll.scrollTop=(region.y+region.height/2)*scroll.scrollHeight-scroll.clientHeight/2;}}if(surface&&changedFocus&&!el.querySelector('.relationship-diagram')){const zoom=state.focus?.zoom??1,region=state.focus?.region;surface.style.transform='';

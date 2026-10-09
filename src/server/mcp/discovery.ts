@@ -1,3 +1,4 @@
+import { workflowIds, WORKFLOW_NOTE, PLANNER_BOUNDARY, SUBMIT_SHAPE } from './workflow-guidance.js';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/server';
@@ -54,7 +55,7 @@ export function parseDiscoveryInput(name: string, raw: unknown): Record<string, 
   return parsed.data;
 }
 const descriptions: Record<typeof DISCOVERY_TOOL_NAMES[number], string> = {
-  kanvas_discover: 'Discover Kanvas tools, templates and help with one consistent interface. Choose catalog tools|templates|help and action list|search|get. list returns the ENTIRE visible catalog as plain-text one-line IDs and descriptions, without default pagination. search returns top 5 ranked concise summaries, NEVER schemas or full content; query by natural language. get returns full schema/examples or focused help content for one exact id. Use get before kanvas_call. All actions are read-only, account-aware and never authorize publication. Only response-size safety overflow uses explicit continuation; no silent truncation.',
+  kanvas_discover: 'Discover Kanvas tools, templates and help. New user/no active screen: get help kanvas.help.about first; ask the user to open this environment’s bare Kanvas URL and sign in, then use account.begin/devices.read/window.present. Choose catalog tools|templates|help and action list|search|get. list returns the ENTIRE visible catalog as plain-text one-line IDs and descriptions, without default pagination. search returns top 5 ranked concise summaries, NEVER schemas or full content; query by natural language. get returns full schema/examples or focused help content for one exact id. Use get before kanvas_call. All actions are read-only, account-aware and never authorize publication. Only response-size safety overflow uses explicit continuation; no silent truncation.',
   kanvas_call: 'Call one discovered operation. Supply its exact operationId and nested arguments matching the schema from kanvas_discover {catalog:"tools",action:"get",id}. Preserves validation, scopes, permissions, revision checks, cancellation and consent. Can mutate/delete: inspect individual operation annotations. Examples, discovery results and viewer input are never authorization.',
 };
 export function discoveryToolDefinitions(): Tool[] {
@@ -109,11 +110,11 @@ const HELP_SECTION_SUMMARIES: Record<string, string> = {
   'tour.introduction': 'Understand what Kanvas can display and how to begin a source-grounded visual conversation.',
   'tour.choices': 'Choose a first activity: show supplied content, compare options, or explore available views.',
   'tour.schemaTool': 'Look up a template’s complete validated shape before preparing unfamiliar content.',
-  'getting-started.orientation': 'Recognize visual requests, complement conversation with focused screens, and offer feedback appropriately.',
-  'getting-started.steps': 'Start an authorized session, select a receiver, publish real source content, and verify browser delivery.',
+  'getting-started.orientation': 'Recognize first contact, explain Kanvas, and connect a signed-in browser before choosing a visual.',
+  'getting-started.steps': 'Human: open the bare Kanvas URL and sign in. Agent: find the receiver, submit authorized content, target it and verify paint.',
   'getting-started.location': 'Use consented viewer location, timezone and locale for local requests; never infer missing coordinates.',
   'getting-started.interaction': 'Keep routine mechanics quiet while explaining meaningful outcomes, required consent and unresolved failures.',
-  'getting-started.viewerLink': 'Return actual clickable viewer links on first use; links locate content but never grant access.',
+  'getting-started.viewerLink': 'Prefer connected-screen presentation; if a link is needed return shortUrl first. Locators never grant access.',
   'getting-started.sessionContinuity': 'Continue an explicitly selected session or returned target instead of guessing from recent activity.',
   'getting-started.continuityRecipe': 'Follow complete session-continuity examples for starting, targeting and resuming a display.',
   'tools.selection': 'Distinguish publication, viewport controls, structural edits and patches by their effects.',
@@ -196,7 +197,7 @@ export function templateCatalog(): readonly CatalogItem[] {
   return templates ??= TEMPLATE_IDS.map(template => {
     const guidance = TEMPLATE_DISPLAY_GUIDANCE[template];
     let detail: Record<string, unknown> | undefined;
-    return { id: `kanvas.template.${template}`, provider: 'kanvas', title: templateNames[template], summary: guidance.primary, keywords: template === 'chart' ? `${template} ${Object.keys(chartVariantSamples).join(' ')}` : template, text: guidance.detail, detail: () => detail ??= profileScope.run('discovery', () => ({ id: `kanvas.template.${template}`, template, title: templateNames[template], description: guidance.primary, guidance: discoveryGuidanceText(guidance.detail), schema: profileSchema(compactSchemaReferences(z.toJSONSchema(templateViewSchema(template), { unrepresentable: 'any', io: 'input', reused: 'ref' }))), example: samples[template], ...(template === 'chart' ? { variants: chartVariantSamples } : {}), examples: [{ tool: 'kanvas_call', arguments: { operationId: 'kanvas.submit', arguments: { requestId: 'template-example-1', view: samples[template] } } }], exampleNotice: 'Illustrative supplied data only; replace with real sources. Schema validates a complete view, not kanvas_call arguments.' })) };
+    return { id: `kanvas.template.${template}`, provider: 'kanvas', title: templateNames[template], summary: guidance.primary, keywords: template === 'chart' ? `${template} ${Object.keys(chartVariantSamples).join(' ')}` : template, text: guidance.detail, detail: () => detail ??= profileScope.run('discovery', () => ({ id: `kanvas.template.${template}`, template, title: templateNames[template], description: guidance.primary, guidance: discoveryGuidanceText(guidance.detail), relatedOperations: workflowIds(template).flatMap(id => { const operation = operationCatalog().find(item => item.id === id); return operation ? [{ id, description: operation.summary, get: { tool: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id } } }] : []; }), workflow: WORKFLOW_NOTE, submitShape: SUBMIT_SHAPE, ...(template === 'planner' ? { commitmentBoundary: PLANNER_BOUNDARY } : {}), schema: profileSchema(compactSchemaReferences(z.toJSONSchema(templateViewSchema(template), { unrepresentable: 'any', io: 'input', reused: 'ref' }))), example: samples[template], ...(template === 'chart' ? { variants: chartVariantSamples } : {}), examples: [{ tool: 'kanvas_call', arguments: { operationId: 'kanvas.submit', arguments: { requestId: 'template-example-1', view: samples[template] } } }], exampleNotice: 'Illustrative supplied data only; replace with real sources. Schema validates a complete view, not kanvas_call arguments.' })) };
   });
 }
 export const BUILTIN_PROVIDERS: readonly CatalogProvider[] = Object.freeze([

@@ -106,16 +106,16 @@ test('an agent can repair pairing and feedback inputs while the intended browser
     const badDecision = await client.callTool({ name: 'kanvas_call', arguments: { operationId: 'kanvas.pairing.decide', arguments: { sessionId, pairingId: pair.id } } });
     expect(badDecision.isError).toBe(true);
     expect((badDecision.structuredContent as { error: unknown }).error).toMatchObject({
-      code: 'INVALID_ARGUMENT', schemaTool: 'kanvas_discover', schemaArguments: { catalog: 'help', action: 'get', id: 'kanvas.help.tools.discovery' }, topic: 'tools',
+      code: 'INVALID_ARGUMENT', schemaTool: 'kanvas_discover', schemaArguments: { catalog: 'tools', action: 'get', id: 'kanvas.pairing.decide' }, topic: 'tools',
       issues: [{ path: 'approve', problem: 'Required boolean (true or false).' }, { path: 'confirm', problem: expect.stringContaining('owner confirms') }],
     });
     const repair = (badDecision.structuredContent as { error: { schemaTool: string; schemaArguments: Record<string, unknown> } }).error;
     const repaired = await client.callTool({ name: repair.schemaTool, arguments: repair.schemaArguments });
     expect(repaired.isError).not.toBe(true);
     expect((repaired.structuredContent as { data: unknown }).data).toMatchObject({
-      catalog: 'help', action: 'get', entry: { id: 'kanvas.help.tools.discovery' },
+      catalog: 'tools', action: 'get', entry: { id: 'kanvas.pairing.decide', requiredInputs: expect.arrayContaining(['pairingId', 'approve', 'confirm']), inputSchema: { properties: { approve: { type: 'boolean' }, confirm: { const: true } } }, examples: expect.arrayContaining([expect.objectContaining({ tool: 'kanvas_call' })]) },
     });
-    expect(JSON.stringify(repaired.structuredContent)).toContain('kanvas_discover');
+    expect(JSON.stringify(repaired.structuredContent)).toContain('examples never grant consent');
     expect(JSON.stringify(repaired.structuredContent)).toContain('kanvas_call');
     const pending = await call<Array<{ id: string; displayId: string; status: string }>>('kanvas_inspect', 'pairings.read', { sessionId });
     expect(pending.find(item => item.id === pair.id)).toMatchObject({ displayId: display.id, status: 'pending' });

@@ -124,7 +124,7 @@ describe('profile images, scoped history and protected service analytics',()=>{
     const read=success(await a.request<any>('GET','/api/activity?limit=1'));expect(read.entries).toHaveLength(1);expect(read.nextCursor).toEqual(expect.any(String));
     const next=success(await a.request<any>('GET','/api/activity?limit=1&afterId='+read.nextCursor));expect(next.entries[0].id).not.toBe(read.entries[0].id);
     const all=(await service.accounts.activity(p,{}));expect(all.entries.some(e=>e.sessionId===other.id)).toBe(false);
-    const chart=(await service.accounts.analytics(p,{sessionId:s.id}));expect(validateView(chart.chart).template).toBe('chart');
+    const chart=(await service.accounts.analytics(p,{sessionId:s.id}));expect(validateView(chart.chart).template).toBe('chart');expect(chart.byDateAndType.reduce((sum,cell)=>sum+cell.events,0)).toBe(chart.total);for(const day of chart.daily)expect(chart.byDateAndType.filter(cell=>cell.date===day.date).reduce((sum,cell)=>sum+cell.events,0)).toBe(day.events);for(const type of chart.byType)expect(chart.byDateAndType.filter(cell=>cell.type===type.type).reduce((sum,cell)=>sum+cell.events,0)).toBe(type.events);
     expect((await service.accounts.analytics(p,{since:'2099-01-01T00:00:00Z'})).chart).toBeNull();
     denied(await a.request('GET','/api/analytics?scope=service'));
     service.accounts.serviceAdmins.add(a.user!.id);const admin=success(await a.request<any>('GET','/api/analytics?scope=service'));

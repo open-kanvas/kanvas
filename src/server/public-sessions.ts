@@ -47,7 +47,7 @@ export async function publicSnapshot(service:KanvasService,sessionId:string){
   // No account-owned branding images or private profile APIs are exposed.
   return {session:{id:session.id,name:session.name,config,publicRevision:session.publicAccess!.revision},serverNow:now(),displays:(await asyncMap((await service.store.list<DisplayRecord>('display',session.id)), async d=>{
     const leaf=currentView(d.view),view=mapViewAssets(leaf,id=>`/api/public/sessions/${session.id}/assets/${id}`);
-    return {id:d.id,name:d.name,revision:d.revision,view,navigation:(await service.navigation.publicPosition(session.id,d.id)),
+    return {id:d.id,name:d.name,revision:d.revision,navigationRoot:d.navigationRoot??d.revision,view,navigation:(await service.navigation.publicPosition(session.id,d.id)),
       ...(leaf?.template==='tool-call-log'?{toolLog:(await service.toolLog.publicView(session.id,toolLogDataSchema.parse(leaf.data).channel,toolLogDataSchema.parse(leaf.data).limit))}:{}),
       ...(leaf?.template==='session-topology'?{topology:(await service.topology.publicDisplay(session.id,d.id))}:{}),
       };

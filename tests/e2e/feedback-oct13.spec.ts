@@ -36,4 +36,5 @@ test('diagnostic batches exclude raw errors and preserve support reference acros
  await page.goto('/start');
  const body=(await request).postDataJSON();expect(JSON.stringify(body)).not.toContain('Private typed');expect(JSON.stringify(body)).not.toContain('do-not-record');expect(body.supportRef).toBe(reference);
  expect(await page.evaluate(()=>sessionStorage.getItem('kanvas-diagnostic-reference'))).toBe(reference);
+ await expect.poll(async()=>{const result=await page.request.get('/api/diagnostics?supportRef='+reference);return result.ok()&&(await result.json()).data.timeline.some((batch:{events:{event:string}[]})=>batch.events.some(event=>event.event==='js-error'));}).toBe(true);
 });

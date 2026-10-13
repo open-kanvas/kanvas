@@ -33,6 +33,7 @@ test('diagnostic batches exclude raw errors and preserve support reference acros
  const reference=await page.evaluate(()=>sessionStorage.getItem('kanvas-diagnostic-reference'));
  const request=page.waitForRequest(r=>r.url().endsWith('/api/diagnostics')&&r.method()==='POST'&&r.postData()?.includes('js-error')===true);
  await page.evaluate(()=>window.dispatchEvent(new ErrorEvent('error',{message:'Private typed answer https://example.invalid/?token=do-not-record',filename:'https://example.invalid/private.js?token=do-not-record'})));
+ await page.goto('/start');
  const body=(await request).postDataJSON();expect(JSON.stringify(body)).not.toContain('Private typed');expect(JSON.stringify(body)).not.toContain('do-not-record');expect(body.supportRef).toBe(reference);
- await page.goto('/start');expect(await page.evaluate(()=>sessionStorage.getItem('kanvas-diagnostic-reference'))).toBe(reference);
+ expect(await page.evaluate(()=>sessionStorage.getItem('kanvas-diagnostic-reference'))).toBe(reference);
 });

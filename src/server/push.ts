@@ -58,7 +58,7 @@ export class SessionPush{
    const current=await this.service.store.get<Saved>('push-subscription',target.id),browser=await this.service.store.get<BrowserSession>('browser',target.browserId);
    if(!current||current.ownerId!==p.userId||current.browserId!==target.browserId)continue;
    if(!browser||browser.userId!==p.userId||browser.expiresAt<=Date.now()||browser.scopedSessionId){await this.service.store.atomic(()=>this.service.store.delete('push-subscription',target.id));continue;}
-   await this.service.auth.assertCurrent(p,'publish',sessionId);
+   await this.service.display(p,sessionId,displayId,'editor');
    if(!safePushEndpoint(target.subscription.endpoint))continue;
    const payload=JSON.stringify({title:'Kanvas is ready',body:'Open your new session.',url:'/view/'+encodeURIComponent(sessionId)+'/'+encodeURIComponent(displayId),tag:'kanvas-session-'+sessionId});
    try{if(options.send)await options.send(target.subscription,payload);else await webpush.sendNotification(target.subscription,payload,{TTL:300,timeout:5000,urgency:'normal',vapidDetails:{subject:options.subject,publicKey:options.publicKey,privateKey:options.privateKey}});}

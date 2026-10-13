@@ -15,7 +15,7 @@ export function diagnostic(e:DiagnosticEvent){
 export function diagnosticsAuthenticated(token:string){if(csrf&&!token){queue=[];persist();}csrf=token;void flush();}
 async function flush(){
  if(!csrf||sending||!queue.length||sent>=240)return;sending=true;const events=queue.splice(0,20);persist();sent+=events.length;
- try{await fetch('/api/diagnostics',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Kanvas-CSRF':csrf},body:JSON.stringify({clientRelease:KANVAS_VERSION,supportRef:supportReference,windowId:viewerTabId(),events}),signal:AbortSignal.timeout(5000)});}catch{/* No retries/flooding when the service is unavailable. */}finally{sending=false;}
+ try{await fetch('/api/diagnostics',{method:'POST',credentials:'same-origin',keepalive:true,headers:{'Content-Type':'application/json','X-Kanvas-CSRF':csrf},body:JSON.stringify({clientRelease:KANVAS_VERSION,supportRef:supportReference,windowId:viewerTabId(),events}),signal:AbortSignal.timeout(5000)});}catch{/* No retries/flooding when the service is unavailable. */}finally{sending=false;}
 }
 export function initializeDiagnostics(){
  diagnostic({event:'startup',route:diagnosticRoute(location.pathname)});

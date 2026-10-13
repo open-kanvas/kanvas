@@ -61,7 +61,8 @@ describe('October 13 feedback security and durable state',()=>{
   const body={supportRef:randomUUID(),windowId:randomUUID(),events:Array.from({length:20},()=>({event:'startup'}))};
   expect(diagnosticBatchSchema.safeParse({...body,events:[...body.events,...body.events]}).success).toBe(false);
   for(let i=0;i<6;i++)success(await owner.request('POST','/api/diagnostics',body));
-  expect((await owner.request('POST','/api/diagnostics',body)).status).toBe(429);
+  const limited=success(await owner.request<any>('POST','/api/diagnostics',body));expect(limited).toMatchObject({accepted:0,rateLimited:true,supportRef:body.supportRef});expect(limited.retryAfterMs).toBeGreaterThan(0);expect(limited.retryAfterMs).toBeLessThanOrEqual(60000);
+  const timeline=success(await owner.request<any>('GET','/api/diagnostics?supportRef='+body.supportRef)).timeline;expect(timeline.reduce((n:number,b:{events:unknown[]})=>n+b.events.length,0)).toBe(120);
   await h.runtime.store.put('frontend-diagnostic',{id:'expired',accountId:p.userId,at:new Date(Date.now()-15*86400000).toISOString()});
   await h.runtime.service.diagnostics.prune();expect(await h.runtime.store.get('frontend-diagnostic','expired')).toBeUndefined();
   expect(diagnosticRoute('/view/id/display?token=secret#body')).toBe('view');

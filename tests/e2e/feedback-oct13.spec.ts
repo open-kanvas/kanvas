@@ -36,3 +36,21 @@ test('diagnostic batches exclude raw errors and preserve support reference acros
  expect(await page.evaluate(()=>sessionStorage.getItem('kanvas-diagnostic-reference'))).toBe(reference);
  await expect.poll(async()=>{const result=await page.request.get('/api/diagnostics?supportRef='+reference);if(!result.ok())return false;const body=(await result.json()).data;expect(JSON.stringify(body)).not.toContain('Private typed');expect(JSON.stringify(body)).not.toContain('do-not-record');expect(body.supportRef).toBe(reference);return body.timeline.some((batch:{events:{event:string}[]})=>batch.events.some(event=>event.event==='js-error'));}).toBe(true);
 });
+
+test('diagnostic quota drops are quiet and back off browser uploads',async({page})=>{
+ await register(page);
+ const statuses=await page.evaluate(async()=>{
+  const me=await(await fetch('/api/auth/me')).json(),supportRef=sessionStorage.getItem('kanvas-diagnostic-reference');
+  const results:number[]=[];
+  for(let i=0;i<7;i++)results.push((await fetch('/api/diagnostics',{method:'POST',headers:{'Content-Type':'application/json','X-Kanvas-CSRF':me.data.csrfToken},body:JSON.stringify({supportRef,windowId:crypto.randomUUID(),events:Array.from({length:20},()=>({event:'startup'}))})})).status);
+  return results;
+ });
+ expect(statuses).toEqual(Array(7).fill(200));
+ const dropped=page.waitForResponse(r=>r.url().endsWith('/api/diagnostics')&&r.request().method()==='POST'&&r.request().postData()?.includes('js-error')===true);
+ await page.evaluate(()=>window.dispatchEvent(new ErrorEvent('error',{message:'Quota probe must not be retained'})));
+ const response=await dropped;expect(response.status()).toBe(200);expect((await response.json()).data).toMatchObject({accepted:0,rateLimited:true});
+ const uploads:string[]=[];page.on('request',r=>{if(r.url().endsWith('/api/diagnostics')&&r.method()==='POST')uploads.push(r.url());});
+ await page.evaluate(()=>window.dispatchEvent(new PopStateEvent('popstate')));
+ // Cross the normal five-second upload interval: the quota pause must prevent another attempt.
+ await page.waitForTimeout(6500);expect(uploads).toEqual([]);
+});

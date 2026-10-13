@@ -155,7 +155,7 @@ test('shared checklist conflicts are rejected, controls work, feedback stays pen
     const rejected = second.waitForResponse(response => response.url().endsWith(editPath) && response.request().method() === 'POST');
     release();
     expect((await rejected).status()).toBe(409);
-    await expect(second.getByRole('alert')).toBeVisible();
+    await expect(second.getByRole('region', { name: 'Ready to build' }).getByRole('alert')).toHaveText('This view changed. Read the latest version before editing.');
     await expect(secondSource).not.toBeChecked();
     await expect(second.getByRole('checkbox', { name: 'Prepare the evidence', exact: true })).not.toBeChecked();
   } finally {

@@ -17,8 +17,10 @@ export class FrontendDiagnostics{
   await this.service.accounts.account(p);const a=diagnosticBatchSchema.parse(raw),t=Date.now();
   for(const [k,v] of this.limits)if(v.until<t)this.limits.delete(k);
   let bucket=this.limits.get(p.userId);
-  if(!bucket){if(this.limits.size>=10000)throw new AppError('RATE_LIMIT','Diagnostics busy.',429);bucket={until:t+60000,count:0};this.limits.set(p.userId,bucket);}
-  bucket.count+=a.events.length;if(bucket.count>120)throw new AppError('RATE_LIMIT','Diagnostic limit reached.',429);
+  if(!bucket){if(this.limits.size>=10000)return {accepted:0,supportRef:a.supportRef,rateLimited:true,retryAfterMs:60000};bucket={until:t+60000,count:0};this.limits.set(p.userId,bucket);}
+  // Sampling exhaustion is an expected telemetry outcome, not an application error.
+  if(bucket.count+a.events.length>120)return {accepted:0,supportRef:a.supportRef,rateLimited:true,retryAfterMs:Math.max(1,bucket.until-t)};
+  bucket.count+=a.events.length;
   return this.service.store.atomic(async()=>{
    const events=[];
    for(const e of a.events){

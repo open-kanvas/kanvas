@@ -31,10 +31,9 @@ export function compactSchemaReferences(schema: Record<string, unknown>): Record
   const result = { ...rewrite(root) as Record<string, unknown>, $defs: Object.fromEntries(entries.map(([, value], index) => [`d${index.toString(36)}`, rewrite(value)])) };
   if (JSON.stringify(result).length < 50_000) return result;
 
-  // Canonicalize schema-only key/required ordering before equivalence sharing.
+  // Canonicalize schema-only object key ordering before equivalence sharing.
   // Literal defaults/examples/const values remain untouched; order is not a validator.
   schemas(result,node=>{
-    if(Array.isArray(node.required))node.required=[...node.required].sort();
     for(const key of ['properties','patternProperties']){const value=node[key];if(value&&typeof value==='object'&&!Array.isArray(value))node[key]=Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b)));}
     const entries=Object.entries(node).sort(([a],[b])=>a.localeCompare(b));for(const key of Object.keys(node))delete node[key];Object.assign(node,Object.fromEntries(entries));
   });

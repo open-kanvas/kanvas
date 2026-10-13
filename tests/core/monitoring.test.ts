@@ -338,6 +338,8 @@ describe('persisted monitoring jobs', () => {
   it('invalidates in-flight work on config updates, checks versions, and never accelerates polling', async () => {
     const old = deferred<MonitoringFetchResult>(); const fetcher = vi.fn<MonitoringFetcher>().mockImplementationOnce(async () => old.promise).mockResolvedValue(sample({ price: 'new' }));
     const h = (await harness(fetcher)), job = (await h.start()); const running = h.engine.runDue();
+    // The update must race an actually in-flight old fetch, not an unstarted async task.
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
     const changed = (await h.engine.update(PRINCIPAL, { sessionId: 'session', jobId: job.id, requestId: 'update', expectedVersion: job.version, config: { mode: 'json', url: URL, intervalSeconds: 30, template: 'number', mapping: { value: { $path: '/price' } } } }));
     expect(changed.version).toBe(2); await running; old.resolve(sample()); await Promise.resolve();
     expect((await h.display()).view).toBeNull(); (await expect((async () => (await h.engine.stop(PRINCIPAL, { sessionId: 'session', jobId: job.id, requestId: 'stale-stop', expectedVersion: 1 })))()).rejects.toThrow(/current version/));

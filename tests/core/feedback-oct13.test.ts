@@ -119,4 +119,13 @@ describe('October 13 feedback security and durable state',()=>{
   await h.runtime.service.push.close();expect(send).toHaveBeenCalledTimes(1);
  });
 
+ it('bounds encoded card/answer bytes and pages large decks without truncating current-card data',async()=>{
+  expect(flashcardDataSchema.safeParse({cards:[{id:'large',prompt:'字'.repeat(4000),answer:'字'.repeat(4000)}]}).success).toBe(false);
+  const cards=Array.from({length:40},(_,i)=>({id:'card-'+i,prompt:'p'.repeat(1500),answer:'a'.repeat(1500)}));
+  const result=await owner.submit(s,[d],{version:1,template:'flashcards',data:{cards}});
+  const deckId=String(result.detail.displays.find(x=>x.id===d)!.view!.data.deckId);
+  const read:any=await h.runtime.service.flashcards.read(p,{sessionId:s,deckId});expect(read.nextOffset).toBeGreaterThan(0);expect(read.currentCard).toEqual(cards[0]);expect(Buffer.byteLength(JSON.stringify(read))).toBeLessThan(44000);
+  expect(flashcardControlSchema.safeParse({sessionId:s,displayId:d,deckId,expectedRevision:1,expectedDeckRevision:0,requestId:'large-response',cardId:'card-0',action:'answer',response:'\u0000'.repeat(4000)}).success).toBe(false);
+ });
+
 });

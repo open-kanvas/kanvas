@@ -42,10 +42,10 @@ test('diagnostic quota drops are quiet and back off browser uploads',async({page
  const statuses=await page.evaluate(async()=>{
   const me=await(await fetch('/api/auth/me')).json(),supportRef=sessionStorage.getItem('kanvas-diagnostic-reference');
   const results:number[]=[];
-  for(let i=0;i<7;i++)results.push((await fetch('/api/diagnostics',{method:'POST',headers:{'Content-Type':'application/json','X-Kanvas-CSRF':me.data.csrfToken},body:JSON.stringify({supportRef,windowId:crypto.randomUUID(),events:Array.from({length:20},()=>({event:'startup'}))})})).status);
+  for(let i=0;i<27;i++)results.push((await fetch('/api/diagnostics',{method:'POST',headers:{'Content-Type':'application/json','X-Kanvas-CSRF':me.data.csrfToken},body:JSON.stringify({supportRef,windowId:crypto.randomUUID(),events:Array.from({length:i<7?20:1},()=>({event:'startup'}))})})).status);
   return results;
  });
- expect(statuses).toEqual(Array(7).fill(200));
+ expect(statuses).toEqual(Array(27).fill(200));
  const dropped=page.waitForResponse(r=>r.url().endsWith('/api/diagnostics')&&r.request().method()==='POST'&&r.request().postData()?.includes('js-error')===true);
  await page.evaluate(()=>window.dispatchEvent(new ErrorEvent('error',{message:'Quota probe must not be retained'})));
  const response=await dropped;expect(response.status()).toBe(200);expect((await response.json()).data).toMatchObject({accepted:0,rateLimited:true});

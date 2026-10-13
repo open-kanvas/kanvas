@@ -1,3 +1,4 @@
+import {diagnostic,supportReference} from './frontend-diagnostics';
 import { Wordmark } from './icons';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { api, errorMessage, viewerPath } from './api';
@@ -19,10 +20,10 @@ export function DeviceReceiver({children,suspended=false}:{children:ReactNode;su
       void api<{recorded:boolean;reason?:string}>(`/api/devices/${registered.id}${registered.window?`/windows/${registered.window.id}`:''}/report`,{method:'POST',body:{...p,...(match?{commandId:c.id}:{})}}).then(result=>{if(match&&command.current?.id===c.id&&(result.recorded||result.reason==='STALE_COMMAND'))command.current=undefined;}).catch(()=>{});
     };
     const browsing=()=>{painted.current=undefined;};window.addEventListener('kanvas:browsing',browsing);
-    const ready=(event:Event)=>{painted.current=(event as CustomEvent).detail;report();};window.addEventListener('kanvas:painted',ready);
+    const ready=(event:Event)=>{painted.current=(event as CustomEvent).detail;const p=painted.current;if(p)diagnostic({event:'render-applied',sessionId:p.sessionId,displayId:p.displayId,revision:p.renderedRevision});report();};window.addEventListener('kanvas:painted',ready);
     const receive=(data:{unavailable?:boolean;command?:Command})=>{
       if(data.unavailable){stream?.close();setError('This device connection is unavailable. Sign in again to reconnect.');return;}
-      if(data.command){const c=data.command;command.current=c;const path=viewerPath(c.sessionId,c.displayId);if(location.pathname!==path){location.assign(path);return;}window.dispatchEvent(new Event('kanvas:return-live'));report();}else command.current=undefined;
+      if(data.command){const c=data.command;diagnostic({event:'command',sessionId:c.sessionId,displayId:c.displayId});command.current=c;const path=viewerPath(c.sessionId,c.displayId);if(location.pathname!==path){diagnostic({event:'navigation',sessionId:c.sessionId,displayId:c.displayId});location.assign(path);return;}window.dispatchEvent(new Event('kanvas:return-live'));report();}else command.current=undefined;
     };
     const commandEvent=(event:Event)=>receive((event as CustomEvent).detail);window.addEventListener('kanvas:window-command',commandEvent);
     const start=async()=>{try{registered=await api<Device>('/api/devices/register',{method:'POST',body:{installationId:installationId(),windowId:viewerTabId(),...(['/', '/console'].includes(location.pathname)?{provisionHome:false}:{})}});if(stopped)return;setDevice(registered);setError(undefined);report();
@@ -39,5 +40,5 @@ export function DeviceReceiver({children,suspended=false}:{children:ReactNode;su
 export function LiveEntry(){
   const {device,error}=useDevice(),[failure,setFailure]=useState<string>();
   useEffect(()=>{if(!device)return;let alive=true;void api<{sessionId:string;displayId:string}>('/api/entry/open',{method:'POST',body:{deviceId:device.id}}).then(t=>{if(alive)location.replace(viewerPath(t.sessionId,t.displayId));}).catch(e=>{if(alive)setFailure(errorMessage(e));});return()=>{alive=false;};},[device?.id]);
-  return <main className="app-loading"><Wordmark/><h1>Opening KANVAS</h1>{failure||error?<><p role="alert">{failure??error}</p><button className="button" onClick={()=>location.reload()}>Try again</button></>:<><span className="spinner"/><p>Connecting this screen…</p></>}</main>;
+  return <main className="app-loading"><Wordmark/><h1>Opening KANVAS</h1>{failure||error?<><p role="alert">{failure??error}</p><p>Support reference: {supportReference}</p><button className="button" onClick={()=>location.reload()}>Try again</button></>:<><span className="spinner"/><p>Connecting this screen…</p></>}</main>;
 }

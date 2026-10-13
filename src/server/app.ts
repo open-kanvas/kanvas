@@ -1,3 +1,5 @@
+import {mountPush,type PushOptions} from './push.js';
+import { mountFrontendDiagnostics } from './frontend-diagnostics.js';
 import { mountClientCapture } from './client-capture.js';
 import { type DatabaseOptions } from './database-config.js';
 import { mountPublicSessions } from './public-sessions.js';
@@ -50,6 +52,7 @@ export interface OAuthDiagnostic {
   };
 }
 export interface AppOptions {
+  pushOptions?:PushOptions;
   serviceAdmins?: string[];
   consoleUrl?:string;
   /** Compatibility alias for older deployments. */
@@ -105,7 +108,7 @@ export async function createApp(options: AppOptions = {}) {
   const store = new Store(options.database);
   try { await store.ready; await store.claimRuntime(); } catch (error) { await store.close(); throw error; }
   const auth = new Auth(store, publicAddress.protocol === 'https:', options.allowRegistration ?? true, `${publicUrl}/mcp`);
-  const service = new KanvasService(store, auth, options.interpreter ?? createInterpreter(), publicUrl, options.monitoringOptions, options.publishSetupEnabled);
+  const service = new KanvasService(store, auth, options.interpreter ?? createInterpreter(), publicUrl, options.monitoringOptions, options.publishSetupEnabled, options.pushOptions);
   try { await service.initialize(); } catch(error) { await service.close(); await store.close(); throw error; }
   service.adminUrl=adminOrigin;
   service.accounts.serviceAdmins=new Set(options.serviceAdmins??[]);
@@ -171,6 +174,7 @@ export async function createApp(options: AppOptions = {}) {
     } catch (error) { next(error); }
   });
   app.use(cookieParser());
+  app.use(['/api/diagnostics','/api/push'],express.json({limit:'16kb',strict:true}));
   app.use(express.json({ limit: '15mb', strict: true }));
   app.use(express.urlencoded({ extended: false, limit: '16kb', parameterLimit: 24 }));
   const closePublic=(await mountPublicSessions(app,service,browser));
@@ -322,6 +326,9 @@ export async function createApp(options: AppOptions = {}) {
   });
   app.delete('/api/tokens/:id', async (req, res) => { const principal = (await account(req, 'publish')); (await auth.revokeToken(principal.userId, String(req.params.id))); for (const session of (await service.sessions(principal))) service.emit({ type: 'membership', sessionId: session.id }); send(res, { revoked: true }); });
 
+  app.post('/api/flashcards/control',async(req,res)=>send(res,await service.flashcards.control(await account(req,'publish'),req.body)));
+  mountPush(app,service.push,browser);
+  mountFrontendDiagnostics(app,service.diagnostics,browser);
   mountClientCapture(app, service.clientCapture, browser);
 
   app.get('/api/sessions/:id/events', async (req, res) => {

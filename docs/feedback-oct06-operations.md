@@ -6,7 +6,7 @@ The public MCP surface remains exactly `kanvas_discover` and `kanvas_call`.
 
 Read `kanvas.help.about` or `kanvas.help.what-is-kanvas`, then
 `kanvas.help.getting-started.steps`. Ask the human to open **kanvas.host** and
-sign in (dev.kanvas.host for development). The reports' canvas.host spelling is
+sign in. The reports' canvas.host spelling is
 not a Kanvas domain. Signed-out root offers email sign-in and a short session
 key for owner-approved pairing. Signed-in root shows the session overview and
 registers an idle receiver independently of session creation. These receiver

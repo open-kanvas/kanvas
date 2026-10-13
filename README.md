@@ -5,7 +5,7 @@
 Connect your MCP client to **https://kanvas.host/mcp** — no self-hosting required.
 Visit [open-kanvas.ai](https://open-kanvas.ai) or manage your account in the [console](https://console.kanvas.host).
 
-For testing, save a separate connector for `https://dev.kanvas.host/mcp`; enable only the intended environment in each conversation.
+For self-hosted installations, use the MCP endpoint on your configured public origin.
 
 
 Kanvas is a shared visual workspace for agents and people. Agents publish structured content through the Model Context Protocol (MCP); signed-in or explicitly approved browsers receive responsive views and return real interaction and delivery receipts.

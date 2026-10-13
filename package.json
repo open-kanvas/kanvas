@@ -1,6 +1,6 @@
 {
   "name": "kanvas",
-  "version": "0.23.0",
+  "version": "0.24.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -38,6 +38,7 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "saxes": "6.0.0",
+    "web-push": "^3.6.7",
     "zod": "^4.1.0"
   },
   "devDependencies": {
@@ -59,6 +60,7 @@
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",
     "vite": "^8.2.0",
-    "vitest": "^3.2.0"
+    "vitest": "^3.2.0",
+    "@types/web-push": "^3.6.4"
   }
 }

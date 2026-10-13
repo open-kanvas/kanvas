@@ -2,6 +2,11 @@
  * lives in drafting-ops, planner-ops, display-sync, window-invitations and
  * account-home; real SDK coverage lives in workflows-http/event-feedback-http. */
 export const CURRENT_MAPPING = [
+  // Both SDKs and committed PostgreSQL state: feedback-oct13-http.test.ts.
+  ['kanvas_flashcards_read','kanvas_inspect','flashcards.read'],
+  ['kanvas_flashcards_control','kanvas_control','flashcards.control'],
+  ['kanvas_flashcards_show','kanvas_control','flashcards.show'],
+  ['kanvas_diagnostics_read','kanvas_inspect','diagnostics.read'],
   // Exercised over modern/legacy SDK HTTP in platform-oct04-http.
   ['kanvas_account_details','kanvas_inspect','account.details'],
   ['kanvas_checklist_read','kanvas_inspect','checklist.read'],

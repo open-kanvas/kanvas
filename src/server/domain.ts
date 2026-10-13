@@ -1,3 +1,6 @@
+import {SessionPush,type PushOptions} from './push.js';
+import {FrontendDiagnostics} from './frontend-diagnostics.js';
+import {Flashcards} from './flashcards.js';
 import {Checklists} from './checklists.js';
 import { ClientCapture } from './client-capture.js';
 import { Archive } from './archive.js';
@@ -101,6 +104,9 @@ export function referencedAssets(value: unknown): Set<string> {
 
 /** The same ACL, ordering and validation boundary serves HTTP and MCP. */
 export class KanvasService implements McpService {
+  readonly push:SessionPush;
+  readonly diagnostics:FrontendDiagnostics;
+  readonly flashcards:Flashcards;
   readonly checklists:Checklists;
   readonly autoplay:Autoplay;
   readonly pointing:Pointing;
@@ -132,7 +138,10 @@ export class KanvasService implements McpService {
   private readonly active = new Set<Promise<void>>();
   private readonly cancelWork = new Set<() => void>();
   private closed = false;
-  constructor(readonly store: Store, readonly auth: Auth, readonly interpreter: Interpreter = createInterpreter(), readonly publicUrl = 'http://127.0.0.1:8787', monitoringOptions?: MonitoringOptions, publishSetupEnabled = true) {
+  constructor(readonly store: Store, readonly auth: Auth, readonly interpreter: Interpreter = createInterpreter(), readonly publicUrl = 'http://127.0.0.1:8787', monitoringOptions?: MonitoringOptions, publishSetupEnabled = true, pushOptions?:PushOptions) {
+    this.push=new SessionPush(this,pushOptions);
+    this.diagnostics=new FrontendDiagnostics(this);
+    this.flashcards=new Flashcards(this);
     this.checklists=new Checklists(this);
     this.pointing=new Pointing(this);this.toolLog=new ToolLog(this);this.autoplay=new Autoplay(this);
     this.accounts=new Accounts(this);
@@ -333,6 +342,7 @@ export class KanvasService implements McpService {
     if ((await this.store.list('display', sessionId)).length >= 64) throw new AppError('LIMIT_REACHED', 'This session has reached its 64-display limit.', 429);
     const display: StoredDisplay = { id: id(), sessionId, ...input, pixelRatio: input.pixelRatio ?? 1, viewportRevision: 0, revision: 0, generation: 0, interactionEpoch: id(), view: null, held: false, online: false, updatedAt: now() };
     (await this.store.transaction(async () => { (await this.store.put('display', display));(await this.accounts.audit('display.created',{actorId:principal.userId,sessionId,displayId:display.id})); (await this.experience.alias(sessionId, display.id)); }));
+    this.store.afterCommit(()=>this.push.enqueue(principal,sessionId,display.id));
     this.emit({ type: 'display', sessionId, displayId: display.id, revision: display.revision }); return (await this.publicDisplay(display));
 
     });
@@ -421,6 +431,11 @@ export class KanvasService implements McpService {
       }
       const windows=inventory.devices.flatMap(device=>device.windows.filter(window=>window.connected).map(window=>({deviceId:device.id,deviceName:device.name,...window})));
       const candidates=windows.filter(window=>(!a.deviceId||window.deviceId===a.deviceId)&&(!a.windowId||window.id===a.windowId));
+      if(!windows.length&&!a.deviceId&&!a.windowId&&principal.tokenId&&await this.push.canNotify(principal.userId)){
+       const session=await this.createSession(principal,a.name),display=await this.createDisplay(principal,session.id,{name:'Main display',width:1280,height:800});
+       const result={id:key,digest,sessionId:session.id,displayId:display.id,notification:true};await this.store.put('start-request',result);
+       return {...result,status:'started',startUrl:this.publicUrl+'/',nextAction:'Publish to this session/display. An opted-in device notification is queued, not delivered or painted. The user must open it; verify actual paint before claiming visibility.'};
+      }
       if(!windows.length)return {status:'needs_display',startUrl:`${this.publicUrl}/`,nextAction:'Open this bare Kanvas address and sign in. Then retry begin; no session has been created.'};
       if(!candidates.length)throw new AppError('VIEWER_UNAVAILABLE','The selected owned window is not connected.',409);
       if(candidates.length!==1)return {status:'needs_target',startUrl:`${this.publicUrl}/`,windows:candidates.map(w=>({deviceId:w.deviceId,windowId:w.id,deviceName:w.deviceName,name:w.name})),nextAction:'Choose the intended window and retry begin with deviceId/windowId. No session has been created.'};
@@ -1101,6 +1116,10 @@ export class KanvasService implements McpService {
       case 'kanvas_session_public_access':return (await setPublicAccess(this,principal,a));
       case 'kanvas_scoreboard_control':(await this.access(principal,a.sessionId,'editor'));return (await this.respond(principal,a.sessionId,a.displayId,{revision:a.expectedRevision,requestId:a.requestId,value:{kind:'scoreboard.adjust',sideId:a.sideId,action:a.action,...(a.score!==undefined?{score:a.score}:{})}}));
 
+      case 'kanvas_diagnostics_read':return this.diagnostics.read(principal,a);
+      case 'kanvas_flashcards_read':return this.flashcards.read(principal,a);
+      case 'kanvas_flashcards_control':return this.flashcards.control(principal,a);
+      case 'kanvas_flashcards_show':return this.flashcards.show(principal,a);
       case 'kanvas_checklist_read':return this.checklists.read(principal,a);
       case 'kanvas_checklist_update':return this.checklists.update(principal,a);
       case 'kanvas_checklist_show':return this.checklists.show(principal,a);
@@ -1276,6 +1295,7 @@ export class KanvasService implements McpService {
   async close(): Promise<void> {
     await this.experience.receiving.close();
     await this.autoplay.close();
+    this.diagnostics.close();await this.push.close();
     this.closed = true; for (const cancel of this.cancelWork) cancel(); await Promise.allSettled([...this.active, this.monitoring.close()]); this.events.removeAllListeners();
   }
 }

@@ -26,3 +26,5 @@
 .inbox-from,.inbox-subject,.inbox-snippet,.inbox-message time{min-width:0;overflow-wrap:anywhere}
 
 .inbox-from{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.9em;line-height:1.5}
+
+.chat-bubbles{display:flex;flex-direction:column;gap:12px}.chat-bubbles .chat-message{align-self:flex-start;max-width:min(85%,48rem);border:1px solid var(--line);border-radius:18px 18px 18px 4px;padding:14px 18px;background:var(--surface);overflow-wrap:anywhere}.chat-bubbles .chat-self{align-self:flex-end;border-radius:18px 18px 4px 18px}.chat-bubbles .chat-message p{white-space:pre-wrap}

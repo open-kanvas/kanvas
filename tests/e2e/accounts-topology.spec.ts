@@ -104,7 +104,7 @@ test('approved guests have a separate silhouette, cannot read account history, a
   const current=(await groupRequest(page,'/api/profile')).data;await groupRequest(page,'/api/profile','PATCH',{expectedRevision:current.revision,displayName:'Registered host',avatar:{mimeType:'image/png',base64:png.toString('base64')}});
   await publishPrepared(page,s,[d.id],{version:1,template:'session-topology',data:{includeLocation:false}});
   const guestContext=await isolatedContext(browser,info,baseURL!);try{
-    const guest=await guestContext.newPage();diagnostics.watch(guest);await guest.goto('/view/'+s+'/'+d.id);await guest.getByRole('button',{name:'Pair this screen'}).click();
+    const guest=await guestContext.newPage();const guestDiagnosticUploads:string[]=[];guest.on('request',request=>{if(new URL(request.url()).pathname==='/api/diagnostics')guestDiagnosticUploads.push(request.method());});diagnostics.watch(guest);await guest.goto('/view/'+s+'/'+d.id);await guest.getByRole('button',{name:'Pair this screen'}).click();
     await expect(guest.getByText('Waiting for the owner.',{exact:true})).toBeVisible();await guest.getByLabel('Your name (optional)').fill('Visitor Ada');await guest.getByRole('button',{name:'Add my name'}).click();
     await tab(page,'People & access');await page.getByRole('button',{name:'Approve screen',exact:true}).click();await expect(guest.locator('.viewer-shell')).toBeVisible();
     await expect.poll(()=>v.locator('.topology-person>header').count()).toBe(2);await expect(v.locator('.topology-avatar.is-guest')).toHaveCount(1);await expect(v.locator('.topology-avatar:not(.is-guest) img')).toHaveCount(1);
@@ -114,5 +114,6 @@ test('approved guests have a separate silhouette, cannot read account history, a
     await publishPrepared(page,s,[d.id],{version:1,template:'fact',data:{text:'The shared connection view is closed.'}});
     await expect(guest.locator('.viewer-candidate')).toContainText('The shared connection view is closed.');
     diagnostics.allowHttp(guest,'/api/sessions/'+s+'/topology',409);expect((await sessionApi(guest,'/api/sessions/'+s+'/topology?displayId='+d.id)).status).toBe(409);
+    expect(guestDiagnosticUploads).toEqual([]);
   }finally{await guestContext.close();}
 });

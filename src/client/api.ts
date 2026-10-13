@@ -21,7 +21,7 @@ export class ApiError extends Error {
 }
 
 let csrfToken = '';
-export function setCsrfToken(value: string) { csrfToken = value; diagnosticsAuthenticated(value); }
+export function setCsrfToken(value: string, accountDiagnostics = false) { csrfToken = value; diagnosticsAuthenticated(accountDiagnostics ? value : ''); }
 
 export async function api<T>(path: string, options: { method?: string; body?: unknown; signal?: AbortSignal } = {}): Promise<T> {
   const method = options.method ?? 'GET';

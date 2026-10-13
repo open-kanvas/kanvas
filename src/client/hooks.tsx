@@ -24,7 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const value = await api<{ user: User; csrfToken: string; viewOnly?: boolean; captureOnly?: boolean; interactive?: boolean; sessionId?: string; displayId?: string }>('/api/auth/me');
       setPreviouslyAuthenticated(true);
       try { sessionStorage.setItem(returningScreenKey, 'true'); } catch { /* Storage can be disabled; in-memory state still protects this tab. */ }
-      setCsrfToken(value.csrfToken); setUser(value.user); setScope({ viewOnly: value.viewOnly, captureOnly: value.captureOnly, interactive: value.interactive, sessionId: value.sessionId, displayId: value.displayId }); setAuthError(null);
+      setCsrfToken(value.csrfToken, !value.viewOnly && !value.captureOnly); setUser(value.user); setScope({ viewOnly: value.viewOnly, captureOnly: value.captureOnly, interactive: value.interactive, sessionId: value.sessionId, displayId: value.displayId }); setAuthError(null);
     } catch (error) {
       if (!(error instanceof ApiError) || error.status !== 401) { setAuthError(errorMessage(error)); throw error; }
       setUser(null); setCsrfToken(''); setScope({}); setAuthError(null);

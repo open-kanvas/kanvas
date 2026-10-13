@@ -44,6 +44,27 @@ describe('authorization expiry and paired-screen exchange boundaries', () => {
   beforeEach(async () => { h = await startHarness(); });
   afterEach(async () => { vi.restoreAllMocks(); await h?.close(); });
 
+  it('requires a full account session, never a paired owner identity, for account OAuth consent', async () => {
+    const owner = await h.account(), session = await owner.session(), display = await owner.display(session.id);
+    const {screen,record} = await pair(h,owner,session.id,display.id);
+    success(await screen.request('GET', `/api/pairings/${record.id}/status`));
+    const me = success(await screen.request<{csrfToken:string;viewOnly:boolean}>('GET','/api/auth/me'));
+    expect(me.viewOnly).toBe(true); screen.csrf=me.csrfToken;
+    const clientId=await client(screen),pending=await authorize(screen,clientId);
+    denied(await screen.request('GET', `/api/oauth/requests/${pending.requestId}`),[403]);
+    for(const approve of [true,false]) denied(await screen.request('POST','/api/oauth/approve',{requestId:pending.requestId,approve,accessMode:'account'}),[403]);
+    expect(success(await owner.request<unknown[]>('GET','/api/tokens'))).toHaveLength(0);
+    // A different, deliberately signed-in account owns the resulting grant.
+    const identity=await screen.register();
+    const decision=success(await screen.request<{redirectUri:string}>('POST','/api/oauth/approve',{requestId:pending.requestId,approve:true,accessMode:'account'}));
+    const issued=await exchange(screen,clientId,new URL(decision.redirectUri).searchParams.get('code')!,pending.verifier);
+    expect(issued.response.status).toBe(200);
+    expect(success(await screen.request<{user:{id:string};viewOnly?:boolean}>('GET','/api/auth/me'))).toMatchObject({user:{id:identity.id}});
+    expect(success(await owner.request<unknown[]>('GET','/api/tokens'))).toHaveLength(0);
+    expect(success(await screen.request<{accessMode:string}[]>('GET','/api/tokens'))).toMatchObject([{accessMode:'account'}]);
+    denied(await screen.request('GET',`/api/sessions/${session.id}`),[403,404]);
+  });
+
   it('rejects insecure and credential-bearing registered redirects and publishes the exact MCP audience', async () => {
     const browser = h.browser();
     for (const address of ['http://remote.example/callback', 'https://user:password@client.example/callback', 'https://client.example/callback#fragment', 'javascript:alert(1)']) {

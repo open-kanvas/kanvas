@@ -54,3 +54,13 @@ Connection metadata exposes `accessMode`, `refreshable`, the effective `refreshE
 - `tests/core/oauth-continuity.test.ts`: real HTTP consent, modern/legacy SDK renewal, stable identity/idempotency/inbox, client/resource/scope restrictions, downscoping, concurrent reuse, family revocation, idle/absolute expiry, hash-only restart persistence, and pre-upgrade compatibility.
 - Existing OAuth registration, PKCE, access-boundary, pairing, and publisher suites remain applicable.
 - `tests/e2e/oauth-continuity.spec.ts`: real desktop/phone account consent without session creation, read-only account restrictions, and expired consent. Existing selected-session onboarding coverage remains in `oauth-onboarding.spec.ts`.
+
+## Reconnecting from a paired screen
+
+An agent's connection link takes precedence over the browser's paired-display or default-viewer destination. A screen pairing is view-only: it cannot inspect or approve account OAuth consent, even though the display belongs to a signed-in owner elsewhere.
+
+When reconnecting, sign in with **your own email account**, then choose **Allow account access**. The consent page identifies the signed-in account; **Use another account** restarts sign-in without dropping the pending connection. Clearing site cookies is unnecessary. Pairing a screen or entering a session key is not a substitute for account sign-in.
+
+Email confirmation preserves the pending connection both when signing in on the email device and when approving the originating browser. Approving the originating browser signs it in but does not approve the agent: consent is still required there. Device commands do not navigate away during email confirmation or OAuth consent. Ordinary paired-display entry is unchanged.
+
+If a request is invalid, expired, declined, or already completed, return to the agent and choose **Connect** again. Kanvas never reopens a completed request or revives a revoked connection. A failed connection approval after email sign-in returns to the consent/recovery page instead of requiring reuse of a consumed email link.

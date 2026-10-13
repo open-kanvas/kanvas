@@ -70,6 +70,11 @@ test('first OAuth login needs no session selection but still requires explicit a
   const signedIn = await page.request.post('/api/auth/login', { data: account }); expect(signedIn.status()).toBe(200);
   await page.goto(connection.path);
   await expect(page.getByRole('heading', { name: 'Browser onboarding client' })).toBeVisible();
+  await page.getByRole('button', {name:'Use another account',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Sign in to connect your agent.'})).toBeVisible();
+  expect(new URL(page.url()).search).toBe(new URL(connection.path,baseURL).search);
+  expect((await page.request.post('/api/auth/login',{data:account})).status()).toBe(200);
+  await page.reload();
   const allow = page.getByRole('button', { name: 'Allow account access', exact: true });
   await expect(allow).toBeEnabled();
   let approvalPosts = 0;
@@ -133,4 +138,27 @@ test('an expired consent page blocks session creation and approval', async ({ pa
   expect(await connectionCount(page)).toBe(0);
   expect((await sessionApi<SessionRecord[]>(page, '/api/sessions')).data?.filter(item => !item.endedAt).length).toBe(0);
   await expect(page.getByRole('link', { name: 'Open your console in another tab' })).toHaveAttribute('href', '/');
+});
+
+
+test('invalid and closed connection intents stay out of home/viewer routes and offer safe recovery', async ({page,baseURL,diagnostics}) => {
+  await register(page);
+  for(const query of ['?authorize=', '?authorize=%2Finvalid']) {
+    await page.goto(`/${query}`);
+    await expect(page.getByRole('heading',{name:'This connection request is invalid.'})).toBeVisible();
+    await expect(page.getByText('Return to your agent and choose Connect again.')).toBeVisible();
+    await expect(page.locator('.viewer-shell')).toHaveCount(0);
+  }
+  const missing='missing-request';diagnostics.allowHttp(page,`/api/oauth/requests/${missing}`,404);
+  await page.goto(`/?authorize=${missing}`);
+  await expect(page.getByText('Return to your agent and choose Connect again. No connection was approved.')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Allow account access',exact:true})).toHaveCount(0);
+  const connection=await beginConnection(page,baseURL!);
+  await page.goto(connection.path);await page.getByRole('button',{name:'Decline',exact:true}).click();await connection.callback;
+  await expect(page.getByRole('heading',{name:'Returned to client'})).toBeVisible();
+  diagnostics.allowHttp(page,`/api/oauth/requests/${new URL(connection.path,baseURL).searchParams.get('authorize')}`,410);
+  await page.goto(connection.path);
+  await expect(page.getByText('Return to your agent and choose Connect again. No connection was approved.')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Allow account access',exact:true})).toHaveCount(0);
+  expect(await connectionCount(page)).toBe(0);
 });

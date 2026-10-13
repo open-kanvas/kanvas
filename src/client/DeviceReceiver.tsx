@@ -9,10 +9,10 @@ type Command={id:string;sessionId:string;displayId:string};
 const Context=createContext<{device?:Device;error?:string}>({});
 export const useDevice=()=>useContext(Context);
 function installationId(){try{const saved=localStorage.getItem('kanvas-device-installation');if(saved&&/^[A-Za-z0-9_-]{1,128}$/.test(saved))return saved;const id=crypto.randomUUID();localStorage.setItem('kanvas-device-installation',id);return id;}catch{return crypto.randomUUID();}}
-export function DeviceReceiver({children}:{children:ReactNode}){
+export function DeviceReceiver({children,suspended=false}:{children:ReactNode;suspended?:boolean}){
   const auth=useAuth(),[device,setDevice]=useState<Device>(),[error,setError]=useState<string>(),command=useRef<Command|undefined>(undefined),painted=useRef<{sessionId:string;displayId:string;renderedRevision:number}|undefined>(undefined);
   useEffect(()=>{
-    if(!auth.user||auth.viewOnly||auth.captureOnly||new URLSearchParams(location.search).has('authorize'))return;
+    if(suspended||!auth.user||auth.viewOnly||auth.captureOnly||new URLSearchParams(location.search).has('authorize'))return;
     if('serviceWorker' in navigator)void navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(()=>{});
     let stopped=false,stream:EventSource|undefined,timer:ReturnType<typeof setTimeout>|undefined,registered:Device|undefined;
     const report=()=>{const p=painted.current;if(!registered||!p)return;const c=command.current,match=c?.sessionId===p.sessionId&&c.displayId===p.displayId;
@@ -33,7 +33,7 @@ export function DeviceReceiver({children}:{children:ReactNode}){
       }catch{/* A malformed stream event cannot change browser location. */}};
     }catch(e){if(!stopped){setError(errorMessage(e));timer=setTimeout(()=>void start(),8000);}}};void start();
     return()=>{stopped=true;stream?.close();clearTimeout(timer);window.removeEventListener('kanvas:painted',ready);window.removeEventListener('kanvas:browsing',browsing);window.removeEventListener('kanvas:window-command',commandEvent);};
-  },[auth.user?.id,auth.viewOnly,auth.captureOnly]);
+  },[auth.user?.id,auth.viewOnly,auth.captureOnly,suspended]);
   return <Context.Provider value={{device,error}}>{children}</Context.Provider>;
 }
 export function LiveEntry(){

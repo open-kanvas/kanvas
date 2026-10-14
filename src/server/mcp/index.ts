@@ -130,7 +130,19 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
         let guidance:unknown;
         try{guidance=await service.agentGuidance?.(current().principal,guidanceArgs);}catch{/* Never replace the primary result. */}
         if(!guidance)return result;
-        return {...result,content:[...result.content,{type:'text',text:JSON.stringify({agentGuidance:guidance})}],...(result.structuredContent&&typeof result.structuredContent==='object'?{structuredContent:{...result.structuredContent,agentGuidance:guidance}}:{})};
+        const structuredContent=result.structuredContent&&typeof result.structuredContent==='object'?{...result.structuredContent,agentGuidance:guidance}:undefined;
+        let mirrored=false;
+        const content=result.content.map(item=>{
+          const block=item as {type?:string;text?:string};
+          if(!mirrored&&structuredContent&&block.type==='text'&&typeof block.text==='string'){
+            try{if(JSON.stringify(JSON.parse(block.text))===JSON.stringify(result.structuredContent)){mirrored=true;return {...block,text:JSON.stringify(structuredContent)};}}catch{/* Plain-text discovery remains plain text. */}
+          }
+          return item;
+        });
+        // Keep existing structured/text JSON mirrors consistent. Plain-text
+        // catalog lists retain every original line and gain a separate block.
+        if(!mirrored)content.push({type:'text',text:JSON.stringify({agentGuidance:guidance})});
+        return {...result,content,...(structuredContent?{structuredContent}:{})};
       };
 
       if (isDiscoveryTool(request.params.name) && request.params.name !== 'kanvas_call') {

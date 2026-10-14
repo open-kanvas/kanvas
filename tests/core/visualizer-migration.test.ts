@@ -35,6 +35,17 @@ describe('visualizer-only data migration',()=>{
     await s.put('display-history',{id:'old-settings',view:{version:1,template:'settings',data:{dimension:'density'}}});
     expect((await s.get<any>('display-history','old-settings')).view.data.dimension).toBe('all');
   });
+  it('preserves explicit session overrides regardless of insertion order and never overwrites active guidance',async()=>{
+    const db=testDatabase();databases.push(db);const s=new Store(db);stores.push(s);await s.ready;
+    for(const id of ['base-first','override-first','active']){
+      const rows=[['session',{id,config:{updatePolicy:'proactive'}}],['session-context',{id,overrides:{updatePolicy:'passive'}}]] as const;
+      for(const [kind,value] of id==='override-first'?[...rows].reverse():rows)await s.query('INSERT INTO documents(kind,id,value) VALUES($1,$2,$3)',[kind,id,JSON.stringify(value)]);
+    }
+    await s.put('agent-guidance',{id:'session:active',text:'Keep my explicitly saved guidance.',revision:5});
+    await s.query('DELETE FROM data_migrations');const client=await s.pool.connect();try{await migrateDatabase(client,s.schema);await migrateDatabase(client,s.schema);}finally{client.release();}
+    for(const id of ['base-first','override-first'])expect(await s.get('agent-guidance','session:'+id)).toMatchObject({text:'Publish to Kanvas only when I explicitly request it. Respect host instructions and approval boundaries.',revision:1});
+    expect(await s.get('agent-guidance','session:active')).toMatchObject({text:'Keep my explicitly saved guidance.',revision:5});
+  });
   it.each(['density','mode','modeExplicit','model','language','sourceLanguage','retainOriginal','updatePolicy'])('rejects retired setting %s at the public boundary',key=>{
     expect(configPatchSchema.safeParse({theme:'dark',[key]:'retired'}).success).toBe(false);
   });

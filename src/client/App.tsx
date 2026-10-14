@@ -17,14 +17,19 @@ export function parseViewerRoute(pathname: string): ViewerRoute | undefined {
   if (!match) return;
   try { return { sessionId: decodeURIComponent(match[1]), displayId: decodeURIComponent(match[2]) }; } catch { return; }
 }
-function Router() {
+function Router({ emailToken }: { emailToken?: string }) {
   const auth = useAuth();
-  const [emailToken,setEmailToken]=useState(initialEmailToken);
-  useEffect(()=>{const changed=()=>{const token=takeEmailFragment();if(token)setEmailToken(token);};window.addEventListener('hashchange',changed);return()=>window.removeEventListener('hashchange',changed);},[]);
   if(emailToken)return <EmailConfirmation token={emailToken}/>;
   const viewer = parseViewerRoute(window.location.pathname), authorize = new URLSearchParams(window.location.search).get('authorize');
   if (auth.loading) return <main className="app-loading"><Wordmark /><span className="spinner" /><span>Opening your space…</span></main>;
   if (!auth.user && auth.error) return <main className="app-loading"><Wordmark /><h1>Couldn’t open your workspace.</h1><p role="alert">{auth.error}</p><button className="button button-primary" onClick={() => void auth.refresh().catch(() => {})}>Try connecting again</button></main>;
+  // OAuth intent takes precedence over all display/home entry routes. A paired
+  // screen represents its owner for viewing only, never account consent.
+  if (authorize !== null) {
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(authorize)) return <main className="consent-layout"><Wordmark/><h1>This connection request is invalid.</h1><p>Return to your agent and choose Connect again.</p><a href="/">Return to KANVAS</a></main>;
+    if (!auth.user || auth.viewOnly || auth.captureOnly) return <AuthScreen authorizationRequestId={authorize}/>;
+    return <ConsentScreen key={authorize} requestId={authorize}/>;
+  }
   const shareId = parseShareRoute(window.location.pathname);
   if (shareId) return <ShareScreen key={shareId} shareId={shareId} />;
   const invitation = /^\/welcome\/([A-Za-z0-9_-]+)\/?$/.exec(window.location.pathname);
@@ -38,7 +43,6 @@ function Router() {
   }
   if (viewer) return <Viewer key={`${viewer.sessionId}:${viewer.displayId}`} {...viewer} />;
 
-  if (authorize) return <ConsentScreen requestId={authorize} />;
   // The root URL is the account home (sessions, new session, account). Screens
   // and installed apps use the live start page, /start.
   if(window.location.pathname==='/console'||window.location.pathname==='/')return <Workspace/>;
@@ -46,4 +50,7 @@ function Router() {
   if (window.location.pathname !== '/') return <main className="app-loading"><Wordmark /><h1>This page is not here.</h1><a href="/">Return to your workspace</a></main>;
   return <Workspace />;
 }
-export default function App() { return <AuthProvider><Suspense fallback={<main className="app-loading"><Wordmark /><span className="spinner" /></main>}><DeviceReceiver><Router /></DeviceReceiver></Suspense></AuthProvider>; }
+export default function App() {
+  const [emailToken,setEmailToken]=useState(initialEmailToken);
+  useEffect(()=>{const changed=()=>{const token=takeEmailFragment();if(token)setEmailToken(token);};window.addEventListener('hashchange',changed);return()=>window.removeEventListener('hashchange',changed);},[]);
+  return <AuthProvider><Suspense fallback={<main className="app-loading"><Wordmark /><span className="spinner" /></main>}><DeviceReceiver suspended={Boolean(emailToken)}><Router emailToken={emailToken}/></DeviceReceiver></Suspense></AuthProvider>; }

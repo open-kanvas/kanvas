@@ -63,8 +63,8 @@ describe('legacy discovery compatibility and usable examples', () => {
   });
 
   it('marks access-grant and external polling examples as syntax, never owner consent', () => {
-    expect(published.filter(tool => tool.annotations?.openWorldHint).map(tool => tool.name).sort()).toEqual(['kanvas_monitoring_start', 'kanvas_monitoring_update']);
-    for (const name of ['kanvas_share_create', 'kanvas_pairing_decide', 'kanvas_member_add', 'kanvas_member_remove', 'kanvas_monitoring_start']) {
+    expect(published.filter(tool => tool.annotations?.openWorldHint).map(tool => tool.name).sort()).toEqual(['kanvas_invite_send', 'kanvas_monitoring_start', 'kanvas_monitoring_update']);
+    for (const name of ['kanvas_invite_send', 'kanvas_share_create', 'kanvas_pairing_decide', 'kanvas_member_add', 'kanvas_member_remove', 'kanvas_monitoring_start']) {
       const tool = published.find(tool => tool.name === name)!;
       expect(TOOL_DISCOVERY[name].hint).toContain('NOT authorization');
       expect(tool.annotations?.readOnlyHint).toBe(false);

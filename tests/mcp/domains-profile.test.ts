@@ -30,9 +30,9 @@ describe('domains profile catalog', () => {
     const tools = listToolDefinitions('domains');
     expect(tools.map(tool => tool.name)).toEqual([...DOMAIN_TOOL_NAMES]);
     expect(tools.every(tool => tool.name.startsWith('kanvas_') && tool.inputSchema.required?.includes('operation'))).toBe(true);
-    // Four additional flashcard/diagnostics operations: 4 KB bounded growth.
+    // Eight requested guidance/browser-auth/invite/overview operations: bounded catalog growth.
     // Group size and exhaustive mapping guards above remain unchanged.
-    expect(JSON.stringify(tools).length).toBeLessThan(134_000);
+    expect(JSON.stringify(tools).length).toBeLessThan(140_000);
   });
 
   it('keeps kanvas_feedback byte-for-byte identical to the former profile', () => {

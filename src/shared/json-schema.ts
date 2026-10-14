@@ -239,6 +239,17 @@ export function compactSchemaReferences(schema: Record<string, unknown>): Record
         (result.$defs as Record<string,unknown>)[name]={...chosen.fragment,$anchor:name};
       }
     }
+    // Fragment sharing adds frequently used anchors late. Assign shortest names
+    // by final reference frequency, preserving all validators and literal data.
+    const frequency=new Map<string,number>();
+    schemas(result,node=>{if(typeof node.$ref==='string'&&node.$ref.startsWith('#')&&!node.$ref.includes('/'))frequency.set(node.$ref.slice(1),(frequency.get(node.$ref.slice(1))??0)+1);});
+    const ordered=Object.keys(result.$defs).sort((a,b)=>(frequency.get(b)??0)-(frequency.get(a)??0));
+    const shortNames=new Map(ordered.map((name,index)=>[name,alphabet[index%alphabet.length]+(index<alphabet.length?'':Math.floor(index/alphabet.length).toString(36))]));
+    schemas(result,node=>{
+      if(typeof node.$ref==='string'&&shortNames.has(node.$ref.slice(1)))node.$ref='#'+shortNames.get(node.$ref.slice(1));
+      if(typeof node.$anchor==='string'&&shortNames.has(node.$anchor))node.$anchor=shortNames.get(node.$anchor);
+    });
+    result.$defs=Object.fromEntries(Object.entries(result.$defs).map(([name,value])=>[shortNames.get(name)!,value]));
 
   }
   return result;

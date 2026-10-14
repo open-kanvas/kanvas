@@ -17,5 +17,6 @@ it.each(['modern','legacy'])('%s repeats authorized distinct guidance on catalog
  }
  for(const [sessionId,expected] of [[s.id,true],[foreign.id,false]] as const){const result=await client.callTool({name:'kanvas_call',arguments:{operationId:'kanvas.session.state',arguments:{sessionId}}});expect(JSON.stringify(result).includes('Only publish when I ask')).toBe(expected);expect(JSON.stringify(result)).not.toContain('PRIVATE FOREIGN GUIDANCE');expect(JSON.stringify(result)).toContain('Be proactive with Kanvas');}
  const malformed=await client.callTool({name:'kanvas_call',arguments:{operationId:'kanvas.flashcards.control',arguments:{sessionId:s.id}}});expect(malformed.isError).toBe(true);expect(JSON.stringify(malformed)).toContain('Only publish when I ask');
- expect(JSON.parse((malformed.content as {text:string}[])[0].text)).toEqual(malformed.structuredContent);
+ const detail=(malformed.content as {text:string}[]).find(item=>item.text?.startsWith('{'));
+ expect(detail).toBeDefined();expect(JSON.parse(detail!.text)).toEqual(malformed.structuredContent);
 },30000);

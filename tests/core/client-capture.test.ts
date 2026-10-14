@@ -4,13 +4,16 @@ import {startHarness,success,denied,type Harness} from './harness.js';
 import {VisualCaptureResult} from '../../src/server/visual-capture.js';
 
 describe('fixed client capture authorization and expiry',()=>{
-  let h:Harness; const controllers:AbortController[]=[];
-  afterEach(async()=>{for(const c of controllers.splice(0))c.abort();vi.restoreAllMocks();await h?.close();});
+  let h:Harness; const controllers:AbortController[]=[],readers:ReadableStreamDefaultReader<Uint8Array>[]=[];
+  afterEach(async()=>{for(const c of controllers.splice(0))c.abort();await Promise.allSettled(readers.splice(0).map(reader=>reader.cancel()));vi.restoreAllMocks();await h?.close();});
   async function setup(){
     h=await startHarness(); const owner=await h.account(),session=await owner.session(),display=await owner.display(session.id);
     const p=(await h.runtime.auth.browser({cookies:Object.fromEntries(owner.cookies)} as unknown as Request)).principal;
     const s=session.id,d=display.id,path=`/api/sessions/${s}/displays/${d}/client-capture`;
-    const connect=async(tab='one')=>{const c=new AbortController();controllers.push(c);await owner.raw(`/api/sessions/${s}/events?displayId=${d}&tabId=${tab}`,{},{signal:c.signal});};
+    const connect=async(tab='one')=>{const c=new AbortController();controllers.push(c);const response=await owner.raw(`/api/sessions/${s}/events?displayId=${d}&tabId=${tab}`,{},{signal:c.signal});
+      // Behave like EventSource: retain and consume the stream until explicit abort.
+      // Do not rely on a discarded unread fetch response retaining the connection.
+      const reader=response.body!.getReader();readers.push(reader);void (async()=>{while(!(await reader.read()).done){/* Consume SSE without recording data. */}})().catch(()=>{});};
     return {owner,p,s,d,path,connect,capture:h.runtime.service.clientCapture};
   }
   it('requires a connected own-account viewer, explicit disambiguation, and rejects arbitrary scripting',async()=>{

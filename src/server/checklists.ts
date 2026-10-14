@@ -28,6 +28,7 @@ export class Checklists {
   if(view.template==='presentation'){
    const slides:ViewSpec[]=[];for(const slide of view.data.slides as ViewSpec[])slides.push(await this.capture(sessionId,slide));view.data.slides=slides;return view;
   }
+  if(view.template==='flashcards')return this.service.flashcards.capture(sessionId,view);
   if(view.template!=='checklist')return view;
   const data=checklistDataSchema.parse(view.data),key=data.checklistId??id();
   const previous=await this.store.get<Checklist>('checklist',key);
@@ -54,6 +55,10 @@ export class Checklists {
   const view=structuredClone(input);
   if(view.template==='presentation'){
    const slides:ViewSpec[]=[];for(const slide of view.data.slides as ViewSpec[])slides.push(await this.restoreSnapshot(sessionId,slide));view.data.slides=slides;return view;
+  }
+  if(view.template==='flashcards'&&view.data.deckId){
+   const current=await this.store.get<{sessionId:string;revision:number}>('flashcards',String(view.data.deckId));
+   if(!current||current.sessionId!==sessionId||current.revision!==view.data.deckRevision){delete view.data.deckId;delete view.data.deckRevision;}
   }
   if(view.template==='checklist'&&view.data.checklistId){
    const current=await this.store.get<Checklist>('checklist',String(view.data.checklistId));

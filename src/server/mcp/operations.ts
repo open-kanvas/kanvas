@@ -13,7 +13,7 @@ export const isGrouped = (profile: McpProfile): boolean => profile !== 'legacy';
 
 /** Reviewed, exhaustive registry. Do not synthesize handler names from input. */
 export const OPERATION_REGISTRY = {
-  kanvas_inspect: { 'checklist.read':'kanvas_checklist_read','archive.list':'kanvas_archive_list',
+  kanvas_inspect: { 'diagnostics.read':'kanvas_diagnostics_read', 'flashcards.read':'kanvas_flashcards_read', 'checklist.read':'kanvas_checklist_read','archive.list':'kanvas_archive_list',
     'pointing.read':'kanvas_pointing_read','autoplay.read':'kanvas_autoplay_read','tool-log.read':'kanvas_tool_log_read',
     'profile.read':'kanvas_profile_read','groups.list':'kanvas_groups_list','group.read':'kanvas_group_read',
     'group-access.read':'kanvas_group_access_read','session-context.read':'kanvas_session_context_read',
@@ -47,7 +47,7 @@ export const OPERATION_REGISTRY = {
   },
   kanvas_session: {rename:'kanvas_session_rename', create: 'kanvas_session_create', 'display.register': 'kanvas_display_register', 'display.rename':'kanvas_display_rename', 'address.get': 'kanvas_address_get', 'address.customize':'kanvas_address_customize' },
   kanvas_publish: {'checklist.update':'kanvas_checklist_update','checklist.show':'kanvas_checklist_show','tool-log.append':'kanvas_tool_log_append','chat.append':'kanvas_chat_append', show: 'kanvas_submit', 'progress.append': 'kanvas_progress_append', replace_data: 'kanvas_display_edit', patch: 'kanvas_view_patch', notify: 'kanvas_toast', 'draft.edit': 'kanvas_draft_edit', 'draft.suggest': 'kanvas_draft_suggest', 'draft.review': 'kanvas_draft_review', 'planner.edit': 'kanvas_planner_edit', 'planner.propose': 'kanvas_planner_propose', 'planner.review': 'kanvas_planner_review', 'planner.finalize': 'kanvas_planner_finalize' },
-  kanvas_control: {'start.begin':'kanvas_account_begin','autoplay.control':'kanvas_autoplay_control','scoreboard.control':'kanvas_scoreboard_control',
+  kanvas_control: { 'flashcards.control':'kanvas_flashcards_control','flashcards.show':'kanvas_flashcards_show','start.begin':'kanvas_account_begin','autoplay.control':'kanvas_autoplay_control','scoreboard.control':'kanvas_scoreboard_control',
     'selection.set':'kanvas_selection_set',
     'device.present':'kanvas_device_present',
     'window.present':'kanvas_window_present','connection.redirect':'kanvas_connection_redirect',
@@ -98,6 +98,8 @@ export const DOMAIN_REGISTRY = {
   kanvas_map: { camera: 'kanvas_map_camera' },
   kanvas_scoreboard: { control: 'kanvas_scoreboard_control' },
   kanvas_procedure: { control: 'kanvas_procedure_control' },
+  kanvas_diagnostics: {read:'kanvas_diagnostics_read'},
+  kanvas_flashcards: {read:'kanvas_flashcards_read',control:'kanvas_flashcards_control',show:'kanvas_flashcards_show'},
   kanvas_checklist: {read:'kanvas_checklist_read',update:'kanvas_checklist_update',show:'kanvas_checklist_show'},
   kanvas_draft: { read: 'kanvas_draft_read', edit: 'kanvas_draft_edit', suggest: 'kanvas_draft_suggest', review: 'kanvas_draft_review' },
   kanvas_planner: { read: 'kanvas_planner_read', edit: 'kanvas_planner_edit', propose: 'kanvas_planner_propose', review: 'kanvas_planner_review', finalize: 'kanvas_planner_finalize' },

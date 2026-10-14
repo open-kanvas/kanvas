@@ -1,3 +1,4 @@
+import {diagnostic} from './frontend-diagnostics';
 import { viewerTabId } from './renderers/Navigation';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { SessionEvent } from '../shared/types';
@@ -23,7 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const value = await api<{ user: User; csrfToken: string; viewOnly?: boolean; captureOnly?: boolean; interactive?: boolean; sessionId?: string; displayId?: string }>('/api/auth/me');
       setPreviouslyAuthenticated(true);
       try { sessionStorage.setItem(returningScreenKey, 'true'); } catch { /* Storage can be disabled; in-memory state still protects this tab. */ }
-      setCsrfToken(value.csrfToken); setUser(value.user); setScope({ viewOnly: value.viewOnly, captureOnly: value.captureOnly, interactive: value.interactive, sessionId: value.sessionId, displayId: value.displayId }); setAuthError(null);
+      setCsrfToken(value.csrfToken, !value.viewOnly && !value.captureOnly); setUser(value.user); setScope({ viewOnly: value.viewOnly, captureOnly: value.captureOnly, interactive: value.interactive, sessionId: value.sessionId, displayId: value.displayId }); setAuthError(null);
     } catch (error) {
       if (!(error instanceof ApiError) || error.status !== 401) { setAuthError(errorMessage(error)); throw error; }
       setUser(null); setCsrfToken(''); setScope({}); setAuthError(null);
@@ -72,6 +73,7 @@ export function useSession(id: string | null, displayId?: string) {
     const currentGeneration = generation.current;
     try {
       const state = await api<SessionDetail>(`${sessionPath(id)}${displayId ? `?displayId=${encodeURIComponent(displayId)}&tabId=${encodeURIComponent(viewerTabId())}` : ''}`);
+      for(const update of state.updates.slice(0,2)){const target=displayId??update.displayIds[0];diagnostic({event:'update-received',sessionId:id,displayId:target,updateId:update.id,revision:target?update.revisions[target]:undefined});}
       // A snapshot started before the stream closed must not resurrect an ended session.
       if (currentGeneration !== generation.current || ended.current) return;
       if (state.session.endedAt) {
@@ -125,10 +127,12 @@ export function useSession(id: string | null, displayId?: string) {
       const source = new EventSource(`${sessionPath(id)}/events${displayId ? `?displayId=${encodeURIComponent(displayId)}&tabId=${encodeURIComponent(viewerTabId())}` : ''}`, { withCredentials: true });
       eventSource = source;
       source.onopen = () => {
+        diagnostic({event:'stream-open',sessionId:id,displayId});
         if (disposed || eventSource !== source || ended.current || !navigator.onLine) return;
         streamOpen.current = true; setConnection('live'); void reload();
       };
       source.onerror = () => {
+        diagnostic({event:'stream-error',sessionId:id,displayId});
         if (disposed || eventSource !== source) return;
         streamOpen.current = false;
         if (!ended.current) { setConnection('offline'); void reload(); }
@@ -139,6 +143,7 @@ export function useSession(id: string | null, displayId?: string) {
         try {
           const change = JSON.parse((event as MessageEvent<string>).data) as SessionEvent;
           if (change.sessionId !== id) return;
+          if(change.type==='display'||change.type==='update')diagnostic({event:'update-received',sessionId:id,displayId:change.displayId,revision:change.revision,...(change.type==='update'&&change.data&&typeof change.data==='object'&&'id' in change.data?{updateId:String(change.data.id)}:{})});
           if (change.type === 'identify') {
             const identify = (change as SessionEvent & { identify?: Record<string, unknown> }).identify ?? {};
             window.dispatchEvent(new CustomEvent('kanvas:identify', { detail: { ...identify, sessionId: change.sessionId, displayId: change.displayId } }));
@@ -159,7 +164,7 @@ export function useSession(id: string | null, displayId?: string) {
     const onOffline = () => {
       if (disposed || ended.current) return;
       // Existing SSE connections need not error immediately when a browser goes offline.
-      eventSource?.close(); eventSource = null; streamOpen.current = false;
+      diagnostic({event:'stream-close',sessionId:id,displayId});eventSource?.close(); eventSource = null; streamOpen.current = false;
       clearTimeout(timer); timer = undefined; setConnection('offline'); setLoading(false);
     };
     const onOnline = () => {

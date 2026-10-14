@@ -6,3 +6,14 @@ self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys
 self.addEventListener('fetch',event=>{const url=new URL(event.request.url);if(url.origin!==self.location.origin)return;
   if(url.pathname==='/brand/kanvas-logo-white.svg'){event.respondWith(fetch(event.request).catch(()=>caches.match('/brand/kanvas-logo-white.svg')));return;}
   if(event.request.mode!=='navigate')return;event.respondWith(fetch(event.request).catch(()=>caches.match('/offline.html')));});
+
+// Push payloads are fixed preview-free messages. Never use a supplied external URL.
+self.addEventListener('push',event=>{event.waitUntil((async()=>{
+ let data;try{data=event.data?.json();}catch{return;}
+ if(!data||!/^\/view\/[A-Za-z0-9_-]{1,128}\/[A-Za-z0-9_-]{1,128}$/.test(data.url))return;
+ await self.registration.showNotification('Kanvas is ready',{body:'Open your new session.',icon:'/icons/kanvas-192.png',badge:'/icons/kanvas-192.png',tag:'kanvas-'+data.url,data:{url:data.url}});
+})());});
+self.addEventListener('notificationclick',event=>{event.notification.close();const path=event.notification.data?.url;
+ if(typeof path!=='string'||!/^\/view\/[A-Za-z0-9_-]{1,128}\/[A-Za-z0-9_-]{1,128}$/.test(path))return;
+ event.waitUntil(self.clients.openWindow(new URL(path,self.location.origin).href));
+});

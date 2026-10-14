@@ -7,6 +7,7 @@ export function input(overrides: Partial<InterpretationInput> = {}): Interpretat
 }
 export const source = { title: 'Source ledger', url: 'https://example.com/source', locator: 'Table 2', timestamp: '2026-09-08T12:00:00Z' };
 export const cases: {template:TemplateId;data:Record<string, unknown>}[] = [
+  {template:'flashcards',data:{cards:[{id:'hola',prompt:'Translate hola',answer:'hello'}]}},
   {template:'device-preview',data:{description:'Synthetic viewport example',html:'<h1>Exact title</h1>'}},
   {template:'architecture',data:{nodes:[{id:'db',label:'Exact database',type:'database'}]}},
   {template:'record-detail',data:{id:'A-1',title:'Exact record',description:'Full source',activity:[{id:'a',author:'Kim',text:'Original note'}]}},

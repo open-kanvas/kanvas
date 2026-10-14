@@ -130,7 +130,8 @@ describe('twelve-tool strict published and runtime contract', () => {
     expect(bytes('twelve') / OPERATION_ENTRIES.length).toBeLessThan(960);
     // The ceiling covers this round's drafting, planner, display-sync and account operations; the
     // per-operation average above is the primary guard against unbounded growth.
-    expect(bytes('twelve')).toBeLessThan(116 * 1024);
+    // Four new voice-flashcard/diagnostics operations; unchanged per-operation 960-byte guard.
+    expect(bytes('twelve')).toBeLessThan(120 * 1024);
     // Returned schemas/examples are detached; callers cannot poison later catalogs.
     const changed = listToolDefinitions('twelve');
     (changed[0].inputSchema.examples as unknown[]).push({ poison: true });

@@ -31,6 +31,13 @@ export function compactSchemaReferences(schema: Record<string, unknown>): Record
   const result = { ...rewrite(root) as Record<string, unknown>, $defs: Object.fromEntries(entries.map(([, value], index) => [`d${index.toString(36)}`, rewrite(value)])) };
   if (JSON.stringify(result).length < 50_000) return result;
 
+  // Canonicalize schema-only object key ordering before equivalence sharing.
+  // Literal defaults/examples/const values remain untouched; order is not a validator.
+  schemas(result,node=>{
+    for(const key of ['properties','patternProperties']){const value=node[key];if(value&&typeof value==='object'&&!Array.isArray(value))node[key]=Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b)));}
+    const entries=Object.entries(node).sort(([a],[b])=>a.localeCompare(b));for(const key of Object.keys(node))delete node[key];Object.assign(node,Object.fromEntries(entries));
+  });
+
   // Zod may retain a definition that has only one final reference after its
   // parent was itself shared. Inline only a complete, single-use $ref: sibling
   // constraints, subschema pointers and recursive definitions remain intact.
@@ -207,7 +214,7 @@ export function compactSchemaReferences(schema: Record<string, unknown>): Record
     // scopes, where a local anchor might otherwise resolve against another $id.
     let nestedResource=false;schemas(result,node=>{if(node!==result&&typeof node.$id==='string')nestedResource=true;});
     if(!nestedResource){
-      const groups=[['type'],['required'],['type','required'],['type','minItems','maxItems','uniqueItems'],['type','minLength','maxLength','pattern'],['type','minimum','maximum','exclusiveMinimum','exclusiveMaximum','multipleOf']];
+      const groups=[['maxLength'],['maxItems'],['minItems','maxItems'],['type','minLength','maxLength'],['type','minimum'],['pattern'],['type'],['required'],['type','required'],['type','minItems','maxItems','uniqueItems'],['type','minLength','maxLength','pattern'],['type','minimum','maximum','exclusiveMinimum','exclusiveMaximum','multipleOf']];
       for(let iteration=0;iteration<schemaNodes;iteration++){
         let ordinal=0,name:string;
         do{name=alphabet[ordinal%alphabet.length]+(ordinal<alphabet.length?'':Math.floor(ordinal/alphabet.length).toString(36));ordinal++;}while(Object.hasOwn(result.$defs,name));

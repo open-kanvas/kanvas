@@ -1,3 +1,4 @@
+import { flashcardDataSchema } from './flashcards.js';
 import { devicePreviewDataSchema } from './device-preview.js';
 import { emphasisSchema } from './emphasis.js';
 import { VERBATIM_SOURCE, SOURCE_RECORD_TEMPLATES } from './source-guidance.js';
@@ -263,6 +264,7 @@ export const leafViewSchema = z.discriminatedUnion('template', [
   z.object({ ...base, template: z.literal('iframe'), data: iframeDataSchema }).strict(),
   z.object({ ...base, template: z.literal('list'), data: listDataSchema }).strict(),
   z.object({ ...base, template: z.literal('comparison'), data: comparisonDataSchema }).strict(),
+  z.object({ ...base, template: z.literal('flashcards'), data: flashcardDataSchema }).strict(),
   z.object({ ...base, template: z.literal('checklist'), data: checklistDataSchema }).strict(),
   z.object({ ...base, template: z.literal('map'), data: mapDataSchema }).strict(),
   z.object({ ...base, template: z.literal('code'), data: codeDataSchema }).strict(),

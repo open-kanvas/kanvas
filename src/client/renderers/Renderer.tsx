@@ -1,3 +1,5 @@
+import {diagnostic} from '../frontend-diagnostics';
+import { FlashcardsRenderer } from './Flashcards';
 import { DevicePreview } from './DevicePreview';
 import { DiagramRenderer, SportsLineupRenderer } from './Diagrams';
 import { useInternalNavigation } from './Navigation';
@@ -76,7 +78,7 @@ class RenderBoundary extends Component<{ children: ReactNode; identity: unknown;
   state = { failed: false, identity: this.props.identity };
   static getDerivedStateFromError() { return { failed: true }; }
   static getDerivedStateFromProps(props: { identity: unknown }, state: { identity: unknown }) { return props.identity !== state.identity ? { failed: false, identity: props.identity } : null; }
-  componentDidCatch() { this.props.onError?.(); }
+  componentDidCatch() { diagnostic({event:'render-error'}); this.props.onError?.(); }
   render() { return this.state.failed ? <div className="content-empty" role="alert"><Icon name="refresh" size={30} /><p>This view could not be displayed.</p><span>The submitted content is saved; try another view.</span></div> : this.props.children; }
 }
 export function Renderer(props: RendererProps) {
@@ -142,6 +144,7 @@ function Content(props: RendererProps) {
     case 'list': return <ListRenderer data={data as unknown as ListData}/>;
     case 'web': return <WebRenderer {...surface} data={data as unknown as { url: string }} sessionId={props.sessionId} displayId={props.displayId} revision={props.revision} preview={props.preview} />;
     case 'comparison': return <ComparisonRenderer {...surface} data={data as unknown as Parameters<typeof ComparisonRenderer>[0]['data']} />;
+    case 'flashcards': return <FlashcardsRenderer {...props}/>;
     case 'checklist': return <ChecklistRenderer {...surface} data={data as unknown as ChecklistData} editable={editable} revision={props.revision} onEdit={onEdit} actionable={props.actionable && !props.preview} onRespond={props.onRespond} />;
     case 'map': return <MapRenderer {...surface} data={data as unknown as MapData} onReady={props.onReady} onError={props.onError} renderIdentity={props.renderIdentity} />;
     case 'code': return <CodeRenderer {...surface} data={data as unknown as CodeData} />;

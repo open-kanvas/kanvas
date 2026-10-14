@@ -2,6 +2,7 @@ import { createApp } from './app.js';
 import { mcpProfile } from './mcp/operations.js';
 import { resendSigninMailer } from './email-signin.js';
 import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { KANVAS_VERSION } from '../shared/version.js';
@@ -15,7 +16,17 @@ if (process.env.KANVAS_EMAIL_SIGNIN === 'true' && (!process.env.KANVAS_MAIL_FROM
 // A deployed bundle serves its sibling client release. Rebuilding the working
 // tree must never swap a live service's UI independently of its backend.
 const packagedClient = fileURLToPath(new URL('../client/', import.meta.url));
+const pushCredential=process.env.CREDENTIALS_DIRECTORY?join(process.env.CREDENTIALS_DIRECTORY,'kanvas-push'):undefined;
+function configuredPush():import('./push.js').PushOptions|undefined{
+ if(process.env.KANVAS_PUSH_ENABLED!=='true')return;
+ try{const value=JSON.parse(readFileSync(pushCredential??'', 'utf8'));
+  if(typeof value.publicKey!=='string'||!/^[A-Za-z0-9_-]{87}$/.test(value.publicKey)||typeof value.privateKey!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(value.privateKey)||typeof value.subject!=='string'||!/^mailto:[^\s@]+@[^\s@]+$/.test(value.subject)||value.subject.length>254)throw new Error();
+  return {publicKey:value.publicKey,privateKey:value.privateKey,subject:value.subject};
+ }catch{throw new Error('Push requires a valid protected kanvas-push service credential.');}
+}
+const pushOptions=configuredPush();
 const runtime = await createApp({
+  pushOptions,
   serviceAdmins:(process.env.KANVAS_SERVICE_ADMINS??'').split(',').map(x=>x.trim()).filter(Boolean),
   pairingFailedLimit:Number(process.env.KANVAS_PAIRING_FAILED_LIMIT??50),
   mcpProfile: mcpProfile(process.env.KANVAS_MCP_PROFILE),

@@ -94,7 +94,7 @@ export class Auth {
   async logout(request: Request, response: Response): Promise<Awaited<void>> {
     return this.store.atomic(async () => {
     const cookie: unknown = request.cookies?.[this.cookieName];
-    if (typeof cookie === 'string') (await this.store.delete('browser', hash(cookie)));
+    if (typeof cookie === 'string') { const browserId=hash(cookie);await this.store.delete('browser',browserId);for(const s of await this.store.list<{id:string;browserId:string}>('push-subscription'))if(s.browserId===browserId)await this.store.delete('push-subscription',s.id); }
     response.clearCookie(this.cookieName, {httpOnly:true, secure:this.secure, sameSite:'strict', path:'/'});
 
     });

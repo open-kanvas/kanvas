@@ -1,3 +1,5 @@
+import {diagnostic,diagnosticsAuthenticated} from './frontend-diagnostics';
+import {diagnosticRoute} from '../shared/frontend-diagnostics';
 import type { AssetRecord, DatasetSummary, DisplayRecord, InteractionRecord, Role, SessionRecord, UpdateRecord, ViewSpec } from '../shared/types';
 import { isSafeUrl } from '../shared/view-schemas';
 
@@ -19,7 +21,7 @@ export class ApiError extends Error {
 }
 
 let csrfToken = '';
-export function setCsrfToken(value: string) { csrfToken = value; }
+export function setCsrfToken(value: string, accountDiagnostics = false) { csrfToken = value; diagnosticsAuthenticated(accountDiagnostics ? value : ''); }
 
 export async function api<T>(path: string, options: { method?: string; body?: unknown; signal?: AbortSignal } = {}): Promise<T> {
   const method = options.method ?? 'GET';
@@ -39,8 +41,10 @@ export async function api<T>(path: string, options: { method?: string; body?: un
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error;
+    diagnostic({event:'request',route:diagnosticRoute(path),status:0});
     throw new ApiError(0, 'offline', 'Connection interrupted. Your last saved content is unchanged.');
   }
+  diagnostic({event:'request',route:diagnosticRoute(path),status:response.status});
   if (response.status === 204) return undefined as T;
   const payload = await response.json().catch(() => null) as { data?: T; error?: { code?: string; message?: string } } | null;
   if (!response.ok) {

@@ -60,6 +60,7 @@ export default defineConfig({
       KANVAS_PG_SSL: 'disable',
       KANVAS_PG_PASSWORD_FILE: '',
       KANVAS_EMAIL_SIGNIN: 'false',
+      KANVAS_PUSH_ENABLED: 'false',
       CREDENTIALS_DIRECTORY: '',
       KANVAS_ALLOW_REGISTRATION: 'true',
     },

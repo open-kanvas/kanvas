@@ -15,11 +15,14 @@ test('flashcards are voice-first, visually graded and preserve agent-controlled 
   const result=await page.evaluate(async body=>{const me=await (await fetch('/api/auth/me')).json();const r=await fetch('/api/flashcards/control',{method:'POST',headers:{'Content-Type':'application/json','X-Kanvas-CSRF':me.data.csrfToken},body:JSON.stringify(body)});return r.status;},{sessionId:s,displayId:d.id,deckId:data.deckId,expectedRevision:display.revision,expectedDeckRevision:data.deckRevision,requestId:crypto.randomUUID(),cardId:data.cards[data.index].id,action,...(response?{response}:{})});expect(result).toBe(200);};
  await control('answer','incorrect response');await expect(deck.getByRole('img',{name:'Incorrect answer',exact:true})).toBeVisible();await expect(deck).toContainText('hello');await expect(deck).not.toContainText('Exact text matching');
  const face=await deck.locator('.flashcard-face').boundingBox();expect(face!.height).toBeGreaterThan(viewer.viewportSize()!.height*.55);
+ await expect(viewer.locator('.viewer-toast')).toHaveCount(0,{timeout:15000});
  await viewer.screenshot({path:`/home/deploy/kanvas-feedback-20261014-visuals/${test.info().project.name}-flashcards-incorrect.png`});
  await control('answer','hello');await expect(deck.getByRole('img',{name:'Correct answer',exact:true})).toBeVisible();
+ await expect(viewer.locator('.viewer-toast')).toHaveCount(0,{timeout:15000});
  await viewer.screenshot({path:`/home/deploy/kanvas-feedback-20261014-visuals/${test.info().project.name}-flashcards-correct.png`});
  await control('next');await expect(deck).toContainText('Translate adiós');await viewer.reload();await expect(viewer.locator('.viewer-candidate .flashcards progress')).toHaveAttribute('value','2');
  expect(await viewer.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+ await expect(viewer.locator('.viewer-toast')).toHaveCount(0,{timeout:15000});
  await viewer.screenshot({path:`/home/deploy/kanvas-feedback-20261014-visuals/${test.info().project.name}-flashcards.png`});
 });
 

@@ -124,10 +124,11 @@ test('a delayed device paint report cannot overwrite a newer receiving revision 
     await a.v.route('**/api/devices/**/report',async route=>{const body=route.request().postDataJSON();if(armed&&body.displayId===a.d.id&&body.renderedRevision===olderRevision){armed=false;arrive();await gate;}await route.continue();});
     await a.show({version:1,template:'fact',data:{text:'Delayed painted frame'}});await arrived;
     const current=await a.show({version:1,template:'fact',data:{text:'Newer visible device frame'}});
-    await expect.poll(async()=>{const r=await a.call('kanvas_inspect','devices.read');return r.devices.some((d:any)=>d.current?.displayId===a.d.id&&d.renderedRevision===current.revision);}).toBe(true);
+    // With an idle console sibling, device-wide current is deliberately absent; inspect the receiving window.
+    await expect.poll(async()=>{const r=await a.call('kanvas_inspect','devices.read');return r.devices.some((d:any)=>d.windows.some((w:any)=>w.current?.displayId===a.d.id&&w.renderedRevision===current.revision));}).toBe(true);
     const response=a.v.waitForResponse(r=>r.url().includes('/api/devices/')&&r.url().endsWith('/report')&&r.request().postDataJSON()?.renderedRevision===olderRevision);release();const discarded=await response;
     expect(discarded.status()).toBe(200);expect((await discarded.json()).data).toEqual({recorded:false,reason:'STALE_OBSERVATION'});
     await expect(a.v.locator('.viewer-candidate')).toContainText('Newer visible device frame');expect((await a.current()).revision).toBe(current.revision);
-    expect((await a.call('kanvas_inspect','devices.read')).devices.some((d:any)=>d.current?.displayId===a.d.id&&d.renderedRevision===current.revision)).toBe(true);
-  }finally{release();await a.v.unroute('**/api/devices/**/report');await a.client.close();}
+    expect((await a.call('kanvas_inspect','devices.read')).devices.some((d:any)=>d.windows.some((w:any)=>w.current?.displayId===a.d.id&&w.renderedRevision===current.revision))).toBe(true);
+  }finally{release();await a.v.unrouteAll({behavior:'wait'});await a.client.close();}
 });

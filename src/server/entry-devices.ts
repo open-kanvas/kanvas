@@ -50,7 +50,7 @@ export class EntryDevices {
   private async online(d:Device){if((await this.windows.hasOnline(d)))return true;const c=this.connected.get(d.id);if(!c?.count||c.principal.browserId!==d.browserId)return false;try{(await this.receiver(c.principal,d.id));return true;}catch{return false;}}
   private async public(d:Device){const command=d.command?{...d.command,status:(await this.windows.commandSuperseded(d.command))?'superseded':d.command.status==='pending'&&d.command.expiresAt<=Date.now()?'expired':d.command.status}:undefined;
     const windows=(await this.windows.listForDevice(d));
-    return {id:d.id,name:d.name,version:d.version,context:d.context,windows,connected:(await this.online(d)),lastSeenAt:d.lastSeenAt,...(!windows.some(w=>w.current&&(w.current.sessionId!==d.sessionId||w.current.displayId!==d.displayId))&&d.sessionId&&d.displayId?{current:this.target(d.sessionId,d.displayId),renderedRevision:d.renderedRevision}:{}),...(d.homeSessionId&&d.homeDisplayId?{home:this.target(d.homeSessionId,d.homeDisplayId)}:{}),command};}
+    return {id:d.id,name:d.name,version:d.version,context:d.context,windows,connected:(await this.online(d)),lastSeenAt:d.lastSeenAt,...(!windows.some(w=>!w.current||w.current.sessionId!==d.sessionId||w.current.displayId!==d.displayId)&&d.sessionId&&d.displayId?{current:this.target(d.sessionId,d.displayId),renderedRevision:d.renderedRevision}:{}),...(d.homeSessionId&&d.homeDisplayId?{home:this.target(d.homeSessionId,d.homeDisplayId)}:{}),command};}
   async register(p:AuthPrincipal,raw:unknown,userAgent:string){
     return this.service.store.atomic(async () => {
     (await this.account(p,true));if(!p.browserId)throw new AppError('FORBIDDEN','Register from a signed-in browser.',403);
@@ -149,6 +149,7 @@ export function mountEntryDevices(app:Express,devices:EntryDevices,browser:(req:
     try{res.json({data:(await devices.windows.report((await browser(req)),String(req.params.deviceId),String(req.params.windowId),req.body))});}
     catch(error){if(error instanceof AppError&&['STALE_OBSERVATION','STALE_COMMAND'].includes(error.code))res.json({data:{recorded:false,reason:error.code}});else throw error;}
   });
+  app.post('/api/devices/:deviceId/windows/:windowId/overview',async (req,res)=>res.json({data:await devices.windows.overview(await browser(req),{...req.body,deviceId:req.params.deviceId,windowId:req.params.windowId})}));
   app.post('/api/devices/:deviceId/windows/:windowId/present',async (req,res)=>res.json({data:(await devices.windows.present((await browser(req)),{...req.body,deviceId:req.params.deviceId,windowId:req.params.windowId}))}));
   app.post('/api/devices/present',async (req,res)=>res.json({data:(await devices.present((await browser(req)),req.body))}));
   app.patch('/api/devices/:deviceId',async (req,res)=>res.json({data:(await devices.rename((await browser(req)),{...req.body,deviceId:req.params.deviceId}))}));
@@ -160,18 +161,20 @@ export function mountEntryDevices(app:Express,devices:EntryDevices,browser:(req:
     // an unreachable live-device/window count behind.
     if(req.destroyed||res.destroyed){stream.close();return;}
     res.set({'Content-Type':'text/event-stream','Cache-Control':'no-store','Connection':'keep-alive','X-Accel-Buffering':'no'});res.flushHeaders();
-    const close=()=>{clearInterval(timer);stream.close();closes.delete(close);res.end();};
+    const close=()=>{clearInterval(timer);unsubscribeRevocation();stream.close();closes.delete(close);res.end();};
     const tick=async ()=>{try{(await stream.push());}catch{res.write('data: {"unavailable":true}\n\n');close();}};
+    const unsubscribeRevocation=devices.service.auth.onBrowserRevoked(p.browserId!,close);
     const timer=setInterval(tick,15000);timer.unref();closes.add(close);req.on('close',close);(await tick());
   });
   app.get('/api/devices/:deviceId/windows/:windowId/events',async (req,res)=>{
-    const stream=(await devices.windows.stream((await browser(req)),String(req.params.deviceId),String(req.params.windowId),data=>res.write(`data: ${JSON.stringify(data)}\n\n`)));
+    const p=(await browser(req)),stream=(await devices.windows.stream(p,String(req.params.deviceId),String(req.params.windowId),data=>res.write(`data: ${JSON.stringify(data)}\n\n`)));
     // A disconnect during asynchronous receiver registration must not leave
     // an unreachable live-device/window count behind.
     if(req.destroyed||res.destroyed){stream.close();return;}
     res.set({'Content-Type':'text/event-stream','Cache-Control':'no-store','Connection':'keep-alive','X-Accel-Buffering':'no'});res.flushHeaders();
-    const close=()=>{clearInterval(timer);stream.close();closes.delete(close);res.end();};
+    const close=()=>{clearInterval(timer);unsubscribeRevocation();stream.close();closes.delete(close);res.end();};
     const tick=async ()=>{try{(await stream.push());}catch{res.write('data: {"unavailable":true}\n\n');close();}};
+    const unsubscribeRevocation=devices.service.auth.onBrowserRevoked(p.browserId!,close);
     const timer=setInterval(tick,15000);timer.unref();closes.add(close);req.on('close',close);(await tick());
   });
   return ()=>{for(const close of closes)close();devices.close();};

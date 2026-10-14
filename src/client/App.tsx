@@ -7,6 +7,7 @@ import { Wordmark } from './icons';
 import { viewerPath } from './api';
 import { ShareScreen, parseShareRoute } from './Share';
 import { EmailConfirmation, takeEmailFragment } from './EmailSignin';
+import { Overview } from './Overview';
 import { Welcome } from './Welcome';
 const initialEmailToken = typeof window === 'undefined' ? undefined : takeEmailFragment();
 const Viewer = lazy(() => import('./Viewer').then(module => ({ default: module.Viewer })));
@@ -45,7 +46,8 @@ function Router({ emailToken }: { emailToken?: string }) {
 
   // The root URL is the account home (sessions, new session, account). Screens
   // and installed apps use the live start page, /start.
-  if(window.location.pathname==='/console'||window.location.pathname==='/')return <Workspace/>;
+  if(window.location.pathname==='/console')return <Workspace/>;
+  if(window.location.pathname==='/')return <Overview/>;
   if(window.location.pathname==='/start')return <LiveEntry/>;
   if (window.location.pathname !== '/') return <main className="app-loading"><Wordmark /><h1>This page is not here.</h1><a href="/">Return to your workspace</a></main>;
   return <Workspace />;

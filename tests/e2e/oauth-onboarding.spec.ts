@@ -101,7 +101,7 @@ test('first OAuth login needs no session selection but still requires explicit a
   expect(typeof token.access_token === 'string').toBe(true);
   expect(token.token_type).toBe('Bearer');
   await page.goto('/');
-  await expect(page.locator('.workspace')).toBeVisible();
+  await expect(page.locator('.account-overview')).toBeVisible();
   const connections = await page.request.get('/api/tokens');
   expect((await connections.json()).data.map((item: {accessMode:string})=>item.accessMode)).toEqual(['account']);
 });
@@ -118,7 +118,7 @@ test('declining account consent creates no session and issues no connection', as
   expect(returned.searchParams.get('error')).toBe('access_denied');
   expect(returned.searchParams.has('code')).toBe(false);
   await page.goto('/');
-  await expect(page.locator('.workspace')).toBeVisible();
+  await expect(page.locator('.account-overview')).toBeVisible();
   expect(await connectionCount(page)).toBe(0);
   const sessions = (await sessionApi<SessionRecord[]>(page, '/api/sessions')).data!.filter(item => !item.endedAt);
   expect(sessions).toEqual([]);

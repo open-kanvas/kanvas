@@ -1,5 +1,6 @@
 import { createApp } from './app.js';
 import { mcpProfile } from './mcp/operations.js';
+import { resendInviteMailer } from './invite-email.js';
 import { resendSigninMailer } from './email-signin.js';
 import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
@@ -12,7 +13,7 @@ if (!Number.isSafeInteger(port) || port < 1 || port > 65535) throw new Error('PO
 const host = process.env.HOST ?? '127.0.0.1';
 const publicUrl = process.env.KANVAS_PUBLIC_URL ?? `http://127.0.0.1:${port}`;
 const mailCredential = process.env.CREDENTIALS_DIRECTORY ? join(process.env.CREDENTIALS_DIRECTORY, 'kanvas-mailer') : undefined;
-if (process.env.KANVAS_EMAIL_SIGNIN === 'true' && (!process.env.KANVAS_MAIL_FROM || !mailCredential || !existsSync(mailCredential))) throw new Error('Email sign-in requires KANVAS_MAIL_FROM and the kanvas-mailer service credential.');
+if ((process.env.KANVAS_EMAIL_SIGNIN === 'true' || process.env.KANVAS_INVITE_EMAIL === 'true') && (!process.env.KANVAS_MAIL_FROM || !mailCredential || !existsSync(mailCredential))) throw new Error('Email sign-in requires KANVAS_MAIL_FROM and the kanvas-mailer service credential.');
 // A deployed bundle serves its sibling client release. Rebuilding the working
 // tree must never swap a live service's UI independently of its backend.
 const packagedClient = fileURLToPath(new URL('../client/', import.meta.url));
@@ -31,6 +32,7 @@ const runtime = await createApp({
   pairingFailedLimit:Number(process.env.KANVAS_PAIRING_FAILED_LIMIT??50),
   mcpProfile: mcpProfile(process.env.KANVAS_MCP_PROFILE),
   publishSetupEnabled: process.env.KANVAS_PUBLISH_SETUP !== 'false',
+  ...(process.env.KANVAS_INVITE_EMAIL === 'true' ? {inviteMailer:resendInviteMailer(mailCredential!,process.env.KANVAS_MAIL_FROM!)} : {}),
   ...(process.env.KANVAS_EMAIL_SIGNIN === 'true' ? { signinMailer: resendSigninMailer(mailCredential!, process.env.KANVAS_MAIL_FROM!) } : {}),
   consoleUrl:process.env.KANVAS_CONSOLE_URL??process.env.KANVAS_ADMIN_URL,
   docsUrl:process.env.KANVAS_DOCS_URL,

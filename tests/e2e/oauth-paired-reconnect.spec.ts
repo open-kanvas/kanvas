@@ -13,7 +13,7 @@ for (const target of ['current', 'origin', 'expired'] as const) test(`paired scr
   try {
     expect((await owner.request.post(`${base}/api/auth/email/request`,{data:{email:`owner-${randomUUID()}@example.com`}})).ok()).toBe(true);
     const ownerLink=mail.pop()!;
-    const registered=await owner.request.post(`${base}/api/auth/email/consume`,{data:{token:new URL(ownerLink).hash.slice('#email-signin='.length),confirm:true,target:'current'}});expect(registered.ok()).toBe(true);
+    const registered=await owner.request.post(`${base}/api/auth/email/consume`,{data:{token:new URL(ownerLink).hash.slice('#email-signin='.length),confirm:true,acceptedLegalVersion:'2026-10-14',target:'current'}});expect(registered.ok()).toBe(true);
     const ownerAuth=(await registered.json()).data,headers={'X-Kanvas-CSRF':ownerAuth.csrfToken};
     const created=await owner.request.post(`${base}/api/sessions`,{headers,data:{name:'Private paired owner session',initialDisplay:false}});expect(created.ok()).toBe(true);const session=(await created.json()).data;
     const displayResponse=await owner.request.post(`${base}/api/sessions/${session.id}/displays`,{headers,data:{name:'Paired screen',width:1200,height:800,pixelRatio:1}});expect(displayResponse.ok()).toBe(true);const display=(await displayResponse.json()).data;
@@ -40,7 +40,7 @@ for (const target of ['current', 'origin', 'expired'] as const) test(`paired scr
       const pendingConsent=await runtime.store.get<{id:string;expiresAt:string}>('oauth-consent',requestId);
       if(!pendingConsent)throw new Error('Test consent missing');pendingConsent.expiresAt=new Date(Date.now()-1).toISOString();await runtime.store.put('oauth-consent',pendingConsent);
       diagnostics.allowHttp(page,'/api/oauth/approve',410);diagnostics.allowHttp(page,`/api/oauth/requests/${requestId}`,410);
-      await page.getByRole('button',{name:'Sign in here and connect',exact:true}).click();
+      await page.getByRole('checkbox',{name:/I accept/}).check();await page.getByRole('button',{name:'Sign in here and connect',exact:true}).click();
       await expect(page.getByText('Return to your agent and choose Connect again. No connection was approved.')).toBeVisible();
       expect(new URL(page.url()).search).toBe(new URL(intent).search);
       await expect(page.getByRole('button',{name:'Allow account access',exact:true})).toHaveCount(0);
@@ -49,10 +49,10 @@ for (const target of ['current', 'origin', 'expired'] as const) test(`paired scr
     }
     if(target==='origin') {
       const confirmation=await owner.newPage();let deviceRegistrations=0;confirmation.on('request',request=>{if(new URL(request.url()).pathname==='/api/devices/register')deviceRegistrations++;});await confirmation.goto(mail[0]);
-      await confirmation.getByRole('checkbox').check();await confirmation.getByRole('button',{name:'Approve requesting device',exact:true}).click();
+      await confirmation.getByRole('checkbox',{name:/I accept/}).check();await confirmation.getByRole('checkbox',{name:/I started/}).check();await confirmation.getByRole('button',{name:'Approve requesting device',exact:true}).click();
       await expect(confirmation.getByRole('status')).toContainText('Return to that screen');expect(deviceRegistrations).toBe(0);
     } else {
-      await page.goto(mail[0]);await page.getByRole('button',{name:'Sign in on this device instead',exact:true}).click();
+      await page.goto(mail[0]);await page.getByRole('checkbox',{name:/I accept/}).check();await page.getByRole('button',{name:'Sign in on this device instead',exact:true}).click();
     }
     await expect(page.getByRole('heading',{name:'Paired reconnect client',exact:true})).toBeVisible();
     expect(new URL(page.url()).pathname).toBe('/');

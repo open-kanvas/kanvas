@@ -1,7 +1,7 @@
 import {expect,test,register,sessionApi,openViewer,publishPrepared,waitForDisplay} from './support';
 import {randomUUID} from 'node:crypto';
 test('signed-in root registers a receiver and opens the ready default display without a prior join',async({page})=>{
- await register(page);await page.goto('/');await expect(page.locator('.workspace')).toBeVisible();
+ await register(page);await page.goto('/');await expect(page.locator('.account-overview')).toBeVisible();
  let device:any,window:any;
  await expect.poll(async()=>{const result:any=await sessionApi(page,'/api/devices');device=result.data?.devices?.find((d:any)=>d.windows.some((w:any)=>w.connected));window=device?.windows.find((w:any)=>w.connected);return Boolean(window);}).toBe(true);
  const created:any=await sessionApi(page,'/api/sessions','POST',{name:'Immediate ready screen'});expect(created.status).toBe(200);expect(created.data.displays).toHaveLength(1);const display=created.data.displays[0];

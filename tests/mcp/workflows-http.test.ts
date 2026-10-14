@@ -106,11 +106,11 @@ describe('workflows over both MCP protocols',()=>{
       expect(Number(((await h.runtime.store.db.prepare('SELECT COUNT(*) n FROM users').get()) as {n:number}).n)).toBe(0);expect((await h.runtime.store.list('oauth-grant'))).toHaveLength(0);
       const main=await b.raw('/mcp',{method:'POST',headers:{'content-type':'application/json',accept:'application/json, text/event-stream'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/list'})});expect(main.status).toBe(401);await main.body?.cancel();
       const token=new URL(mail[0].link).hash.slice('#email-signin='.length),inspect=success(await b.request<any>('POST','/api/auth/email/inspect',{token}));expect(inspect.connection).toMatchObject({requestId,clientName:'Explicit test connector',scopes:['read','publish']});
-      const login=success(await b.request<any>('POST','/api/auth/email/consume',{token,confirm:true}));b.csrf=login.csrfToken;expect((await h.runtime.store.list('oauth-grant'))).toHaveLength(0);
+      const login=success(await b.request<any>('POST','/api/auth/email/consume',{token,confirm:true,acceptedLegalVersion:'2026-10-14'}));b.csrf=login.csrfToken;expect((await h.runtime.store.list('oauth-grant'))).toHaveLength(0);
       const consent=success(await b.request<any>('POST','/api/oauth/approve',{requestId,approve:true,accessMode:'account'})),code=new URL(consent.redirectUri).searchParams.get('code')!;
       const exchange=await b.raw('/oauth/token',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',client_id:registered.client_id,redirect_uri:redirect,resource:`${ORIGIN}/mcp`,code,code_verifier:verifier}).toString()});expect(exchange.status).toBe(200);const credential=await exchange.json();expect(Boolean(credential.access_token)).toBe(true);
       const connected=await connect(legacy,'/mcp',{Authorization:`Bearer ${credential.access_token}`});try{const start=await connected.callTool(operationRequest({name:'kanvas_inspect',arguments:{operation:'start.read'}}));expect(Boolean(start.isError)).toBe(false);expect((start.structuredContent as any).data.sessions).toEqual([]);}finally{await connected.close();}
-      const reused=await b.request('POST','/api/auth/email/consume',{token,confirm:true});expect(reused.status).toBe(410);
+      const reused=await b.request('POST','/api/auth/email/consume',{token,confirm:true,acceptedLegalVersion:'2026-10-14'});expect(reused.status).toBe(410);
     }
   });
 });

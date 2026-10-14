@@ -21,6 +21,35 @@ describe('October 13 feedback security and durable state',()=>{
   await expect(h.runtime.service.flashcards.control(p,{...args,requestId:'stale'})).rejects.toMatchObject({code:'REVISION_CONFLICT'});
   await expect(h.runtime.service.flashcards.control(p,{...args,requestId:'wrong-card',expectedRevision:2,expectedDeckRevision:1,cardId:'adios'})).rejects.toMatchObject({code:'CONFLICT'});
  });
+ it('restarts a completed deck with current revisions and rejects genuinely stale controls',async()=>{
+  let display=await deck();const deckId=String(display.view!.data.deckId);
+  let latest:any;
+  for(const [action,cardId] of [['answer','hola'],['next','hola'],['answer','adios'],['restart','adios']] as const){
+   display=(await owner.detail(s)).displays.find(x=>x.id===d)!;
+   const saved:any=await h.runtime.service.flashcards.read(p,{sessionId:s,deckId});
+   const a={sessionId:s,displayId:d,deckId,expectedRevision:display.revision,expectedDeckRevision:saved.revision,requestId:randomUUID(),cardId,action,...(action==='answer'?{response:'hello'}:{})};
+   latest=await h.runtime.service.flashcards.control(p,a);
+   expect(await h.runtime.service.flashcards.control(p,a)).toEqual(latest);
+   await expect(h.runtime.service.flashcards.control(p,{...a,requestId:randomUUID()})).rejects.toMatchObject({code:'REVISION_CONFLICT'});
+  }
+  expect(latest.deck.view.data).toMatchObject({index:0,revealed:false,responses:[]});
+ });
+ it('restarts shared deck from a display whose card identity lags the latest saved deck, without bypassing revisions',async()=>{
+  const first=await deck(),deckId=String(first.view!.data.deckId),other=await owner.display(s);
+  await h.runtime.service.flashcards.show(p,{sessionId:s,deckId,displayId:other.id,expectedRevision:0,requestId:'shared'});
+  await h.runtime.service.flashcards.control(p,{sessionId:s,deckId,displayId:d,expectedRevision:1,expectedDeckRevision:0,cardId:'hola',action:'next',requestId:'advance'});
+  const a={sessionId:s,deckId,displayId:other.id,expectedRevision:1,expectedDeckRevision:1,cardId:'hola',action:'restart',requestId:'restart-shared'};
+  const result:any=await h.runtime.service.flashcards.control(p,a);
+  expect(result.deck.view.data).toMatchObject({index:0,revealed:false,responses:[]});
+  await expect(h.runtime.service.flashcards.control(p,{...a,requestId:'stale-reset'})).rejects.toMatchObject({code:'REVISION_CONFLICT'});
+ });
+ it('validates bounded visual card data and rejects executable/private image inputs',()=>{
+  const card={id:'c',prompt:'Shape?',answer:'Decision'};
+  expect(flashcardDataSchema.safeParse({cards:[{...card,promptVisual:{kind:'diagram',data:{nodes:[{id:'shape',label:'Decision',shape:'decision'}],edges:[]}}}]}).success).toBe(true);
+  for(const url of ['javascript:alert(1)','https://127.0.0.1/private','https://user:pass@example.com/private'])expect(flashcardDataSchema.safeParse({cards:[{...card,promptVisual:{kind:'image',url,alt:'Unsafe'}}]}).success).toBe(false);
+  expect(flashcardDataSchema.safeParse({cards:[{...card,promptVisual:{kind:'diagram',data:{nodes:[{id:'shape',label:'Unsafe',image:'https://localhost/private'}]}}}]}).success).toBe(false);
+  expect(flashcardDataSchema.safeParse({cards:[{...card,promptVisual:{kind:'html',html:'<script>alert(1)</script>'}}]}).success).toBe(false);
+ });
  it('retains progress across replacement and restores on a different display without cross-account access',async()=>{
   const display=await deck(),deckId=String(display.view!.data.deckId);await owner.submit(s,[d],{version:1,template:'fact',data:{text:'Other content'}});
   const other=await owner.display(s);await h.runtime.service.flashcards.show(p,{sessionId:s,deckId,displayId:other.id,expectedRevision:0,requestId:'restore'});

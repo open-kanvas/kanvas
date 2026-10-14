@@ -102,10 +102,10 @@ describe('email-confirmed sign-in',()=>{
     let delivered='';h=await startHarness({signinMailer:async(_email,link)=>{delivered=link;}});const guest=h.browser();
     success(await guest.request('POST','/api/auth/email/request',{email:'verified@example.com',returnTo:'//outside.example'}));
     const token=new URL(delivered).hash.split('=')[1];expect(Boolean(token)).toBe(true);expect(JSON.stringify((await h.runtime.store.list('email-challenge'))).includes(token)).toBe(false);
-    denied(await guest.request('POST','/api/auth/email/consume',{token,confirm:true},{origin:'https://attacker.example'}));
-    const result=success(await guest.request<{returnTo:string;user:{id:string;username:string};csrfToken:string}>('POST','/api/auth/email/consume',{token,confirm:true}));
+    denied(await guest.request('POST','/api/auth/email/consume',{token,confirm:true,acceptedLegalVersion:'2026-10-14'},{origin:'https://attacker.example'}));
+    const result=success(await guest.request<{returnTo:string;user:{id:string;username:string};csrfToken:string}>('POST','/api/auth/email/consume',{token,confirm:true,acceptedLegalVersion:'2026-10-14'}));
     expect(result.returnTo).toBe('/');expect(result.user.username).toBe('verified@example.com');expect((await h.runtime.store.get('verified-email',result.user.id))).toBeTruthy();
-    expect((await guest.request('POST','/api/auth/email/consume',{token,confirm:true})).status).toBe(410);
+    expect((await guest.request('POST','/api/auth/email/consume',{token,confirm:true,acceptedLegalVersion:'2026-10-14'})).status).toBe(410);
     expect((await guest.request('POST','/api/auth/register',{username:'bypass',password:'not-a-real-credential'})).status).toBe(403);
   });
   it('keeps hosted registration closed and gives an ineligible address a generic response without mail',async()=>{

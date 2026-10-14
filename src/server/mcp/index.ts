@@ -124,10 +124,19 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
     server.onerror = () => {};
     server.setRequestHandler('tools/list', async () => ({ tools: toolDefinitions }));
     server.setRequestHandler('tools/call', async (request, extra) => {
+      const outer=request.params.arguments??{};
+      const guidanceArgs=request.params.name==='kanvas_call'?outer.arguments:undefined;
+      const decorate=async<T extends {content:unknown[];structuredContent?:unknown}>(result:T):Promise<T>=>{
+        let guidance:unknown;
+        try{guidance=await service.agentGuidance?.(current().principal,guidanceArgs);}catch{/* Never replace the primary result. */}
+        if(!guidance)return result;
+        return {...result,content:[...result.content,{type:'text',text:JSON.stringify({agentGuidance:guidance})}],...(result.structuredContent&&typeof result.structuredContent==='object'?{structuredContent:{...result.structuredContent,agentGuidance:guidance}}:{})};
+      };
+
       if (isDiscoveryTool(request.params.name) && request.params.name !== 'kanvas_call') {
-        return profileScope.run('discovery', () => {
-          try { return discoveryResult(request.params.name, request.params.arguments, { principal: current().principal, signal: extra.mcpReq.signal }); }
-          catch (error) { return toolFailure(error, undefined, 'discovery'); }
+        return profileScope.run('discovery', async () => {
+          try { return decorate(discoveryResult(request.params.name, request.params.arguments, { principal: current().principal, signal: extra.mcpReq.signal })); }
+          catch (error) { return decorate(toolFailure(error, undefined, 'discovery')); }
         });
       }
       const callProfile = 'discovery' as const;
@@ -149,18 +158,18 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
         let diagnosticId: string | undefined;
         try { if (mayRecordFailure) diagnosticId = await inToolContext(context, () => service.recordFailure?.(call.canonicalName!, raw, current().principal, call.error)); } catch { /* Preserve the original error. */ }
         await record('failed');
-        return toolFailure(call.error, diagnosticId, callProfile, call.canonicalName);
+        return decorate(toolFailure(call.error, diagnosticId, callProfile, call.canonicalName));
       }
       try {
         extra.mcpReq.signal.throwIfAborted();
         const result = await inToolContext(context, () => service.execute(call.canonicalName, call.args, current().principal, { signal: extra.mcpReq.signal }));
         await record('completed',result);
-        return toolSuccess(result, call.args.sessionId, call.canonicalName, callProfile, call.args);
+        return decorate(toolSuccess(result, call.args.sessionId, call.canonicalName, callProfile, call.args));
       } catch (error) {
         let diagnosticId: string | undefined;
         try { if (mayRecordFailure) diagnosticId = await inToolContext(context, () => service.recordFailure?.(call.canonicalName, call.args, current().principal, error)); } catch { /* Diagnostic failure must not replace this result. */ }
         await record('failed');
-        return toolFailure(error, diagnosticId, callProfile, call.canonicalName);
+        return decorate(toolFailure(error, diagnosticId, callProfile, call.canonicalName));
       }
     });
     });

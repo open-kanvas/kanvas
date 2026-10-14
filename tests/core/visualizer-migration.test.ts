@@ -27,7 +27,8 @@ describe('visualizer-only data migration',()=>{
     expect((await s.get<any>('invitation','invite')).revokedAt).toBeDefined();expect(await s.get<any>('invitation','invite')).not.toHaveProperty('gameId');
     expect((await s.get<any>('update','update')).metrics).toEqual({renderMs:10,validationMs:2,'display.display.validationMs':2});
     expect((await s.query('SELECT value FROM documents WHERE kind=$1 AND id=$2',['dataset','literal'])).rows[0].value).toBe(raw);
-    expect((await s.query('SELECT version FROM schema_migrations')).rows).toEqual([{version:1}]);expect((await s.query('SELECT version FROM data_migrations')).rows).toEqual([{version:1}]);
+    expect((await s.query('SELECT version FROM schema_migrations')).rows).toEqual([{version:1}]);expect((await s.query('SELECT version FROM data_migrations ORDER BY version')).rows).toEqual([{version:1},{version:2}]);
+    expect(await s.get('agent-guidance','user:user')).toMatchObject({revision:1,migratedFrom:'legacy-update-policy'});
     await s.put('display-history',{id:'late-history',view});expect((await s.get<any>('display-history','late-history')).view.template).toBe('fact');
     await s.put('preferences',{id:'old-defaults',config:{theme:'dark',accent:'#123456',density:'compact'},configOverrides:{density:'compact'},appearanceOverrides:{density:'compact'}});
     const old=await s.get<any>('preferences','old-defaults');expect(old.config).not.toHaveProperty('density');expect(old.configOverrides).not.toHaveProperty('density');expect(old.appearanceOverrides).not.toHaveProperty('density');

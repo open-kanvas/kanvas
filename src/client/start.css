@@ -4,3 +4,5 @@
 .consent-card .email-match-code{display:block;margin-block:20px;font-size:clamp(1.6rem,8vw,2.4rem);letter-spacing:.15em;overflow-wrap:anywhere}.consent-card .email-code-confirm{display:flex;align-items:flex-start;gap:12px;margin-block:20px;line-height:1.6}.consent-card .email-code-confirm input{width:20px;height:20px;flex:0 0 20px;margin:3px 0 0;padding:0}.consent-card .email-code-confirm span{display:block;min-width:0}
 
 .email-match-code,.consent-card .email-match-code{text-align:center}.email-signin-form{margin-bottom:24px}.email-signin-form .button-primary,.consent-card .button-primary{justify-content:center;text-align:center;background:#111;color:#fff}.email-delivery-note{font-size:.875rem;line-height:1.6;margin-block:20px}
+
+.auth-form.email-signin-form .button{justify-content:center;text-align:center;flex-direction:row;padding-inline:17px}

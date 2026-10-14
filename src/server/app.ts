@@ -1,3 +1,4 @@
+import {mountLegal} from './legal.js';
 import {mountPush,type PushOptions} from './push.js';
 import { mountFrontendDiagnostics } from './frontend-diagnostics.js';
 import { mountClientCapture } from './client-capture.js';
@@ -69,6 +70,7 @@ export interface AppOptions {
   monitoringOptions?: MonitoringOptions;
   publicImageOptions?:PublicImageOptions;
   signinMailer?: SigninMailer;
+  inviteMailer?: import('./invite-email.js').InviteMailer;
   database?: DatabaseOptions; publicUrl?: string; allowRegistration?: boolean; interpreter?: Interpreter;
   staticDirectory?: string; allowedOrigins?: string[];
   /** Fixed categories/counts only. Never receives request values or credentials. */
@@ -109,6 +111,7 @@ export async function createApp(options: AppOptions = {}) {
   try { await store.ready; await store.claimRuntime(); } catch (error) { await store.close(); throw error; }
   const auth = new Auth(store, publicAddress.protocol === 'https:', options.allowRegistration ?? true, `${publicUrl}/mcp`);
   const service = new KanvasService(store, auth, options.interpreter ?? createInterpreter(), publicUrl, options.monitoringOptions, options.publishSetupEnabled, options.pushOptions);
+  service.inviteEmail.mailer=options.inviteMailer;
   try { await service.initialize(); } catch(error) { await service.close(); await store.close(); throw error; }
   service.adminUrl=adminOrigin;
   service.accounts.serviceAdmins=new Set(options.serviceAdmins??[]);
@@ -191,6 +194,7 @@ export async function createApp(options: AppOptions = {}) {
   mountPublicImages(app,new PublicImages(service,options.publicImageOptions),browser);
   mountWebsitePreview(app,new WebsitePreview(service,options.websitePreviewOptions),browser);
   mountPublicDocs(app,service.publicUrl,profile,options.docsUrl);
+  mountLegal(app);
   mountEmailSignin(app,auth,publicUrl,options.signinMailer,async userId=>{(await service.devices.provision({userId}));(await service.accounts.audit('account.registered',{actorId:userId,subjectId:userId}));},adminOrigin,async userId=>(await service.accounts.audit('account.signed-in',{actorId:userId,subjectId:userId})));
   app.get('/api/start', async (req,res)=>send(res,(await service.startPage((await account(req)),z.coerce.number().int().min(0).max(10000).parse(req.query.offset??0)))));
   app.post('/api/sessions/:id/rename',operation('kanvas_session_rename',sessionArgs));
@@ -344,7 +348,7 @@ export async function createApp(options: AppOptions = {}) {
     let closed = false;
     const disconnectDisplay=displayId&&!principal.captureOnly?(await service.connectDisplay(principal,sessionId,displayId)):()=>{};
     const disconnect=async ()=>{windowReceiver?.close();receiving?.disconnect();(await disconnectDisplay());};
-    const finish = async () => { if (closed) return; closed = true; clearInterval(heartbeat); unsubscribe(); streams.delete(finish); (await disconnect()); res.end(); };
+    const finish = async () => { if (closed) return; closed = true; clearInterval(heartbeat); unsubscribe(); unsubscribeRevocation(); streams.delete(finish); (await disconnect()); res.end(); };
     const unsubscribe = service.onEvent(async event => {
       if (closed || event.sessionId !== sessionId) return;
       if (event.type === 'ended') { res.write(`event: change\ndata: ${JSON.stringify({ type: 'ended', sessionId })}\n\n`); (await finish()); return; }
@@ -354,6 +358,7 @@ export async function createApp(options: AppOptions = {}) {
       if (!res.write(`event: change\ndata: ${JSON.stringify(safe)}\n\n`)) (await finish());
     });
     const heartbeat = setInterval(async () => { try { (await service.access(principal, sessionId)); receiving?.touch(); (await windowReceiver?.push());res.write(': keepalive\n\n'); } catch { (await finish()); } }, 15_000); heartbeat.unref();
+    const unsubscribeRevocation=auth.onBrowserRevoked(principal.browserId!,()=>{void finish();});
     streams.add(finish); req.on('close', () => { void finish().catch(() => {}); });
     // Setup above crosses asynchronous registration boundaries after headers
     // are sent. The peer can disconnect before the close listener is installed.

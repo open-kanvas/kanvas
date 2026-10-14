@@ -1,3 +1,4 @@
+import { EventEmitter } from 'node:events';
 import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import type { Request, Response } from 'express';
 import type { Principal } from '../shared/types.js';
@@ -8,7 +9,7 @@ export const hash = (value: string) => createHash('sha256').update(value).digest
 export const opaque = () => randomBytes(32).toString('base64url');
 export interface User { id: string; username: string; displayName: string; avatarUrl?: string }
 export interface AuthPrincipal extends Principal { browserId?: string; scopedSessionId?: string; scopedDisplayId?: string; pairingId?: string; captureOnly?: boolean; oauthAccessId?: string; interactive?: boolean; participantId?: string }
-export interface BrowserSession { id: string; userId: string; csrf: string; expiresAt: number; scopedSessionId?: string; scopedDisplayId?: string; pairingId?: string; captureOnly?: boolean; interactive?: boolean }
+export interface BrowserSession { createdAt?: string; id: string; userId: string; csrf: string; expiresAt: number; scopedSessionId?: string; scopedDisplayId?: string; pairingId?: string; captureOnly?: boolean; interactive?: boolean }
 /** The stable client connection, not an individual rotating credential. Legacy
  * publisher/OAuth tokens without resource keep their original hash and expiry. */
 export interface Token { id: string; userId: string; agentId: string; name: string; hash: string; scopes: string[]; sessionIds?: string[]; expiresAt: number; createdAt: string; lastUsedAt?: string; revoked?: boolean; clientId?: string; resource?: string; refreshExpiresAt?: number; refreshIdleExpiresAt?: number }
@@ -22,6 +23,13 @@ const derive = (password: string, salt: string): Promise<Buffer> => new Promise(
 export const SCOPES = ['read', 'publish'] as const;
 
 export class Auth {
+  private readonly browserRevocations = new EventEmitter().setMaxListeners(2048);
+  onBrowserRevoked(browserId:string,callback:()=>void){this.browserRevocations.on(browserId,callback);return ()=>{this.browserRevocations.off(browserId,callback);};}
+  async revokeBrowser(browserId:string){
+    await this.store.delete('browser',browserId);
+    await this.store.db.prepare("DELETE FROM documents WHERE kind='push-subscription' AND value::jsonb->>'browserId'=?").run(browserId);
+    this.store.afterCommit(()=>this.browserRevocations.emit(browserId));
+  }
   readonly cookieName: string;
   constructor(readonly store: Store, readonly secure: boolean, readonly allowRegistration: boolean, readonly oauthResource?: string) { this.cookieName = secure ? '__Host-kanvas' : 'kanvas'; }
   async user(userId: string): Promise<Awaited<User | undefined>> {
@@ -54,7 +62,7 @@ export class Auth {
   async issueBrowser(userId: string, response: Response, scope?: Pick<BrowserSession,'scopedSessionId'|'scopedDisplayId'|'pairingId'|'captureOnly'|'interactive'>): Promise<Awaited<BrowserSession>> {
     return this.store.atomic(async () => {
     const cookie = opaque();
-    const session = {id: hash(cookie), userId, csrf: opaque(), expiresAt: Date.now() + 7 * 86400_000, ...scope};
+    const session = {id: hash(cookie), createdAt: now(), userId, csrf: opaque(), expiresAt: Date.now() + 7 * 86400_000, ...scope};
     (await this.store.put('browser', session));
     response.cookie(this.cookieName, cookie, {httpOnly: true, secure: this.secure, sameSite: 'strict', path: '/', maxAge: 7 * 86400_000});
     return session;
@@ -94,7 +102,7 @@ export class Auth {
   async logout(request: Request, response: Response): Promise<Awaited<void>> {
     return this.store.atomic(async () => {
     const cookie: unknown = request.cookies?.[this.cookieName];
-    if (typeof cookie === 'string') { const browserId=hash(cookie);await this.store.delete('browser',browserId);for(const s of await this.store.list<{id:string;browserId:string}>('push-subscription'))if(s.browserId===browserId)await this.store.delete('push-subscription',s.id); }
+    if (typeof cookie === 'string') await this.revokeBrowser(hash(cookie));
     response.clearCookie(this.cookieName, {httpOnly:true, secure:this.secure, sameSite:'strict', path:'/'});
 
     });

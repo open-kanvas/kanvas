@@ -34,6 +34,13 @@ export class Invitations {
 
     });
   }
+  async forEmail(p:AuthPrincipal,invitationId:string){
+    const record=await this.active(invitationId);
+    if(record.ownerId!==p.userId)throw new AppError('NOT_FOUND','This invitation is unavailable.',404);
+    if(record.groupId)await this.service.accounts.group(p,record.groupId,true);
+    if(record.acceptedBy)throw new AppError('INVITATION_USED','This invitation has been accepted.',409);
+    return this.artifact(record);
+  }
   private async artifact(record:Invitation){
     const group=record.groupId?required((await this.service.store.get<AccountGroup>('group',record.groupId)),'This group is unavailable.'):undefined;
     const url=`${this.service.publicUrl}/${group?'welcome/'+record.id:'s/'+record.alias}`;

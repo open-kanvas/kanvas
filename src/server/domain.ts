@@ -1,3 +1,5 @@
+import {accountOverview} from './account-overview.js';
+import {AgentGuidance} from './agent-guidance.js';
 import {SessionPush,type PushOptions} from './push.js';
 import {FrontendDiagnostics} from './frontend-diagnostics.js';
 import {Flashcards} from './flashcards.js';
@@ -15,6 +17,8 @@ import { ToolLog } from './tool-log.js';
 import { setPublicAccess } from './public-sessions.js';
 import { selectionInputSchema } from './mcp/work-tools.js';
 import { projectSelection } from '../shared/selection.js';
+import { BrowserAuth } from './browser-auth.js';
+import { InviteEmail } from './invite-email.js';
 import { Invitations } from './invitations.js';
 import { progressAppend, chatAppend } from './task-views.js';
 import { logEntries, type LogData } from '../shared/task-views.js';
@@ -107,6 +111,7 @@ export class KanvasService implements McpService {
   readonly push:SessionPush;
   readonly diagnostics:FrontendDiagnostics;
   readonly flashcards:Flashcards;
+  readonly guidance:AgentGuidance;
   readonly checklists:Checklists;
   readonly autoplay:Autoplay;
   readonly pointing:Pointing;
@@ -116,6 +121,8 @@ export class KanvasService implements McpService {
   readonly devices:EntryDevices;
   readonly inventory:AccountInventory;
   adminUrl?:string;
+  readonly browserAuth:BrowserAuth;
+  readonly inviteEmail:InviteEmail;
   readonly invitations:Invitations;
   readonly navigation: Navigation;
   readonly reports: SessionReports;
@@ -142,6 +149,7 @@ export class KanvasService implements McpService {
     this.push=new SessionPush(this,pushOptions);
     this.diagnostics=new FrontendDiagnostics(this);
     this.flashcards=new Flashcards(this);
+    this.guidance=new AgentGuidance(this);
     this.checklists=new Checklists(this);
     this.pointing=new Pointing(this);this.toolLog=new ToolLog(this);this.autoplay=new Autoplay(this);
     this.accounts=new Accounts(this);
@@ -150,6 +158,8 @@ export class KanvasService implements McpService {
     this.publication = new PublishSetup(this, publishSetupEnabled);
     this.experience = new Experience(this);
     this.invitations=new Invitations(this);
+    this.browserAuth=new BrowserAuth(this);
+    this.inviteEmail=new InviteEmail(this);
     this.clientCapture = new ClientCapture(this);
     this.archive=new Archive(this); this.history = new DisplayHistory(store); this.video = new VideoControls(store); this.engagement = new Engagement(store); this.visualCapture = new VisualCapture(store, auth, publicUrl);
     this.devices=new EntryDevices(this);
@@ -411,12 +421,7 @@ export class KanvasService implements McpService {
     const details={id:user.id,displayName:user.displayName,username:user.username,email,emailVerified:Boolean(verified),tier:limits.tier,quotaExempt:limits.tier!=='trial',limits:{sessions:Number.isFinite(limits.sessions)?limits.sessions:null,retainedViewsPerSession:Number.isFinite(limits.views)?limits.views:null}};
     return {...details,note:'Tier is a quota entitlement, not administrator authority. Null limit means no trial quota; safety and access limits still apply.',publishRecipe:{tool:'kanvas_submit',privacy:'Contains personal account data. Show only on the intended private display; never publish publicly without consent.',view:{version:1,template:'table',title:'Your Kanvas account',showTitle:true,data:{columns:['Account detail','Value'],rows:[['Name',details.displayName],['Email',email??'Not set'],['Plan / quota tier',details.tier],['Session quota',details.limits.sessions??'No trial quota'],['Retained views per session',details.limits.retainedViewsPerSession??'No trial quota']].map(([key,value])=>({'Account detail':key,Value:value}))}}}};
   }
-  async startPage(principal:AuthPrincipal,offset=0){
-    (await this.fullAccount(principal));
-    const sessions=(await asyncFilter((await this.sessions(principal)), async s=>!(await this.devices.isEntrySession(s.id)))).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt)||a.id.localeCompare(b.id));
-    const token=principal.tokenId?(await this.store.get<{sessionIds?:string[]}>('token',principal.tokenId)):undefined;
-    return {tier:await accountTier(this.store,principal.userId),startUrl:`${this.publicUrl}/`,consoleUrl:this.adminUrl??`${this.publicUrl}/console`,adminUrl:this.adminUrl??`${this.publicUrl}/console`,...(!token?.sessionIds?{entry:(await this.devices.existing(principal))}:{}),sessions:(await asyncMap(sessions.slice(offset,offset+10), async s=>{const alias=(await this.experience.existingAlias(s.id));const displays=(await this.store.list<DisplayRecord>('display',s.id));return {id:s.id,name:s.name,updatedAt:s.updatedAt,role:s.role,workspaceUrl:`${this.adminUrl??`${this.publicUrl}/console`}?session=${s.id}`,displays:displays.map(d=>({id:d.id,name:d.name,viewerUrl:`${this.publicUrl}/view/${s.id}/${d.id}`})),...(alias?{shortUrl:`${this.publicUrl}/s/${alias.id}`}:{})};})),total:sessions.length,...(offset+10<sessions.length?{nextOffset:offset+10}:{}),canCreate:!principal.scopedSessionId&&!token?.sessionIds&&(!principal.scopes||principal.scopes.includes('publish')),newSession:{tool:'kanvas_session',operation:'create'},selection:'Choose a session by its name or ID, or explicitly create a new session. No display has been selected or changed.'};
-  }
+  async startPage(principal:AuthPrincipal,offset=0){return accountOverview(this,principal,offset);}
   async beginSession(principal:AuthPrincipal,a:{requestId:string;name:string;deviceId?:string;windowId?:string}) {
     return this.store.atomic(async()=>this.store.transaction(async()=>{
       await this.fullAccount(principal,'publish');
@@ -1098,6 +1103,7 @@ export class KanvasService implements McpService {
   async listResources(principal: AuthPrincipal): Promise<McpResourceDescriptor[]> {
     return [{uri:'kanvas://start',name:'Account start page · recent sessions',mimeType:'application/json'}, {uri:'kanvas://help',name:'Kanvas Help and public documentation',mimeType:'application/json'}, { uri: 'kanvas://sessions', name: 'Accessible KANVAS sessions', mimeType: 'application/json' }, ...(await this.sessions(principal)).flatMap(s => ['state', 'config', 'interactions', 'reports'].map(kind => ({ uri: `kanvas://sessions/${s.id}/${kind}`, name: `${s.name}: ${kind}`, mimeType: 'application/json' })))];
   }
+  async agentGuidance(principal:AuthPrincipal,args?:unknown){return this.guidance.exposure(principal,args);}
   async execute(name: string, raw: unknown, principal: AuthPrincipal): Promise<unknown> {
     const definition = MCP_TOOLS.find(tool => tool.name === name); if (!definition) throw new AppError('UNKNOWN_TOOL', 'This operation is unavailable.', 404);
     // Each operation shares the published runtime schema; all casts follow this validation.
@@ -1117,6 +1123,11 @@ export class KanvasService implements McpService {
       case 'kanvas_scoreboard_control':(await this.access(principal,a.sessionId,'editor'));return (await this.respond(principal,a.sessionId,a.displayId,{revision:a.expectedRevision,requestId:a.requestId,value:{kind:'scoreboard.adjust',sideId:a.sideId,action:a.action,...(a.score!==undefined?{score:a.score}:{})}}));
 
       case 'kanvas_diagnostics_read':return this.diagnostics.read(principal,a);
+      case 'kanvas_window_overview':return this.devices.windows.overview(principal,a);
+      case 'kanvas_guidance_read':return this.guidance.read(principal,a);
+      case 'kanvas_guidance_set':return this.guidance.mutate(principal,a,'set');
+      case 'kanvas_guidance_draft_edit':return this.guidance.mutate(principal,a,'draft_edit');
+      case 'kanvas_guidance_draft_save':return this.guidance.mutate(principal,a,'draft_save');
       case 'kanvas_flashcards_read':return this.flashcards.read(principal,a);
       case 'kanvas_flashcards_control':return this.flashcards.control(principal,a);
       case 'kanvas_flashcards_show':return this.flashcards.show(principal,a);
@@ -1162,6 +1173,9 @@ export class KanvasService implements McpService {
       case 'kanvas_styles_list': {(await this.fullAccount(principal));return {styles:STYLE_PRESETS};}
       case 'kanvas_preferences_get': return (await this.experience.preferences(principal));
       case 'kanvas_preferences_update': return (await this.experience.preferences(principal,a));
+      case 'kanvas_browser_auth_list': return this.browserAuth.list(principal,a);
+      case 'kanvas_browser_auth_revoke': return this.browserAuth.revoke(principal,a);
+      case 'kanvas_invite_send': return this.inviteEmail.send(principal,a);
       case 'kanvas_invite_create': return (await this.invitations.create(principal,a));
       case 'kanvas_invite_accept': return (await this.invitations.accept(principal,a));
       case 'kanvas_invite_revoke': return (await this.invitations.revoke(principal,a));

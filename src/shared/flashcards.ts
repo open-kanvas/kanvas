@@ -1,11 +1,17 @@
 import { z } from 'zod';
+import {isSafeUrl} from './urls.js';
+import {flowchartDataSchema} from './diagrams.js';
+export const flashcardVisualSchema=z.discriminatedUnion('kind',[
+ z.strictObject({kind:z.literal('image'),url:z.string().max(2048).refine(isSafeUrl),alt:z.string().min(1).max(500)}),
+ z.strictObject({kind:z.literal('diagram'),data:flowchartDataSchema.refine(d=>d.nodes.every(n=>!n.image||isSafeUrl(n.image)),'Diagram images must use safe public URLs')})
+]);
 const id=z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 const encodedBytes=(value:unknown)=>new TextEncoder().encode(JSON.stringify(value)).byteLength;
 const responseText=z.string().max(4000).refine(value=>encodedBytes(value)<=8000,'Response must fit 8000 encoded UTF-8 bytes.');
 export const flashcardDataSchema=z.strictObject({
  deckId:id.optional(),deckRevision:z.number().int().nonnegative().optional(),
  mode:z.enum(['learn','test']).default('learn'),
- cards:z.array(z.strictObject({id,prompt:z.string().min(1).max(4000),answer:z.string().min(1).max(4000),acceptedAnswers:z.array(z.string().min(1).max(4000)).max(20).optional()}).refine(card=>encodedBytes(card)<=8000,'Each card must fit 8000 encoded UTF-8 bytes.')).min(1).max(100).refine(x=>new Set(x.map(c=>c.id)).size===x.length,'Card IDs must be unique'),
+ cards:z.array(z.strictObject({id,prompt:z.string().min(1).max(4000),answer:z.string().min(1).max(4000),promptVisual:flashcardVisualSchema.optional(),answerVisual:flashcardVisualSchema.optional(),acceptedAnswers:z.array(z.string().min(1).max(4000)).max(20).optional()}).refine(card=>encodedBytes(card)<=8000,'Each card must fit 8000 encoded UTF-8 bytes.')).min(1).max(100).refine(x=>new Set(x.map(c=>c.id)).size===x.length,'Card IDs must be unique'),
  index:z.number().int().nonnegative().default(0),revealed:z.boolean().default(false),
  responses:z.array(z.strictObject({cardId:id,response:responseText,result:z.enum(['correct','incorrect','ungraded']),grading:z.enum(['exact','self','none'])})).max(100).default([])
 }).refine(d=>d.index<d.cards.length&&d.responses.every(r=>d.cards.some(c=>c.id===r.cardId))&&new Set(d.responses.map(r=>r.cardId)).size===d.responses.length,'Invalid current card or responses');
@@ -20,7 +26,7 @@ export const flashcardShowSchema=z.strictObject({sessionId:id,deckId:id,displayI
 /** Exact matching is explicitly not semantic grading. */
 export function advanceFlashcards(input:FlashcardData,a:z.infer<typeof flashcardControlSchema>):FlashcardData{
  const d=structuredClone(input),c=d.cards[d.index];
- if(c.id!==a.cardId)throw new Error('Current card changed; read again before answering.');
+ if(a.action!=='restart'&&c.id!==a.cardId)throw new Error('Current card changed; read again before answering.');
  if(a.action==='answer'){
   const normalize=(s:string)=>s.normalize('NFKC').trim().toLocaleLowerCase('en-US');
   const correct=a.grading==='self'?a.correct:[c.answer,...c.acceptedAnswers??[]].some(x=>normalize(x)===normalize(a.response!));

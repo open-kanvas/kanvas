@@ -1,3 +1,5 @@
+import {LEGAL_DOCUMENT_HASH} from './legal.js';
+import {LEGAL_VERSION} from '../shared/legal.js';
 import { authEmail } from './auth-email.js';
 import { randomBytes, randomInt } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -88,7 +90,7 @@ export function mountEmailSignin(app:Express,auth:Auth,origin:string,mailer?:Sig
   });
   app.post('/api/auth/email/consume',async (req,res)=>{
     limit(`consume:${req.ip}`,30);
-    const a=z.object({token:z.string().regex(/^[A-Za-z0-9_-]{43}$/),confirm:z.literal(true),target:z.enum(['current','origin']).default('current'),matchesCode:z.literal(true).optional(),displayName:z.string().trim().min(1).max(80).optional(),avatar:profileImageSchema.optional()}).strict().parse(req.body);
+    const a=z.object({token:z.string().regex(/^[A-Za-z0-9_-]{43}$/),confirm:z.literal(true),acceptedLegalVersion:z.literal(LEGAL_VERSION),target:z.enum(['current','origin']).default('current'),matchesCode:z.literal(true).optional(),displayName:z.string().trim().min(1).max(80).optional(),avatar:profileImageSchema.optional()}).strict().parse(req.body);
     const key=hash(a.token),challenge=(await auth.store.get<Challenge>('email-challenge',key));
     if(!challenge||challenge.expiresAt<=Date.now())throw new AppError('SIGNIN_EXPIRED','This sign-in link expired or was already used. Request another.',410);
     let userId:string;
@@ -108,6 +110,7 @@ export function mountEmailSignin(app:Express,auth:Auth,origin:string,mailer?:Sig
         const profile=(await auth.store.get<AccountProfile>('profile',userId))??{id:userId,revision:0};
         profile.avatarId=(await saveAccountImage(auth.store,userId,a.avatar,profile.avatarId));profile.revision++;profile.updatedAt=now();(await auth.store.put('profile',profile));
       }
+      if(!await auth.store.get('legal-acceptance',`${userId}:${LEGAL_VERSION}`))await auth.store.put('legal-acceptance',{id:`${userId}:${LEGAL_VERSION}`,userId,version:LEGAL_VERSION,documentHash:LEGAL_DOCUMENT_HASH,acceptedAt:now(),method:'email-confirmation'});
       (await auth.store.put('verified-email',{id:userId!,email:current.email,verifiedAt:now()}));
       await onSignedIn?.(userId);
       await auth.store.delete('email-challenge',current.id);

@@ -11,37 +11,37 @@ describe('cross-device sign-in approval',()=>{
     const detail=success(await phone.request<{originatingDevice:{code:string;device:string;createdAt:string}}> ('POST','/api/auth/email/inspect',{token}));
     expect(detail.originatingDevice.code===pending.code).toBe(true);expect(detail.originatingDevice.device).toBeTruthy();expect(Date.parse(detail.originatingDevice.createdAt)).toBeGreaterThan(0);
     denied(await origin.request('GET','/api/auth/me'),[401]);denied(await phone.request('GET','/api/auth/me'),[401]);denied(await origin.request('POST','/api/auth/email/complete',{}),[410]);
-    denied(await phone.request('POST','/api/auth/email/consume',{token,confirm:true,target:'origin'}),[400]);
-    success(await phone.request('POST','/api/auth/email/consume',{token,confirm:true,target:'origin',matchesCode:true}));
+    denied(await phone.request('POST','/api/auth/email/consume',{token,confirm:true,acceptedLegalVersion:'2026-10-14',target:'origin'}),[400]);
+    success(await phone.request('POST','/api/auth/email/consume',{token,confirm:true,acceptedLegalVersion:'2026-10-14',target:'origin',matchesCode:true}));
     denied(await phone.request('GET','/api/auth/me'),[401]);denied(await phone.request('POST','/api/auth/email/complete',{}),[410]);
     expect(success(await origin.request('GET','/api/auth/email/status'))).toEqual({status:'approved'});
     const signed=success(await origin.request<{user:{username:string}}>('POST','/api/auth/email/complete',{}));expect(signed.user.username).toBe('cross-device@example.com');
-    denied(await origin.request('POST','/api/auth/email/complete',{}),[410]);denied(await phone.request('POST','/api/auth/email/consume',{token,confirm:true}),[410]);
+    denied(await origin.request('POST','/api/auth/email/complete',{}),[410]);denied(await phone.request('POST','/api/auth/email/consume',{token,confirm:true,acceptedLegalVersion:'2026-10-14'}),[410]);
   });
   it('denial consumes the link and cannot issue either session',async()=>{
     const {origin,phone,token}=await setup();success(await phone.request('POST','/api/auth/email/deny',{token}));
     expect(success(await origin.request('GET','/api/auth/email/status'))).toEqual({status:'denied'});
-    denied(await phone.request('POST','/api/auth/email/consume',{token,confirm:true,target:'origin',matchesCode:true}),[410]);denied(await origin.request('POST','/api/auth/email/complete',{}),[410]);denied(await phone.request('POST','/api/auth/email/deny',{token}),[410]);
+    denied(await phone.request('POST','/api/auth/email/consume',{token,confirm:true,acceptedLegalVersion:'2026-10-14',target:'origin',matchesCode:true}),[410]);denied(await origin.request('POST','/api/auth/email/complete',{}),[410]);denied(await phone.request('POST','/api/auth/email/deny',{token}),[410]);
     expect(await h.runtime.store.list('browser')).toHaveLength(0);
   });
   it('expires before approval and after approval, and refuses stale completion',async()=>{
     const {origin,phone,token}=await setup();for(const c of await h.runtime.store.list<any>('email-challenge'))await h.runtime.store.put('email-challenge',{...c,expiresAt:Date.now()-1});
-    denied(await phone.request('POST','/api/auth/email/inspect',{token}),[410]);denied(await phone.request('POST','/api/auth/email/consume',{token,confirm:true}),[410]);
+    denied(await phone.request('POST','/api/auth/email/inspect',{token}),[410]);denied(await phone.request('POST','/api/auth/email/consume',{token,confirm:true,acceptedLegalVersion:'2026-10-14'}),[410]);
     for(const p of await h.runtime.store.list<any>('email-pending'))await h.runtime.store.put('email-pending',{...p,status:'approved',userId:'not-a-real-user',expiresAt:Date.now()-1});
     denied(await origin.request('POST','/api/auth/email/complete',{}),[410]);expect(success(await origin.request('GET','/api/auth/email/status'))).toEqual({status:'expired'});
   });
   it('retains explicit current-device sign-in and never approves other concurrent requests for the email',async()=>{
     const {origin,phone,token,links}=await setup(),second=h.browser();
     success(await second.request('POST','/api/auth/email/request',{email:'cross-device@example.com'}));const secondToken=new URL(links.at(-1)!).hash.split('=')[1];
-    success(await phone.request('POST','/api/auth/email/consume',{token,confirm:true,target:'current'}));
+    success(await phone.request('POST','/api/auth/email/consume',{token,confirm:true,acceptedLegalVersion:'2026-10-14',target:'current'}));
     success(await phone.request('GET','/api/auth/me'));denied(await origin.request('POST','/api/auth/email/complete',{}),[410]);
     expect(success(await second.request('GET','/api/auth/email/status'))).toEqual({status:'pending'});
     success(await phone.request('POST','/api/auth/email/deny',{token:secondToken}));
   });
   it('serializes duplicate approvals and rejects cross-origin approval or completion',async()=>{
     const {origin,phone,token}=await setup();
-    denied(await phone.request('POST','/api/auth/email/consume',{token,confirm:true,target:'origin',matchesCode:true},{origin:'https://attacker.invalid'}));
-    const results=await Promise.all([1,2].map(()=>phone.request('POST','/api/auth/email/consume',{token,confirm:true,target:'origin',matchesCode:true})));expect(results.map(r=>r.status).sort()).toEqual([200,410]);
+    denied(await phone.request('POST','/api/auth/email/consume',{token,confirm:true,acceptedLegalVersion:'2026-10-14',target:'origin',matchesCode:true},{origin:'https://attacker.invalid'}));
+    const results=await Promise.all([1,2].map(()=>phone.request('POST','/api/auth/email/consume',{token,confirm:true,acceptedLegalVersion:'2026-10-14',target:'origin',matchesCode:true})));expect(results.map(r=>r.status).sort()).toEqual([200,410]);
     denied(await origin.request('POST','/api/auth/email/complete',{}, {origin:'https://attacker.invalid'}));success(await origin.request('POST','/api/auth/email/complete',{}));
   });
 });

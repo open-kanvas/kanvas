@@ -63,6 +63,8 @@ npm run dev
 npm run dev:client
 ```
 
+Native invitation email is opt-in (`KANVAS_INVITE_EMAIL=true`) and reuses the protected sign-in mailer credential and sender. Link creation never sends email. See [browser sign-ins and invitation email](docs/browser-auth-invites.md) for exact MCP operations, required permissions, delivery limits and operator configuration.
+
 Set `KANVAS_DEV_CLIENT=true` for the development client origin. Use a separate database for development and tests. `npm run check:all`, `npm test -- --maxWorkers=2`, `npm run build`, and `npm run test:e2e -- --workers=1` form the full validation sequence. Test database settings and cleanup are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Documentation

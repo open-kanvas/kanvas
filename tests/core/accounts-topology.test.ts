@@ -113,10 +113,10 @@ describe('profile images, scoped history and protected service analytics',()=>{
   it('applies email-confirmation profile details transactionally without authorizing a connector',async()=>{
     const mails:string[]=[];h=await startHarness({signinMailer:async(_email,link)=>{mails.push(link);}});const b=h.browser();
     success(await b.request('POST','/api/auth/email/request',{email:'optional-profile@example.com'}));const token=new URL(mails[0]).hash.slice('#email-signin='.length);
-    expect((await b.request('POST','/api/auth/email/consume',{token,confirm:true,avatar:{mimeType:'image/png',base64:'YWJjZA=='}})).status).toBe(400);
-    const created=success(await b.request<any>('POST','/api/auth/email/consume',{token,confirm:true,displayName:'Email photo',avatar:photo}));
+    expect((await b.request('POST','/api/auth/email/consume',{token,confirm:true,acceptedLegalVersion:'2026-10-14',avatar:{mimeType:'image/png',base64:'YWJjZA=='}})).status).toBe(400);
+    const created=success(await b.request<any>('POST','/api/auth/email/consume',{token,confirm:true,acceptedLegalVersion:'2026-10-14',displayName:'Email photo',avatar:photo}));
     expect(created.user.displayName).toBe('Email photo');expect(created.user.avatarUrl).toMatch(/^\/api\/account-images\//);expect((await h.runtime.store.list('oauth-grant'))).toEqual([]);
-    expect((await b.request('POST','/api/auth/email/consume',{token,confirm:true})).status).toBe(410);
+    expect((await b.request('POST','/api/auth/email/consume',{token,confirm:true,acceptedLegalVersion:'2026-10-14'})).status).toBe(410);
   });
   it('exposes real filtered historical charts, not another account’s events or service totals',async()=>{
     h=await startHarness();const a=await h.account(),b=await h.account(),s=await a.session('Private historical session'),other=await b.session('Other private session'),p=(await principal(a));

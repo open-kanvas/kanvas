@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import {devicePresentSchema,deviceRenameSchema} from '../entry-devices.js';
-import {windowPresentSchema} from '../window-receivers.js';
+import {windowPresentSchema,windowOverviewSchema} from '../window-receivers.js';
 import {invitationAcceptSchema,invitationRevokeSchema} from '../invitations.js';
 import { chatMessageSchema } from '../../shared/work-views.js';
 import { selectionSchema } from '../../shared/selection.js';
@@ -9,6 +9,7 @@ const target={sessionId:id,displayId:id,expectedRevision:revision,requestId:id};
 export const chatAppendSchema=z.object({...target,messages:z.array(chatMessageSchema).min(1).max(100)}).strict();
 export const selectionInputSchema=z.object({...target,selection:selectionSchema.nullable()}).strict();
 export const workTools=[
+  {name:'kanvas_window_overview',description:'Return one owned online browser window to the root sessions overview, detaching its displayed session without changing session content or other windows. Read devices.read for deviceId, windowId and expectedVersion. Stable requestId retries are safe. Account-wide publish permission required. Check the command receipt for browser acknowledgement.',schema:windowOverviewSchema,idempotent:true},
   {name:'kanvas_invite_accept',description:'Explicitly accept a single-use organization/team invitation as the current verified/signed-in account. Requires confirm:true after the user chooses to join. Adds member role only; preserves any existing higher role. Rechecks inviter authority and never joins linked groups or grants OAuth access.',schema:invitationAcceptSchema,idempotent:true},
   {name:'kanvas_invite_revoke',description:'Revoke an invitation issued by this account or administered group. Does not remove an existing membership. Account-wide authority required; group members cannot revoke other invitations.',schema:invitationRevokeSchema,idempotent:true},
   {name:'kanvas_devices_read',description:'List this account’s registered devices and their individually addressable windows, per-window versions, current displays, actual connection states, last-seen time, home target and targeting acknowledgements. Account-wide grants only. Select the intended named device; IDs are addresses, not credentials.',schema:z.object({}).strict(),readOnly:true},

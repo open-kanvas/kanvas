@@ -7,10 +7,13 @@ import { AppError, id, now } from './store.js';
 
 const identifier=z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 export const windowPresentSchema=z.object({deviceId:identifier,windowId:identifier,sessionId:identifier,displayId:identifier,expectedVersion:z.number().int().nonnegative(),requestId:identifier}).strict();
+export const windowOverviewSchema=windowPresentSchema.omit({sessionId:true,displayId:true});
+type OverviewCommand=Omit<DeviceCommand,'sessionId'|'displayId'> & {destination:'overview';overviewUrl:string;sessionId?:never;displayId?:never};
+type WindowCommand=DeviceCommand|OverviewCommand;
 export const connectionRedirectSchema=z.object({connectionId:identifier.describe('Your connection: topology.read connections[].id.'),sessionId:identifier,displayId:identifier,requestId:identifier}).strict();
 interface RegisteredWindow {
   id:string;deviceId:string;ownerId:string;browserId:string;tabId:string;name:string;version:number;
-  createdAt:string;lastSeenAt:string;sessionId?:string;displayId?:string;renderedRevision?:number;command?:DeviceCommand;
+  createdAt:string;lastSeenAt:string;sessionId?:string;displayId?:string;renderedRevision?:number;command?:WindowCommand;
 }
 interface LiveWindow {principal:AuthPrincipal;count:number}
 
@@ -86,6 +89,19 @@ export class WindowReceivers {
 
     });
   }
+  async overview(p:AuthPrincipal,raw:unknown){
+    return this.service.store.atomic(async()=>{
+      const a=windowOverviewSchema.parse(raw),w=await this.window(p,a.deviceId,a.windowId,true);
+      const key=hash(`${p.userId}:window:${a.requestId}`),digest=hash(JSON.stringify({destination:'overview',...a})),prior=await this.service.store.get<{digest:string;commandId:string}>('device-request',key);
+      if(prior){if(prior.digest!==digest)throw new AppError('REQUEST_ID_CONFLICT','This request ID was used for a different window command.',409);return {window:await this.public(w),commandId:prior.commandId,superseded:w.command?.id!==prior.commandId};}
+      this.service.assertRevision(a.expectedVersion,w.version);
+      if(!await this.online(w))throw new AppError('WINDOW_OFFLINE','Open this browser window before targeting it.',409);
+      const command:OverviewCommand={id:id(),destination:'overview',overviewUrl:`${this.service.publicUrl}/`,issuedAt:now(),expiresAt:Date.now()+180000,status:'pending'};
+      w.command=command;w.version++;
+      await this.service.store.transaction(async()=>{await this.service.store.put('registered-window',w);await this.service.store.put('device-request',{id:key,digest,deviceId:w.deviceId,windowId:w.id,commandId:command.id});});
+      this.events.emit(w.id);return {window:await this.public(w),commandId:command.id,note:'Pending until this window paints the account overview. No session is created.'};
+    });
+  }
   /** connection.redirect: move one of the caller's own live windows, found by
    * its topology connection id, to any display the caller can open, in any session. */
   async redirect(p:AuthPrincipal,raw:unknown){
@@ -105,6 +121,13 @@ export class WindowReceivers {
   }
   async report(p:AuthPrincipal,deviceId:string,windowId:string,raw:unknown){
     return this.service.store.atomic(async () => {
+    const overview=z.object({destination:z.literal('overview'),commandId:identifier.optional()}).strict().safeParse(raw);
+    if(overview.success){
+      const w=await this.window(p,deviceId,windowId,false,true),a=overview.data;
+      if(a.commandId){const c=w.command;if(!c||c.id!==a.commandId||!('destination' in c)||c.destination!=='overview'||c.expiresAt<=Date.now())throw new AppError('STALE_COMMAND','This window command is no longer current.',409);c.status='applied';c.appliedAt=now();}
+      delete w.sessionId;delete w.displayId;delete w.renderedRevision;w.lastSeenAt=now();await this.service.store.put('registered-window',w);
+      return {recorded:true,windowId:w.id,command:w.command?{id:w.command.id,status:w.command.status}:undefined};
+    }
     const a=z.object({sessionId:identifier,displayId:identifier,renderedRevision:z.number().int().nonnegative(),commandId:identifier.optional()}).strict().parse(raw);
     const w=(await this.window(p,deviceId,windowId,false,true)),display=(await this.service.display(p,a.sessionId,a.displayId));
     if(display.revision!==a.renderedRevision)throw new AppError('STALE_OBSERVATION','The display changed before this paint report.',409);
@@ -120,7 +143,7 @@ export class WindowReceivers {
     const previous=this.live.get(w.id),state=previous&&previous.principal.browserId===p.browserId?previous:{principal:p,count:0};state.count++;this.live.set(w.id,state);
     const push=async ()=>{const current=(await this.window(p,deviceId,windowId,false,true));current.lastSeenAt=now();(await this.service.store.put('registered-window',current));
       let command=current.command;if(command?.status!=='pending'||command.expiresAt<=Date.now())command=undefined;
-      if(command)(await this.service.display(p,command.sessionId,command.displayId));
+      if(command&&!('destination' in command))(await this.service.display(p,command.sessionId,command.displayId));
       send({deviceId,windowId,connected:true,command});
     };
     const changed=async ()=>{try{(await push());}catch{send({unavailable:true});}};this.events.on(windowId,changed);

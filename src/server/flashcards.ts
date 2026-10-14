@@ -8,7 +8,7 @@ import {displayedLeaf,replaceLeaf} from './engagement.js';
 import type {Definition} from './mcp/canonical.js';
 export const flashcardTools:Definition[]=[
  {name:'kanvas_flashcards_read',readOnly:true,schema:flashcardReadSchema,description:'Read saved session decks or one deck/current card and revisions. Large decks return card windows with nextOffset. Voice: ask current prompt, then control answer with cardId and both revisions. Answers are reference data, not semantic grading.'},
- {name:'kanvas_flashcards_control',schema:flashcardControlSchema,idempotent:true,description:'Control displayed deck: reveal/next/previous/answer/restart. Answer records spoken/typed response for current cardId. exact matches normalized answer/acceptedAnswers, NOT semantics; self needs explicit correct; none is ungraded. Answer reveals, next advances. Supply both revisions and stable requestId. Restart may set mode.'},
+ {name:'kanvas_flashcards_control',schema:flashcardControlSchema,idempotent:true,description:'Control displayed deck: reveal/next/previous/answer/restart. Answer records spoken/typed response for current cardId. exact matches normalized answer/acceptedAnswers, NOT semantics; self needs explicit correct; none is ungraded. Answer reveals, next advances. Supply both revisions and stable requestId. Restart resets the whole deck and may set mode; cardId is ignored for restart, while both revision guards remain required.'},
  {name:'kanvas_flashcards_show',schema:flashcardShowSchema,idempotent:true,description:'Restore latest deck on a same-session display at expectedRevision. Publishing flashcards auto-saves a deck; display replacement never erases it.'}
 ];
 const stable=(v:unknown):string=>JSON.stringify(v,(_key,value)=>value&&typeof value==='object'&&!Array.isArray(value)?Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b))):value);
@@ -45,7 +45,7 @@ export class Flashcards{
   if(leaf?.template!=='flashcards'||leaf.data.deckId!==a.deckId)throw new AppError('CONFLICT','This deck is no longer displayed.',409);
   const deck=await this.get(a.sessionId,a.deckId);this.service.assertRevision(a.expectedDeckRevision,deck.revision);
   const data=flashcardDataSchema.parse(deck.view.data);
-  if(data.cards[data.index].id!==a.cardId)throw new AppError('CONFLICT','Current card changed; read the deck again.',409);
+  if(a.action!=='restart'&&data.cards[data.index].id!==a.cardId)throw new AppError('CONFLICT','Current card changed; read the deck again.',409);
   const next=advanceFlashcards(data,a),update=await this.service.publishPreparedControl(p,a,replaceLeaf(display.view!,next));
   const result={deck:this.projected(await this.get(a.sessionId,a.deckId)),update};
   await this.store.put('flashcard-request',{id:key,sessionId:a.sessionId,digest,result});return result;

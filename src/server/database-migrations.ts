@@ -33,6 +33,7 @@ export async function migrateDatabase(client: PoolClient, schema: string): Promi
       await client.query(initial);
       await client.query('INSERT INTO schema_migrations(version,checksum) VALUES($1,$2)', [1,checksum]);
     }
+    await preserveLegacyGuidance(client);
     await migrateVisualizerData(client);
     await client.query('COMMIT');
   } catch (error) { await client.query('ROLLBACK'); throw error; }
@@ -63,3 +64,21 @@ export async function migrateVisualizerData(client: PoolClient): Promise<void> {
   await client.query('INSERT INTO data_migrations(version,checksum) VALUES($1,$2)', [version, DATA_MIGRATION_CHECKSUM]);
 }
 const DATA_MIGRATION_CHECKSUM = createHash('sha256').update('kanvas-0.20.0-visualizer-data-v1').digest('hex');
+
+/** Preserve still-present legacy updatePolicy before the older normalizer retires
+ * it. Previously deleted settings cannot be reconstructed; never invent them. */
+async function preserveLegacyGuidance(client:PoolClient){
+ await client.query('CREATE TABLE IF NOT EXISTS data_migrations (version INTEGER PRIMARY KEY, checksum TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())');
+ const checksum='kanvas-0.25.0-agent-guidance-v1';
+ const previous=(await client.query<{checksum:string}>('SELECT checksum FROM data_migrations WHERE version=2')).rows[0];
+ if(previous){if(previous.checksum!==checksum)throw new Error('Agent guidance migration differs from this release.');return;}
+ const rows=(await client.query<{kind:string;id:string;value:string}>("SELECT kind,id,value FROM documents WHERE kind IN ('preferences','session','group','session-context') AND value::jsonb::text LIKE '%updatePolicy%' ORDER BY rowid")).rows;
+ const text:Record<string,string>={proactive:'Proactively publish relevant helpful visuals to authorized connected displays, respecting current user intent, host instructions and approval boundaries.',balanced:'Offer useful visuals when clearly relevant, and ask before unsolicited publication when intent is uncertain. Respect host instructions and approval boundaries.',passive:'Publish to Kanvas only when I explicitly request it. Respect host instructions and approval boundaries.'};
+ for(const row of rows){const value=JSON.parse(row.value),policy=value.configOverrides?.updatePolicy??value.appearanceOverrides?.updatePolicy??value.overrides?.updatePolicy??value.defaults?.updatePolicy??value.config?.updatePolicy;
+  if(!Object.hasOwn(text,String(policy)))continue;
+  const scope=row.kind==='preferences'?'user':row.kind==='group'?value.kind:'session';if(!['user','session','organization','team'].includes(scope))continue;
+  const key=`${scope}:${row.id}`,record={id:key,text:text[policy],revision:1,updatedAt:new Date().toISOString(),migratedFrom:'legacy-update-policy'};
+  await client.query("INSERT INTO documents(kind,id,value) VALUES('agent-guidance',$1,$2) ON CONFLICT(kind,id) DO NOTHING",[key,JSON.stringify(record)]);
+ }
+ await client.query('INSERT INTO data_migrations(version,checksum) VALUES(2,$1)',[checksum]);
+}

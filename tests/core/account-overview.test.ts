@@ -14,7 +14,7 @@ it('sorts by actual display/interaction activity, bounds passive previews and ex
  expect(start.sessions[0].displays[0].preview).toMatchObject({template:'fact'});expect(JSON.stringify(start)).not.toContain('Private secret');expect(JSON.stringify(start)).not.toContain('browserId');expect(await h.runtime.store.list('session')).toEqual(before);
  await a.submit(old.id,[d.id],{version:1,template:'table',data:{columns:['Name','Value'],rows:[['Alpha','42'],['Beta','43'],['Not projected','44']]}});
  const table=(await h.runtime.service.startPage({userId:a.user!.id})).sessions.find(s=>s.id===old.id)!.displays.find(x=>x.id===d.id)!;
- expect(table.preview?.cells).toEqual([['Name','Value',null],['Alpha','42',null],['Beta','43',null]]);expect(JSON.stringify(table)).not.toContain('Not projected');
+ expect(table.preview?.cells).toEqual([['Name','Value'],['Alpha','42'],['Beta','43']]);expect(JSON.stringify(table)).not.toContain('Not projected');
  await a.submit(old.id,[d.id],{version:1,template:'flowchart',data:{nodes:[{id:'one',label:'Begin',shape:'terminal'},{id:'two',label:'Decide',shape:'decision'}],edges:[{from:'one',to:'two'}]}});
  const diagram=(await h.runtime.service.startPage({userId:a.user!.id})).sessions.find(s=>s.id===old.id)!.displays.find(x=>x.id===d.id)!;
  expect(diagram.preview?.nodes).toEqual([{label:'Begin',shape:'terminal'},{label:'Decide',shape:'decision'}]);expect(diagram.preview).not.toHaveProperty('edges');

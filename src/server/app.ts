@@ -38,7 +38,7 @@ import type { MonitoringOptions } from './monitoring.js';
 
 export interface OAuthDiagnostic {
   event: 'kanvas-oauth';
-  endpoint: 'registration' | 'authorization' | 'token' | 'discovery' | 'revocation';
+  endpoint: 'registration' | 'authorization' | 'token' | 'discovery' | 'revocation' | 'device';
   method: 'GET' | 'POST' | 'OPTIONS' | 'other';
   status: number;
   durationMs: number;
@@ -131,7 +131,7 @@ export async function createApp(options: AppOptions = {}) {
 
   if (options.onOAuthDiagnostic) app.use((req: Request, res: Response, next: NextFunction) => {
     const endpoints: Record<string, OAuthDiagnostic['endpoint']> = {
-      '/oauth/register': 'registration', '/oauth/authorize': 'authorization', '/oauth/token': 'token', '/oauth/revoke': 'revocation',
+      '/oauth/device/authorize': 'device', '/oauth/register': 'registration', '/oauth/authorize': 'authorization', '/oauth/token': 'token', '/oauth/revoke': 'revocation',
       '/.well-known/oauth-authorization-server': 'discovery', '/.well-known/oauth-protected-resource': 'discovery',
       '/.well-known/oauth-protected-resource/mcp': 'discovery',
     };
@@ -165,7 +165,7 @@ export async function createApp(options: AppOptions = {}) {
     next();
   });
   app.use((req: Request, res: Response, next: NextFunction) => {
-    res.set({ 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'strict-origin-when-cross-origin', 'Permissions-Policy': 'camera=(), microphone=(), geolocation=(self), display-capture=(self)' });
+    res.set({ 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': req.path === '/connect' ? 'no-referrer' : 'strict-origin-when-cross-origin', 'Permissions-Policy': 'camera=(), microphone=(), geolocation=(self), display-capture=(self)' });
     res.set('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self' https: http:; connect-src 'self'; frame-src 'self' about: https:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'");
     try {
       if (!allowedHosts.includes(req.hostname)) throw new AppError('INVALID_HOST', 'This host is not configured for KANVAS.', 403);
@@ -378,7 +378,7 @@ export async function createApp(options: AppOptions = {}) {
     app.get('/admin',(req,res)=>res.redirect(302,`${adminOrigin?`${adminOrigin}/`:'/console'}${req.originalUrl.slice('/admin'.length)}`));
     app.get('/console',(req,res,next)=>{if(adminOrigin)return res.redirect(302,`${adminOrigin}/${req.originalUrl.slice('/console'.length)}`);next();});
     app.get('/',(req,res,next)=>{if(adminAddress&&req.hostname===adminAddress.hostname)return next();if(typeof req.query.session==='string'&&/^[A-Za-z0-9_-]+$/.test(req.query.session))return res.redirect(302,`${adminOrigin?`${adminOrigin}/`:'/console'}?session=${req.query.session}`);next();});
-    app.get(['/', '/console', '/start', '/session/:sessionId', '/view/:sessionId/:displayId', '/join/:shareId','/welcome/:invitationId'], (_req, res) => res.sendFile('index.html', { root: staticDirectory, dotfiles: 'deny' }));
+    app.get(['/', '/connect', '/console', '/start', '/session/:sessionId', '/view/:sessionId/:displayId', '/join/:shareId','/welcome/:invitationId'], (_req, res) => res.sendFile('index.html', { root: staticDirectory, dotfiles: 'deny' }));
   }
   app.use((_req, _res, next) => next(new AppError('NOT_FOUND', 'This endpoint is unavailable.', 404)));
   app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {

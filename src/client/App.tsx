@@ -2,7 +2,7 @@ import { SessionEntry } from './PublicSession';
 import { DeviceReceiver, LiveEntry } from './DeviceReceiver';
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from './hooks';
-import { AuthScreen, ConsentScreen, type ViewerRoute } from './Auth';
+import { AuthScreen, ConsentScreen, DeviceConnectScreen, type ViewerRoute } from './Auth';
 import { Wordmark } from './icons';
 import { viewerPath } from './api';
 import { ShareScreen, parseShareRoute } from './Share';
@@ -26,6 +26,7 @@ function Router({ emailToken }: { emailToken?: string }) {
   if (!auth.user && auth.error) return <main className="app-loading"><Wordmark /><h1>Couldn’t open your workspace.</h1><p role="alert">{auth.error}</p><button className="button button-primary" onClick={() => void auth.refresh().catch(() => {})}>Try connecting again</button></main>;
   // OAuth intent takes precedence over all display/home entry routes. A paired
   // screen represents its owner for viewing only, never account consent.
+  if (window.location.pathname === '/connect') return <DeviceConnectScreen/>;
   if (authorize !== null) {
     if (!/^[A-Za-z0-9_-]{1,128}$/.test(authorize)) return <main className="consent-layout"><Wordmark/><h1>This connection request is invalid.</h1><p>Return to your agent and choose Connect again.</p><a href="/">Return to KANVAS</a></main>;
     if (!auth.user || auth.viewOnly || auth.captureOnly) return <AuthScreen authorizationRequestId={authorize}/>;

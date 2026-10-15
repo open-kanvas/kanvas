@@ -49,10 +49,16 @@ interface OAuthClient {
   redirectUris: string[];
   scopes: string[];
   /** Missing on pre-refresh registrations: their code-only profile is kept. */
-  grantTypes?: ('authorization_code' | 'refresh_token')[];
+  grantTypes?: ('authorization_code' | 'refresh_token' | typeof DEVICE_GRANT)[];
   createdAt: string;
 }
+const DEVICE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code';
+interface DeviceGrant {
+  id: string; requestId: string; clientId: string; expiresAt: number; interval: number; lastPollAt?: number; consumedAt?: string;
+}
 interface ConsentRequest {
+  deviceCode?: string;
+  userCode?: string;
   id: string;
   clientId: string;
   redirectUri: string;
@@ -309,6 +315,7 @@ export function mountAccessFlows(app: Express, options: AccessFlowOptions): () =
       // expires, even if that older credential's idle window has elapsed.
       if (!token?.refreshExpiresAt || token.refreshExpiresAt + DAY <= time) (await store.delete('oauth-refresh', credential.id));
     }
+    for (const device of (await store.list<DeviceGrant>('oauth-device'))) if (device.expiresAt + DAY <= time) await store.delete('oauth-device', device.id);
     for (const request of (await store.list<ConsentRequest>('oauth-consent'))) if (Date.parse(request.expiresAt) + DAY <= time) (await store.delete('oauth-consent', request.id));
     for (const record of (await store.list<PairingRecord>('pairing'))) {
       const pair = (await expirePair(record));
@@ -320,10 +327,12 @@ export function mountAccessFlows(app: Express, options: AccessFlowOptions): () =
     // IP addresses are neither returned nor retained in cleartext. The app,
     // not caller-supplied forwarding headers, controls Express proxy trust.
     const key = hash(`${purpose}\0${request.ip ?? request.socket.remoteAddress ?? 'unknown'}`);
+    await store.transaction(async () => {
     const existing = (await store.get<RateRecord>('access-rate', key)), time = Date.now();
     const record = existing && existing.expiresAt > time ? existing : { id: key, count: 0, expiresAt: time + windowMs };
     if (record.count >= max || (!existing && (await store.list<RateRecord>('access-rate')).length >= 4096)) throw new AppError('RATE_LIMITED', 'Too many access requests. Try again later.', 429);
     record.count++; (await store.put('access-rate', record));
+    });
   };
   const consent = async (requestId: unknown): Promise<Awaited<ConsentRequest>> => {
     const request = required((await store.get<ConsentRequest>('oauth-consent', identifier(requestId))), 'This connection request is unavailable.');
@@ -397,8 +406,9 @@ export function mountAccessFlows(app: Express, options: AccessFlowOptions): () =
   app.get('/.well-known/oauth-authorization-server', protocol((_request, response) => {
     response.json({
       issuer, authorization_endpoint: `${issuer}/oauth/authorize`, token_endpoint: `${issuer}/oauth/token`, registration_endpoint: `${issuer}/oauth/register`,
+      device_authorization_endpoint: `${issuer}/oauth/device/authorize`,
       revocation_endpoint: `${issuer}/oauth/revoke`, revocation_endpoint_auth_methods_supported: ['none'],
-      response_types_supported: ['code'], response_modes_supported: ['query'], grant_types_supported: ['authorization_code', 'refresh_token'],
+      response_types_supported: ['code'], response_modes_supported: ['query'], grant_types_supported: ['authorization_code', 'refresh_token', DEVICE_GRANT],
       token_endpoint_auth_methods_supported: ['none'], scopes_supported: SCOPES,
       code_challenge_methods_supported: ['S256'], authorization_response_iss_parameter_supported: true,
     });
@@ -410,24 +420,64 @@ export function mountAccessFlows(app: Express, options: AccessFlowOptions): () =
     (await rate(request, 'oauth-register', 20, 60 * 60_000));
     const body = object(request.body);
     if (JSON.stringify(body).length > 16_384) throw new OAuthError('invalid_client_metadata', 'Client metadata exceeds the supported size.');
-    if (!Array.isArray(body.redirect_uris) || !body.redirect_uris.length || body.redirect_uris.length > 8) throw new OAuthError('invalid_client_metadata', 'Register between 1 and 8 exact redirect URIs.');
-    // Respect the requested profile. Omitted grant_types defaults to code-only
-    // (RFC 7591); registering refresh support does not itself grant authority.
-    if ((body.token_endpoint_auth_method ?? 'none') !== 'none' ||
-        (body.grant_types !== undefined && (!Array.isArray(body.grant_types) || !body.grant_types.includes('authorization_code') ||
-          body.grant_types.length > 2 || new Set(body.grant_types).size !== body.grant_types.length ||
-          body.grant_types.some(grant => grant !== 'authorization_code' && grant !== 'refresh_token'))) ||
-        (body.response_types !== undefined && (!Array.isArray(body.response_types) || body.response_types.length !== 1 || body.response_types[0] !== 'code'))) {
-      throw new OAuthError('invalid_client_metadata', 'Only public authorization-code clients with S256 PKCE are supported.');
+    const requestedGrants = body.grant_types === undefined ? ['authorization_code'] : body.grant_types;
+    if (!Array.isArray(requestedGrants) || !requestedGrants.length || requestedGrants.length > 3 ||
+        new Set(requestedGrants).size !== requestedGrants.length ||
+        requestedGrants.some(grant => !['authorization_code', 'refresh_token', DEVICE_GRANT].includes(grant)) ||
+        !requestedGrants.some(grant => grant === 'authorization_code' || grant === DEVICE_GRANT) ||
+        (body.token_endpoint_auth_method ?? 'none') !== 'none') throw new OAuthError('invalid_client_metadata', 'Register a public authorization-code or device client.');
+    const codeClient = requestedGrants.includes('authorization_code');
+    const redirectUris = body.redirect_uris === undefined ? [] : body.redirect_uris;
+    const responseTypes = body.response_types === undefined ? (codeClient ? ['code'] : []) : body.response_types;
+    if (!Array.isArray(redirectUris) || redirectUris.length > 8 || (codeClient && !redirectUris.length) ||
+        !Array.isArray(responseTypes) || (codeClient ? responseTypes.length !== 1 || responseTypes[0] !== 'code' : responseTypes.length !== 0)) {
+      throw new OAuthError('invalid_client_metadata', 'Code clients need exact redirect URIs and code responses; device-only clients use no response types.');
     }
     const clientName = body.client_name === undefined ? 'MCP client' : string(body.client_name, 'client name', 120).trim();
     if (!clientName) throw new OAuthError('invalid_client_metadata', 'Provide a client name.');
-    const grantTypes: OAuthClient['grantTypes'] = Array.isArray(body.grant_types) && body.grant_types.includes('refresh_token') ? ['authorization_code', 'refresh_token'] : ['authorization_code'];
-    const client: OAuthClient = { id: id(), clientName, redirectUris: [...new Set(body.redirect_uris.map(redirectAddress))], scopes: scopes(body.scope), grantTypes, createdAt: now() };
+    const grantTypes: OAuthClient['grantTypes'] = (['authorization_code', 'refresh_token', DEVICE_GRANT] as const).filter(grant => requestedGrants.includes(grant));
+    const client: OAuthClient = { id: id(), clientName, redirectUris: [...new Set(redirectUris.map(redirectAddress))], scopes: scopes(body.scope), grantTypes, createdAt: now() };
     if ((await store.list<OAuthClient>('oauth-client')).length >= ACCESS_LIMITS.maxClients) throw new OAuthError('temporarily_unavailable', 'The client registration limit has been reached.', 429);
     (await store.put('oauth-client', client));
-    response.status(201).json({ client_id: client.id, client_id_issued_at: Math.floor(Date.parse(client.createdAt) / 1000), client_name: client.clientName, redirect_uris: client.redirectUris, token_endpoint_auth_method: 'none', grant_types: client.grantTypes, response_types: ['code'], scope: client.scopes.join(' ') });
+    response.status(201).json({ client_id: client.id, client_id_issued_at: Math.floor(Date.parse(client.createdAt) / 1000), client_name: client.clientName, redirect_uris: client.redirectUris, token_endpoint_auth_method: 'none', grant_types: client.grantTypes, response_types: codeClient ? ['code'] : [], scope: client.scopes.join(' ') });
   }));
+
+  app.post('/oauth/device/authorize', protocol(async (request, response) => {
+    await rate(request, 'oauth-device', 30, 10 * 60_000);
+    const body = object(request.body);
+    if (request.get('authorization') || body.client_secret !== undefined) throw new OAuthError('invalid_client', 'Only registered public clients are supported.');
+    const client = typeof body.client_id === 'string' ? await store.get<OAuthClient>('oauth-client', body.client_id) : undefined;
+    if (!client) throw new OAuthError('invalid_client', 'Register a public client first.');
+    if (!client.grantTypes?.includes(DEVICE_GRANT)) throw new OAuthError('unauthorized_client', 'This client is not registered for device authorization.');
+    if (body.resource !== undefined && body.resource !== resource) throw new OAuthError('invalid_target', 'Only this MCP resource is supported.');
+    if (body.sessionIds !== undefined || body.accessMode !== undefined) throw new OAuthError('invalid_request', 'Device connections use explicit account consent.');
+    const requestedScopes = scopes(body.scope, client.scopes), deviceCode = opaque();
+    const pending = await store.transaction(async () => {
+      const requests = await store.list<ConsentRequest>('oauth-consent');
+      if (requests.filter(item => Date.parse(item.expiresAt) > Date.now()).length >= ACCESS_LIMITS.maxPendingConsents) throw new OAuthError('temporarily_unavailable', 'Too many pending requests.', 429);
+      // About 59.5 random bits, unambiguous alphabet, plus bounded per-IP lookup attempts.
+      // The user code is a recognition label, never a bearer credential.
+      const alphabet = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+      let userCode: string;
+      do { userCode = Array.from({ length: 12 }, () => alphabet[randomInt(alphabet.length)]).join('').match(/.{4}/g)!.join('-'); }
+      while (requests.some(item => item.userCode === userCode));
+      const pending: ConsentRequest = { id: id(), clientId: client.id, redirectUri: '', challenge: '', resource, scopes: requestedScopes,
+        deviceCode: hash(deviceCode), userCode, createdAt: now(), expiresAt: new Date(Date.now() + ACCESS_LIMITS.consentMs).toISOString(), status: 'pending' };
+      await store.put('oauth-consent', pending);
+      await store.put('oauth-device', { id: hash(deviceCode), requestId: pending.id, clientId: client.id, expiresAt: Date.parse(pending.expiresAt), interval: 5 } satisfies DeviceGrant);
+      return pending;
+    });
+    response.json({ device_code: deviceCode, user_code: pending.userCode, verification_uri: `${issuer}/connect`,
+      verification_uri_complete: `${issuer}/connect?user_code=${pending.userCode}`, expires_in: 600, interval: 5 });
+  }));
+  app.post('/api/oauth/device/lookup', async (request, response) => {
+    noStore(response); await rate(request, 'device-lookup', 20, 10 * 60_000);
+    const body = object(request.body), raw = string(body.user_code, 'user code', 30).toUpperCase().replace(/[ -]/g, '');
+    if (!/^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{12}$/.test(raw)) throw new AppError('INVALID_REQUEST', 'Enter the 12-character code shown by your agent.');
+    const pending = (await store.list<ConsentRequest>('oauth-consent')).find(item => item.userCode?.replaceAll('-', '') === raw);
+    if (!pending || pending.status !== 'pending' || Date.parse(pending.expiresAt) <= Date.now()) throw new AppError('REQUEST_CLOSED', 'This code is invalid, expired or already used. Request a new code from your agent.', 410);
+    response.json({ data: { requestId: pending.id } });
+  });
 
   app.get('/oauth/authorize', protocol(async (request, response) => {
     let redirectUri: string | undefined, state: string | undefined;
@@ -436,7 +486,7 @@ export function mountAccessFlows(app: Express, options: AccessFlowOptions): () =
       const query = object(request.query), clientId = identifier(query.client_id);
       const client = (await store.get<OAuthClient>('oauth-client', clientId));
       const candidateRedirect = string(query.redirect_uri, 'redirect URI');
-      if (!client || !client.redirectUris.includes(candidateRedirect)) throw new OAuthError('invalid_request', 'The client or its exact redirect URI is not registered.');
+      if (!client || !(client.grantTypes ?? ['authorization_code']).includes('authorization_code') || !client.redirectUris.includes(candidateRedirect)) throw new OAuthError('invalid_request', 'The client or its exact redirect URI is not registered.');
       redirectUri = candidateRedirect;
       if (query.state !== undefined) state = string(query.state, 'state', 1024);
       if (query.response_type !== 'code') throw new OAuthError('unsupported_response_type', 'Only the authorization code response is supported.');
@@ -461,7 +511,7 @@ export function mountAccessFlows(app: Express, options: AccessFlowOptions): () =
     noStore(response); (await fullBrowser(request));
     const pending = (await consent(request.params.id));
     const client = required((await store.get<OAuthClient>('oauth-client', pending.clientId)), 'This client connection is unavailable.');
-    response.json({ data: { id: pending.id, clientId: client.id, clientName: client.clientName, scopes: pending.scopes, expiresAt: pending.expiresAt, redirectUri: pending.redirectUri, resource: pending.resource, accessModes: ['account'], refreshable: refreshable(client) } });
+    response.json({ data: { id: pending.id, clientId: client.id, clientName: client.clientName, scopes: pending.scopes, expiresAt: pending.expiresAt, redirectUri: pending.redirectUri, resource: pending.resource, accessModes: ['account'], ...(pending.deviceCode ? { userCode: pending.userCode } : {}), refreshable: refreshable(client) } });
   });
   app.post('/api/oauth/approve', async (request, response) => {
     noStore(response);
@@ -475,10 +525,16 @@ export function mountAccessFlows(app: Express, options: AccessFlowOptions): () =
       pending.userId = principal.userId; pending.decidedAt = now();
       if (!body.approve) {
         pending.status = 'denied'; (await store.put('oauth-consent', pending));
+        if (pending.deviceCode) return `${issuer}/connect?result=denied`;
         return oauthRedirect(pending.redirectUri, pending.state, issuer, { error: 'access_denied', error_description: 'The account holder declined this connection.' });
       }
       const accessMode = body.accessMode;
       if (accessMode !== 'account' || body.sessionIds !== undefined) throw new AppError('INVALID_SCOPE', 'New connections require explicit account access approval. Existing selected-session grants remain restricted.');
+      if (pending.deviceCode) {
+        if (body.matchesCode !== true) throw new AppError('INVALID_REQUEST', 'Confirm the code matches your agent.');
+        pending.status = 'approved'; await store.put('oauth-consent', pending);
+        return `${issuer}/connect?result=approved`;
+      }
       const sessionIds = undefined, code = opaque();
       const grant: AuthorizationCode = { id: hash(code), clientId: pending.clientId, redirectUri: pending.redirectUri, resource: pending.resource, scopes: pending.scopes, sessionIds, accessMode, userId: principal.userId, challenge: pending.challenge, expiresAt: Date.now() + ACCESS_LIMITS.codeMs };
       pending.status = 'approved';
@@ -491,6 +547,43 @@ export function mountAccessFlows(app: Express, options: AccessFlowOptions): () =
     (await rate(request, 'oauth-token', 120, 10 * 60_000));
     const body = object(request.body);
     if (request.get('authorization') || body.client_secret !== undefined) throw new OAuthError('invalid_client', 'This endpoint accepts registered public PKCE clients, not client credentials.');
+    if (body.grant_type === DEVICE_GRANT) {
+      const clientId = typeof body.client_id === 'string' ? body.client_id : '';
+      const client = await store.get<OAuthClient>('oauth-client', clientId);
+      if (!client) throw new OAuthError('invalid_client', 'The client is not registered.');
+      if (!client.grantTypes?.includes(DEVICE_GRANT)) throw new OAuthError('unauthorized_client', 'The client is not registered for device authorization.');
+      if (typeof body.device_code !== 'string' || !COOKIE_VALUE.test(body.device_code)) throw new OAuthError('invalid_grant', 'Invalid device credential.');
+      if (body.resource !== undefined && body.resource !== resource) throw new OAuthError('invalid_target', 'Only this MCP resource is supported.');
+      if (body.scope !== undefined || body.sessionIds !== undefined || body.accessMode !== undefined) throw new OAuthError('invalid_request', 'The approved grant cannot be changed.');
+      const result = await store.transaction(async () => {
+        const device = await store.get<DeviceGrant>('oauth-device', hash(body.device_code as string));
+        if (!device || device.clientId !== clientId || device.consumedAt) throw new OAuthError('invalid_grant', 'Invalid or consumed device credential.');
+        if (device.expiresAt <= Date.now()) return { error: 'expired_token' };
+        const pending = await store.get<ConsentRequest>('oauth-consent', device.requestId);
+        if (!pending || pending.deviceCode !== device.id || pending.resource !== resource) throw new OAuthError('invalid_grant', 'Invalid device request.');
+        if (pending.status === 'denied') return { error: 'access_denied' };
+        if (pending.status === 'expired') return { error: 'expired_token' };
+        const time = Date.now(), tooFast = device.lastPollAt !== undefined && time < device.lastPollAt + device.interval * 1000;
+        device.lastPollAt = time;
+        if (tooFast) device.interval += 5;
+        await store.put('oauth-device', device);
+        if (tooFast) return { error: 'slow_down' };
+        if (pending.status !== 'approved') return { error: 'authorization_pending' };
+        if (!pending.userId || !(await auth.user(pending.userId))) throw new OAuthError('invalid_grant', 'The account is unavailable.');
+        const active = (await store.list<Token>('token')).filter(token => token.userId === pending.userId && !token.revoked &&
+          (token.expiresAt > time || Math.min(token.refreshExpiresAt ?? 0, token.refreshIdleExpiresAt ?? 0) > time));
+        if (active.length >= ACCESS_LIMITS.maxActiveTokensPerUser || active.filter(token => token.clientId === clientId).length >= ACCESS_LIMITS.maxActiveTokensPerClient) throw new OAuthError('temporarily_unavailable', 'Revoke an unused connection first.', 429);
+        const connection = await auth.issueToken(pending.userId, client.clientName, pending.scopes, undefined, clientId, ACCESS_LIMITS.oauthTokenSeconds);
+        connection.token.resource = resource;
+        if (refreshable(client)) connection.token.refreshExpiresAt = time + ACCESS_LIMITS.oauthRefreshSeconds * 1000;
+        const issued = await mintOAuthCredentials(connection.token, pending.scopes, connection.value);
+        device.consumedAt = now(); await store.put('oauth-device', device);
+        return { issued };
+      });
+      // Polling state must commit even when the protocol result is an error.
+      if (result.error) throw new OAuthError(result.error, 'Return to your agent and follow its connection instructions.');
+      response.json(result.issued); return;
+    }
     if (body.grant_type === 'refresh_token') {
       const clientId = identifier(body.client_id);
       if (typeof body.refresh_token !== 'string' || !COOKIE_VALUE.test(body.refresh_token)) throw new OAuthError('invalid_grant', 'The refresh credential is invalid. Reconnect from your client.');

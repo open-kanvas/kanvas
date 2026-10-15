@@ -84,9 +84,9 @@ export function mountEmailSignin(app:Express,auth:Auth,origin:string,mailer?:Sig
   app.post('/api/auth/email/inspect',async (req,res)=>{
     limit(`inspect:${req.ip}`,30);const a=z.object({token:z.string().regex(/^[A-Za-z0-9_-]{43}$/)}).strict().parse(req.body),challenge=(await auth.store.get<Challenge>('email-challenge',hash(a.token)));
     if(!challenge||challenge.expiresAt<=Date.now())throw new AppError('SIGNIN_EXPIRED','This sign-in link expired or was used. Request another.',410);
-    const requestId=/^\/\?authorize=([A-Za-z0-9_-]+)$/.exec(challenge.returnTo)?.[1],consent=requestId?(await auth.store.get<{status:string;clientId:string;scopes:string[];expiresAt:string}>('oauth-consent',requestId)):undefined,client=consent?(await auth.store.get<{clientName:string}>('oauth-client',consent.clientId)):undefined;
+    const requestId=/^\/\?authorize=([A-Za-z0-9_-]+)$/.exec(challenge.returnTo)?.[1],consent=requestId?(await auth.store.get<{status:string;clientId:string;scopes:string[];expiresAt:string;deviceCode?:string}>('oauth-consent',requestId)):undefined,client=consent?(await auth.store.get<{clientName:string}>('oauth-client',consent.clientId)):undefined;
     const pending=challenge.pendingId?await auth.store.get<PendingSignin>('email-pending',challenge.pendingId):undefined;
-    res.json({data:{email:challenge.email,...(pending&&pending.status==='pending'&&pending.expiresAt>Date.now()?{originatingDevice:{code:pending.code,device:pending.device,createdAt:pending.createdAt,expiresAt:pending.expiresAt}}:{}),...(client&&consent?.status==='pending'&&Date.parse(consent.expiresAt)>Date.now()?{connection:{requestId,clientName:client.clientName,scopes:consent.scopes}}:{})}});
+    res.json({data:{email:challenge.email,...(pending&&pending.status==='pending'&&pending.expiresAt>Date.now()?{originatingDevice:{code:pending.code,device:pending.device,createdAt:pending.createdAt,expiresAt:pending.expiresAt}}:{}),...(client&&consent?.status==='pending'&&Date.parse(consent.expiresAt)>Date.now()?{connection:{requestId,clientName:client.clientName,scopes:consent.scopes,...(consent.deviceCode?{device:true}:{})}}:{})}});
   });
   app.post('/api/auth/email/consume',async (req,res)=>{
     limit(`consume:${req.ip}`,30);

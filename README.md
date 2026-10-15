@@ -79,3 +79,7 @@ Set `KANVAS_DEV_CLIENT=true` for the development client origin. Use a separate d
 Every running instance serves current human guidance at `/docs/`, machine-readable help at `/docs/index.json`, and exact schemas at `/docs/templates/<template>.json`. These are generated from the same contracts used at runtime.
 
 The hosted service and self-hosted application use the same code. The package remains `private: true` to prevent accidental npm publication. Third-party assets retain their own notices; no repository-wide license grant is implied before a license is selected.
+
+### Account connection without a callback
+
+OAuth authorization code with S256 PKCE remains primary. RFC 8628 device authorization is available for compatible callback-free clients through discovery; the user verifies a code at `/connect`, signs in, and explicitly approves account access. No session selection is required. Existing historical restricted credentials keep their limits. See [OAuth lifecycle](docs/integration/oauth-lifecycle.md) and [device implementation and compatibility](docs/auth-device-implementation.md). Never paste OAuth credentials into agent conversations.

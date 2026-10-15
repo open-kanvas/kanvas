@@ -63,7 +63,7 @@ describe('OAuth registration negotiation', () => {
   it('advertises refresh and revocation but does not mint a grant from an unknown credential', async () => {
     const browser = h.browser();
     const discovery = await browser.raw('/.well-known/oauth-authorization-server');
-    expect(await discovery.json()).toMatchObject({ grant_types_supported: ['authorization_code', 'refresh_token'], revocation_endpoint: `${ORIGIN}/oauth/revoke`, revocation_endpoint_auth_methods_supported: ['none'] });
+    expect(await discovery.json()).toMatchObject({ grant_types_supported: ['authorization_code', 'refresh_token', 'urn:ietf:params:oauth:grant-type:device_code'], revocation_endpoint: `${ORIGIN}/oauth/revoke`, revocation_endpoint_auth_methods_supported: ['none'] });
     const registration = await browser.raw('/oauth/register', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ ...metadata, grant_types: ['authorization_code', 'refresh_token'] }),

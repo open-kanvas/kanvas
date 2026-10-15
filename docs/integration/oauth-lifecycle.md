@@ -10,14 +10,11 @@ The older code-only/refresh upgrade rules below concern the prior OAuth continui
 
 ## Connect once, choose the authority explicitly
 
-KANVAS supports public dynamic client registration, S256 PKCE authorization codes, rotating refresh tokens, and token revocation. The authorization-server metadata advertises only these implemented grants and endpoints. Client-secret authentication, client credentials, CIMD, and `offline_access` are not advertised or accepted as additional scopes.
+KANVAS supports public dynamic client registration, S256 PKCE authorization codes, RFC 8628 device authorization, rotating refresh tokens, and token revocation. The authorization-server metadata advertises only these implemented grants and endpoints. Client-secret authentication, client credentials, CIMD, and `offline_access` are not advertised or accepted as additional scopes.
 
 Register `grant_types: ["authorization_code", "refresh_token"]` to enable renewal. An omitted `grant_types`, an explicitly code-only registration, and a pre-upgrade registration without a stored refresh profile remain code-only. Registration is not permission to access an account.
 
-The signed-in human chooses one of two consent options:
-
-- **Selected sessions only** is the default. Select 1–100 sessions; new sessions are not added automatically, and the client cannot create another session. Session creation on the permission page is optional and does not approve the connection.
-- **Account access** explicitly permits the client's approved scopes on all current and future sessions accessible to that account. A client with `publish` may create sessions through MCP. A client with only `read` may not. An empty account can connect without first creating a session.
+All new OAuth connections use **Account access**: the signed-in human explicitly permits the client's approved scopes on current and future sessions accessible to that account. A client with `publish` may create sessions through MCP; a `read` client may not. An empty account connects without creating or selecting a session. Selected-session connections are historical only, not a current consent option.
 
 Account consent never grants another account's private sessions. Current membership, role, session lifetime, and per-display restrictions remain authoritative on every action. Removing membership removes that access even from an account-wide connection. An empty or missing selected-session list is not interpreted as account consent.
 
@@ -53,7 +50,7 @@ Connection metadata exposes `accessMode`, `refreshable`, the effective `refreshE
 
 - `tests/core/oauth-continuity.test.ts`: real HTTP consent, modern/legacy SDK renewal, stable identity/idempotency/inbox, client/resource/scope restrictions, downscoping, concurrent reuse, family revocation, idle/absolute expiry, hash-only restart persistence, and pre-upgrade compatibility.
 - Existing OAuth registration, PKCE, access-boundary, pairing, and publisher suites remain applicable.
-- `tests/e2e/oauth-continuity.spec.ts`: real desktop/phone account consent without session creation, read-only account restrictions, and expired consent. Existing selected-session onboarding coverage remains in `oauth-onboarding.spec.ts`.
+- `tests/e2e/oauth-continuity.spec.ts`: real desktop/phone account consent without session creation, read-only account restrictions, and expired consent. Existing account-only onboarding and historical-grant regression coverage remains in `oauth-onboarding.spec.ts`.
 
 ## Reconnecting from a paired screen
 
@@ -64,3 +61,15 @@ When reconnecting, sign in with **your own email account**, then choose **Allow 
 Email confirmation preserves the pending connection both when signing in on the email device and when approving the originating browser. Approving the originating browser signs it in but does not approve the agent: consent is still required there. Device commands do not navigate away during email confirmation or OAuth consent. Ordinary paired-display entry is unchanged.
 
 If a request is invalid, expired, declined, or already completed, return to the agent and choose **Connect** again. Kanvas never reopens a completed request or revives a revoked connection. A failed connection approval after email sign-in returns to the consent/recovery page instead of requiring reuse of a consumed email link.
+
+## Callback-free device authorization
+
+Clients without a usable callback can use the advertised RFC 8628 endpoint. Register the device grant (`urn:ietf:params:oauth:grant-type:device_code`), optionally `refresh_token`, with `response_types: []` and no fictitious redirect URI. POST form-encoded `client_id` and `scope=read publish` to `/oauth/device/authorize`. The optional resource defaults to the canonical MCP endpoint and any supplied resource must match it exactly.
+
+Show the returned `verification_uri` and `user_code` (or open `verification_uri_complete` while still showing the code). The human enters/verifies the code, signs in if needed, and explicitly allows or declines account access. Neither the verification link nor the email sign-in link grants agent access by itself. Client names are unverified labels.
+
+Poll `/oauth/token` with `grant_type=urn:ietf:params:oauth:grant-type:device_code`, `client_id` and `device_code`. Wait at least the returned interval (initially 5 seconds); `authorization_pending` means wait again, `slow_down` adds at least 5 seconds to every later interval. Stop on `access_denied`, `expired_token` or other terminal errors. Requests expire after 10 minutes. Successful access/refresh credentials go directly to the client and must remain in its protected credential store, never browser URLs, reports or model context. Redemption is single-use. Scope/resource cannot be substituted during polling.
+
+Use `https://kanvas.host` or your installation's public origin in client configuration. This protocol does not promise automatic flow detection, automatic agent resume, or compatibility with every host. Standard PKCE remains primary. Version-pinned tested client details and limitations are recorded in [device implementation](../auth-device-implementation.md).
+
+Signing out or revoking a browser session does not revoke OAuth connections; use Connections to revoke the agent family. Display pairing remains separate view-only access.

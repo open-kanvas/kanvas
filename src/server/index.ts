@@ -1,3 +1,5 @@
+import { createShutdown } from './shutdown.js';
+import type { Server } from 'node:http';
 import { createApp } from './app.js';
 import { mcpProfile } from './mcp/operations.js';
 import { resendInviteMailer } from './invite-email.js';
@@ -26,7 +28,17 @@ function configuredPush():import('./push.js').PushOptions|undefined{
  }catch{throw new Error('Push requires a valid protected kanvas-push service credential.');}
 }
 const pushOptions=configuredPush();
-const runtime = await createApp({
+let runtime: Awaited<ReturnType<typeof createApp>> | undefined;
+let server: Server | undefined;
+const shutdown = createShutdown({
+  stopAccepting: () => { server?.close(); },
+  cleanup: async () => { await runtime?.close(); server?.closeAllConnections(); },
+});
+process.once('SIGINT', () => shutdown());
+process.once('SIGTERM', () => shutdown());
+try {
+runtime = await createApp({
+  onOwnershipLost: () => shutdown(1),
   pushOptions,
   serviceAdmins:(process.env.KANVAS_SERVICE_ADMINS??'').split(',').map(x=>x.trim()).filter(Boolean),
   pairingFailedLimit:Number(process.env.KANVAS_PAIRING_FAILED_LIMIT??50),
@@ -45,13 +57,10 @@ const runtime = await createApp({
   ...(process.env.KANVAS_DEV_CLIENT === 'true' ? { allowedOrigins: ['http://127.0.0.1:5173'] } : {}),
 
 });
-const server = runtime.app.listen(port, host, () => { console.info(`KANVAS ${KANVAS_VERSION} listening on ${host}:${port} (${mcpProfile(process.env.KANVAS_MCP_PROFILE)} MCP profile).`); });
+server = runtime.app.listen(port, host, () => { console.info(`KANVAS ${KANVAS_VERSION} listening on ${host}:${port} (${mcpProfile(process.env.KANVAS_MCP_PROFILE)} MCP profile).`); });
 server.requestTimeout = 30_000; server.headersTimeout = 15_000;
-let stopping = false;
-const shutdown = async () => {
-  if (stopping) return; stopping = true;
-  const force = setTimeout(() => { server.closeAllConnections(); process.exitCode = 1; }, 10_000); force.unref();
-  server.close(); await runtime.close(); server.closeAllConnections(); clearTimeout(force);
-};
-process.once('SIGINT', async () => { void (await shutdown()); }); process.once('SIGTERM', async () => { void (await shutdown()); });
-server.on('error', async () => { console.error('KANVAS could not bind its configured listener.'); process.exitCode = 1; await shutdown(); });
+server.on('error', () => { console.error('KANVAS could not bind its configured listener.'); shutdown(1); });
+} catch {
+  console.error('KANVAS startup failed; exiting for supervised retry.');
+  shutdown(1);
+}

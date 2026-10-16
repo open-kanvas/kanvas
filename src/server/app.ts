@@ -53,6 +53,8 @@ export interface OAuthDiagnostic {
   };
 }
 export interface AppOptions {
+  /** Host lifecycle callback, installed before runtime ownership acquisition. */
+  onOwnershipLost?: () => void;
   pushOptions?:PushOptions;
   serviceAdmins?: string[];
   consoleUrl?:string;
@@ -107,7 +109,7 @@ export async function createApp(options: AppOptions = {}) {
   const adminOrigin=adminAddress?.origin;
   const origins = new Set([publicUrl,...(adminOrigin?[adminOrigin]:[]), ...(options.allowedOrigins ?? [])]);
   const allowedHosts = [...new Set([publicAddress.hostname,...(adminAddress?[adminAddress.hostname]:[]), '127.0.0.1', 'localhost', '[::1]'])];
-  const store = new Store(options.database);
+  const store = new Store(options.database, options.onOwnershipLost);
   try { await store.ready; await store.claimRuntime(); } catch (error) { await store.close(); throw error; }
   const auth = new Auth(store, publicAddress.protocol === 'https:', options.allowRegistration ?? true, `${publicUrl}/mcp`);
   const service = new KanvasService(store, auth, options.interpreter ?? createInterpreter(), publicUrl, options.monitoringOptions, options.publishSetupEnabled, options.pushOptions);

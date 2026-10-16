@@ -40,6 +40,7 @@ it('returns one tab to overview with CAS, owner scope, retries, supersession and
 
 it('paginates 51 account sessions in windows of 50 without gaps, duplication or private sessions',async()=>{
  h=await startHarness();const a=await h.account(),b=await h.account();
+ await h.runtime.store.put('account-tier',{id:a.user!.id,tier:'free'});
  for(let i=0;i<51;i++)await a.session(`Page session ${i}`);
  await b.session('Other account secret');
  const first=success(await a.request<any>('GET','/api/start'));

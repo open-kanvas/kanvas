@@ -1,3 +1,5 @@
+import {Store} from '../../src/server/store';
+import {testDatabase} from '../postgres';
 import {createDisplay,createSession,expect,publishPrepared,register,sessionApi,test} from './support';
 test('root has safe nested previews and the same live tab can return from a display to overview',async({page})=>{
  await register(page);const s=await createSession(page,'Overview acceptance'),d=await createDisplay(page,s,'Current display');
@@ -34,7 +36,11 @@ test('legacy console host root stays workspace while explicit overview keeps the
 
 test('compact root cards paginate 51 sessions, preserve extra display links and refresh automatically',async({page})=>{
  await register(page);
- for(let i=0;i<51;i++)await createSession(page,`Root feedback session ${String(i).padStart(2,'0')}`);
+ const runId=process.env.KANVAS_E2E_RUN_ID;if(!runId)throw new Error('Isolated browser run ID is required.');
+ const userId=await page.evaluate(async()=> (await(await fetch('/api/auth/me')).json()).data.user.id as string);
+ const fixtures=new Store(testDatabase(runId));try{await fixtures.ready;await fixtures.put('account-tier',{id:userId,tier:'free'});}finally{await fixtures.close();}
+ for(let i=0;i<50;i++)expect((await sessionApi(page,'/api/sessions','POST',{name:`Root feedback session ${String(i).padStart(2,'0')}`,initialDisplay:false})).status).toBe(200);
+ await createSession(page,'Root feedback preview session');
  const all=(await sessionApi<any>(page,'/api/start')).data;
  const s=all.sessions[0].id;
  const extra=await createDisplay(page,s,'Secondary display');

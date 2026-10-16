@@ -544,10 +544,15 @@ export function mountAccessFlows(app: Express, options: AccessFlowOptions): () =
     response.json({ data: { redirectUri: result } });
   });
   app.post('/oauth/token', protocol(async (request, response) => {
-    (await rate(request, 'oauth-token', 120, 10 * 60_000));
+    const deviceRequest = request.body?.grant_type === DEVICE_GRANT;
+    // Device polling is sustained traffic, unlike one-shot code/refresh exchanges.
+    // 7200/IP/10min supports 60 compliant concurrent pollers; issuance is separately
+    // capped at 30/IP/10min. Invalid attempts have their own tighter budget below.
+    await rate(request, deviceRequest ? 'oauth-device-token' : 'oauth-token', deviceRequest ? 7200 : 120, 10 * 60_000);
     const body = object(request.body);
-    if (request.get('authorization') || body.client_secret !== undefined) throw new OAuthError('invalid_client', 'This endpoint accepts registered public PKCE clients, not client credentials.');
-    if (body.grant_type === DEVICE_GRANT) {
+    if (deviceRequest) {
+      try {
+      if (request.get('authorization') || body.client_secret !== undefined) throw new OAuthError('invalid_client', 'Only registered public clients are supported.');
       const clientId = typeof body.client_id === 'string' ? body.client_id : '';
       const client = await store.get<OAuthClient>('oauth-client', clientId);
       if (!client) throw new OAuthError('invalid_client', 'The client is not registered.');
@@ -583,7 +588,16 @@ export function mountAccessFlows(app: Express, options: AccessFlowOptions): () =
       // Polling state must commit even when the protocol result is an error.
       if (result.error) throw new OAuthError(result.error, 'Return to your agent and follow its connection instructions.');
       response.json(result.issued); return;
+      } catch (error) {
+        // A forged grant type, client or device secret never bypasses abuse controls.
+        // Pending/slow_down/terminal lifecycle results are not invalid credentials.
+        if (!(error instanceof OAuthError) || !['authorization_pending', 'slow_down', 'access_denied', 'expired_token', 'temporarily_unavailable'].includes(error.error)) {
+          await rate(request, 'oauth-device-invalid', 120, 10 * 60_000);
+        }
+        throw error;
+      }
     }
+    if (request.get('authorization') || body.client_secret !== undefined) throw new OAuthError('invalid_client', 'This endpoint accepts registered public PKCE clients, not client credentials.');
     if (body.grant_type === 'refresh_token') {
       const clientId = identifier(body.client_id);
       if (typeof body.refresh_token !== 'string' || !COOKIE_VALUE.test(body.refresh_token)) throw new OAuthError('invalid_grant', 'The refresh credential is invalid. Reconnect from your client.');

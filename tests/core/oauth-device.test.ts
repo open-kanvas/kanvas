@@ -1,6 +1,7 @@
+import {createHash} from 'node:crypto';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { operationRequest } from '../mcp/requests.js';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { hash, type Token } from '../../src/server/auth.js';
 import { ORIGIN, startHarness, success, type Harness, type Browser } from './harness.js';
 const GRANT='urn:ietf:params:oauth:grant-type:device_code';
@@ -113,4 +114,51 @@ describe('RFC8628 durable account-only device authorization',()=>{
     const id=await client([GRANT]),device=await begin(id),owner=h.browser();await owner.register();success(await approve(owner,device));const token=(await poll(id,device)).body;expect(token.refresh_token).toBeUndefined();
     expect((await post(h.browser(),'/oauth/revoke',{client_id:id,token:token.access_token})).status).toBe(200);expect((await h.runtime.store.list<Token>('token'))[0].revoked).toBe(true);
   });
+  it('keeps concurrent compliant device polling independent of code/refresh and invalid-attempt budgets',async()=>{
+    const id=await client(),other=await client(),owner=await h.account();
+    let clock=Date.now();const time=vi.spyOn(Date,'now').mockImplementation(()=>clock);
+    try {
+      const renewable=await begin(id);success(await approve(owner,renewable));const initial=(await poll(id,renewable)).body;
+      const devices=[await begin(id),await begin(id)];
+      // All polls follow the advertised interval. Advance only wall-clock reads,
+      // not HTTP/database timers: five minutes of real endpoint state transitions.
+      for(let i=0;i<60;i++){
+        for(const device of devices) expect((await poll(id,device)).body.error).toBe('authorization_pending');
+        clock+=5000;
+      }
+      // Wrong-client attempts cannot use the ordinary refresh/code budget or
+      // prevent a valid device from redeeming even after their own cap is hit.
+      for(let i=0;i<120;i++) expect((await poll(other,devices[0])).body.error).toBe('invalid_grant');
+      expect((await poll(other,devices[0])).status).toBe(429);
+      expect((await poll(id,{...devices[0],device_code:'malformed'})).status).toBe(429);
+      for(const device of devices){success(await approve(owner,device));expect((await poll(id,device)).status).toBe(200);}
+      const refreshed=await post(h.browser(),'/oauth/token',{grant_type:'refresh_token',client_id:id,refresh_token:initial.refresh_token});expect(refreshed.status).toBe(200);
+      const codeClient=await client(['authorization_code']),verifier='A'.repeat(43),redirectUri='https://client.example/callback';
+      const query=new URLSearchParams({response_type:'code',client_id:codeClient,redirect_uri:redirectUri,resource:RESOURCE,code_challenge:createHash('sha256').update(verifier).digest('base64url'),code_challenge_method:'S256'});
+      const authorization=await h.browser().raw(`/oauth/authorize?${query}`);expect(authorization.status).toBe(303);
+      const requestId=new URL(authorization.headers.get('location')!,ORIGIN).searchParams.get('authorize');await authorization.arrayBuffer();
+      const approved=success(await owner.request<{redirectUri:string}>('POST','/api/oauth/approve',{requestId,approve:true,accessMode:'account'}));
+      const code=new URL(approved.redirectUri).searchParams.get('code')!;
+      const exchange=await post(h.browser(),'/oauth/token',{grant_type:'authorization_code',client_id:codeClient,code,redirect_uri:redirectUri,code_verifier:verifier,resource:RESOURCE});
+      expect(exchange.status).toBe(200);expect(exchange.body.access_token).toEqual(expect.any(String));
+    } finally {time.mockRestore();}
+  });
+  it('retains a durable aggregate device ceiling and does not route forged grant types around code limits',async()=>{
+    const id=await client(),device=await begin(id),owner=await h.account();
+    expect((await poll(id,device)).body.error).toBe('authorization_pending');
+    const records=await h.runtime.store.list<{id:string;count:number;expiresAt:number}>('access-rate');
+    // Identify the separate aggregate key using the same trusted source IP as
+    // the harness, without making thousands of redundant requests.
+    const aggregate=records.find(record=>record.id===hash('oauth-device-token\0'+'127.0.0.1')||record.id===hash('oauth-device-token\0'+'::ffff:127.0.0.1'));
+    expect(aggregate).toBeDefined();aggregate!.count=7200;await h.runtime.store.put('access-rate',aggregate!);
+    expect((await poll(id,device)).status).toBe(429);
+    // The aggregate ceiling is independent of consent and ordinary token routes.
+    success(await approve(owner,device));
+    const invalid=await post(h.browser(),'/oauth/token',{grant_type:'not-a-device-grant'});expect(invalid.status).toBe(400);expect(invalid.body.error).toBe('unsupported_grant_type');
+    const rates=await h.runtime.store.list<{id:string;count:number;expiresAt:number}>('access-rate');
+    const ordinary=rates.find(record=>record.id===hash('oauth-token\0'+'127.0.0.1')||record.id===hash('oauth-token\0'+'::ffff:127.0.0.1'));
+    expect(ordinary).toBeDefined();ordinary!.count=120;await h.runtime.store.put('access-rate',ordinary!);
+    expect((await post(h.browser(),'/oauth/token',{grant_type:'not-a-device-grant'})).status).toBe(429);
+  });
+
 });

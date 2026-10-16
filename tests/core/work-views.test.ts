@@ -45,12 +45,12 @@ describe('September 17 source-driven work views',()=>{
     await expect(call('kanvas_chat_append',{...args,requestId:randomUUID(),expectedRevision:2})).rejects.toBeDefined();
     const display=(await b.detail(s)).displays[0];expect(display.revision).toBe(2);expect(display.view!.data.messages).toEqual([first,args.messages[0]]);
   });
-  it('offers recent ten and older sessions read-only, and renames only with owner/config-revision authority',async()=>{
+  it('offers recent fifty and older sessions read-only, and renames only with owner/config-revision authority',async()=>{
     process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT='100';
-    for(let i=0;i<11;i++)await b.session(`Source session ${i}`);
+    for(let i=0;i<51;i++)await b.session(`Source session ${i}`);
     const records=()=>h.runtime.store.query('SELECT kind,id,session_id,value FROM documents ORDER BY rowid');const before=(await records()).rows;
-    const page=await call('kanvas_start_read',{}) as any,older=await call('kanvas_start_read',{offset:10}) as any;
-    expect(page.sessions).toHaveLength(10);expect(page.total).toBe(12);expect(page.nextOffset).toBe(10);expect(older.sessions).toHaveLength(2);expect(page.canCreate).toBe(true);
+    const page=await call('kanvas_start_read',{}) as any,older=await call('kanvas_start_read',{offset:50}) as any;
+    expect(page.sessions).toHaveLength(50);expect(page.total).toBe(52);expect(page.nextOffset).toBe(50);expect(older.sessions).toHaveLength(2);expect(page.canCreate).toBe(true);
     expect((await records()).rows).toEqual(before);
     const original=(await b.detail(s)).session,editor=await h.account();success(await b.request('POST',`/api/sessions/${s}/members`,{username:editor.user!.username,role:'editor'}));
     await expect(call('kanvas_session_rename',{sessionId:s,expectedRevision:original.configRevision,name:'Not authorized'},editor)).rejects.toMatchObject({code:'NOT_FOUND'});

@@ -1,3 +1,4 @@
+import {ACCOUNT_OVERVIEW_PAGE_SIZE} from '../../shared/account-overview';
 import { FormattedTime } from './Regional';
 import { useEffect,useState } from 'react';
 import { api,errorMessage,viewerPath } from '../api';
@@ -20,7 +21,7 @@ export function AccountOverview(props:RendererProps){
       <button className="session-choice" onClick={()=>{if(s.displays.length===1)location.assign(viewerPath(s.id,s.displays[0].id));else setSelected(selected===s.id?undefined:s.id);}} aria-expanded={s.displays.length!==1?selected===s.id:undefined}><strong>{s.name}</strong><time dateTime={s.updatedAt}>{<FormattedTime value={s.updatedAt}/>}</time><span>{s.displays.length} {s.displays.length===1?'display':'displays'} →</span></button>
       {selected===s.id&&<nav aria-label={`Displays in ${s.name}`}>{s.displays.length?s.displays.map(d=><a key={d.id} href={viewerPath(s.id,d.id)}>{d.name} →</a>):<a href={`${data.adminUrl}?session=${s.id}`}>Set up a display</a>}</nav>}
     </article>)}</div>
-    {data&&data.total>10&&<nav aria-label="Session pages"><button disabled={!page} onClick={()=>setPage(Math.max(0,page-10))}>Newer sessions</button><button disabled={data.nextOffset===undefined} onClick={()=>setPage(data.nextOffset!)}>Older sessions</button></nav>}
+    {data&&data.total>ACCOUNT_OVERVIEW_PAGE_SIZE&&<nav aria-label="Session pages"><button disabled={!page} onClick={()=>setPage(Math.max(0,page-ACCOUNT_OVERVIEW_PAGE_SIZE))}>Newer sessions</button><button disabled={data.nextOffset===undefined} onClick={()=>setPage(data.nextOffset!)}>Older sessions</button></nav>}
     {data?.canCreate&&<form onSubmit={e=>{e.preventDefault();void create();}}><label>New session name<input value={name} onChange={e=>setName(e.target.value)} maxLength={160} required/></label><button disabled={!name.trim()||busy}>{busy?'Creating…':'Create new session'}</button></form>}
     {data&&<footer><button onClick={()=>void auth.logout().catch(e=>setError(errorMessage(e)))}>Sign out of this browser</button><a href="/docs/" target="_blank" rel="noopener noreferrer">Kanvas Help</a><a href={data.adminUrl} target="_blank" rel="noopener noreferrer">Console</a></footer>}
   </section>;

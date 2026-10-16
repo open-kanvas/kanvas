@@ -37,3 +37,17 @@ it('returns one tab to overview with CAS, owner scope, retries, supersession and
  const newer=await svc.devices.windows.overview(p,{...input,expectedVersion:1,requestId:randomUUID()});expect(newer.commandId).not.toBe(sent.commandId);expect((await svc.devices.windows.overview(p,input)).superseded).toBe(true);await expect(svc.devices.windows.report(p,d.id,w.id,{destination:'overview',commandId:sent.commandId})).rejects.toThrow(/no longer current/);
  }finally{stream.close();}
 });
+
+it('paginates 51 account sessions in windows of 50 without gaps, duplication or private sessions',async()=>{
+ h=await startHarness();const a=await h.account(),b=await h.account();
+ await h.runtime.store.put('account-tier',{id:a.user!.id,tier:'free'});
+ for(let i=0;i<51;i++)await a.session(`Page session ${i}`);
+ await b.session('Other account secret');
+ const first=success(await a.request<any>('GET','/api/start'));
+ expect(first.total).toBe(51);expect(first.sessions).toHaveLength(50);expect(first.nextOffset).toBe(50);
+ const last=success(await a.request<any>('GET','/api/start?offset=50'));
+ expect(last.total).toBe(51);expect(last.sessions).toHaveLength(1);expect(last.nextOffset).toBeUndefined();
+ expect(new Set([...first.sessions,...last.sessions].map(s=>s.id)).size).toBe(51);
+ expect(JSON.stringify([first,last])).not.toContain('Other account secret');
+ expect(success(await a.request<any>('GET','/api/start?offset=100')).sessions).toEqual([]);
+});

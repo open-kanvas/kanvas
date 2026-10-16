@@ -65,7 +65,7 @@ test('compact root cards paginate 51 sessions, preserve extra display links and 
  await page.goto('/');await page.getByRole('button',{name:'Next',exact:true}).click();
  await expect(page.locator('.overview-session')).toHaveCount(1);await expect(page.getByRole('navigation',{name:'Session pages'})).toContainText('51–51 of 51');await expect(page.getByRole('button',{name:'Next',exact:true})).toBeDisabled();
  await page.getByRole('button',{name:'Previous',exact:true}).click();await expect(page.locator('.overview-session')).toHaveCount(50);
- await page.clock.install();
+ await page.clock.install();await page.reload();await expect(page.locator('.overview-session')).toHaveCount(50);
  await publishPrepared(page,s,[d.id],{version:1,template:'fact',title:'Refreshed without footer',data:{text:'New current content'}});
  const refresh=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/start');
  await page.clock.fastForward(30001);await refresh;

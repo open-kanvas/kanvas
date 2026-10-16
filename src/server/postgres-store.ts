@@ -49,7 +49,7 @@ export class Store {
     }),
     exec: async (sql: string): Promise<void> => { await this.query(sql); },
   };
-  constructor(options: DatabaseOptions = databaseOptions()) {
+  constructor(options: DatabaseOptions = databaseOptions(), private readonly onOwnershipLost?: () => void) {
     this.schema = options.schema ?? 'public';
     if (!/^[a-z][a-z0-9_]{0,62}$/.test(this.schema)) throw new Error('Invalid PostgreSQL schema name.');
     const { schema: _schema, ...connection } = options;
@@ -67,9 +67,18 @@ export class Store {
     try { await migrateDatabase(client, this.schema); } finally { client.release(); }
   }
   private context(): Transaction | undefined { const current = this.transactions.getStore(); return current?.active ? current : undefined; }
+  private assertOwnership(): void {
+    if (this.leaseLost) throw new AppError('DATABASE_UNAVAILABLE', 'Database ownership was lost; the application is restarting.', 503);
+  }
+  private ownershipLost = (): void => {
+    if (this.closing || this.leaseLost) return;
+    this.leaseLost = true;
+    console.error('KANVAS database ownership connection lost; supervised restart required.');
+    this.onOwnershipLost?.();
+  };
   async query<T extends QueryResultRow = Row>(sql: string, values: unknown[] = []): Promise<QueryResult<T>> {
     await this.ready;
-    if (this.leaseLost) throw new AppError('DATABASE_UNAVAILABLE', 'The database connection was lost. Restart the application before accepting more work.', 503);
+    this.assertOwnership();
     const context = this.context();
     const mutating = /^\s*(?:INSERT|UPDATE|DELETE)\b/i.test(sql);
     if (!context && mutating) return this.transaction(() => this.query<T>(sql, values));
@@ -110,6 +119,7 @@ export class Store {
   }
   async transaction<T>(fn: () => T | Promise<T>, readOnly = false): Promise<T> {
     await this.ready;
+    this.assertOwnership();
     const parent = this.context();
     if (parent) {
       const child: Transaction = { ...parent, depth: parent.depth + 1 }, mark = parent.callbacks.length, savepoint = `kanvas_${child.depth}`;
@@ -126,6 +136,7 @@ export class Store {
       // replaces process-local realtime and job coordination.
       if (!readOnly) await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`kanvas:write:${this.schema}`]);
       result = await this.transactions.run(context, fn);
+      this.assertOwnership();
       const committed = await client.query('COMMIT');
       // PostgreSQL reports ROLLBACK, without throwing, when application code
       // catches a SQL error inside an already-aborted transaction.
@@ -137,17 +148,26 @@ export class Store {
   }
   /** PostgreSQL alone does not make the in-memory MCP/events/jobs multi-node. */
   async claimRuntime(): Promise<void> {
-    await this.ready; const client = await this.pool.connect();
+    await this.ready; this.assertOwnership();
+    if (this.lease) throw new Error('Runtime ownership is already claimed.');
+    const client = await this.pool.connect();
+    // Install before acquisition: error/end can race the lock query and startup.
+    client.on('error', this.ownershipLost);
+    client.on('end', this.ownershipLost);
     try {
       const result = await client.query<{locked:boolean}>('SELECT pg_try_advisory_lock(hashtextextended($1,0)) AS locked',[`kanvas:runtime:${this.schema}`]);
       if (!result.rows[0].locked) throw new Error('Another KANVAS application instance owns this database.');
+      this.assertOwnership();
       this.lease = client;
-      client.on('error', () => { this.leaseLost = true; console.error('KANVAS database ownership connection lost; restart required.'); });
-    } catch (error) { client.release(); throw error; }
+    } catch (error) {
+      client.removeListener('error', this.ownershipLost);
+      client.removeListener('end', this.ownershipLost);
+      client.release(true); throw error;
+    }
   }
   async close(): Promise<void> {
     if (this.closing) return; this.closing = true; await this.ready.catch(() => {});
-    if (this.lease) { await this.lease.query('SELECT pg_advisory_unlock(hashtextextended($1,0))',[`kanvas:runtime:${this.schema}`]).catch(() => {}); this.lease.release(this.leaseLost); this.lease = undefined; }
+    if (this.lease) { if (!this.leaseLost) await this.lease.query('SELECT pg_advisory_unlock(hashtextextended($1,0))',[`kanvas:runtime:${this.schema}`]).catch(() => {}); this.lease.release(this.leaseLost); this.lease = undefined; }
     await this.pool.end();
   }
 }

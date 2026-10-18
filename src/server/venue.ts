@@ -57,7 +57,7 @@ export async function venueUpdate(s:KanvasService,p:AuthPrincipal,name:string,ra
    const key=hash(a.sessionId+':'+a.displayId);
    if(a.action==='clear'){const saved=required(await s.store.get<{id:string;view:ViewSpec|null}>('signage-return',key),'No previous view was saved.');if(saved.view)view=saved.view;else clearToBlank=true;await s.store.delete('signage-return',key);}
    else {
-    if(!(SIGN_TYPES as readonly string[]).includes(view.template))await s.store.put('signage-return',{id:key,sessionId:a.sessionId,view:display.view});
+    if(!(SIGN_TYPES as readonly string[]).includes(view.template)||!(await s.store.get('signage-return',key)))await s.store.put('signage-return',{id:key,sessionId:a.sessionId,view:display.view});
     if(a.action==='set')view={version:1,template:need(a.template,'Supply template.'),data:need(a.data,'Supply data.')};
     else {const hours=a.action==='set-hours'?need(a.data,'Supply data with hours.'):{...(view.template==='opening-hours'?view.data:{}),hours:[...((view.template==='opening-hours'?view.data.hours:[]) as any[]).filter(x=>x.day!==a.day?.day),need(a.day,'Supply day.')]};view={version:1,template:'opening-hours',data:signSchema.parse(hours)};}
    }

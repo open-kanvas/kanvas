@@ -1122,7 +1122,7 @@ export class KanvasService implements McpService {
   async agentGuidance(principal:AuthPrincipal,args?:unknown){return this.guidance.exposure(principal,args);}
   async argumentError(name:string,raw:Record<string,unknown>,principal:AuthPrincipal,error:unknown):Promise<unknown>{
     const definition=MCP_TOOLS.find(t=>t.name===name),parsed=definition?.schema.safeParse(raw);
-    if(parsed&&!parsed.success){const issue=parsed.error.issues.find(i=>i.path.length===1&&/^expected(?:Revision|Version|DeckRevision|DraftRevision)$/.test(String(i.path[0])));if(issue){const field=String(issue.path[0]),current=await revisionContext(this,principal,name,raw,field);if(current!==undefined)return Object.assign(new AppError('INVALID_ARGUMENT',field+' must be a non-negative integer. Current revision is '+current+'; omit this guard to apply to current state.'),{currentRevision:current});}}
+    if(parsed&&!parsed.success){const issue=parsed.error.issues.find(i=>(i.path.length===1&&/^expected(?:Revision|Version|DeckRevision|DraftRevision)$/.test(String(i.path[0])))||(i.path.length===2&&i.path[0]==='expectedRevisions'));if(issue){const field=String(issue.path[0]),current=await revisionContext(this,principal,name,field==='expectedRevisions'?{...raw,displayId:issue.path[1]}:raw,field);if(current!==undefined)return Object.assign(new AppError('INVALID_ARGUMENT',(field==='expectedRevisions'?'Each expectedRevisions entry':field)+' must be a non-negative integer. Current revision is '+current+'; omit this guard to apply to current state.'),{currentRevision:current});}}
     return error;
   }
   async execute(name: string, raw: unknown, principal: AuthPrincipal): Promise<unknown> {
@@ -1130,10 +1130,10 @@ export class KanvasService implements McpService {
     // Each operation shares the published runtime schema; all casts follow this validation.
     const parsed = definition.schema.safeParse(raw);
     if (!parsed.success) {
-      const invalidGuard=parsed.error.issues.find(i=>i.path.length===1&&/^expected(?:Revision|Version|DeckRevision|DraftRevision)$/.test(String(i.path[0])));
+      const invalidGuard=parsed.error.issues.find(i=>(i.path.length===1&&/^expected(?:Revision|Version|DeckRevision|DraftRevision)$/.test(String(i.path[0])))||(i.path.length===2&&i.path[0]==='expectedRevisions'));
       if(invalidGuard&&raw&&typeof raw==='object'){
-        const field=String(invalidGuard.path[0]),current=await revisionContext(this,principal,name,raw as Record<string,unknown>,field);
-        if(current!==undefined)throw Object.assign(new AppError('INVALID_ARGUMENT',field+' must be a non-negative integer. Current revision is '+current+'; omit the guard to apply to current state.'),{currentRevision:current});
+        const field=String(invalidGuard.path[0]),current=await revisionContext(this,principal,name,field==='expectedRevisions'?{...raw,displayId:invalidGuard.path[1]}:raw as Record<string,unknown>,field);
+        if(current!==undefined)throw Object.assign(new AppError('INVALID_ARGUMENT',(field==='expectedRevisions'?'Each expectedRevisions entry':field)+' must be a non-negative integer. Current revision is '+current+'; omit the guard to apply to current state.'),{currentRevision:current});
       }
       throw toolArgumentError(name, raw) ?? new InputError();
     }

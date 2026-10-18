@@ -73,7 +73,7 @@ describe('evening display workflows, feedback and permissions',()=>{
     await owner.submit(s,[d],fact('Keep this'));await call('kanvas_share_create',{sessionId:s,displayId:d});expect((await current()).view?.data.text).toBe('Keep this');
     const before=(await h.runtime.store.list('share',s)).length;
     await expect(call('kanvas_share_create',{sessionId:s,displayId:d,showOnDisplay:true,requestId:randomUUID(),expectedRevision:0})).rejects.toMatchObject({code:'REVISION_CONFLICT'});expect((await h.runtime.store.list('share',s))).toHaveLength(before);
-    await expect(call('kanvas_share_create',{sessionId:s,displayId:d,showOnDisplay:true})).rejects.toMatchObject({code:'INVALID_ARGUMENT'});
+    await call('kanvas_share_create',{sessionId:s,displayId:d,showOnDisplay:true});expect((await current()).view?.template).toBe('join');
   });
   // Static tour lifecycle cases were retired with demo publication.
   // navigation-help.test exercises read-only legacy compatibility and no side effects.

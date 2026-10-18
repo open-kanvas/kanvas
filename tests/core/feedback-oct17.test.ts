@@ -106,7 +106,7 @@ describe('October 17 full feedback families',()=>{
   expect(()=>bindTemplate('{{#each items}}x', {items:[]})).toThrow();
  });
  it('revision omission is valid across all advertised numeric revision/version guards; stale errors include retry value',async()=>{
-  for(const tool of CANONICAL_TOOLS){const schema=z.toJSONSchema(tool.schema,{unrepresentable:'any',io:'input'}) as any;for(const key of ['expectedRevision','expectedVersion','expectedDraftRevision','expectedDeckRevision'])if(schema.properties?.[key])expect(schema.required??[],tool.name+' '+key).not.toContain(key);}
+  for(const tool of CANONICAL_TOOLS){const schema=z.toJSONSchema(tool.schema,{unrepresentable:'any',io:'input'}) as any;for(const key of ['expectedRevision','expectedVersion','expectedDraftRevision','expectedDeckRevision','expectedRevisions'])if(schema.properties?.[key])expect(schema.required??[],tool.name+' '+key).not.toContain(key);}
   await publish('checklist',{items:[{id:'a',text:'Task',checked:false}]});const display=await current(),checklistId=display.view!.data.checklistId;
   await call('kanvas_checklist_update',{sessionId:s,checklistId,items:[{id:'a',text:'Task',checked:true}]});
   let conflict:unknown;try{await call('kanvas_checklist_update',{sessionId:s,checklistId,expectedRevision:0,items:[]});}catch(e){conflict=e;}expect(safeError(conflict)).toMatchObject({code:'REVISION_CONFLICT',currentRevision:1});
@@ -133,6 +133,7 @@ describe('October 17 full feedback families',()=>{
   await publish('kanban',{columns:[{id:'todo',name:'To do'}]});
   let error:unknown;try{await update('kanvas_kanban_update',{action:'reorder-columns',columnIds:['todo'],expectedRevision:'bad'});}catch(e){error=e;}
   expect(safeError(error)).toMatchObject({code:'INVALID_ARGUMENT',currentRevision:1});
+  await expect(call('kanvas_display_navigate',{sessionId:s,displayIds:[d],direction:'back',expectedRevisions:{[d]:'bad'}})).rejects.toMatchObject({code:'INVALID_ARGUMENT',currentRevision:1});
   const stranger=await h.account();
   await expect(h.runtime.service.execute('kanvas_kanban_update',{sessionId:s,displayId:d,action:'reorder-columns',columnIds:['todo'],expectedRevision:'bad'},{userId:stranger.user!.id})).rejects.not.toHaveProperty('currentRevision');
  });
@@ -144,6 +145,12 @@ describe('October 17 full feedback families',()=>{
   await call('kanvas_preferences_update',{config:{theme:'light'}});
   const prefs=await call('kanvas_preferences_update',{config:{theme:'dark'}});
   await expect(call('kanvas_config_update',{sessionId:s,scope:'account',config:{theme:'light'},expectedRevision:'bad'})).rejects.toMatchObject({code:'INVALID_ARGUMENT',currentRevision:prefs.revision});
+ });
+ it('temporary signs restore a sign originally published through the ordinary publication path',async()=>{
+  await publish('opening-hours',{heading:'Normal hours',hours:[{day:'Monday',opens:'09:00',closes:'17:00'}]});
+  await update('kanvas_signage_update',{action:'set',template:'back-at',data:{time:'14:30'}});
+  await update('kanvas_signage_update',{action:'clear'});
+  expect((await current()).view).toMatchObject({template:'opening-hours',data:{heading:'Normal hours'}});
  });
  it('signage can set and clear a previously blank display',async()=>{
   await update('kanvas_signage_update',{action:'set',template:'back-at',data:{time:'14:30'}});

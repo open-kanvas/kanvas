@@ -79,7 +79,6 @@ describe('twelve-tool strict published and runtime contract', () => {
     ['kanvas_import', { operation: 'dataset.import', sessionId: 's', name: 'source' }],
     ['kanvas_configure', { operation: 'session.update', sessionId: 's', expectedRevision: 0, config: {} }],
     ['kanvas_configure', { operation: 'preferences.update', expectedRevision: 0, config: { style: 'not-a-preset' } }],
-    ['kanvas_access', { operation: 'share.create', sessionId: 's', displayId: 'd', showOnDisplay: true }],
     ['kanvas_access', { operation: 'pairing.decide', sessionId: 's', pairingId: 'p', approve: true, confirm: false }],
   ] as const)('published schema rejects the same branch refinement as runtime: %s %j', (tool, args) => {
     expect(resolveToolCall('twelve', tool, args).error).toBeDefined();

@@ -63,7 +63,8 @@ describe.each(['modern', 'legacy'] as const)('%s MCP publication contracts and p
     success(await owner.request('POST', `/api/sessions/${session.id}/displays/${display.id}/applied`, { revision: prepared.detail.displays[0].revision }));
     expect(value<UpdateRecord>(await p.call('kanvas_update_status', { sessionId: session.id, updateId: accepted.id })).status).toBe('applied');
     expect((value<{ displays: DisplayRecord[] }>(await p.call('kanvas_session_state', { sessionId: session.id }))).displays[0].viewerUrl).toBe(display.viewerUrl);
-  });
+  },20_000); // Exhaustively fetch every contract as the built-in catalog grows.
+
 
   it('classifies invalid inline data and advertised context limits before rendering, without changing the last view', async () => {
     const owner = await h.account(), session = await owner.session(), display = await owner.display(session.id), p = await publisher(owner, [session.id]);

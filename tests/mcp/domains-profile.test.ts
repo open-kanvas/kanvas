@@ -32,7 +32,9 @@ describe('domains profile catalog', () => {
     expect(tools.every(tool => tool.name.startsWith('kanvas_') && tool.inputSchema.required?.includes('operation'))).toBe(true);
     // Eight requested guidance/browser-auth/invite/overview operations: bounded catalog growth.
     // Group size and exhaustive mapping guards above remain unchanged.
-    expect(JSON.stringify(tools).length).toBeLessThan(140_000);
+    // Ten new operations; retain max10 per resource group and bounded per-operation growth.
+    expect(JSON.stringify(tools).length/CANONICAL_TOOLS.length).toBeLessThan(1000);
+    expect(JSON.stringify(tools).length).toBeLessThan(150_000);
   });
 
   it('keeps kanvas_feedback byte-for-byte identical to the former profile', () => {

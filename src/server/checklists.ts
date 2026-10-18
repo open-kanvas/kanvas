@@ -10,8 +10,8 @@ import type {Definition} from './mcp/canonical.js';
 const identifier=z.string().regex(/^[A-Za-z0-9_-]{1,128}$/),revision=z.number().int().nonnegative();
 const target={sessionId:identifier,checklistId:identifier};
 export const checklistReadSchema=z.strictObject({sessionId:identifier,checklistId:identifier.optional(),offset:z.number().int().min(0).max(1000).default(0),limit:z.number().int().min(1).max(100).default(100)});
-export const checklistUpdateSchema=z.strictObject({...target,expectedRevision:revision,requestId:identifier,items:checklistDataSchema.shape.items,title:z.string().max(500).optional()});
-export const checklistShowSchema=z.strictObject({...target,displayId:identifier,expectedRevision:revision,requestId:identifier});
+export const checklistUpdateSchema=z.strictObject({...target,expectedRevision:revision.optional(),requestId:identifier,items:checklistDataSchema.shape.items,title:z.string().max(500).optional()});
+export const checklistShowSchema=z.strictObject({...target,displayId:identifier,expectedRevision:revision.optional(),requestId:identifier});
 export const checklistTools:Definition[]=[
  {name:'kanvas_checklist_read',readOnly:true,schema:checklistReadSchema,description:'Persistent SESSION checklists survive replacing or clearing displays. Omit checklistId to list IDs/titles; include it to retrieve exact saved items/checked state, revision and ready view. Large records return bounded item windows; follow nextOffset with offset, or show the complete stored document directly. Legacy retained checklist snapshots are listed with legacy_ IDs; show saves the selected snapshot as an independent document. No cross-session reads.'},
  {name:'kanvas_checklist_update',schema:checklistUpdateSchema,idempotent:true,description:'Update saved checklist items/title independently of any currently displayed content. expectedRevision is the checklist document revision from read, not a display revision. Exact requestId retries are safe. Does not overwrite a screen; show the saved checklist on the intended display afterward.'},
@@ -24,6 +24,7 @@ export class Checklists {
  private get store(){return this.service.store;}
  /** Called inside the same publication transaction as the display/history write. */
  async capture(sessionId:string,input:ViewSpec):Promise<ViewSpec>{
+  await this.service.mediaLibrary.grantReferences(sessionId,input);
   const view=structuredClone(input);
   if(view.template==='presentation'){
    const slides:ViewSpec[]=[];for(const slide of view.data.slides as ViewSpec[])slides.push(await this.capture(sessionId,slide));view.data.slides=slides;return view;

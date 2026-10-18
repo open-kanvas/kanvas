@@ -147,7 +147,7 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
 
       if (isDiscoveryTool(request.params.name) && request.params.name !== 'kanvas_call') {
         return profileScope.run('discovery', async () => {
-          try { return decorate(discoveryResult(request.params.name, request.params.arguments, { principal: current().principal, signal: extra.mcpReq.signal })); }
+          try { return decorate(discoveryResult(request.params.name, request.params.arguments, { principal: current().principal, signal: extra.mcpReq.signal, privateTemplates:await service.customTemplateCatalog?.(current().principal) })); }
           catch (error) { return decorate(toolFailure(error, undefined, 'discovery')); }
         });
       }
@@ -170,7 +170,8 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
         let diagnosticId: string | undefined;
         try { if (mayRecordFailure) diagnosticId = await inToolContext(context, () => service.recordFailure?.(call.canonicalName!, raw, current().principal, call.error)); } catch { /* Preserve the original error. */ }
         await record('failed');
-        return decorate(toolFailure(call.error, diagnosticId, callProfile, call.canonicalName));
+        let failure:unknown=call.error;try{if(call.canonicalName)failure=await service.argumentError?.(call.canonicalName,raw,current().principal,failure)??failure;}catch(error){failure=error;}
+        return decorate(toolFailure(failure, diagnosticId, callProfile, call.canonicalName));
       }
       try {
         extra.mcpReq.signal.throwIfAborted();

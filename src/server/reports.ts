@@ -1,3 +1,4 @@
+import {assertExpectedRevision} from './revisions.js';
 import type { Role, SessionRecord, DisplayRecord, UpdateRecord } from '../shared/types.js';
 import { TEMPLATE_IDS } from '../shared/types.js';
 import type { DiagnosticRecord, FeedbackInput, ErrorReportInput, ReportRecord, ReportPage, ReportsReadInput, ReportUpdateInput, ReportPatchInput } from '../shared/reports.js';
@@ -179,7 +180,7 @@ export class SessionReports {
       if (!record || record.authorId !== principal.userId) throw new AppError('NOT_FOUND', 'This report is unavailable.', 404);
       // A selected-session grant cannot reach another session through an ID.
       if (record.sessionId) await this.access.session(principal, record.sessionId, 'viewer', true, true);
-      if (record.revision !== input.expectedRevision) throw new AppError('REVISION_CONFLICT', 'This report changed. Read it again before updating.', 409);
+      assertExpectedRevision(input.expectedRevision,record.revision);
       const clean = (value: string) => { const result = redactReportText(value); record.redacted ||= result !== value; return result; };
       if (input.title !== undefined) record.title = clean(input.title);
       if (input.description !== undefined) record.description = clean(input.description);
@@ -200,7 +201,7 @@ export class SessionReports {
     const record = required((await this.store.get<ReportRecord>('report', input.reportId)));
     if(scope==='service'&&!(await this.access.serviceAdmin(principal)))throw new AppError('FORBIDDEN','Service report review requires a configured administrator.',403);
     if ((record.scope??'session')!==scope || scope==='account'&&record.accountId!==principal.userId || record.sessionId !== input.sessionId) throw new AppError('NOT_FOUND', 'This report is unavailable.', 404);
-    if (record.revision !== input.expectedRevision) throw new AppError('REVISION_CONFLICT', 'This report changed. Read it again before updating.', 409);
+    assertExpectedRevision(input.expectedRevision,record.revision);
     const note = redactReportText(input.note);
     record.redacted ||= note !== input.note;
     record.status = input.status; record.revision++; record.updatedAt = now();

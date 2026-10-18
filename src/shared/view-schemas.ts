@@ -1,3 +1,5 @@
+import {venueSchemas} from './venue.js';
+import {customViewSchema} from './custom-templates.js';
 import { flashcardDataSchema } from './flashcards.js';
 import { devicePreviewDataSchema } from './device-preview.js';
 import { emphasisSchema } from './emphasis.js';
@@ -238,6 +240,19 @@ export const actionSchema = z.object({ id: identifier, label, kind: z.enum(['but
 export const codeWorkspaceDataSchema=z.object({files:codeDataSchema.shape.files.unwrap(),activePath:z.string().min(1).max(500),excerpt:codeDataSchema}).strict().refine(v=>v.files.some(f=>f.path===v.activePath&&f.kind==='file'),'Active path must name a supplied file.').refine(v=>['code','diff'].includes(v.excerpt.kind),'Workspace excerpt must be code or diff.');
 const base = { format: viewFormatSchema.optional().describe('Display-only format overrides; source stays ISO.'), selection: selectionSchema.optional().describe('Agent-controlled filter/sort/highlight; full source is retained. No display filter widgets.'), version: z.literal(1).default(1), title: short.optional(), showTitle: z.boolean().optional().describe('Show the stored title on the display only when explicitly true.'), showCaption: z.boolean().optional().describe('Opt in to supporting captions on the display; content remains stored when hidden.'), showSource: z.boolean().optional().describe('Opt in to visible source metadata. Required attribution is always retained.'), showControls: z.boolean().optional().describe('Opt in to utility controls such as table search or chart data. Intrinsic responses and navigation remain available.'), source: provenanceSchema.optional(), actions: z.array(actionSchema).max(8).refine(uniqueIds, 'Action IDs must be unique').optional() };
 export const leafViewSchema = z.discriminatedUnion('template', [
+  z.object({...base,template:z.literal('seat-map'),data:venueSchemas['seat-map']}).strict(),
+  z.object({...base,template:z.literal('vocabulary'),data:venueSchemas['vocabulary']}).strict(),
+  z.object({...base,template:z.literal('todays-special'),data:venueSchemas['todays-special']}).strict(),
+  z.object({...base,template:z.literal('menu-board'),data:venueSchemas['menu-board']}).strict(),
+  z.object({...base,template:z.literal('opening-hours'),data:venueSchemas['opening-hours']}).strict(),
+  z.object({...base,template:z.literal('back-at'),data:venueSchemas['back-at']}).strict(),
+  z.object({...base,template:z.literal('closed-sign'),data:venueSchemas['closed-sign']}).strict(),
+  z.object({...base,template:z.literal('hiring'),data:venueSchemas['hiring']}).strict(),
+  z.object({...base,template:z.literal('sale-poster'),data:venueSchemas['sale-poster']}).strict(),
+  z.object({...base,template:z.literal('health-notice'),data:venueSchemas['health-notice']}).strict(),
+  z.object({...base,template:z.literal('custom-sign'),data:venueSchemas['custom-sign']}).strict(),
+  z.object({...base,template:z.literal('kanban'),data:venueSchemas['kanban']}).strict(),
+  z.object({...base,template:z.literal('account-template'),data:customViewSchema}).strict(),
   z.object({...base,template:z.literal('json'),data:jsonDataSchema}).strict(),
   z.object({...base,template:z.literal('session-topology'),data:topologyDataSchema}).strict(),
   z.object({...base,actions:z.array(actionSchema).max(0).optional().describe('Read-only message display. Use drafting for composition; sending belongs to the agent and its messaging connector.'),template:z.literal('email'),data:workSchemas['email']}).strict(),

@@ -52,9 +52,9 @@ export function navigate(view:ViewSpec|null, prior:NavigationState, action:Navig
   return next;
 }
 const slot=z.string().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/);
-export const navigationInputSchema=z.object({sessionId:slot,displayId:slot,requestId:slot,expectedRevision:z.number().int().nonnegative(),viewerId:slot.optional(),navigation:navigationActionSchema}).strict();
+export const navigationInputSchema=z.object({sessionId:slot,displayId:slot,requestId:slot,expectedRevision:z.number().int().nonnegative().optional(),viewerId:slot.optional(),navigation:navigationActionSchema}).strict();
 export const navigationReadSchema=z.object({sessionId:slot,displayId:slot,viewerId:slot.optional()}).strict();
 export const pinSaveSchema=z.object({sessionId:slot,displayId:slot,requestId:slot,label:z.string().trim().min(1).max(120),revision:z.number().int().nonnegative().optional()}).strict();
-export const pinRecallSchema=z.object({sessionId:slot,displayId:slot,requestId:slot,pinId:slot,expectedRevision:z.number().int().nonnegative()}).strict();
+export const pinRecallSchema=z.object({sessionId:slot,displayId:slot,requestId:slot,pinId:slot,expectedRevision:z.number().int().nonnegative().optional()}).strict();
 export const pinRemoveSchema=z.object({sessionId:slot,displayId:slot,pinId:slot}).strict();
 export interface NavigationSnapshot { action?:NavigationAction['action'];  canSaveReadingDefaults?:boolean; readingDefaults?:ReadingState; revision:number; version:number; commandId?:string; state:NavigationState; mode:'independent'|'presenter'|'shared'; viewerId?:string; canNavigate:boolean; capabilities:ReturnType<typeof navigationCapabilities> }

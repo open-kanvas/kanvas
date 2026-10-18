@@ -1,3 +1,4 @@
+import {assertExpectedRevision} from './revisions.js';
 import { z } from 'zod';
 import type { DisplayRecord, UpdateRecord, ViewSpec } from '../shared/types.js';
 import type { AuthPrincipal } from './auth.js';
@@ -13,7 +14,7 @@ import { PLANNER_LIMITS, plannerCategoriesSchema, plannerConflicts, plannerDataS
 export type DocumentKind = 'draft-edit' | 'draft-suggest' | 'draft-review' | 'planner-edit' | 'planner-suggest' | 'planner-review' | 'planner-finalize';
 export interface DocumentDisplay extends DisplayRecord { generation: number; interactionEpoch?: string }
 export interface DocumentFrame { revision: number; view: ViewSpec | null; createdAt: string; reason: string; current: boolean }
-export interface MutationTarget { sessionId: string; displayId: string; requestId: string; expectedRevision: number }
+export interface MutationTarget { sessionId: string; displayId: string; requestId: string; expectedRevision?: number }
 export interface MutationResult { update: UpdateRecord; summary: Record<string, unknown> }
 export interface DocumentHost {
   transaction<T>(operation: () => Promise<T>): Promise<T>;
@@ -43,7 +44,7 @@ export class DocumentOps {
       const before = (await this.host.display(principal, input.sessionId, input.displayId, 'editor'));
       const previous = (await this.host.retry(principal, input.sessionId, input.requestId, kind, input));
       if (previous) return { update: previous, summary: { retried: true } };
-      if (before.revision !== input.expectedRevision) throw new AppError('REVISION_CONFLICT', `This display is at revision ${before.revision}, not ${input.expectedRevision}. Call ${read} again and retry with its revision and a new requestId.`, 409);
+      assertExpectedRevision(input.expectedRevision,before.revision);
       const view = requireTemplate(before.view, template, read);
       let { data, summary } = change(structuredClone(view));
       if (template === 'drafting' && this.host.draftActor) {
@@ -73,7 +74,7 @@ export class DocumentOps {
 
 const identifier = z.string().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/);
 const revision = z.number().int().nonnegative();
-const mutation = { sessionId: identifier, displayId: identifier, expectedRevision: revision, requestId: identifier };
+const mutation = { sessionId: identifier, displayId: identifier, expectedRevision: revision.optional(), requestId: identifier };
 const offset = z.number().int().min(0).max(DRAFTING_LIMITS.text);
 const suggestionId = z.string().min(1).max(128).regex(/^[a-zA-Z0-9_.:-]+$/);
 const draftStatus = z.enum(['drafting', 'reviewing', 'ready']);
@@ -315,7 +316,7 @@ export class DraftDocuments extends DocumentOps {
       const base = input.replaceSuggestions ? [] : data.suggestions.filter(item => !replaced.has(item.id));
       const used = new Set([...data.suggestions.map(item => item.id), ...replaced]);
       let counter = 0;
-      const nextId = () => { for (;;) { const candidate = `s${input.expectedRevision + 1}-${++counter}`; if (!used.has(candidate)) { used.add(candidate); return candidate; } } };
+      const nextId = () => { for (;;) { const candidate = `s${(input.expectedRevision ?? 0) + 1}-${++counter}`; if (!used.has(candidate)) { used.add(candidate); return candidate; } } };
       const seen = new Set<string>();
       const added = input.suggestions.map((item, index) => {
         const path = `suggestions.${index}`;

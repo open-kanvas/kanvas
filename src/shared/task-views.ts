@@ -36,7 +36,7 @@ export function logEntries(data:LogData):Array<z.infer<typeof logEntrySchema>&{l
 
 const slot=z.string().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/);
 export const progressAppendSchema=z.object({
-  sessionId:slot,displayId:slot,requestId:slot,expectedRevision:z.number().int().nonnegative(),
+  sessionId:slot,displayId:slot,requestId:slot,expectedRevision:z.number().int().nonnegative().optional(),
   event:progressEventSchema.omit({timestamp:true}).extend({timestamp:stamp.optional()}).strict(),
   status:z.enum(['running','completed','blocked','failed']).optional(),
 }).strict();

@@ -228,6 +228,9 @@ export async function createApp(options: AppOptions = {}) {
   });
   app.get('/api/sessions', async (req, res) => send(res, (await service.sessions((await browser(req))))));
   app.post('/api/sessions', operation('kanvas_session_create'));
+  app.get('/api/media-library',async(req,res)=>send(res,{media:await service.mediaLibrary.list(await browser(req))}));
+  app.post('/api/media-library',async(req,res)=>send(res,await service.mediaLibrary.upload(await browser(req),req.body),201));
+  app.get('/api/media/:mediaId',async(req,res)=>{const p=req.get('authorization')?await auth.authorize(req):await browser(req);const media=await service.mediaLibrary.read(p,String(req.params.mediaId));const row=required(await store.db.prepare('SELECT bytes FROM assets WHERE id=?').get(media.id)) as {bytes:Uint8Array};res.set({'Content-Type':media.mimeType,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}).send(Buffer.from(row.bytes));});
   app.get('/api/account/details',operation('kanvas_account_details'));
   const checklistPage=(req:Request)=>z.strictObject({offset:z.coerce.number().int().min(0).max(1000).optional(),limit:z.coerce.number().int().min(1).max(100).optional()}).parse(req.query);
   app.get('/api/sessions/:id/checklists',operation('kanvas_checklist_read',req=>({...sessionArgs(req),...checklistPage(req)})));
@@ -387,7 +390,7 @@ export async function createApp(options: AppOptions = {}) {
     if (res.headersSent) { res.end(); return; }
     const errorType = error && typeof error === 'object' && 'type' in error ? error.type : undefined;
     const known = error instanceof AppError ? error : error instanceof z.ZodError ? new AppError('INVALID_REQUEST', 'Request fields do not match the supported format.') : error instanceof RenderingError ? new AppError(error.code, safeRenderingError(error).message) : errorType === 'entity.too.large' ? new AppError('PAYLOAD_TOO_LARGE', 'Request exceeds the supported size limit.', 413) : errorType === 'entity.parse.failed' ? new AppError('INVALID_JSON', 'The request contains invalid JSON.') : new AppError('INTERNAL_ERROR', 'The request could not be completed.', 500);
-    res.status(known.status).json({ error: { code: known.code, message: known.message.slice(0, 700), ...(error instanceof InputError ? { issues: error.issues, ...error.guidance } : error instanceof z.ZodError ? { issues: validationIssues(error) } : {}) } });
+    res.status(known.status).json({ error: { code: known.code, message: known.message.slice(0, 700), ...('currentRevision' in known&&Number.isSafeInteger(known.currentRevision)?{currentRevision:known.currentRevision}:{}), ...(error instanceof InputError ? { issues: error.issues, ...error.guidance } : error instanceof z.ZodError ? { issues: validationIssues(error) } : {}) } });
   });
   let closing = false;
   return { app, store, auth, service, async close() { if (closing) return; closing = true; await closePublic();await closeDevices();await closeAccess(); await Promise.allSettled([...streams].map(close=>Promise.resolve(close()))); await mcp.close(); await service.close(); (await store.close()); } };

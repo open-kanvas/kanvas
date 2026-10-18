@@ -37,7 +37,7 @@ export const viewPatchSchema = z.object({
   displayId: z.string().min(1).max(128),
   requestId: z.string().min(1).max(128)
     .describe('Retry identical input with the same key.'),
-  expectedRevision: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)
+  expectedRevision: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional()
     .describe('Current revision.'),
   operations: z.array(viewPatchOperationSchema).min(1).max(VIEW_PATCH_LIMITS.operations)
     .describe('Atomic, ordered; validates final view.'),

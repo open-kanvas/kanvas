@@ -95,15 +95,15 @@ export const monitoringConfigSchema = z.discriminatedUnion('mode', [
   z.object({ ...base, mode: z.literal('image'), alt: z.string().max(500).default('Live snapshot'), caption: z.string().max(500).optional() }).strict(),
 ]);
 export type MonitoringConfig = z.infer<typeof monitoringConfigSchema>;
-export const monitoringStartSchema = z.object({ sessionId: identifier, displayId: identifier, requestId: identifier, expectedRevision: revision, config: monitoringConfigSchema }).strict();
+export const monitoringStartSchema = z.object({ sessionId: identifier, displayId: identifier, requestId: identifier, expectedRevision: revision.optional(), config: monitoringConfigSchema }).strict();
 export const monitoringReadSchema = z.object({ sessionId: identifier, jobId: identifier.optional() }).strict();
-export const monitoringUpdateSchema = z.object({ sessionId: identifier, jobId: identifier, requestId: identifier, expectedVersion: revision, config: monitoringConfigSchema }).strict();
-export const monitoringStopSchema = z.object({ sessionId: identifier, jobId: identifier, requestId: identifier, expectedVersion: revision }).strict();
+export const monitoringUpdateSchema = z.object({ sessionId: identifier, jobId: identifier, requestId: identifier, expectedVersion: revision.optional(), config: monitoringConfigSchema }).strict();
+export const monitoringStopSchema = z.object({ sessionId: identifier, jobId: identifier, requestId: identifier, expectedVersion: revision.optional() }).strict();
 
 /** Inbound samples use the existing authenticated MCP connection, never a
  * public webhook secret or an outbound polling credential. */
 export const livePushSchema = z.object({
-  sessionId: identifier, displayId: identifier, requestId: identifier, expectedRevision: revision,
+  sessionId: identifier, displayId: identifier, requestId: identifier, expectedRevision: revision.optional(),
   data: z.record(z.string(), z.unknown()).describe('Complete replacement data for the current number, gauge, line, area, bar or heatmap. Send the producer’s bounded current sample/window; no expression evaluation or generated values.'),
 }).strict();
 

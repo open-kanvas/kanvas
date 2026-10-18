@@ -7,7 +7,7 @@ import type { AuthPrincipal } from './auth.js';
 import type { KanvasService } from './domain.js';
 import { AppError,now,required } from './store.js';
 import { displayedLeaf } from './engagement.js';
-export const publicAccessSchema=z.object({sessionId:z.string().min(1).max(128),expectedRevision:z.number().int().nonnegative(),enabled:z.boolean(),confirm:z.literal(true)}).strict();
+export const publicAccessSchema=z.object({sessionId:z.string().min(1).max(128),expectedRevision:z.number().int().nonnegative().optional(),enabled:z.boolean(),confirm:z.literal(true)}).strict();
 export async function setPublicAccess(service:KanvasService,p:AuthPrincipal,raw:unknown){
   return service.store.atomic(async () => {
   const a=publicAccessSchema.parse(raw);(await service.fullAccount(p,'publish'));(await service.access(p,a.sessionId,'owner'));

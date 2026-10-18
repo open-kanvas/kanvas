@@ -57,12 +57,14 @@ export function validationIssues(error: z.ZodError, prefix = '', submitted?: unk
     const actual = typeof received === 'string' ? (trimStrings ? received.trim() : received).length : Array.isArray(received) ? received.length : undefined;
     const size = issue.code === 'too_big' && (issue.origin === 'string' || issue.origin === 'array') ? { maximum: Number(issue.maximum), ...(actual === undefined ? {} : { actual }), unit: issue.origin === 'string' ? 'characters' as const : 'items' as const } : undefined;
     const path = [prefix, ...issue.path.slice(0, 8).map(part => typeof part === 'number' ? '[item]' : names.has(String(part)) ? String(part) : '[field]')].filter(Boolean).join('.') || 'input';
+    if(/^expected(?:Revision|Version|DeckRevision|DraftRevision)$/.test(String(issue.path.at(-1))))return [{path,problem:'Supply a non-negative integer revision/version, or omit this optional concurrency guard to apply to current state.'}];
     const expected = issue.code === 'invalid_type' && safeTypes.has(issue.expected) ? issue.expected : undefined;
     const unionTypes = issue.code === 'invalid_union' ? [...new Set(issue.errors.flatMap(branch => branch.flatMap(child => child.code === 'invalid_type' && child.path.length === 0 && safeTypes.has(child.expected) ? [child.expected] : [])))] : [];
     // One deliberately named, public alias is safe to explain. All other
     // unknown keys stay redacted, even when they contain source text.
     if (issue.code === 'unrecognized_keys' && issue.keys.includes('targetTime')) return [{ path: `${path}.targetTime`, problem: COUNTDOWN_TARGET_TIME_RULE }, ...(issue.keys.length > 1 ? [{ path, problem: 'Contains other unsupported fields. Use the documented tool or template schema.' }] : [])];
     if (issue.code === 'unrecognized_keys' && issue.keys.includes('displayId') && schema && Object.hasOwn((z.toJSONSchema(schema,{unrepresentable:'any',io:'input'}) as {properties?:object}).properties??{},'displayIds')) return [{path:'displayId',problem:'Unsupported singular field for this operation. Use displayIds: [the intended display ID], an array.'},...(issue.keys.length>1?[{path,problem:'Contains other unsupported fields. Use the documented tool schema.'}]:[])];
+    if(/^expected(?:Revision|Version|DeckRevision|DraftRevision)$/.test(String(issue.path.at(-1))))return [{path,problem:'Supply a non-negative integer revision/version, or omit this optional concurrency guard to apply to current state.'}];
     return [{
     path,
     problem: timerValidationRule(issue) ?? (issue.code === 'invalid_type' ? expected ? `${received === undefined ? 'Required' : 'Expected'} ${expected}${expected === 'boolean' ? ' (true or false)' : ''}.` : 'A required field is missing or has the wrong type.'

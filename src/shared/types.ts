@@ -1,10 +1,11 @@
+import {VENUE_IDS} from './venue.js';
 import type { Selection } from './selection.js';
 import { WORK_TEMPLATE_IDS } from './work-views.js';
 import type { MonitoringHealth } from './monitoring.js';
 import type { MediaFailureCode } from './media-failures.js';
-export const TEMPLATE_IDS = ['flashcards',...WORK_TEMPLATE_IDS, 'device-preview','architecture','sports-lineup','org-chart','flowchart','network', 'scoreboard', 'standings', 'tool-call-log','json','session-topology','devices','fact','number','chart','table','image-gallery','image','website','iframe','story-cards','list','progress','log','comparison','checklist','map','code','whiteboard','presentation','document','video','notifications','transcription','translation','form','schedule','roster','calendar','planner','poll','countdown','qa','overview','display-grid','settings','html','timeline','itinerary','product','weather','profile','kpi','quote','recipe','menu','leaderboard','status','procedure','join','drafting','clock','now-playing'] as const;
+export const TEMPLATE_IDS = [...VENUE_IDS,'flashcards',...WORK_TEMPLATE_IDS, 'device-preview','architecture','sports-lineup','org-chart','flowchart','network', 'scoreboard', 'standings', 'tool-call-log','json','session-topology','devices','fact','number','chart','table','image-gallery','image','website','iframe','story-cards','list','progress','log','comparison','checklist','map','code','whiteboard','presentation','document','video','notifications','transcription','translation','form','schedule','roster','calendar','planner','poll','countdown','qa','overview','display-grid','settings','html','timeline','itinerary','product','weather','profile','kpi','quote','recipe','menu','leaderboard','status','procedure','join','drafting','clock','now-playing'] as const;
 /** web is retained only for historical storage/exports, not public discovery. */
-export type TemplateId = typeof TEMPLATE_IDS[number] | 'web';
+export type TemplateId = typeof TEMPLATE_IDS[number] | 'web' | 'account-template';
 export type Role = 'owner' | 'editor' | 'viewer';
 export interface Principal { userId: string; agentId?: string; tokenId?: string; scopes?: string[] }
 export interface Provenance { title?: string; url?: string; locator?: string; timestamp?: string }

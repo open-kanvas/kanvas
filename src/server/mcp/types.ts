@@ -14,6 +14,8 @@ export interface McpResourceDescriptor {
 export interface ToolInvocation {id:string;tool:string;operation?:string;sessionId?:string;timestamp:string;status:'completed'|'failed';durationMs:number}
 /** The domain owns account, role, scope, revision, and session checks. */
 export interface McpService {
+  argumentError?(name:string,args:Record<string,unknown>,principal:Principal,error:unknown):Promise<unknown>;
+  customTemplateCatalog?(principal:Principal):Promise<import('./discovery.js').CatalogItem[]>;
   agentGuidance?(principal:Principal,args?:unknown):Promise<unknown>;
   authorize(request: Request): Promise<Principal>;
   execute(name: string, args: Record<string, unknown>, principal: Principal, context?: { signal?: AbortSignal }): Promise<unknown>;

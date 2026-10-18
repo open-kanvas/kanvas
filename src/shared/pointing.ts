@@ -7,7 +7,7 @@ export const pointingAnchorSchema=z.discriminatedUnion('kind',[
   z.object({kind:z.literal('chart'),series:z.string().max(500),x:z.string().max(500),y:z.string().max(500)}).strict(),
   z.object({kind:z.literal('image'),index:z.number().int().min(0).max(15),x:unit,y:unit}).strict(),
 ]);
-export const pointingConfigureSchema=z.object({sessionId:id,enabled:z.boolean(),expectedRevision:index,confirm:z.literal(true)}).strict();
+export const pointingConfigureSchema=z.object({sessionId:id,enabled:z.boolean(),expectedRevision:index.optional(),confirm:z.literal(true)}).strict();
 export const pointingReadSchema=z.object({sessionId:id,displayId:id.optional()}).strict();
 export const pointingWriteSchema=z.object({revision:index,anchor:pointingAnchorSchema.nullable()}).strict();
 export type PointingAnchor=z.infer<typeof pointingAnchorSchema>;

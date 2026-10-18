@@ -7,6 +7,20 @@ export const DISPLAY_PRINCIPLE = 'KANVAS is a real-time visual companion to a co
 const focus = (primary: string, detail: string, reference = false, heading = false) => ({ primary, detail, reference, heading });
 /** The shared renderer, template schema response and agent guide use this audit. */
 export const TEMPLATE_DISPLAY_GUIDANCE = {
+"vocabulary":focus("Vocabulary","Friendly session \u2192 displays \u2192 devices relationships; shared authoritative vocabulary source.",true),
+"todays-special":focus("Todays Special","Curated signage presets with narrow live updates. Portrait and landscape, flexible optional content.",true),
+"menu-board":focus("Menu Board","Curated signage presets with narrow live updates. Portrait and landscape, flexible optional content.",true),
+"opening-hours":focus("Opening Hours","Curated signage presets with narrow live updates. Portrait and landscape, flexible optional content.",true),
+"back-at":focus("Back At","Curated signage presets with narrow live updates. Portrait and landscape, flexible optional content.",true),
+"closed-sign":focus("Closed Sign","Curated signage presets with narrow live updates. Portrait and landscape, flexible optional content.",true),
+"hiring":focus("Hiring","Curated signage presets with narrow live updates. Portrait and landscape, flexible optional content.",true),
+"sale-poster":focus("Sale Poster","Curated signage presets with narrow live updates. Portrait and landscape, flexible optional content.",true),
+"health-notice":focus("Health Notice","Curated signage presets with narrow live updates. Portrait and landscape, flexible optional content.",true),
+"custom-sign":focus("Custom Sign","Curated signage presets with narrow live updates. Portrait and landscape, flexible optional content.",true),
+"seat-map":focus("Seat Map","Fourteen preset layouts; up to 1000 people and seats. Stable IDs, live seating operations and visible unseated pool.",true),
+"kanban":focus("Kanban","Configurable columns and WIP advisory limits. Narrow add/edit/move/remove operations retain current board state.",true),
+"account-template":focus("Account Template","Private account HTML/CSS template. Create first; publish by templateId and update values. No scripts or external resources.",true),
+
   flashcards:focus('One question at a time, with deliberate answer reveal.','Large voice-first learn/test decks with passive progress, no on-screen action controls. Optional promptVisual/answerVisual reuse safe image or flowchart diagrams/shapes; grading uses accessible check/X plus color. Use flashcards.read/control/show for voice responses and exact, self-assessed or ungraded evaluation. Preserve card IDs and both display/deck revisions. No semantic grading is implied.'),
   'sports-lineup': focus("A supplied soccer formation on a pitch.","Supply exact players and normalized x/y coordinates (0\u20131, attacking goal at top), optional shirt numbers and bench. Never invent a roster; formation is a label, not a roster source.",true),
   'device-preview': focus('Preview the same static HTML/CSS at multiple real CSS viewport sizes.','Pick named presets or custom labelled viewports. Use gridSize compact for smaller frames and tighter spacing, or standard. This is preview-only, independent of session appearance. Frames scale to the receiving screen; select Actual size for legible 1:1 inspection. This is browser responsiveness, not physical-device or email-client emulation.',false),

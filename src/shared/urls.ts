@@ -15,7 +15,7 @@ function isPublicHost(hostname: string): boolean {
 
 export function isSafeUrl(value: string): boolean {
   if (value.length > 2048 || /[\u0000-\u0020\u007f\\]/.test(value)) return false;
-  if (/^\/api\/assets\/[a-zA-Z0-9_-]{1,128}$/.test(value)) return true;
+  if (/^\/api\/(?:assets|media)\/[a-zA-Z0-9_-]{1,128}$/.test(value)) return true;
   try {
     const url = new URL(value);
     return (url.protocol === 'https:' || url.protocol === 'http:') && !url.username && !url.password && isPublicHost(url.hostname);

@@ -64,7 +64,7 @@ export function errorMessage(error: unknown): string { return error instanceof E
 /** Content URLs must never become executable navigation. Asset URLs remain same-origin. */
 export function safeUrl(value: unknown, asset = false): string | undefined {
   if (typeof value !== 'string' || !value.trim()) return undefined;
-  if (asset && /^\/api\/(?:assets\/|public\/sessions\/[A-Za-z0-9_-]{1,128}\/assets\/)[a-zA-Z0-9_-]{1,128}$/.test(value)) return value;
+  if (asset && /^\/api\/(?:assets\/|media\/|public\/sessions\/[A-Za-z0-9_-]{1,128}\/assets\/)[a-zA-Z0-9_-]{1,128}$/.test(value)) return value;
   if (!isSafeUrl(value)) return undefined;
   try {
     const url = new URL(value);

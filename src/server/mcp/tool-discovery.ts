@@ -54,6 +54,7 @@ export const TOOL_DISCOVERY: Readonly<Record<string, ToolDiscoveryEntry>> = {
 "kanvas_account_templates_create":{group:'content',hint:'Use the discovered schema for this account-scoped or live state operation.',examples:[{"name": "My headline", "schema": {"type": "object", "properties": {"headline": {"type": "string"}}, "required": ["headline"]}, "html": "<h1>{{headline}}</h1>", "css": "h1 {font-size: 64px;}"}]},
 "kanvas_account_templates_delete":{group:'content',hint:'Use the discovered schema for this account-scoped or live state operation.',examples:[{"templateId": "template-id"}]},
 "kanvas_account_templates_publish":{group:'content',hint:'Use the discovered schema for this account-scoped or live state operation.',examples:[{"templateId": "template-id", "values": {"headline": "Hello"}, "sessionId": "session-id", "displayIds": ["display-id"]}]},
+"kanvas_media_import":{group:'content',hint:'Save a session image to your reusable private account library.',examples:[{sessionId:'session-id',assetId:'asset-id',tags:['lunch']}]},
 "kanvas_media_list":{group:'content',hint:'Use the discovered schema for this account-scoped or live state operation.',examples:[{"query": "lunch"}]},
 "kanvas_media_get":{group:'content',hint:'Use the discovered schema for this account-scoped or live state operation.',examples:[{"mediaId": "media-id"}]},
 "kanvas_account_templates_list":{group:'content',hint:'Use the discovered schema for this account-scoped or live state operation.',examples:[{"query": "headline"}]},

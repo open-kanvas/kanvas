@@ -18,7 +18,7 @@ type Profile=AccountProfile & {user:User;avatarUrl?:string;serviceAdmin:boolean}
 const groupPath=(id:string)=>'/api/groups/'+encodeURIComponent(id);
 
 export function AccountHub(){
-  const [profile,setProfile]=useState<Profile>(),[tab,setTab]=useState(()=>new URLSearchParams(window.location.search).get('account')==='groups'?'groups':'profile'),[error,setError]=useState('');
+  const [profile,setProfile]=useState<Profile>(),[tab,setTab]=useState(()=>['groups','media'].includes(new URLSearchParams(window.location.search).get('account')??'')?new URLSearchParams(window.location.search).get('account')!:'profile'),[error,setError]=useState('');
   const load=useCallback(async()=>{setProfile(await api<Profile>('/api/profile'));},[]);
   useEffect(()=>{void load().catch(e=>setError(errorMessage(e)));},[load]);
   return <section className="account-hub"><ErrorNotice message={error}/><nav className="account-tabs" aria-label="Account sections">

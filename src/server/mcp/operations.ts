@@ -60,7 +60,7 @@ export const OPERATION_REGISTRY = {
     'displays.identify': 'kanvas_displays_identify', 'displays.sync': 'kanvas_displays_sync',
   },
   kanvas_configure: { 'guidance.set':'kanvas_guidance_set','guidance.draft.edit':'kanvas_guidance_draft_edit','guidance.draft.save':'kanvas_guidance_draft_save', 'profile.update':'kanvas_profile_update','group.update':'kanvas_group_update','session-context.set':'kanvas_session_context_set', 'session.update': 'kanvas_config_update', 'preferences.update': 'kanvas_preferences_update' },
-  kanvas_import: { 'dataset.import': 'kanvas_dataset_import', 'asset.import': 'kanvas_asset_import', 'asset.export':'kanvas_asset_export' },
+  kanvas_import: { 'media.import':'kanvas_media_import', 'dataset.import': 'kanvas_dataset_import', 'asset.import': 'kanvas_asset_import', 'asset.export':'kanvas_asset_export' },
   kanvas_interactions: { acknowledge: 'kanvas_interaction_ack' },
   kanvas_feedback: { submit: 'kanvas_feedback_submit', 'error.report': 'kanvas_error_report', 'report.update': 'kanvas_report_update', patch:'kanvas_report_patch' },
   kanvas_capture: { snapshot: 'kanvas_display_snapshot', 'request-capture': 'kanvas_display_request_capture', 'capture-status': 'kanvas_display_capture_status' },
@@ -75,7 +75,7 @@ export const OPERATION_REGISTRY = {
  * hosts manage reports through it. */
 export const DOMAIN_REGISTRY = {
   kanvas_guidance:{read:'kanvas_guidance_read',set:'kanvas_guidance_set','draft.edit':'kanvas_guidance_draft_edit','draft.save':'kanvas_guidance_draft_save'},
-  kanvas_account: {'media.list':'kanvas_media_list','media.get':'kanvas_media_get', 'browser.list':'kanvas_browser_auth_list','browser.revoke':'kanvas_browser_auth_revoke',details:'kanvas_account_details', begin:'kanvas_account_begin', start: 'kanvas_start_read', inventory: 'kanvas_account_inventory', activity: 'kanvas_activity_read', analytics: 'kanvas_analytics_read' },
+  kanvas_account: {'media.import':'kanvas_media_import','media.list':'kanvas_media_list','media.get':'kanvas_media_get', 'browser.list':'kanvas_browser_auth_list','browser.revoke':'kanvas_browser_auth_revoke',details:'kanvas_account_details', begin:'kanvas_account_begin', start: 'kanvas_start_read', inventory: 'kanvas_account_inventory', activity: 'kanvas_activity_read', analytics: 'kanvas_analytics_read' },
   kanvas_profile: { read: 'kanvas_profile_read', update: 'kanvas_profile_update', 'preferences.read': 'kanvas_preferences_get', 'preferences.update': 'kanvas_preferences_update', 'styles.list': 'kanvas_styles_list' },
   kanvas_session_history: { list: 'kanvas_sessions_list' },
   kanvas_archive: { list:'kanvas_archive_list', manage:'kanvas_archive_manage' },

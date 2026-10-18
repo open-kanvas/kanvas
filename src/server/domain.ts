@@ -1,3 +1,8 @@
+import {revisionContext} from './revision-context.js';
+import {assertExpectedRevision} from './revisions.js';
+import {venueUpdate,venueTools} from './venue.js';
+import {CustomTemplates,validateStatic} from './custom-templates.js';
+import {MediaLibrary} from './media-library.js';
 import {accountOverview} from './account-overview.js';
 import {AgentGuidance} from './agent-guidance.js';
 import {SessionPush,type PushOptions} from './push.js';
@@ -113,6 +118,9 @@ export class KanvasService implements McpService {
   readonly flashcards:Flashcards;
   readonly guidance:AgentGuidance;
   readonly checklists:Checklists;
+  readonly customTemplates=new CustomTemplates(this);
+  readonly mediaLibrary=new MediaLibrary(this);
+  async customTemplateCatalog(p:AuthPrincipal){return this.customTemplates.catalog(p);}
   readonly autoplay:Autoplay;
   readonly pointing:Pointing;
   readonly toolLog:ToolLog;
@@ -409,10 +417,7 @@ export class KanvasService implements McpService {
 
     });
   }
-  assertRevision(expected: unknown, actual: number): void {
-    if (!revisionSchema.safeParse(expected).success) throw new AppError('REVISION_REQUIRED', 'Read current state and supply its revision.');
-    if (expected !== actual) throw new AppError('REVISION_CONFLICT', 'This view changed. Read the latest version before editing.', 409);
-  }
+  assertRevision(expected: unknown, actual: number): void { assertExpectedRevision(expected,actual); }
   async accountDetails(principal:AuthPrincipal) {
     await this.fullAccount(principal);
     if(principal.tokenId&&(await this.store.get<{sessionIds?:string[]}>('token',principal.tokenId))?.sessionIds)throw new AppError('FORBIDDEN','Account details require an account-wide grant.',403);
@@ -460,14 +465,14 @@ export class KanvasService implements McpService {
 
     });
   }
-  async renameSession(principal:AuthPrincipal,sessionId:string,expectedRevision:number,name:string){
+  async renameSession(principal:AuthPrincipal,sessionId:string,expectedRevision:number|undefined,name:string){
     return this.store.atomic(async () => {
     (await this.access(principal,sessionId,'owner'));const session=required((await this.store.get<SessionRecord>('session',sessionId)));this.assertRevision(expectedRevision,session.configRevision);
     session.name=name;(await this.accounts.audit('session.renamed',{actorId:principal.userId,sessionId}));session.configRevision++;session.updatedAt=now();(await this.store.put('session',session));this.emit({type:'config',sessionId,revision:session.configRevision});return session;
 
     });
   }
-  async renameDisplay(principal:AuthPrincipal,sessionId:string,displayId:string,expectedRevision:number,name:string){
+  async renameDisplay(principal:AuthPrincipal,sessionId:string,displayId:string,expectedRevision:number|undefined,name:string){
     return this.store.atomic(async () => {
     (await this.fullAccount(principal,'publish'));
     const display=(await this.display(principal,sessionId,displayId,'owner'));
@@ -515,7 +520,7 @@ export class KanvasService implements McpService {
 
     });
   }
-  async updateConfig(principal: AuthPrincipal, sessionId: string, expectedRevision: number, patch: Partial<SessionConfig>): Promise<Awaited<SessionRecord>> {
+  async updateConfig(principal: AuthPrincipal, sessionId: string, expectedRevision: number | undefined, patch: Partial<SessionConfig>): Promise<Awaited<SessionRecord>> {
     return this.store.atomic(async () => {
     (await this.access(principal,sessionId,'editor'));const session=required((await this.store.get<SessionRecord>('session',sessionId)));this.assertRevision(expectedRevision, session.configRevision);
     if (patch.syncMode !== undefined && patch.syncMode !== session.config.syncMode || patch.presenterViewerId !== undefined && patch.presenterViewerId !== session.config.presenterViewerId) {
@@ -531,16 +536,27 @@ export class KanvasService implements McpService {
     });
   }
   async verifyView(principal: AuthPrincipal, sessionId: string, value: ViewSpec): Promise<Awaited<ViewSpec>> {
+    try{assertJsonBudget(value);}catch{throw new InputError([{path:'view',problem:'Exceeds the supported content size or complexity.'}]);}
+    if(value.template==='presentation'&&Array.isArray(value.data.slides)){const slides:ViewSpec[]=[];for(const slide of value.data.slides as ViewSpec[])slides.push(await this.verifyView(principal,sessionId,slide));value={...value,data:{...value.data,slides}};}
+    if(value.template==='account-template')value=await this.customTemplates.resolve(principal,value);
+    if(value.template==='sale-poster'&&(value.data.html||value.data.css))validateStatic(String(value.data.html??''),String(value.data.css??''));
+    await this.mediaLibrary.authorizeReferences(principal,sessionId,value);
     let validated: ViewSpec;
     try { validated = validateView(value); }
     catch (error) { throw new InputError(error instanceof z.ZodError ? validationIssues(error, 'view') : [{ path: 'view', problem: 'Exceeds the supported content size or complexity.' }], value?.template); }
+    if(validated.template==='menu-board'){
+      const data=validated.data as {sections:{id?:string;items:{id?:string}[]}[];featured?:{id?:string}};
+      for(const section of data.sections){section.id??=id();for(const item of section.items)item.id??=id();}
+      if(data.featured)data.featured.id??=id();
+    }
+    if(validated.template==='todays-special'){const item=validated.data.item as {id?:string};item.id??=id();}
     const view = materializeDatasetView(validated, (await this.store.list<DatasetRecord>('dataset', sessionId)));
     const leafViews=view.template==='presentation'?view.data.slides as ViewSpec[]:[view];
     for(const leaf of leafViews)if(leaf.template==='session-topology'&&(leaf.data.includeLocation||leaf.data.layout==='map'))(await this.access(principal,sessionId,'owner'));
     for (const assetId of referencedAssets(view)) (await this.asset(principal, assetId, sessionId));
     return view;
   }
-  async edit(principal: AuthPrincipal, sessionId: string, displayId: string, expectedRevision: number, data: Record<string, unknown>): Promise<Awaited<DisplayRecord>> {
+  async edit(principal: AuthPrincipal, sessionId: string, displayId: string, expectedRevision: number | undefined, data: Record<string, unknown>): Promise<Awaited<DisplayRecord>> {
     return this.store.atomic(async () => {
     const display = (await this.display(principal, sessionId, displayId, 'editor')); this.assertRevision(expectedRevision, display.revision);
     // Complete data replacement is validated against the current template's own
@@ -578,7 +594,7 @@ export class KanvasService implements McpService {
 
     });
   }
-  async showChecklist(principal:AuthPrincipal,input:{sessionId:string;displayId:string;requestId:string;expectedRevision:number},view:ViewSpec) {
+  async showChecklist(principal:AuthPrincipal,input:{sessionId:string;displayId:string;requestId:string;expectedRevision?:number},view:ViewSpec) {
     const display=await this.display(principal,input.sessionId,input.displayId,'editor');
     const retry=await this.retry<UpdateRecord>(principal,input.sessionId,input.requestId,'checklist-show',input);if(retry)return this.updateDelivery(retry);
     this.assertRevision(input.expectedRevision,display.revision);
@@ -596,7 +612,7 @@ export class KanvasService implements McpService {
 
     });
   }
-  async recallPinnedView(principal:AuthPrincipal,input:{sessionId:string;displayId:string;requestId:string;expectedRevision:number;pinId:string},view:ViewSpec|(()=>ViewSpec|Promise<ViewSpec>)):Promise<Awaited<UpdateRecord>> {
+  async recallPinnedView(principal:AuthPrincipal,input:{sessionId:string;displayId:string;requestId:string;expectedRevision?:number;pinId:string},view:ViewSpec|(()=>ViewSpec|Promise<ViewSpec>)):Promise<Awaited<UpdateRecord>> {
     return this.store.atomic(async () => {
     const display=(await this.display(principal,input.sessionId,input.displayId,'editor'));
     const prior=(await this.retry<UpdateRecord>(principal,input.sessionId,input.requestId,'pin-recall',input));if(prior)return prior;
@@ -871,7 +887,7 @@ export class KanvasService implements McpService {
 
     });
   }
-  async videoControl(principal: AuthPrincipal, input: {sessionId: string; displayId: string; requestId: string; expectedRevision: number; command: unknown}) {
+  async videoControl(principal: AuthPrincipal, input: {sessionId: string; displayId: string; requestId: string; expectedRevision?: number; command: unknown}) {
     return this.store.atomic(async () => {
     const display = (await this.display(principal, input.sessionId, input.displayId, 'editor'));
     const identity = this.identity(principal), prior = (await this.store.db.prepare('SELECT digest,result_id,kind FROM requests WHERE session_id=? AND principal=? AND request_id=?').get(input.sessionId, identity, input.requestId)) as RequestRecord | undefined;
@@ -1104,12 +1120,28 @@ export class KanvasService implements McpService {
     return [{uri:'kanvas://start',name:'Account start page · recent sessions',mimeType:'application/json'}, {uri:'kanvas://help',name:'Kanvas Help and public documentation',mimeType:'application/json'}, { uri: 'kanvas://sessions', name: 'Accessible KANVAS sessions', mimeType: 'application/json' }, ...(await this.sessions(principal)).flatMap(s => ['state', 'config', 'interactions', 'reports'].map(kind => ({ uri: `kanvas://sessions/${s.id}/${kind}`, name: `${s.name}: ${kind}`, mimeType: 'application/json' })))];
   }
   async agentGuidance(principal:AuthPrincipal,args?:unknown){return this.guidance.exposure(principal,args);}
+  async argumentError(name:string,raw:Record<string,unknown>,principal:AuthPrincipal,error:unknown):Promise<unknown>{
+    const definition=MCP_TOOLS.find(t=>t.name===name),parsed=definition?.schema.safeParse(raw);
+    if(parsed&&!parsed.success){const issue=parsed.error.issues.find(i=>(i.path.length===1&&/^expected(?:Revision|Version|DeckRevision|DraftRevision)$/.test(String(i.path[0])))||(i.path.length===2&&i.path[0]==='expectedRevisions'));if(issue){const field=String(issue.path[0]),current=await revisionContext(this,principal,name,field==='expectedRevisions'?{...raw,displayId:issue.path[1]}:raw,field);if(current!==undefined)return Object.assign(new AppError('INVALID_ARGUMENT',(field==='expectedRevisions'?'Each expectedRevisions entry':field)+' must be a non-negative integer. Current revision is '+current+'; omit this guard to apply to current state.'),{currentRevision:current});}}
+    return error;
+  }
   async execute(name: string, raw: unknown, principal: AuthPrincipal): Promise<unknown> {
     const definition = MCP_TOOLS.find(tool => tool.name === name); if (!definition) throw new AppError('UNKNOWN_TOOL', 'This operation is unavailable.', 404);
     // Each operation shares the published runtime schema; all casts follow this validation.
     const parsed = definition.schema.safeParse(raw);
-    if (!parsed.success) throw toolArgumentError(name, raw) ?? new InputError();
+    if (!parsed.success) {
+      const invalidGuard=parsed.error.issues.find(i=>(i.path.length===1&&/^expected(?:Revision|Version|DeckRevision|DraftRevision)$/.test(String(i.path[0])))||(i.path.length===2&&i.path[0]==='expectedRevisions'));
+      if(invalidGuard&&raw&&typeof raw==='object'){
+        const field=String(invalidGuard.path[0]),current=await revisionContext(this,principal,name,field==='expectedRevisions'?{...raw,displayId:invalidGuard.path[1]}:raw as Record<string,unknown>,field);
+        if(current!==undefined)throw Object.assign(new AppError('INVALID_ARGUMENT',(field==='expectedRevisions'?'Each expectedRevisions entry':field)+' must be a non-negative integer. Current revision is '+current+'; omit the guard to apply to current state.'),{currentRevision:current});
+      }
+      throw toolArgumentError(name, raw) ?? new InputError();
+    }
     const a = parsed.data as Record<string, never>;
+    if(venueTools.some(t=>t.name===name))return venueUpdate(this,principal,name,a);
+    if(name.startsWith('kanvas_account_templates_'))return this.customTemplates.execute(principal,name,a);
+    if(name==='kanvas_media_list'){const all=await this.mediaLibrary.list(principal,a.query,a.tag),offset=Number(a.offset??0),limit=Number(a.limit??50);return {media:all.slice(offset,offset+limit),total:all.length,...(offset+limit<all.length?{nextOffset:offset+limit}:{})};}
+    if(name==='kanvas_media_get')return this.mediaLibrary.own(principal,a.mediaId);
     switch (name) {
       case 'kanvas_archive_list': return this.archive.list(principal,a);
       case 'kanvas_archive_manage': return this.archive.manage(principal,a);
@@ -1120,7 +1152,7 @@ export class KanvasService implements McpService {
       case 'kanvas_tool_log_append':return (await this.toolLog.append(principal,a));
       case 'kanvas_tool_log_read':return (await this.toolLog.read(principal,a));
       case 'kanvas_session_public_access':return (await setPublicAccess(this,principal,a));
-      case 'kanvas_scoreboard_control':(await this.access(principal,a.sessionId,'editor'));return (await this.respond(principal,a.sessionId,a.displayId,{revision:a.expectedRevision,requestId:a.requestId,value:{kind:'scoreboard.adjust',sideId:a.sideId,action:a.action,...(a.score!==undefined?{score:a.score}:{})}}));
+      case 'kanvas_scoreboard_control':(await this.access(principal,a.sessionId,'editor'));return (await this.respond(principal,a.sessionId,a.displayId,{revision:a.expectedRevision??(await this.display(principal,a.sessionId,a.displayId,'editor')).revision,requestId:a.requestId,value:{kind:'scoreboard.adjust',sideId:a.sideId,action:a.action,...(a.score!==undefined?{score:a.score}:{})}}));
 
       case 'kanvas_diagnostics_read':return this.diagnostics.read(principal,a);
       case 'kanvas_window_overview':return this.devices.windows.overview(principal,a);
@@ -1165,7 +1197,7 @@ export class KanvasService implements McpService {
       case 'kanvas_pins_read': return (await this.navigation.pins(principal,a.sessionId,a.displayId));
       case 'kanvas_guide': { (await this.fullAccount(principal)); return { ...guideFor(a.topic),help:helpFor('orientation',this.publicUrl), capabilities: { publishSetup: this.publication.enabled, inlinePresentationNavigation: true, videoProviders: ['native', 'youtube', 'vimeo'] } }; }
       case 'kanvas_procedure_control': {
-        const interaction=(await this.respond(principal,a.sessionId,a.displayId,{requestId:a.requestId,revision:a.expectedRevision,value:{kind:'procedure.navigate',action:a.action}}));
+        const interaction=(await this.respond(principal,a.sessionId,a.displayId,{requestId:a.requestId,revision:a.expectedRevision??(await this.display(principal,a.sessionId,a.displayId,'editor')).revision,value:{kind:'procedure.navigate',action:a.action}}));
         return {interaction,display:(await this.publicDisplay((await this.display(principal,a.sessionId,a.displayId)),principal))};
       }
       case 'kanvas_display_current': return (await this.experience.current(principal,a.sessionId,a.displayId));

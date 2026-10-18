@@ -332,9 +332,10 @@ describe('revision-bound partial view patches', () => {
   it('enforces independent operation, byte, text, JSON and final-template bounds before mutation', async () => {
     const base = (await f.request([{ op: 'appendText', path: '/data/segments/0/text', value: 'x' }]));
     expect(viewPatchSchema.safeParse(base).success).toBe(true);
+    expect(viewPatchSchema.safeParse({...base,expectedRevision:undefined}).success).toBe(true);
     const cyclic: Record<string, unknown> = {}; cyclic.self = cyclic;
     const badInputs: unknown[] = [
-      { ...base, expectedRevision: undefined }, { ...base, expectedRevision: -1 },
+      { ...base, expectedRevision: -1 },
       { ...base, operations: [] }, { ...base, operations: Array.from({ length: VIEW_PATCH_LIMITS.operations + 1 }, () => base.operations[0]) },
       { ...base, operations: [{ op: 'appendText', path: '/data/segments/0/text', value: 'x'.repeat(VIEW_PATCH_LIMITS.appendCharacters + 1) }] },
       { ...base, operations: [{ op: 'set', path: '/data/status', value: 'x'.repeat(VIEW_PATCH_LIMITS.bytes) }] },

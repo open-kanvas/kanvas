@@ -10,8 +10,8 @@ import type { KanvasService } from './domain.js';
 import { AppError, id, now } from './store.js';
 
 const identifier=z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
-export const devicePresentSchema=z.object({deviceId:identifier,sessionId:identifier,displayId:identifier,expectedVersion:z.number().int().nonnegative(),requestId:identifier}).strict();
-export const deviceRenameSchema=z.object({deviceId:identifier,name:z.string().trim().min(1).max(100),expectedVersion:z.number().int().nonnegative()}).strict();
+export const devicePresentSchema=z.object({deviceId:identifier,sessionId:identifier,displayId:identifier,expectedVersion:z.number().int().nonnegative().optional(),requestId:identifier}).strict();
+export const deviceRenameSchema=z.object({deviceId:identifier,name:z.string().trim().min(1).max(100),expectedVersion:z.number().int().nonnegative().optional()}).strict();
 interface Entry {id:string;sessionId:string;displayId:string}
 export interface DeviceCommand {id:string;sessionId:string;displayId:string;issuedAt:string;expiresAt:number;status:'pending'|'applied';appliedAt?:string;renderedRevision?:number;windowIds?:string[]}
 export interface Device {id:string;ownerId:string;installation:string;browserId:string;name:string;context:ReturnType<typeof browserContext>;homeSessionId?:string;homeDisplayId?:string;version:number;createdAt:string;lastSeenAt:string;sessionId?:string;displayId?:string;renderedRevision?:number;command?:DeviceCommand}

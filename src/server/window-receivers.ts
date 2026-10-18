@@ -6,7 +6,7 @@ import type { EntryDevices, Device, DeviceCommand } from './entry-devices.js';
 import { AppError, id, now } from './store.js';
 
 const identifier=z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
-export const windowPresentSchema=z.object({deviceId:identifier,windowId:identifier,sessionId:identifier,displayId:identifier,expectedVersion:z.number().int().nonnegative(),requestId:identifier}).strict();
+export const windowPresentSchema=z.object({deviceId:identifier,windowId:identifier,sessionId:identifier,displayId:identifier,expectedVersion:z.number().int().nonnegative().optional(),requestId:identifier}).strict();
 export const windowOverviewSchema=windowPresentSchema.omit({sessionId:true,displayId:true});
 type OverviewCommand=Omit<DeviceCommand,'sessionId'|'displayId'> & {destination:'overview';overviewUrl:string;sessionId?:never;displayId?:never};
 type WindowCommand=DeviceCommand|OverviewCommand;

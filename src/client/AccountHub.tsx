@@ -1,3 +1,4 @@
+import {MediaLibrary} from './MediaLibrary';
 import { useCallback, useEffect, useState } from 'react';
 import type { AccountGroup, Appearance, AccountProfile, AuditEvent, GroupMember, SessionContext, SessionGroupGrant } from '../shared/accounts';
 import type { SessionConfig, ViewSpec } from '../shared/types';
@@ -21,8 +22,8 @@ export function AccountHub(){
   const load=useCallback(async()=>{setProfile(await api<Profile>('/api/profile'));},[]);
   useEffect(()=>{void load().catch(e=>setError(errorMessage(e)));},[load]);
   return <section className="account-hub"><ErrorNotice message={error}/><nav className="account-tabs" aria-label="Account sections">
-    {[['profile','Profile'],['groups','Organizations & teams'],['history','Activity history'],...(profile?.serviceAdmin?[['service','Service analytics']]:[])].map(([id,name])=><button key={id} aria-current={tab===id?'page':undefined} onClick={()=>setTab(id)}>{name}</button>)}
-  </nav>{!profile?<Loading label="Loading account"/>:tab==='profile'?<><ProfilePanel key={profile.revision} profile={profile} reload={load}/><PersonalAppearance/></>:tab==='groups'?<GroupsPanel/>:tab==='service'?<HistoryPanel service/>:<HistoryPanel/>}</section>;
+    {[['media','Media library'],['profile','Profile'],['groups','Organizations & teams'],['history','Activity history'],...(profile?.serviceAdmin?[['service','Service analytics']]:[])].map(([id,name])=><button key={id} aria-current={tab===id?'page':undefined} onClick={()=>setTab(id)}>{name}</button>)}
+  </nav>{!profile?<Loading label="Loading account"/>:tab==='media'?<MediaLibrary/>:tab==='profile'?<><ProfilePanel key={profile.revision} profile={profile} reload={load}/><PersonalAppearance/></>:tab==='groups'?<GroupsPanel/>:tab==='service'?<HistoryPanel service/>:<HistoryPanel/>}</section>;
 }
 function ProfilePanel({profile,reload}:{profile:Profile;reload:()=>Promise<void>}){
   const auth=useAuth(),task=useTask(),[name,setName]=useState(profile.user.displayName),[avatar,setAvatar]=useState<ProfileImage|null|undefined>(),[saved,setSaved]=useState(false);

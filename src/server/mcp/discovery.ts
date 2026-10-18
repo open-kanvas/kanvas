@@ -18,7 +18,7 @@ import { KANVAS_VERSION } from '../../shared/version.js';
 import { compactSchemaReferences } from '../../shared/json-schema.js';
 
 export type CatalogKind = 'tool' | 'help' | 'template';
-export interface CatalogContext { readonly principal: Principal; readonly signal?: AbortSignal }
+export interface CatalogContext { readonly privateTemplates?:readonly CatalogItem[]; readonly principal: Principal; readonly signal?: AbortSignal }
 export interface CatalogItem extends SearchDocument {
   readonly provider: string;
   /** Provider revision invalidates cursors when a private contract changes. */
@@ -204,6 +204,7 @@ export const BUILTIN_PROVIDERS: readonly CatalogProvider[] = Object.freeze([
   { namespace: 'kanvas', kind: 'tool', list: () => operationCatalog() },
   { namespace: 'kanvas', kind: 'help', list: () => helpCatalog() },
   { namespace: 'kanvas', kind: 'template', list: () => templateCatalog() },
+  { namespace: 'account',kind:'template',list:(context:CatalogContext)=>context.privateTemplates??[] },
 ]);
 /** Context is required at every read; no global account-filtered cache. */
 export class DiscoveryCatalog {

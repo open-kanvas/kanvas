@@ -2,6 +2,17 @@
  * lives in drafting-ops, planner-ops, display-sync, window-invitations and
  * account-home; real SDK coverage lives in workflows-http/event-feedback-http. */
 export const CURRENT_MAPPING = [
+ // October 17: real state/authorization tests in feedback-oct17; real SDK/browser in feedback-oct17.spec.
+ ['kanvas_seat_map_update','kanvas_publish','seat-map.update'],
+ ['kanvas_menu_update','kanvas_publish','menu.update'],
+ ['kanvas_kanban_update','kanvas_publish','kanban.update'],
+ ['kanvas_signage_update','kanvas_publish','signage.update'],
+ ['kanvas_account_templates_create','kanvas_publish','account.templates.create'],
+ ['kanvas_account_templates_delete','kanvas_publish','account.templates.delete'],
+ ['kanvas_account_templates_publish','kanvas_publish','account.templates.publish'],
+ ['kanvas_account_templates_list','kanvas_inspect','account.templates.list'],
+ ['kanvas_media_list','kanvas_inspect','media.list'],
+ ['kanvas_media_get','kanvas_inspect','media.get'],
  ['kanvas_browser_auth_list','kanvas_inspect','browser.list'],
  ['kanvas_browser_auth_revoke','kanvas_access','browser.revoke'],
  ['kanvas_invite_send','kanvas_access','invite.send'],

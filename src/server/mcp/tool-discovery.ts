@@ -47,6 +47,16 @@ const monitor = { mode: 'uptime', url: 'https://example.com/status', intervalSec
  * Tests bind every example back to the exact current runtime input schema.
  */
 export const TOOL_DISCOVERY: Readonly<Record<string, ToolDiscoveryEntry>> = {
+"kanvas_seat_map_update":{group:'content',hint:'Use the discovered schema for this account-scoped or live state operation.',examples:[{"sessionId": "session-id", "displayId": "display-id", "action": "move", "personId": "person-id", "seatId": "seat-2"}]},
+"kanvas_menu_update":{group:'content',hint:'Use the discovered schema for this account-scoped or live state operation.',examples:[{"sessionId": "session-id", "displayId": "display-id", "action": "price", "itemId": "burger", "price": 189}]},
+"kanvas_kanban_update":{group:'content',hint:'Use the discovered schema for this account-scoped or live state operation.',examples:[{"sessionId": "session-id", "displayId": "display-id", "action": "move-card", "cardId": "card-id", "columnId": "doing"}]},
+"kanvas_signage_update":{group:'content',hint:'Use the discovered schema for this account-scoped or live state operation.',examples:[{"sessionId": "session-id", "displayId": "display-id", "action": "set", "template": "back-at", "data": {"time": "14:30"}}]},
+"kanvas_account_templates_create":{group:'content',hint:'Use the discovered schema for this account-scoped or live state operation.',examples:[{"name": "My headline", "schema": {"type": "object", "properties": {"headline": {"type": "string"}}, "required": ["headline"]}, "html": "<h1>{{headline}}</h1>", "css": "h1 {font-size: 64px;}"}]},
+"kanvas_account_templates_delete":{group:'content',hint:'Use the discovered schema for this account-scoped or live state operation.',examples:[{"templateId": "template-id"}]},
+"kanvas_account_templates_publish":{group:'content',hint:'Use the discovered schema for this account-scoped or live state operation.',examples:[{"templateId": "template-id", "values": {"headline": "Hello"}, "sessionId": "session-id", "displayIds": ["display-id"]}]},
+"kanvas_media_list":{group:'content',hint:'Use the discovered schema for this account-scoped or live state operation.',examples:[{"query": "lunch"}]},
+"kanvas_media_get":{group:'content',hint:'Use the discovered schema for this account-scoped or live state operation.',examples:[{"mediaId": "media-id"}]},
+"kanvas_account_templates_list":{group:'content',hint:'Use the discovered schema for this account-scoped or live state operation.',examples:[{"query": "headline"}]},
  kanvas_window_overview:{group:'controls',hint:'Return one owned online window to the root overview.',examples:[{deviceId:'device-id',windowId:'window-id',expectedVersion:0,requestId:'overview-1'}]},
  kanvas_guidance_read:{group:'guidance',hint:'Read active scoped agent guidance and your private draft.',examples:[{scope:'user'}]},
  kanvas_guidance_set:{group:'guidance',hint:'Explicitly save bounded natural-language guidance with revision guards.',examples:[{scope:'user',text:'Use helpful visuals within my authorized scope.',expectedRevision:0,requestId:'guidance-save'}]},

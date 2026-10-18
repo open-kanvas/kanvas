@@ -5,7 +5,7 @@ import type { KanvasService } from './domain.js';
 import { hash,type AuthPrincipal } from './auth.js';
 import { AppError,id,now,required } from './store.js';
 const key=z.string().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/),revision=z.number().int().nonnegative();
-export const autoplayControlSchema=z.object({sessionId:key,displayId:key,requestId:key,action:z.enum(['start','pause','resume','stop']),expectedRevision:revision.optional(),expectedVersion:revision.optional(),runId:key.optional(),intervalSeconds:z.number().min(0.25).max(86400).optional().describe('Seconds per frame: 0.25–86400; omitted start interval defaults to 5.'),loop:z.boolean().optional(),frames:z.array(z.object({displayId:key,revision:revision.optional()}).strict()).min(1).max(64).optional()}).strict().superRefine((a,c)=>{if(a.action==='start'&&a.expectedRevision===undefined)c.addIssue({code:'custom',path:['expectedRevision'],message:'Start requires current expectedRevision. Optional intervalSeconds is 0.25–86400; default 5.'});if(a.action!=='start'&&(a.frames||a.intervalSeconds!==undefined||a.loop!==undefined))c.addIssue({code:'custom',path:['action'],message:'Pause/resume/stop do not replace the playlist. Omit frames, intervalSeconds and loop.'});});
+export const autoplayControlSchema=z.object({sessionId:key,displayId:key,requestId:key,action:z.enum(['start','pause','resume','stop']),expectedRevision:revision.optional(),expectedVersion:revision.optional(),runId:key.optional(),intervalSeconds:z.number().min(0.25).max(86400).optional().describe('Seconds per frame: 0.25–86400; omitted start interval defaults to 5.'),loop:z.boolean().optional(),frames:z.array(z.object({displayId:key,revision:revision.optional()}).strict()).min(1).max(64).optional()}).strict().superRefine((a,c)=>{if(a.action!=='start'&&(a.frames||a.intervalSeconds!==undefined||a.loop!==undefined))c.addIssue({code:'custom',path:['action'],message:'Pause/resume/stop do not replace the playlist. Omit frames, intervalSeconds and loop.'});});
 export const autoplayReadSchema=z.object({sessionId:key,displayId:key}).strict();
 interface Run {id:string;sessionId:string;displayId:string;actorId:string;version:number;runId:string;status:'running'|'paused'|'stopped'|'completed';intervalSeconds:number;loop:boolean;index:number;total:number;ownedRevision:number;nextAt?:number;remainingMs?:number;updatedAt:string;reason?:string}
 export class Autoplay {
@@ -19,6 +19,8 @@ export class Autoplay {
     const a=autoplayControlSchema.parse(raw),display=(await this.service.display(p,a.sessionId,a.displayId,'editor')),receipt=hash(`${p.tokenId??p.userId}:${a.sessionId}:${a.requestId}`),digest=hash(JSON.stringify(a)),previous=(await this.service.store.get<{digest:string;result:unknown}>('autoplay-receipt',receipt));
     if(previous){if(previous.digest!==digest)throw new AppError('REQUEST_ID_CONFLICT','This autoplay request ID was used differently.',409);return previous.result;}
     let run=(await this.service.store.get<Run>('autoplay',display.id));
+    this.service.assertRevision(a.expectedRevision,display.revision);
+    this.service.assertRevision(a.expectedVersion,run?.version??0);
     return (await this.service.store.transaction(async ()=>{
       if(a.action==='start'){
         this.service.assertRevision(a.expectedRevision,display.revision);if(display.held)throw new AppError('DISPLAY_HELD','Release the display hold before starting autoplay.',409);

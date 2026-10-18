@@ -1,3 +1,6 @@
+import {venueTools} from '../venue.js';
+import {customTools} from '../custom-templates.js';
+import {mediaTools} from '../media-library.js';
 import {browserAuthTools} from '../browser-auth.js';
 import {inviteEmailTools} from '../invite-email.js';
 import {guidanceTools} from '../agent-guidance.js';
@@ -81,7 +84,7 @@ const exactlyOne = (left: string, right: string) => ({
   ],
 });
 
-const definitions: readonly Definition[] = [
+const definitions: readonly Definition[] = [...venueTools,...customTools,...mediaTools,
  {name:'kanvas_archive_list',description:'List your recoverable archived sessions, displays and retained views. Hidden from normal lists; retained indefinitely. Session grant restrictions still apply.',schema:archiveListSchema,readOnly:true},
  {name:'kanvas_archive_manage',description:'Owner-only archive (default) or restore of a session, display or retained view ID from display history. Archive is reversible. Permanent removal requires request-delete: show a warning and three random phonetic words on the current confirmationSessionId/confirmationDisplayId for 120 seconds. Batch views use targetIds (1–100 distinct IDs in one session), with one exact-target-bound confirmation. Then confirm-delete with challengeId and words explicitly supplied by the human. Never read/guess the words or infer approval. Shared items are deleted for everyone.',schema:archiveSchema,destructive:true},
   ...browserAuthTools,...inviteEmailTools,...guidanceTools,...diagnosticTools,...flashcardTools,...checklistTools,...eventTools, ...experienceTools, ...invitationTools, ...workTools, ...accountTools, ...documentTools, ...plannerTools, ...syncTools, ...homeTools,
@@ -190,14 +193,14 @@ const definitions: readonly Definition[] = [
       sessionId: id, displayId: id, width: dimensions.optional(), height: dimensions.optional(),
       pixelRatio: ratio.optional(), held: z.boolean().optional(), expectedRevision: revision.optional(),
     }).refine(value => (value.width !== undefined || value.height !== undefined || value.pixelRatio !== undefined || value.held !== undefined)
-      && (value.held === undefined || value.expectedRevision !== undefined)),
-    jsonSchemaExtras: { anyOf: ['width', 'height', 'pixelRatio', 'held'].map(field => ({ required: [field] })), if: { required: ['held'] }, then: { required: ['expectedRevision'] } },
+      ),
+    jsonSchemaExtras: { anyOf: ['width', 'height', 'pixelRatio', 'held'].map(field => ({ required: [field] })) },
     idempotent: true,
   },
   {
     name: 'kanvas_display_edit',
-    description: 'Replace the COMPLETE data object of an editable current template. This is not a partial merge. Prefer kanvas_view_patch for individual fields or text appends. expectedRevision is mandatory: read current state after a conflict. The domain validates editable template fields.',
-    schema: z.strictObject({ sessionId: id, displayId: id, expectedRevision: revision, data: record }),
+    description: 'Replace the COMPLETE data object of an editable current template. This is not a partial merge. Prefer kanvas_view_patch for individual fields or text appends. expectedRevision is an optional optimistic-concurrency guard; conflicts include currentRevision. The domain validates editable template fields.',
+    schema: z.strictObject({ sessionId: id, displayId: id, expectedRevision: revision.optional(), data: record }),
     idempotent: true,
   },
   {
@@ -212,14 +215,14 @@ const definitions: readonly Definition[] = [
   },
   {
     name: 'kanvas_display_navigate',
-    description: 'Restore actual retained views on named displays. Supply exactly one of direction (back/forward) or original revision from kanvas_display_history, plus expectedRevisions for every display. Restoration creates a new current revision from stored content, respects permission and reports normal delivery acknowledgement. All targets validate before any change.',
-    schema: z.strictObject({ sessionId: id, displayIds, requestId, expectedRevisions: z.record(id, revision), direction: z.enum(['back','forward']).optional(), revision: revision.optional() }).refine(v => (v.direction === undefined) !== (v.revision === undefined)),
+    description: 'Restore actual retained views on named displays. Supply exactly one of direction (back/forward) or original revision from kanvas_display_history, plus optional expectedRevisions guards keyed by display. Restoration creates a new current revision from stored content, respects permission and reports normal delivery acknowledgement. All targets validate before any change.',
+    schema: z.strictObject({ sessionId: id, displayIds, requestId, expectedRevisions: z.record(id, revision).default({}), direction: z.enum(['back','forward']).optional(), revision: revision.optional() }).refine(v => (v.direction === undefined) !== (v.revision === undefined)),
     jsonSchemaExtras: exactlyOne('direction', 'revision'), idempotent: true,
   },
   {
     name: 'kanvas_video_control',
     description: 'Control the already-loaded video without replacing its view: play/pause, seek (time in seconds, 0–86400), skip (signed value in seconds), restart, mute/unmute, volume (value 0–1), rate (value 0.25–4), fullscreen (optional desired fullscreen boolean). Supply current expectedRevision and stable requestId. Returns a command receipt; check kanvas_video_status. Receiving-browser play/fullscreen restrictions may require a local click. Commands expire after 30 seconds.',
-    schema: z.strictObject({ sessionId: id, displayId: id, requestId, expectedRevision: revision, command: videoControlInput }), idempotent: true,
+    schema: z.strictObject({ sessionId: id, displayId: id, requestId, expectedRevision: revision.optional(), command: videoControlInput }), idempotent: true,
   },
   {
     name: 'kanvas_video_status',
@@ -253,7 +256,7 @@ const definitions: readonly Definition[] = [
   {
     name: 'kanvas_config_update',
     description: 'Ask which settings scope the user intends: session (default), account (new-session defaults), team or organization (group defaults). Supply expectedRevision for that scope and groupId for team/organization. Group writes require group administration. All appearance, reading and regional settings supported. Synchronization changes require owner authority. Settings do not grant access or trigger publication.',
-    schema: z.strictObject({ sessionId: id, expectedRevision: revision, config, scope:z.enum(['session','account','team','organization']).default('session'), groupId:id.optional() }), idempotent: true,
+    schema: z.strictObject({ sessionId: id, expectedRevision: revision.optional(), config, scope:z.enum(['session','account','team','organization']).default('session'), groupId:id.optional() }), idempotent: true,
   },
   {
     name: 'kanvas_dataset_import',
@@ -337,6 +340,7 @@ export const CANONICAL_TOOLS: readonly Definition[] = definitions.map(forgiving)
   ? { ...tool, description: `${tool.description} First use: provide the actual literal, clickable, copyable URL as text, including in voice mode; do not repeat it after every update. ${VIEWER_LINK_TOOL_GUIDANCE[tool.name as keyof typeof VIEWER_LINK_TOOL_GUIDANCE]}` }
   : tool).map(tool => tool.name === 'kanvas_submit' ? { ...tool, description: `${VISUAL_INTENT_SUBMIT_HINT} ${tool.description} ${PUBLISHING_DESCRIPTION}` }
     : tool.name === 'kanvas_guide' ? { ...tool, description: `${tool.description} Topic tools groups the callable capabilities and distinguishes their effects; topic publishing provides complete context/data/intent recipes and common exact data shapes without a required schema round trip.` } : tool)
+  .map(tool => {const shape=tool.schema instanceof z.ZodObject?tool.schema.shape:undefined;return shape?.expectedRevision||shape?.expectedVersion||shape?.expectedRevisions||shape?.expectedDraftRevision||shape?.expectedDeckRevision?{...tool,description:tool.description.replace(/Requires expectedRevision/gi,'Optional expectedRevision').replace(/(?:requires?|supply|uses?) (?:the )?current (?:display )?(?:expectedRevision|revision)/gi,'may use an explicit revision guard')+' Concurrency: expectedRevision/expectedVersion is OPTIONAL. Omit it to atomically apply to current authorized state; supplying it opts into stale-write rejection. Conflicts return currentRevision for retry.'}:tool;})
   .map(tool => Object.hasOwn(SESSION_CONTINUITY_TOOL_GUIDANCE, tool.name) ? { ...tool, description: `${tool.description} ${SESSION_CONTINUITY_TOOL_GUIDANCE[tool.name as keyof typeof SESSION_CONTINUITY_TOOL_GUIDANCE]}` } : tool);
 
 export const CANONICAL_TOOL_NAMES = CANONICAL_TOOLS.map(tool => tool.name);

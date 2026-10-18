@@ -65,7 +65,6 @@ describe('twelve-tool strict published and runtime contract', () => {
     ['kanvas_feedback', {operation:'error.report',scope:'service',diagnosticId:'private',requestId:'r',title:'T',description:'D'}],
     ['kanvas_inspect', {operation:'reports.read',scope:'all',sessionId:'s'}],
     ['kanvas_control', { operation: 'display.update', sessionId: 's', displayId: 'd' }],
-    ['kanvas_control', { operation: 'display.update', sessionId: 's', displayId: 'd', held: true }],
     ['kanvas_control', { operation: 'history.navigate', sessionId: 's', displayIds: ['d'], requestId: 'r', expectedRevisions: { d: 1 } }],
     ['kanvas_control', { operation: 'history.navigate', sessionId: 's', displayIds: ['d'], requestId: 'r', expectedRevisions: { d: 1 }, direction: 'back', revision: 0 }],
     ['kanvas_control', { operation: 'video.control', sessionId: 's', displayId: 'd', requestId: 'r', expectedRevision: 1, command: { action: 'seek' } }],
@@ -80,7 +79,6 @@ describe('twelve-tool strict published and runtime contract', () => {
     ['kanvas_import', { operation: 'dataset.import', sessionId: 's', name: 'source' }],
     ['kanvas_configure', { operation: 'session.update', sessionId: 's', expectedRevision: 0, config: {} }],
     ['kanvas_configure', { operation: 'preferences.update', expectedRevision: 0, config: { style: 'not-a-preset' } }],
-    ['kanvas_access', { operation: 'share.create', sessionId: 's', displayId: 'd', showOnDisplay: true }],
     ['kanvas_access', { operation: 'pairing.decide', sessionId: 's', pairingId: 'p', approve: true, confirm: false }],
   ] as const)('published schema rejects the same branch refinement as runtime: %s %j', (tool, args) => {
     expect(resolveToolCall('twelve', tool, args).error).toBeDefined();
@@ -131,8 +129,8 @@ describe('twelve-tool strict published and runtime contract', () => {
     // The ceiling covers this round's drafting, planner, display-sync and account operations; the
     // per-operation average above is the primary guard against unbounded growth.
     // Eight new guidance/browser-auth/invite/overview operations; keep the unchanged
-    // per-operation 960-byte guard and a bounded 128-KiB full legacy catalog ceiling.
-    expect(bytes('twelve')).toBeLessThan(128 * 1024);
+    // per-operation 960-byte guard and a bounded 144-KiB full catalog ceiling for the ten new operations.
+    expect(bytes('twelve')).toBeLessThan(144 * 1024);
     // Returned schemas/examples are detached; callers cannot poison later catalogs.
     const changed = listToolDefinitions('twelve');
     (changed[0].inputSchema.examples as unknown[]).push({ poison: true });

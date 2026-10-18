@@ -40,7 +40,7 @@ export const reportsReadSchema = z.strictObject({
   limit: z.number().int().min(1).max(20).default(10), afterId: id.optional(),
 }).superRefine(scoped).meta(scopeContract);
 export const reportUpdateSchema = z.strictObject({
-  scope:z.enum(['session','account','service']).optional(),sessionId: id.optional(), reportId: id, expectedRevision: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  scope:z.enum(['session','account','service']).optional(),sessionId: id.optional(), reportId: id, expectedRevision: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional(),
   status: z.enum(REPORT_STATUSES), note: z.string().trim().min(1).max(2000),
 }).superRefine(scoped).meta(scopeContract);
 export type FeedbackInput = z.infer<typeof feedbackSubmitSchema>;
@@ -69,7 +69,7 @@ export interface ReportPage { reports: ReportRecord[]; nextCursor?: string; serv
 
 /** Author follow-up by stable report ID, independent of filing session context. */
 export const reportPatchSchema = z.strictObject({
- reportId: id, expectedRevision: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+ reportId: id, expectedRevision: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional(),
  note: z.string().trim().min(1).max(2000),
  title: z.string().trim().min(1).max(160).optional(),
  description: z.string().trim().min(1).max(REPORT_DESCRIPTION_MAX).optional(),

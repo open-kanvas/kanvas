@@ -1,3 +1,4 @@
+import {assertExpectedRevision} from './revisions.js';
 import { asyncFilter, asyncMap } from './async-collections.js';
 import { lookup as dnsLookup } from 'node:dns/promises';
 import { request as httpsRequest, type RequestOptions } from 'node:https';
@@ -463,9 +464,7 @@ export class Monitoring {
     try { if (!sameLease(job.lease, (await this.hooks.inspect(job.owner, job.sessionId, job.displayId)))) return 'superseded'; }
     catch { return 'authorization-lost'; }
   }
-  private checkVersion(job: MonitoringJob, expected: number): void {
-    if (job.version !== expected) throw new AppError('REVISION_CONFLICT', 'This monitoring job changed. Read its current version before updating or stopping it.', 409);
-  }
+  private checkVersion(job: MonitoringJob, expected: number | undefined): void {assertExpectedRevision(expected,job.version,'version'); }
 
   /** Call once after domain initialization. This is the only implicit restart, of already explicit jobs. */
   async resume(): Promise<Awaited<void>> {
@@ -502,7 +501,7 @@ export class Monitoring {
       if (all.length >= LIMITS.recordsTotal || session.length >= LIMITS.recordsPerSession || all.filter(job => job.status === 'active').length >= LIMITS.activeTotal || session.filter(job => job.status === 'active').length >= LIMITS.activePerSession) throw new AppError('LIMIT_REACHED', 'The monitoring job limit has been reached. Stop an active job or ask the operator to remove old job records.', 429);
       if (session.some(job => job.displayId === input.displayId && job.status === 'active')) throw new AppError('MONITORING_ACTIVE', 'This display already has an active monitoring job. Update or stop that job first.', 409);
       const lease = (await this.hooks.inspect(owner, input.sessionId, input.displayId));
-      if (lease.revision !== input.expectedRevision) throw new AppError('REVISION_CONFLICT', 'This display changed. Read its current revision before starting monitoring.', 409);
+      assertExpectedRevision(input.expectedRevision,lease.revision);
       if (lease.held) throw new AppError('DISPLAY_HELD', 'Resume the display before starting monitoring.', 409);
       const time = this.clock(), jobId = id(), expiresAt = iso(time + config.durationSeconds * 1000);
       const job: MonitoringJob = { id: jobId, sessionId: input.sessionId, displayId: input.displayId, owner, lease, version: 1, status: 'active', config,

@@ -30,7 +30,7 @@ describe('glanceable focus, source fidelity and meaningful headings',()=>{
     expect(showViewHeading({version:1,template:'document',title:'Document excerpt',data:{layout:'excerpt',text:'The quotation.'}})).toBe(false);
   });
   it('covers the entire accepted vocabulary without making code, documents or input forms tiny',()=>{
-    expect(Object.keys(TEMPLATE_DISPLAY_GUIDANCE).filter(x=>!['web','game'].includes(x)).sort()).toEqual([...TEMPLATE_IDS].sort());
+    expect(Object.keys(TEMPLATE_DISPLAY_GUIDANCE).filter(x=>!['web','game','account-template'].includes(x)).sort()).toEqual([...TEMPLATE_IDS].sort());
     expect(TEMPLATE_DISPLAY_GUIDANCE.code.reference).toBe(true);
     expect(TEMPLATE_DISPLAY_GUIDANCE.document.reference).toBe(true);
     expect(TEMPLATE_DISPLAY_GUIDANCE.form.reference).toBe(true);

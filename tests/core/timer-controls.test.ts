@@ -282,8 +282,9 @@ describe('atomic, direct timer actions', () => {
   it('requires the strict original action shape and redacts unexpected input rather than emitting raw errors', async () => {
     const f = (await Fixture.create()), base = (await f.request('pause')), before = (await f.read());
     expect(timerControlInput.parse(base)).toEqual(base);
+    expect(timerControlInput.safeParse({...base,expectedRevision:undefined}).success).toBe(true);
     const cyclic: Record<string, unknown> = {}; cyclic.self = cyclic;
-    for (const raw of [undefined, { ...base, action: 'PRIVATE_ACTION' }, { ...base, requestId: undefined }, { ...base, expectedRevision: undefined }, { ...base, expectedRevision: -1 }, { ...base, expectedRevision: NaN }, { ...base, sessionId: 'x'.repeat(129) }, { ...base, PRIVATE_FIELD: 'PRIVATE_VALUE' }, { ...base, now: cyclic }]) {
+    for (const raw of [undefined, { ...base, action: 'PRIVATE_ACTION' }, { ...base, requestId: undefined }, { ...base, expectedRevision: -1 }, { ...base, expectedRevision: NaN }, { ...base, sessionId: 'x'.repeat(129) }, { ...base, PRIVATE_FIELD: 'PRIVATE_VALUE' }, { ...base, now: cyclic }]) {
       const error = (await fails(async () => (await f.engine.control(owner, raw)), 'INVALID_ARGUMENT'));
       expect(JSON.stringify(error)).not.toContain('PRIVATE_');
     }

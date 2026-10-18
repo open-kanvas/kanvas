@@ -18,11 +18,11 @@ export const flashcardDataSchema=z.strictObject({
 export type FlashcardData=z.infer<typeof flashcardDataSchema>;
 export const flashcardReadSchema=z.strictObject({sessionId:id,deckId:id.optional(),offset:z.number().int().min(0).max(99).default(0),limit:z.number().int().min(1).max(100).default(100)});
 export const flashcardControlSchema=z.strictObject({
- sessionId:id,deckId:id,displayId:id,expectedRevision:z.number().int().nonnegative(),expectedDeckRevision:z.number().int().nonnegative(),requestId:id,
+ sessionId:id,deckId:id,displayId:id,expectedRevision:z.number().int().nonnegative().optional(),expectedDeckRevision:z.number().int().nonnegative().optional(),requestId:id,
  action:z.enum(['reveal','next','previous','answer','restart']),cardId:id,
  response:responseText.min(1).optional(),grading:z.enum(['exact','self','none']).default('exact'),correct:z.boolean().optional(),mode:z.enum(['learn','test']).optional()
 }).refine(a=>a.action!=='answer'||(a.response!==undefined&&(a.grading!=='self'||a.correct!==undefined)),'Answer needs response and self grading needs correct');
-export const flashcardShowSchema=z.strictObject({sessionId:id,deckId:id,displayId:id,expectedRevision:z.number().int().nonnegative(),requestId:id});
+export const flashcardShowSchema=z.strictObject({sessionId:id,deckId:id,displayId:id,expectedRevision:z.number().int().nonnegative().optional(),requestId:id});
 /** Exact matching is explicitly not semantic grading. */
 export function advanceFlashcards(input:FlashcardData,a:z.infer<typeof flashcardControlSchema>):FlashcardData{
  const d=structuredClone(input),c=d.cards[d.index];

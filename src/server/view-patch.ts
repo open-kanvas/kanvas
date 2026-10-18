@@ -1,3 +1,4 @@
+import {assertExpectedRevision} from './revisions.js';
 import { isDeepStrictEqual } from 'node:util';
 import { z } from 'zod';
 import { VIEW_PATCH_LIMITS, viewPatchSchema, type ViewPatchInput, type ViewPatchOperation } from '../shared/view-patch.js';
@@ -189,7 +190,7 @@ export class ViewPatches {
       // lost response never appends twice or demands a new idempotency key.
       const previous = (await this.host.retry(principal, input));
       if (previous) return previous;
-      if (before.revision !== input.expectedRevision) throw new AppError('REVISION_CONFLICT', 'This view changed. Read kanvas_display_current and retry with its revision and a new request ID.', 409);
+      assertExpectedRevision(input.expectedRevision,before.revision);
       if (!before.view) throw new AppError('INVALID_VIEW', 'There is no current view to patch. Publish a view first.');
       if (before.revision === Number.MAX_SAFE_INTEGER || before.generation === Number.MAX_SAFE_INTEGER) unsupported('This display cannot accept another revision. Create a new display before continuing.');
       const original = checkedView(before.view), candidate = structuredClone(original);
@@ -199,7 +200,11 @@ export class ViewPatches {
       const verified = checkedView((await this.host.verifyView(principal, input.sessionId, structuredClone(normalized))));
       // Materialization must not silently discard a requested change, detach a
       // source, or turn a narrow patch into a refresh of unrelated state.
-      if (!isDeepStrictEqual(normalized, verified)) throw new AppError('PATCH_SOURCE_CONFLICT', 'Source validation would override this patch or change unrelated data. Refresh the authoritative view first, then patch its current revision.', 409);
+      // HTML/CSS are derived, server-owned output for private templates. A
+      // data-values patch must re-render them, but cannot directly patch markup.
+      const comparable=(v:ViewSpec):ViewSpec=>v.template==='account-template'?{...v,data:{templateId:v.data.templateId,values:v.data.values}}:v;
+      if(normalized.template==='account-template'&&input.operations.some(op=>!('path' in op)||!op.path.startsWith('/data/values/')))throw new AppError('PATCH_UNSUPPORTED','Custom template patches may only change /data/values/...; use complete data replacement to change the selected template.');
+      if (!isDeepStrictEqual(comparable(normalized), comparable(verified))) throw new AppError('PATCH_SOURCE_CONFLICT', 'Source validation would override this patch or change unrelated data. Refresh the authoritative view first, then patch its current revision.', 409);
       assertParticipationCompatible(original, verified);
       const current = (await this.host.display(principal, input.sessionId, input.displayId));
       if (current.revision !== before.revision || current.generation !== before.generation || current.interactionEpoch !== before.interactionEpoch) {

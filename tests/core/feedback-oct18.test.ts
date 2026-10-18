@@ -1,3 +1,4 @@
+import {validateMedia} from '../../src/server/rendering/media';
 import {beforeEach,afterEach,describe,it,expect} from 'vitest';
 import {startHarness,success,PNG,type Harness,type Browser} from './harness';
 import {materializeSeats,signSchema} from '../../src/shared/venue';
@@ -49,4 +50,14 @@ describe('account media reuse and image diagnostics',()=>{
   expect((await o.request('POST',path,{...body,expectedRevision:0})).status).toBe(409);
   expect((await o.request('POST',path,{...body,reason:'cookies secret'})).status).toBe(400);
  });
+});
+
+it('rejects corrupt PNG header/framing accepted by the previous signature-only check',()=>{
+ const valid=Buffer.from(PNG,'base64');expect(validateMedia({name:'pixel.png',mimeType:'image/png',base64:PNG}).width).toBe(1);
+ const header=Buffer.from(valid);header[29]^=1;
+ expect(()=>validateMedia({name:'bad-header.png',mimeType:'image/png',base64:header.toString('base64')})).toThrow();
+ const chunk=Buffer.from(valid);chunk.writeUInt32BE(0xffffffff,33);
+ expect(()=>validateMedia({name:'bad-chunk.png',mimeType:'image/png',base64:chunk.toString('base64')})).toThrow();
+ const truncated=Buffer.concat([valid.subarray(0,37),valid.subarray(valid.length-12)]);
+ expect(()=>validateMedia({name:'truncated.png',mimeType:'image/png',base64:truncated.toString('base64')})).toThrow();
 });

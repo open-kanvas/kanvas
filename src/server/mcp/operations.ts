@@ -75,7 +75,7 @@ export const OPERATION_REGISTRY = {
  * hosts manage reports through it. */
 export const DOMAIN_REGISTRY = {
   kanvas_guidance:{read:'kanvas_guidance_read',set:'kanvas_guidance_set','draft.edit':'kanvas_guidance_draft_edit','draft.save':'kanvas_guidance_draft_save'},
-  kanvas_account: {'media.import':'kanvas_media_import','media.list':'kanvas_media_list','media.get':'kanvas_media_get', 'browser.list':'kanvas_browser_auth_list','browser.revoke':'kanvas_browser_auth_revoke',details:'kanvas_account_details', begin:'kanvas_account_begin', start: 'kanvas_start_read', inventory: 'kanvas_account_inventory', activity: 'kanvas_activity_read', analytics: 'kanvas_analytics_read' },
+  kanvas_account: {'media.list':'kanvas_media_list','media.get':'kanvas_media_get', 'browser.list':'kanvas_browser_auth_list','browser.revoke':'kanvas_browser_auth_revoke',details:'kanvas_account_details', begin:'kanvas_account_begin', start: 'kanvas_start_read', inventory: 'kanvas_account_inventory', activity: 'kanvas_activity_read', analytics: 'kanvas_analytics_read' },
   kanvas_profile: { read: 'kanvas_profile_read', update: 'kanvas_profile_update', 'preferences.read': 'kanvas_preferences_get', 'preferences.update': 'kanvas_preferences_update', 'styles.list': 'kanvas_styles_list' },
   kanvas_session_history: { list: 'kanvas_sessions_list' },
   kanvas_archive: { list:'kanvas_archive_list', manage:'kanvas_archive_manage' },
@@ -111,7 +111,7 @@ export const DOMAIN_REGISTRY = {
   kanvas_interactions: { read: 'kanvas_interactions_read', acknowledge: 'kanvas_interaction_ack' },
   kanvas_groups: { list: 'kanvas_groups_list', read: 'kanvas_group_read', create: 'kanvas_group_create', update: 'kanvas_group_update', 'member.set': 'kanvas_group_member_set', 'access.read': 'kanvas_group_access_read', 'access.set': 'kanvas_group_access_set' },
   kanvas_members: { 'invite.send':'kanvas_invite_send',add: 'kanvas_member_add', remove: 'kanvas_member_remove', 'invite.create': 'kanvas_invite_create', 'invite.accept': 'kanvas_invite_accept', 'invite.revoke': 'kanvas_invite_revoke' },
-  kanvas_import: { dataset: 'kanvas_dataset_import', asset: 'kanvas_asset_import', 'asset.export':'kanvas_asset_export' },
+  kanvas_import: { 'media.import':'kanvas_media_import', dataset: 'kanvas_dataset_import', asset: 'kanvas_asset_import', 'asset.export':'kanvas_asset_export' },
   kanvas_data_delete: { dataset: 'kanvas_dataset_delete', asset: 'kanvas_asset_delete' },
   kanvas_feedback: OPERATION_REGISTRY.kanvas_feedback,
   kanvas_reports: { read: 'kanvas_reports_read' },

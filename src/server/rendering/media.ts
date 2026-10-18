@@ -1,3 +1,4 @@
+import {crc32} from 'node:zlib';
 import { passiveSvg } from './passive-svg.js';
 import { RenderingError } from './errors.js';
 
@@ -35,6 +36,26 @@ function jpegDimensions(bytes: Buffer): { width: number; height: number } | unde
   return undefined;
 }
 
+/** Reject malformed PNG framing/header before persisting bytes. This is not a
+ * promise of pixel decode: browsers still report decompression/decoder failures.
+ * IDAT CRC handling intentionally matches tolerant browser decoders. */
+function pngDimensions(bytes:Buffer):{width:number;height:number}|undefined {
+  if(bytes.length<45||!bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))||bytes.readUInt32BE(8)!==13||ascii(bytes,12,16)!=='IHDR')return;
+  const size=dimensions(bytes.readUInt32BE(16),bytes.readUInt32BE(20));
+  if(crc32(bytes.subarray(12,29))!==bytes.readUInt32BE(29))return;
+  const bitDepth=bytes[24],colorType=bytes[25],depths:Record<number,number[]>={0:[1,2,4,8,16],2:[8,16],3:[1,2,4,8],4:[8,16],6:[8,16]};
+  if(!depths[colorType]?.includes(bitDepth)||bytes[26]!==0||bytes[27]!==0||bytes[28]>1)return;
+  let position=33,hasData=false;
+  while(position+12<=bytes.length){
+    const length=bytes.readUInt32BE(position),type=ascii(bytes,position+4,position+8);
+    if(length>bytes.length-position-12||!/^[A-Za-z]{4}$/.test(type)||type==='IHDR')return;
+    if(type==='IDAT'&&length>0)hasData=true;
+    position+=length+12;
+    if(type==='IEND')return length===0&&position===bytes.length&&hasData?size:undefined;
+  }
+  return;
+}
+
 /** SVG is reconstructed as passive shapes/text. PDF is download-only. No HTML or scripts. */
 export function validateMedia(input: MediaInput): ValidatedMedia {
   if (!input || typeof input.name !== 'string' || !input.name.trim() || input.name.length > 200 || /[\u0000-\u001f\u007f/\\]/.test(input.name)) reject('Media name must be a short filename, without paths or control characters.','INVALID_MEDIA_NAME');
@@ -53,9 +74,7 @@ export function validateMedia(input: MediaInput): ValidatedMedia {
   switch (mimeType) {
     case 'image/svg+xml': { const svg=passiveSvg(bytes);bytes=svg.bytes;size=dimensions(svg.width,svg.height);valid=true;break; }
     case 'image/png':
-      valid = bytes.length >= 45 && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) && bytes.readUInt32BE(8) === 13 && ascii(bytes, 12, 16) === 'IHDR' && ascii(bytes, bytes.length - 8, bytes.length - 4) === 'IEND';
-      if (valid) size = dimensions(bytes.readUInt32BE(16), bytes.readUInt32BE(20));
-      break;
+      size=pngDimensions(bytes);valid=Boolean(size);break;
     case 'image/jpeg':
       valid = bytes.length >= 12 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[bytes.length - 2] === 0xff && bytes[bytes.length - 1] === 0xd9;
       if (valid) { size = jpegDimensions(bytes); valid = Boolean(size); }

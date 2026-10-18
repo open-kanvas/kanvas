@@ -5,9 +5,11 @@ export interface CustomTemplate {id:string;ownerId:string;name:string;schema:Rec
 export function escapeBinding(v:unknown):string{return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));}
 /** No eval, expressions, path traversal, prototype lookup or executable bindings. */
 export function bindTemplate(html:string,values:Record<string,unknown>):string {
+ let expansions=0;
  const lookup=(data:Record<string,unknown>,key:string)=>Object.hasOwn(data,key)?data[key]:undefined;
  const expand=(source:string,data:Record<string,unknown>,depth:number):string=>{
   if(depth>8)throw new Error('Repeating section nesting exceeds 8.');
+  if(++expansions>10000)throw new Error('Template binding complexity exceeds 10000 expansions.');
   // A stack scanner supports nested repetitions, including repeated same-name keys.
   let output='',position=0;
   const tokens=/{{\s*(#each\s+([A-Za-z][A-Za-z0-9_]*)|\/each|([A-Za-z][A-Za-z0-9_]*))\s*}}/g;

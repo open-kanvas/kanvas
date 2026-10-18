@@ -105,6 +105,11 @@ describe('October 17 full feedback families',()=>{
   expect(bindTemplate('<p>{{name}}</p>',{name:'" <script>'})).toBe('<p>&quot; &lt;script&gt;</p>');
   expect(()=>bindTemplate('{{#each items}}x', {items:[]})).toThrow();
  });
+ it('bounds repeated binding work even when repeated sections produce no output',()=>{
+  const source=Array.from({length:25},()=>'{{#each items}}{{/each}}').join('');
+  expect(()=>bindTemplate(source,{items:Array(500).fill('')})).toThrow(/complexity/);
+  expect(bindTemplate('{{#each items}}<span>{{value}}</span>{{/each}}',{items:Array(500).fill('OK')})).toContain('<span>OK</span>');
+ });
  it('revision omission is valid across all advertised numeric revision/version guards; stale errors include retry value',async()=>{
   for(const tool of CANONICAL_TOOLS){const schema=z.toJSONSchema(tool.schema,{unrepresentable:'any',io:'input'}) as any;for(const key of ['expectedRevision','expectedVersion','expectedDraftRevision','expectedDeckRevision','expectedRevisions'])if(schema.properties?.[key])expect(schema.required??[],tool.name+' '+key).not.toContain(key);}
   await publish('checklist',{items:[{id:'a',text:'Task',checked:false}]});const display=await current(),checklistId=display.view!.data.checklistId;

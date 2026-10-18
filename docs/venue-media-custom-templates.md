@@ -132,3 +132,5 @@ fields can still be required independently of optional version guards.
 The bounded tool-result envelope grows from 64 to 96 KiB to retain complete,
 untruncated composite schemas for the expanded catalog; source/data responses
 remain bounded and JSON Schema equivalence is regression-tested.
+
+Custom-template binding work is also bounded to 10,000 expansions per render, including empty repeating sections, independently of the 250,000-character output limit.

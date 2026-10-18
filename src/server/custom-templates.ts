@@ -18,7 +18,7 @@ const tags=new Set('div span p h1 h2 h3 h4 h5 h6 article section header footer m
 const attrs=new Set(['class','id','title','role','aria-label','colspan','rowspan','scope','datetime']);
 export function validateStatic(html:string,css:string){
  if(/{{|}}/.test(css))throw new AppError('INVALID_ARGUMENT','CSS is static; put data bindings in HTML.');
- if(/[\\<>]|\/\*|@|url\s*\(|expression\s*\(|-moz-binding|behavior\s*:/i.test(css))throw new AppError('INVALID_ARGUMENT','CSS must be static: no URLs, imports, escapes, comments, markup or executable properties.');
+ if(/[\\<>]|\/\*|@|(?:url|image-set|-webkit-image-set|image|src)\s*\(|expression\s*\(|-moz-binding|behavior\s*:/i.test(css))throw new AppError('INVALID_ARGUMENT','CSS must be static: no URLs, imports, escapes, comments, markup or executable properties.');
  // XML parsing provides strict nesting and entity decoding; a deliberately small
  // safe HTML subset avoids browser error-recovery/parser differential hazards.
  const parser=new SaxesParser({xmlns:false});

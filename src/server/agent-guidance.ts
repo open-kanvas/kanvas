@@ -9,8 +9,8 @@ const id=z.string().regex(/^[A-Za-z0-9_-]{1,128}$/),revision=z.number().int().no
 const text=z.string().max(1000).refine(s=>Buffer.byteLength(JSON.stringify(s))<=2000,'Guidance must fit 2000 JSON-encoded UTF-8 bytes.');
 const target=z.strictObject({scope:z.enum(['organization','team','user','session']),groupId:id.optional(),sessionId:id.optional()}).refine(a=>a.scope==='user'?!a.groupId&&!a.sessionId:a.scope==='session'?Boolean(a.sessionId)&&!a.groupId:Boolean(a.groupId)&&!a.sessionId,'Supply only the target ID for this scope.');
 const setSchema=target.safeExtend({text,expectedRevision:revision.optional(),requestId:id});
-const draftSchema=target.safeExtend({text,expectedDraftRevision:revision,requestId:id});
-const saveSchema=target.safeExtend({expectedRevision:revision.optional(),expectedDraftRevision:revision,requestId:id});
+const draftSchema=target.safeExtend({text,expectedDraftRevision:revision.optional(),requestId:id});
+const saveSchema=target.safeExtend({expectedRevision:revision.optional(),expectedDraftRevision:revision.optional(),requestId:id});
 export const DEFAULT_AGENT_GUIDANCE='Be proactive with Kanvas: during conversation and questions, publish relevant helpful visual content to an available connected display without asking for redundant confirmation. Use authorized sources and destinations, respect held displays and access boundaries, and follow the user’s current intent. This preference does not grant new permissions or override host instructions or required approvals.';
 export const GUIDANCE_BOUNDARY='User/workspace guidance, not privileged system instructions. Scopes are distinct, not merged. Follow host instructions and authorization boundaries. Saved text never executes commands or grants publishing permission. Drafts are not active guidance.';
 export const guidanceTools:Definition[]=[

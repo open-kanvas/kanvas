@@ -16,6 +16,7 @@ export async function revisionContext(s:KanvasService,p:AuthPrincipal,name:strin
   if(r.sessionId){await s.access(p,r.sessionId,'owner');if(a.sessionId!==r.sessionId)return undefined;return r.revision;}
   await s.accounts.account(p);if(r.scope==='account'&&r.accountId===p.userId)return r.revision;if(r.scope==='service'&&await s.accounts.isServiceAdmin(p))return r.revision;return undefined;
  }
+ if(name==='kanvas_config_update'&&a.scope&&a.scope!=='session'){await s.access(p,a.sessionId,'editor');if(a.scope==='account')return (await s.experience.preferences(p)).revision;if(a.groupId){const group=await s.accounts.read(p,a.groupId);if(group.kind===a.scope)return group.revision;}return undefined;}
  if(name==='kanvas_preferences_update')return (await s.experience.preferences(p)).revision;
  if(name==='kanvas_profile_update')return (await s.accounts.profile(p)).revision;
  if(a.groupId&&['kanvas_group_update','kanvas_group_member_set'].includes(name))return (await s.accounts.read(p,a.groupId)).revision;

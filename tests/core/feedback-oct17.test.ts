@@ -100,13 +100,13 @@ describe('October 17 full feedback families',()=>{
  });
  it('rejects scripts, event handlers, URL/CSS exfiltration, parser tricks and invalid schemas',()=>{
   for(const html of ['<script>alert(1)</script>','<p onclick="x">x</p>','<svg onload="x"/>','<a href="javascript:alert(1)">x</a>','<iframe/>','<!DOCTYPE x [<!ENTITY e SYSTEM "file:///etc/passwd">]><p>&e;</p>','<style>body{}</style>','<p style="background:url(https://evil.example)">x</p>'])expect(()=>validateStatic(html,'')).toThrow();
-  for(const css of ['@import "https://evil.example";','p{background:url(https://evil.example)}','p{background:u\\72l(x)}','</style><script>x</script>','p{behavior:x}'])expect(()=>validateStatic('<p>OK</p>',css)).toThrow();
+  for(const css of ['@import "https://evil.example";','p{background:url(https://evil.example)}','p{background:u\\72l(x)}','</style><script>x</script>','p{behavior:x}','p{background:image-set("https://evil.example/a" 1x)}','p{background:src("https://evil.example/a")}'])expect(()=>validateStatic('<p>OK</p>',css)).toThrow();
   expect(()=>validateCustomSchema({type:'object',properties:{x:{$ref:'https://evil.example'}}})).toThrow();
   expect(bindTemplate('<p>{{name}}</p>',{name:'" <script>'})).toBe('<p>&quot; &lt;script&gt;</p>');
   expect(()=>bindTemplate('{{#each items}}x', {items:[]})).toThrow();
  });
  it('revision omission is valid across all advertised numeric revision/version guards; stale errors include retry value',async()=>{
-  for(const tool of CANONICAL_TOOLS){const schema=z.toJSONSchema(tool.schema,{unrepresentable:'any',io:'input'}) as any;for(const key of ['expectedRevision','expectedVersion'])if(schema.properties?.[key])expect(schema.required??[],tool.name+' '+key).not.toContain(key);}
+  for(const tool of CANONICAL_TOOLS){const schema=z.toJSONSchema(tool.schema,{unrepresentable:'any',io:'input'}) as any;for(const key of ['expectedRevision','expectedVersion','expectedDraftRevision','expectedDeckRevision'])if(schema.properties?.[key])expect(schema.required??[],tool.name+' '+key).not.toContain(key);}
   await publish('checklist',{items:[{id:'a',text:'Task',checked:false}]});const display=await current(),checklistId=display.view!.data.checklistId;
   await call('kanvas_checklist_update',{sessionId:s,checklistId,items:[{id:'a',text:'Task',checked:true}]});
   let conflict:unknown;try{await call('kanvas_checklist_update',{sessionId:s,checklistId,expectedRevision:0,items:[]});}catch(e){conflict=e;}expect(safeError(conflict)).toMatchObject({code:'REVISION_CONFLICT',currentRevision:1});
@@ -135,6 +135,15 @@ describe('October 17 full feedback families',()=>{
   expect(safeError(error)).toMatchObject({code:'INVALID_ARGUMENT',currentRevision:1});
   const stranger=await h.account();
   await expect(h.runtime.service.execute('kanvas_kanban_update',{sessionId:s,displayId:d,action:'reorder-columns',columnIds:['todo'],expectedRevision:'bad'},{userId:stranger.user!.id})).rejects.not.toHaveProperty('currentRevision');
+ });
+ it('private guidance drafts and scoped-settings diagnostics follow the same optional guard contract',async()=>{
+  const edited=await call('kanvas_guidance_draft_edit',{scope:'user',text:'Use exact source values.',requestId:'draft-edit'});
+  expect(edited.draft.revision).toBe(1);
+  const saved=await call('kanvas_guidance_draft_save',{scope:'user',requestId:'draft-save'});expect(saved.text).toBe('Use exact source values.');
+  await expect(call('kanvas_guidance_draft_edit',{scope:'user',text:'Other',requestId:'draft-stale',expectedDraftRevision:0})).rejects.toMatchObject({code:'REVISION_CONFLICT',currentRevision:1});
+  await call('kanvas_preferences_update',{config:{theme:'light'}});
+  const prefs=await call('kanvas_preferences_update',{config:{theme:'dark'}});
+  await expect(call('kanvas_config_update',{sessionId:s,scope:'account',config:{theme:'light'},expectedRevision:'bad'})).rejects.toMatchObject({code:'INVALID_ARGUMENT',currentRevision:prefs.revision});
  });
  it('signage can set and clear a previously blank display',async()=>{
   await update('kanvas_signage_update',{action:'set',template:'back-at',data:{time:'14:30'}});

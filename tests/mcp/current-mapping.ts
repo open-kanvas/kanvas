@@ -2,6 +2,8 @@
  * lives in drafting-ops, planner-ops, display-sync, window-invitations and
  * account-home; real SDK coverage lives in workflows-http/event-feedback-http. */
 export const CURRENT_MAPPING = [
+ // October18: real scoped media import exercised by feedback-oct18 core and HTTPS/browser acceptance.
+ ['kanvas_media_import','kanvas_import','media.import'],
  // October 17: real state/authorization tests in feedback-oct17; real SDK/browser in feedback-oct17.spec.
  ['kanvas_seat_map_update','kanvas_publish','seat-map.update'],
  ['kanvas_menu_update','kanvas_publish','menu.update'],

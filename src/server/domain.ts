@@ -1141,6 +1141,7 @@ export class KanvasService implements McpService {
     if(venueTools.some(t=>t.name===name))return venueUpdate(this,principal,name,a);
     if(name.startsWith('kanvas_account_templates_'))return this.customTemplates.execute(principal,name,a);
     if(name==='kanvas_media_list'){const all=await this.mediaLibrary.list(principal,a.query,a.tag),offset=Number(a.offset??0),limit=Number(a.limit??50);return {media:all.slice(offset,offset+limit),total:all.length,...(offset+limit<all.length?{nextOffset:offset+limit}:{})};}
+    if(name==='kanvas_media_import')return this.mediaLibrary.importAsset(principal,a.sessionId,a.assetId,a.tags);
     if(name==='kanvas_media_get')return this.mediaLibrary.own(principal,a.mediaId);
     switch (name) {
       case 'kanvas_archive_list': return this.archive.list(principal,a);

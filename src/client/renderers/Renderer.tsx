@@ -1,3 +1,4 @@
+import {FitToDisplay} from './FitToDisplay';
 import {VenueRenderer} from './Venue';
 import {VENUE_IDS} from '../../shared/venue';
 import {staticPreviewDocument} from '../../shared/device-preview';
@@ -110,6 +111,10 @@ function ReadyProbe({ identity, onReady }: { identity: unknown; onReady?: () => 
   return null;
 }
 function Content(props: RendererProps) {
+  if(['seat-map','menu','menu-board','todays-special','opening-hours','back-at','closed-sign','hiring','sale-poster','health-notice','custom-sign'].includes(props.view.template))return <FitToDisplay><ContentInner {...props}/></FitToDisplay>;
+  return <ContentInner {...props}/>;
+}
+function ContentInner(props: RendererProps) {
   const { view, config, editable, onEdit } = props;
   if(view.selection){const projected=projectSelection(view);return <SelectionContext.Provider value={projected}><Content {...props} view={projected.view}/></SelectionContext.Provider>;}
   const data = view.data;

@@ -17,7 +17,7 @@ export const TEMPLATE_DISPLAY_GUIDANCE = {
 "sale-poster":focus("Sale Poster","Curated signage presets with narrow live updates. Portrait and landscape, flexible optional content.",true),
 "health-notice":focus("Health Notice","Curated signage presets with narrow live updates. Portrait and landscape, flexible optional content.",true),
 "custom-sign":focus("Custom Sign","Curated signage presets with narrow live updates. Portrait and landscape, flexible optional content.",true),
-"seat-map":focus("Seat Map","Fourteen preset layouts; up to 1000 people and seats. Stable IDs, live seating operations and visible unseated pool.",true),
+"seat-map":focus("Seat Map","Fourteen preset layouts; up to 1000 people and seats. tableColumns sets table/pod grid width (e.g. 2 for four tables in 2×2); columns sets seats per row. Compact auto-fit never hides seats. Stable IDs, live seating operations and visible unseated pool.",true),
 "kanban":focus("Kanban","Configurable columns and WIP advisory limits. Narrow add/edit/move/remove operations retain current board state.",true),
 "account-template":focus("Account Template","Private account HTML/CSS template. Create first; publish by templateId and update values. No scripts or external resources.",true),
 

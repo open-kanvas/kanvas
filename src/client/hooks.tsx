@@ -2,9 +2,9 @@ import {diagnostic} from './frontend-diagnostics';
 import { viewerTabId } from './renderers/Navigation';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { SessionEvent } from '../shared/types';
-import { api, ApiError, errorMessage, sessionPath, setCsrfToken, type SessionDetail, type User } from './api';
+import { api, ApiError, authGeneration, confirmAuth, errorMessage, sessionPath, setCsrfToken, type SessionDetail, type User } from './api';
 
-interface AuthState { user: User | null; loading: boolean; previouslyAuthenticated?: boolean; error?: string | null; viewOnly?: boolean; captureOnly?: boolean; interactive?: boolean; sessionId?: string; displayId?: string; refresh: () => Promise<void>; logout: () => Promise<void> }
+interface AuthState { user: User | null; loading: boolean; previouslyAuthenticated?: boolean; signoutReason?:string; error?: string | null; viewOnly?: boolean; captureOnly?: boolean; interactive?: boolean; sessionId?: string; displayId?: string; refresh: () => Promise<void>; logout: () => Promise<void> }
 const AuthContext = createContext<AuthState>({ user: null, loading: true, refresh: async () => {}, logout: async () => {} });
 export const useAuth = () => useContext(AuthContext);
 const returningScreenKey = 'kanvas:authenticated-before';
@@ -18,29 +18,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [previouslyAuthenticated, setPreviouslyAuthenticated] = useState(returningScreen);
   const [scope, setScope] = useState<{ viewOnly?: boolean; captureOnly?: boolean; interactive?: boolean; sessionId?: string; displayId?: string }>({});
+  const [signoutReason,setSignoutReason]=useState<string>();
   const [authError, setAuthError] = useState<string | null>(null);
-  const refresh = useCallback(async () => {
-    try {
-      const value = await api<{ user: User; csrfToken: string; viewOnly?: boolean; captureOnly?: boolean; interactive?: boolean; sessionId?: string; displayId?: string }>('/api/auth/me');
-      setPreviouslyAuthenticated(true);
-      try { sessionStorage.setItem(returningScreenKey, 'true'); } catch { /* Storage can be disabled; in-memory state still protects this tab. */ }
-      setCsrfToken(value.csrfToken, !value.viewOnly && !value.captureOnly); setUser(value.user); setScope({ viewOnly: value.viewOnly, captureOnly: value.captureOnly, interactive: value.interactive, sessionId: value.sessionId, displayId: value.displayId }); setAuthError(null);
-    } catch (error) {
-      if (!(error instanceof ApiError) || error.status !== 401) { setAuthError(errorMessage(error)); throw error; }
-      setUser(null); setCsrfToken(''); setScope({}); setAuthError(null);
-    } finally { setLoading(false); }
-  }, []);
-  useEffect(() => { refresh().catch(() => setLoading(false)); }, [refresh]);
-  useEffect(() => {
-    const signout = () => { setUser(null); setCsrfToken(''); setScope({}); setAuthError(null); };
-    window.addEventListener('kanvas:signout', signout);
-    return () => window.removeEventListener('kanvas:signout', signout);
-  }, []);
+  const apply = useCallback((value:Awaited<ReturnType<typeof confirmAuth>>)=>{
+    if(!value||value.generation!==authGeneration())return;
+    if(value.state){
+      const state=value.state;setPreviouslyAuthenticated(true);setSignoutReason(undefined);
+      try{sessionStorage.setItem(returningScreenKey,'true');}catch{/* Per-tab hint only. */}
+      setUser(state.user);setScope({viewOnly:state.viewOnly,captureOnly:state.captureOnly,interactive:state.interactive,sessionId:state.sessionId,displayId:state.displayId});setAuthError(null);
+    }else{setUser(null);setScope({});setAuthError(null);setSignoutReason(value.reason);}
+    setLoading(false);
+  },[]);
+  const refresh=useCallback(async()=>{
+    const started=authGeneration();
+    try{apply(await confirmAuth());}
+    catch(error){if(started===authGeneration())setAuthError(errorMessage(error));throw error;}
+    finally{if(started===authGeneration())setLoading(false);}
+  },[apply]);
+  useEffect(()=>{void refresh().catch(()=>{});},[refresh]);
+  useEffect(()=>{
+    const confirmed=(event:Event)=>apply((event as CustomEvent).detail);
+    const resume=()=>{if(!document.hidden)void refresh().catch(()=>{});};
+    window.addEventListener('kanvas:auth-confirmed',confirmed);window.addEventListener('focus',resume);document.addEventListener('visibilitychange',resume);
+    return()=>{window.removeEventListener('kanvas:auth-confirmed',confirmed);window.removeEventListener('focus',resume);document.removeEventListener('visibilitychange',resume);};
+  },[apply,refresh]);
+  useEffect(()=>{
+    if(!user||scope.viewOnly||scope.captureOnly)return;
+    let last=0,busy=false;
+    const active=(event:Event)=>{
+      if(!event.isTrusted||document.hidden||!document.hasFocus()||busy||Date.now()-last<5*60000)return;
+      last=Date.now();busy=true;
+      void api('/api/auth/activity',{method:'POST',body:{},headers:{'X-Kanvas-Activity':'foreground'}}).catch(()=>{}).finally(()=>{busy=false;});
+    };
+    const events=['pointerdown','keydown','touchstart'];for(const event of events)window.addEventListener(event,active,{passive:true});
+    return()=>{for(const event of events)window.removeEventListener(event,active);};
+  },[user?.id,scope.viewOnly,scope.captureOnly]);
   const logout = async () => {
     await api('/api/auth/logout', { method: 'POST', body: {} });
     setCsrfToken(''); setUser(null); setScope({}); setAuthError(null);
   };
-  return <AuthContext.Provider value={{ user, loading, previouslyAuthenticated, error: authError, ...scope, refresh, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, loading, previouslyAuthenticated, signoutReason, error: authError, ...scope, refresh, logout }}>{children}</AuthContext.Provider>;
 }
 
 export type ConnectionState = 'connecting' | 'live' | 'offline' | 'closed';

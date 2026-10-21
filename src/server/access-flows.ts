@@ -520,6 +520,7 @@ export function mountAccessFlows(app: Express, options: AccessFlowOptions): () =
     const body = object(request.body);
     if (typeof body.approve !== 'boolean') throw new AppError('INVALID_REQUEST', 'An explicit approval or denial is required.');
     const result = (await store.transaction(async () => {
+      if(body.approve)await auth.requireFresh(principal);
       const pending = (await consent(body.requestId));
       required((await store.get<OAuthClient>('oauth-client', pending.clientId)), 'This client connection is unavailable.');
       pending.userId = principal.userId; pending.decidedAt = now();
@@ -804,6 +805,7 @@ export function mountAccessFlows(app: Express, options: AccessFlowOptions): () =
     const display = (await store.get<DisplayRecord>('display', pair.displayId));
     if (!display || display.sessionId !== pair.sessionId) throw new AppError('NOT_FOUND', 'This screen is unavailable.', 404);
     (await store.transaction(async () => {
+      if(body.approve)await auth.requireFresh(await fullBrowser(request));
       const current = required((await store.get<PairingRecord>('pairing', pair.id)));
       if (current.status !== 'pending' || Date.parse(current.expiresAt) <= Date.now()) throw new AppError('REQUEST_CLOSED', 'This screen request was already completed or expired.', 409);
       const share = current.shareId ? (await shareForAdmission(store, current.shareId)) : undefined;

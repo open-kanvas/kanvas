@@ -42,17 +42,32 @@ Keep third-party notices when distributing builds, including `public/browser-ico
 ## Console and documentation domains
 
 The user dashboard is **Console**. A single-origin deployment serves it at
-`/console`; old `/admin` bookmarks redirect there. Set `KANVAS_CONSOLE_URL` to an
-HTTPS **origin** such as `https://console.example.com` to serve Console at that
-host's root. Route both the public and console hosts to the same backend while
-preserving the request host. `KANVAS_ADMIN_URL` remains a compatibility alias;
-`KANVAS_CONSOLE_URL` takes precedence. The start response exposes `consoleUrl`
-and retains `adminUrl` for older clients. Internal service administration remains
-permission-restricted; this naming change does not grant administrative access.
+`/console`; old `/admin` path bookmarks redirect there. Console, viewers, email
+sign-in and OAuth use the configured public origin. The start response exposes
+`consoleUrl` and retains `adminUrl` as a response-field alias for older clients.
+Internal service administration remains permission-restricted.
 
-Browser cookies are host-scoped. Signing in on the console does not create a
-browser session on the canvas/MCP origin; sign in there or use the explicit
-pairing/OAuth flows when needed. Do not broaden the cookie Domain to bypass this.
+Browser cookies are Secure, HttpOnly, host-only `__Host-kanvas` cookies on HTTPS;
+console and viewer paths share one login. Dev and production never share cookies.
+Do not add a cookie Domain. Full-account sign-ins use `KANVAS_BROWSER_IDLE_DAYS`
+(default 90) and `KANVAS_BROWSER_ABSOLUTE_DAYS` (365). Foreground trusted input
+renews at most once per `KANVAS_BROWSER_RENEWAL_HOURS` (24), capped at the original
+absolute expiry. Background receivers, polling and OAuth do not renew them.
+Valid legacy sessions migrate lazily without extending their old deadline until
+foreground use; expired or revoked records are never resurrected. Scoped pairing
+and capture grants retain their own short deadlines.
+
+`KANVAS_BROWSER_FRESH_MINUTES` (15, maximum 60) requires fresh email confirmation
+for new publisher credentials, OAuth approval (including device authorization),
+membership/group invitations, sharing/public access or paired-screen approval,
+and revoking other/all browser sign-ins. Current-browser
+logout and ordinary viewing/content use remain available. The UI does not replay
+the requested mutation after reauthentication; review it and try again.
+Account → Signed-in browsers shows non-credential IDs and device/browser/origin,
+created/last-active/idle/absolute expiry metadata. Activity timestamps have the
+configured renewal precision. Audit events distinguish sign-in, replacement,
+logout, device/all revocation, idle expiry and absolute expiry; raw cookie tokens,
+credential hashes and CSRF secrets are never returned by session management.
 
 An optional `KANVAS_DOCS_URL=https://docs.example.com` sets the origin used by
 public documentation links and canonical URLs. At the reverse proxy, redirect

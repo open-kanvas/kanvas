@@ -46,7 +46,12 @@ runtime = await createApp({
   publishSetupEnabled: process.env.KANVAS_PUBLISH_SETUP !== 'false',
   ...(process.env.KANVAS_INVITE_EMAIL === 'true' ? {inviteMailer:resendInviteMailer(mailCredential!,process.env.KANVAS_MAIL_FROM!)} : {}),
   ...(process.env.KANVAS_EMAIL_SIGNIN === 'true' ? { signinMailer: resendSigninMailer(mailCredential!, process.env.KANVAS_MAIL_FROM!) } : {}),
-  consoleUrl:process.env.KANVAS_CONSOLE_URL??process.env.KANVAS_ADMIN_URL,
+  browserSessionPolicy: {
+    idleDays: Number(process.env.KANVAS_BROWSER_IDLE_DAYS ?? 90),
+    absoluteDays: Number(process.env.KANVAS_BROWSER_ABSOLUTE_DAYS ?? 365),
+    renewalHours: Number(process.env.KANVAS_BROWSER_RENEWAL_HOURS ?? 24),
+    freshMinutes: Number(process.env.KANVAS_BROWSER_FRESH_MINUTES ?? 15),
+  },
   docsUrl:process.env.KANVAS_DOCS_URL,
   publicUrl,
   ...(existsSync(fileURLToPath(new URL('../client/index.html', import.meta.url))) ? { staticDirectory: packagedClient } : {}),

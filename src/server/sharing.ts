@@ -79,7 +79,9 @@ export function mountSharing(app: Express, options: AccessFlowOptions): void {
     response.json({ data: (await asyncMap((await store.list<ShareRecord>('share', sessionId)), expire)).map(metadata) });
   });
   app.post('/api/sessions/:sessionId/shares', async (request, response) => {
+    const result=await store.atomic(async()=>{
     const principal = (await account(request)), sessionId = identifier.parse(request.params.sessionId), body = createSchema.parse(request.body);
+    await auth.requireFresh(principal);
     await access(principal, sessionId, 'owner');
     const display = required((await store.get<DisplayRecord>('display', body.displayId)), 'This display is unavailable.');
     if (display.sessionId !== sessionId) throw new AppError('NOT_FOUND', 'This display is unavailable.', 404);
@@ -91,7 +93,9 @@ export function mountSharing(app: Express, options: AccessFlowOptions): void {
       status: 'active', createdAt: now(), expiresAt: new Date(Date.now() + body.expiresInHours * 3600_000).toISOString(),
     };
     (await store.put('share', share));
-    response.status(201).json({ data: metadata(share) });
+    return metadata(share);
+    });
+    response.status(201).json({data:result});
   });
   app.delete('/api/shares/:id', async (request, response) => {
     const principal = (await account(request)), share = required((await store.get<ShareRecord>('share', identifier.parse(request.params.id))), 'This invitation is unavailable.');

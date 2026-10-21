@@ -64,7 +64,7 @@ describe('Explicit remote browser logout and native invitation email',()=>{
   await reader.read();const next=reader.read();
   await h.runtime.service.browserAuth.revoke(p,{all:true,confirm:true,requestId:'stream-logout'});
   expect((await next).done).toBe(true);
-  await expect(h.runtime.auth.assertCurrent({...p,browserId:browserId()})).rejects.toMatchObject({code:'UNAUTHORIZED'});
+  await expect(h.runtime.auth.assertCurrent({...p,browserId:browserId()})).rejects.toMatchObject({code:'SESSION_REVOKED'});
  });
  it('never sends from create and explicitly queues one normalized recipient with exact concurrent retries',async()=>{
   const i=await invite();expect(send).not.toHaveBeenCalled();

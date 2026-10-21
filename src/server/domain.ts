@@ -128,7 +128,6 @@ export class KanvasService implements McpService {
   readonly topology:Topology;
   readonly devices:EntryDevices;
   readonly inventory:AccountInventory;
-  adminUrl?:string;
   readonly browserAuth:BrowserAuth;
   readonly inviteEmail:InviteEmail;
   readonly invitations:Invitations;
@@ -1016,6 +1015,7 @@ export class KanvasService implements McpService {
   }
   async addMember(principal: AuthPrincipal, sessionId: string, username: string, role: 'viewer'|'editor'): Promise<Awaited<Member>> {
     return this.store.atomic(async () => {
+    await this.auth.requireFresh(principal);
     const session = (await this.access(principal, sessionId, 'owner'));
     const row = (await this.store.db.prepare('SELECT id FROM users WHERE username=?').get(username.trim().toLowerCase())) as {id:string} | undefined;
     const user = required(row && (await this.auth.user(row.id)), 'That account is unavailable.');
@@ -1029,6 +1029,7 @@ export class KanvasService implements McpService {
   }
   async removeMember(principal: AuthPrincipal, sessionId: string, userId: string): Promise<Awaited<{removed: true}>> {
     return this.store.atomic(async () => {
+    await this.auth.requireFresh(principal);
     const session = (await this.access(principal, sessionId, 'owner')); if (userId === session.ownerId) throw new AppError('OWNER_ROLE', 'The session owner cannot be removed.');
     (await this.store.db.prepare('DELETE FROM members WHERE session_id=? AND user_id=?').run(sessionId, userId));(await this.accounts.audit('session.member.removed',{actorId:principal.userId,subjectId:userId,sessionId}));
     await this.monitoring.reconcileSession(sessionId);

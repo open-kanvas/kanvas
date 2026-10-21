@@ -1,3 +1,4 @@
+import {ReauthenticationPrompt} from './BrowserSessions';
 import { SessionEntry } from './PublicSession';
 import { DeviceReceiver, LiveEntry } from './DeviceReceiver';
 import { Suspense, lazy, useEffect, useState } from 'react';
@@ -53,7 +54,12 @@ function Router({ emailToken }: { emailToken?: string }) {
   if (window.location.pathname !== '/') return <main className="app-loading"><Wordmark /><h1>This page is not here.</h1><a href="/">Return to your workspace</a></main>;
   return <Workspace />;
 }
+function AccountBoundary({emailToken}:{emailToken?:string}) {
+  const auth=useAuth();
+  // An account switch in another tab must discard cached workspace/device data.
+  return <DeviceReceiver key={`${auth.user?.id??'signed-out'}:${auth.sessionId??''}:${auth.displayId??''}`} suspended={Boolean(emailToken)}><Router emailToken={emailToken}/></DeviceReceiver>;
+}
 export default function App() {
   const [emailToken,setEmailToken]=useState(initialEmailToken);
   useEffect(()=>{const changed=()=>{const token=takeEmailFragment();if(token)setEmailToken(token);};window.addEventListener('hashchange',changed);return()=>window.removeEventListener('hashchange',changed);},[]);
-  return <AuthProvider><Suspense fallback={<main className="app-loading"><Wordmark /><span className="spinner" /></main>}><DeviceReceiver suspended={Boolean(emailToken)}><Router emailToken={emailToken}/></DeviceReceiver></Suspense></AuthProvider>; }
+  return <AuthProvider><ReauthenticationPrompt/><Suspense fallback={<main className="app-loading"><Wordmark /><span className="spinner" /></main>}><AccountBoundary emailToken={emailToken}/></Suspense></AuthProvider>; }

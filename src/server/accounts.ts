@@ -102,6 +102,7 @@ export class Accounts {
   }
   async setMember(p:AuthPrincipal,raw:unknown){
     return this.store.atomic(async () => {
+    await this.service.auth.requireFresh(p);
     const a=groupMemberSchema.parse(raw),g=(await this.group(p,a.groupId,true));this.service.assertRevision(a.expectedRevision,g.revision);
     const row=(await this.store.db.prepare('SELECT id FROM users WHERE username=?').get(a.username.toLowerCase())) as {id:string}|undefined;
     const user=required(row&&(await this.service.auth.user(row.id)),'That registered account is unavailable.');
@@ -124,6 +125,7 @@ export class Accounts {
   async grants(p:AuthPrincipal,sessionId:string){(await this.service.fullAccount(p));(await this.service.access(p,sessionId,'owner'));return {grants:(await asyncMap((await this.store.list<SessionGroupGrant>('session-group-grant',sessionId)), async g=>({...g,group:(await this.store.get<AccountGroup>('group',g.groupId))?.name})))};}
   async grant(p:AuthPrincipal,raw:unknown){
     return this.store.atomic(async () => {
+    await this.service.auth.requireFresh(p);
     const a=groupGrantSchema.parse(raw);(await this.service.fullAccount(p,'publish'));(await this.service.access(p,a.sessionId,'owner'));
     const key=hash(`${a.sessionId}:${a.groupId}`),previous=(await this.store.get<SessionGroupGrant>('session-group-grant',key));
     // Owners can always revoke an existing grant even after leaving the group.

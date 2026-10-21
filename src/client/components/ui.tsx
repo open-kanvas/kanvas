@@ -45,6 +45,7 @@ export function Modal({ title, children, onClose, wide = false }: { title: strin
     const target = root.current?.querySelector<HTMLElement>('input,textarea,select,button,[tabindex="0"]');
     target?.focus();
     const keydown = (event: KeyboardEvent) => {
+      if([...document.querySelectorAll('[role=dialog]')].at(-1)!==root.current)return;
       if (event.key === 'Escape') closeRef.current();
       if (event.key !== 'Tab') return;
       const elements = [...(root.current?.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex="0"]') ?? [])];

@@ -18,7 +18,7 @@ export class Invitations {
     return this.service.store.atomic(async () => {
     const a=invitationSchema.parse(raw);(await this.service.fullAccount(p,'publish'));
     if(p.tokenId&&(await this.service.store.get<Token>('token',p.tokenId))?.sessionIds!==undefined)throw new AppError('FORBIDDEN','General and group invitations need account-level authority.',403);
-    if(a.groupId)(await this.service.accounts.group(p,a.groupId,true));
+    if(a.groupId){await this.service.auth.requireFresh(p);await this.service.accounts.group(p,a.groupId,true);}
     const key=hash(`invite:${p.userId}:${a.requestId}`),digest=hash(JSON.stringify(a)),receipt=(await this.service.store.get<{digest:string;invitationId:string}>('invite-receipt',key));
     if(receipt){if(receipt.digest!==digest)throw new AppError('REQUEST_ID_CONFLICT','Use a new request ID for a different invitation.',409);return (await this.artifact(required((await this.service.store.get<Invitation>('invitation',receipt.invitationId)))));}
     if((await this.service.store.list<Invitation>('invitation')).filter(x=>x.ownerId===p.userId&&!x.revokedAt&&!x.acceptedBy&&Date.parse(x.expiresAt)>Date.now()).length>=50)throw new AppError('LIMIT_REACHED','This account has reached 50 active invitations.',429);

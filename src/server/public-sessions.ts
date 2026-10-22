@@ -11,6 +11,7 @@ export const publicAccessSchema=z.object({sessionId:z.string().min(1).max(128),e
 export async function setPublicAccess(service:KanvasService,p:AuthPrincipal,raw:unknown){
   return service.store.atomic(async () => {
   const a=publicAccessSchema.parse(raw);(await service.fullAccount(p,'publish'));(await service.access(p,a.sessionId,'owner'));
+  if(a.enabled)await service.auth.requireFresh(p);
   const session=required((await service.store.get<SessionRecord>('session',a.sessionId)));service.assertRevision(a.expectedRevision,session.publicAccess?.revision??0);
   session.publicAccess={enabled:a.enabled,revision:(session.publicAccess?.revision??0)+1};session.updatedAt=now();(await service.store.put('session',session));
   (await service.accounts.audit('session.public-access',{actorId:p.userId,sessionId:session.id}));service.emit({type:'membership',sessionId:session.id});

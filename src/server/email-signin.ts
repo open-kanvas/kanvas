@@ -25,8 +25,15 @@ interface Challenge {id:string;email:string;returnTo:string;expiresAt:number;cre
 interface PendingSignin {id:string;code:string;device:string;createdAt:string;expiresAt:number;status:'pending'|'approved'|'denied'|'transferred';userId?:string;returnTo?:string}
 function requestingDevice(ua:string){const browser=/Edg\//.test(ua)?'Edge':/Firefox\//.test(ua)?'Firefox':/Chrome\//.test(ua)?'Chrome':/Safari\//.test(ua)?'Safari':'Browser';const device=/Tesla/i.test(ua)?'Tesla display':/iPhone/i.test(ua)?'iPhone':/iPad/i.test(ua)?'iPad':/Android/i.test(ua)?'Android device':/Windows/i.test(ua)?'Windows device':/Macintosh/i.test(ua)?'Mac':/Linux/i.test(ua)?'Linux device':'Unknown device';return `${device} · ${browser}`;}
 const emailSchema=z.string().trim().toLowerCase().email().max(254);
-function returnPath(value:string){return /^\/(?:start|console|admin|(?:session|welcome|play)\/[A-Za-z0-9_-]+|view\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\/?|\?(?:authorize|session)=[A-Za-z0-9_-]+)?$/.test(value)?value:'/';}
-export function mountEmailSignin(app:Express,auth:Auth,origin:string,mailer?:SigninMailer,onCreated?:(userId:string)=>unknown,adminOrigin?:string,onSignedIn?:(userId:string)=>unknown){
+function returnPath(value:string){
+  if(!value.startsWith('/')||value.startsWith('//')||value.includes('\\'))return '/';
+  const url=new URL(value,'https://return.invalid');
+  if(url.origin!=='https://return.invalid'||url.hash||!/^\/(?:start|console|admin|connect|(?:session|welcome|play)\/[A-Za-z0-9_-]+|view\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\/?)?$/.test(url.pathname))return '/';
+  const allowed=new Set(['authorize','session','account','tab']);
+  for(const [key,val] of url.searchParams)if(!allowed.has(key)||!/^[-A-Za-z0-9_]{1,128}$/.test(val))return url.pathname;
+  return url.pathname+url.search;
+}
+export function mountEmailSignin(app:Express,auth:Auth,origin:string,mailer?:SigninMailer,onCreated?:(userId:string)=>unknown,onSignedIn?:(userId:string)=>unknown){
   const pendingCookie=auth.secure?'__Host-kanvas-email-origin':'kanvas-email-origin';
   const cookieOptions={httpOnly:true,secure:auth.secure,sameSite:'strict' as const,path:'/',maxAge:10*60000};
   const pendingKey=(req:import('express').Request)=>typeof req.cookies?.[pendingCookie]==='string'?hash(req.cookies[pendingCookie]):undefined;
@@ -50,7 +57,7 @@ export function mountEmailSignin(app:Express,auth:Auth,origin:string,mailer?:Sig
   app.post('/api/auth/email/request',async(req,res)=>{
     const secret=opaque(),key=hash(secret),pending:PendingSignin={id:key,code:String(randomInt(100000,1000000)),device:requestingDevice(req.get('user-agent')??''),createdAt:now(),expiresAt:Date.now()+10*60000,status:'pending'};
     // Cookie binds completion to the requesting browser. It is never returned in JSON.
-    const result=await requestLink(req.body,req.ip??'unknown',adminOrigin&&req.hostname===new URL(adminOrigin).hostname?adminOrigin:origin,key);
+    const result=await requestLink(req.body,req.ip??'unknown',origin,key);
     const previous=pendingKey(req);
     await auth.store.transaction(async()=>{
       for(const old of await auth.store.list<PendingSignin>('email-pending'))if(old.expiresAt<=Date.now()||old.id===previous){await auth.store.delete('email-pending',old.id);for(const challenge of await auth.store.list<Challenge>('email-challenge'))if(challenge.pendingId===old.id)await auth.store.delete('email-challenge',challenge.id);}
@@ -65,13 +72,14 @@ export function mountEmailSignin(app:Express,auth:Auth,origin:string,mailer?:Sig
   });
   app.post('/api/auth/email/complete',async(req,res)=>{
     const key=pendingKey(req);if(!key)throw new AppError('SIGNIN_EXPIRED','Request a new sign-in link.',410);
-    await auth.store.transaction(async()=>{
+    const data=await auth.store.transaction(async()=>{
       const pending=await auth.store.get<PendingSignin>('email-pending',key);
       if(!pending||pending.expiresAt<=Date.now()||pending.status!=='approved'||!pending.userId)throw new AppError('SIGNIN_NOT_APPROVED','This device has not been approved, or the request expired.',410);
       await auth.store.delete('email-pending',key);
-      await auth.logout(req,res);const session=await auth.issueBrowser(pending.userId,res);
-      res.clearCookie(pendingCookie,cookieOptions);res.json({data:{user:await auth.user(pending.userId),csrfToken:session.csrf,returnTo:pending.returnTo??'/start'}});
+      await auth.logout(req,res,'replaced');const session=await auth.issueBrowser(pending.userId,res,undefined,req);
+      return {user:await auth.user(pending.userId),csrfToken:session.csrf,returnTo:pending.returnTo??'/start'};
     });
+    res.clearCookie(pendingCookie,cookieOptions);res.json({data});
   });
   app.post('/api/auth/email/deny',async(req,res)=>{
     limit(`deny:${req.ip}`,30);const a=z.object({token:z.string().regex(/^[A-Za-z0-9_-]{43}$/)}).strict().parse(req.body);
@@ -117,7 +125,7 @@ export function mountEmailSignin(app:Express,auth:Auth,origin:string,mailer?:Sig
       if(pending){pending.status=a.target==='origin'?'approved':'transferred';if(a.target==='origin'){pending.userId=userId;pending.returnTo=current.returnTo;}await auth.store.put('email-pending',pending);}
     }));
     if(a.target==='origin'){res.json({data:{approved:true}});return;}
-    (await auth.logout(req,res));const session=(await auth.issueBrowser(userId!,res));res.json({data:{user:(await auth.user(userId!)),csrfToken:session.csrf,returnTo:challenge.returnTo}});
+    (await auth.logout(req,res,'replaced'));const session=(await auth.issueBrowser(userId!,res,undefined,req));res.json({data:{user:(await auth.user(userId!)),csrfToken:session.csrf,returnTo:challenge.returnTo}});
   });
   return {requestLink};
 }

@@ -57,9 +57,7 @@ export interface AppOptions {
   onOwnershipLost?: () => void;
   pushOptions?:PushOptions;
   serviceAdmins?: string[];
-  consoleUrl?:string;
-  /** Compatibility alias for older deployments. */
-  adminUrl?:string;
+  browserSessionPolicy?: import('./auth.js').BrowserSessionPolicy;
   docsUrl?:string;
   pairingFailedLimit?:number;
   pairingLabel?:()=>string;
@@ -103,19 +101,14 @@ export async function createApp(options: AppOptions = {}) {
   if (!['https:', 'http:'].includes(publicAddress.protocol) || publicAddress.username || publicAddress.password || publicAddress.pathname !== '/' || publicAddress.search || publicAddress.hash) throw new Error('KANVAS public URL must be an HTTP(S) origin without credentials, path, query or fragment.');
   if (publicAddress.protocol !== 'https:' && !['127.0.0.1', 'localhost', '[::1]'].includes(publicAddress.hostname)) throw new Error('A non-loopback KANVAS public URL must use HTTPS.');
   const publicUrl = publicAddress.origin;
-  const consoleUrl=options.consoleUrl??options.adminUrl;
-  const adminAddress=consoleUrl?new URL(consoleUrl):undefined;
-  if(adminAddress&&(adminAddress.protocol!=='https:'||adminAddress.username||adminAddress.password||adminAddress.pathname!=='/'||adminAddress.search||adminAddress.hash))throw new Error('The console URL must be a credential-free HTTPS origin.');
-  const adminOrigin=adminAddress?.origin;
-  const origins = new Set([publicUrl,...(adminOrigin?[adminOrigin]:[]), ...(options.allowedOrigins ?? [])]);
-  const allowedHosts = [...new Set([publicAddress.hostname,...(adminAddress?[adminAddress.hostname]:[]), '127.0.0.1', 'localhost', '[::1]'])];
+  const origins = new Set([publicUrl, ...(options.allowedOrigins ?? [])]);
+  const allowedHosts = [...new Set([publicAddress.hostname, '127.0.0.1', 'localhost', '[::1]'])];
   const store = new Store(options.database, options.onOwnershipLost);
   try { await store.ready; await store.claimRuntime(); } catch (error) { await store.close(); throw error; }
-  const auth = new Auth(store, publicAddress.protocol === 'https:', options.allowRegistration ?? true, `${publicUrl}/mcp`);
+  const auth = new Auth(store, publicAddress.protocol === 'https:', options.allowRegistration ?? true, `${publicUrl}/mcp`, options.browserSessionPolicy);
   const service = new KanvasService(store, auth, options.interpreter ?? createInterpreter(), publicUrl, options.monitoringOptions, options.publishSetupEnabled, options.pushOptions);
   service.inviteEmail.mailer=options.inviteMailer;
   try { await service.initialize(); } catch(error) { await service.close(); await store.close(); throw error; }
-  service.adminUrl=adminOrigin;
   service.accounts.serviceAdmins=new Set(options.serviceAdmins??[]);
   const app = express(); app.disable('x-powered-by'); app.set('trust proxy', 'loopback');
   app.use((req,res,next)=>{const started=performance.now();res.on('finish',async ()=>{if(req.method==='GET'&&String(res.getHeader('content-type')).startsWith('text/event-stream'))return;const category=req.path.startsWith('/mcp')?'agent':req.path.startsWith('/api/auth/')||req.path.startsWith('/oauth/')?'account':req.path.startsWith('/api/')?'api':'page';try{(await service.accounts.recordRequest(category,res.statusCode,performance.now()-started));}catch{/* Metrics must not affect a completed response or shutdown. */}});next();});
@@ -197,7 +190,7 @@ export async function createApp(options: AppOptions = {}) {
   mountWebsitePreview(app,new WebsitePreview(service,options.websitePreviewOptions),browser);
   mountPublicDocs(app,service.publicUrl,profile,options.docsUrl);
   mountLegal(app);
-  mountEmailSignin(app,auth,publicUrl,options.signinMailer,async userId=>{(await service.devices.provision({userId}));(await service.accounts.audit('account.registered',{actorId:userId,subjectId:userId}));},adminOrigin,async userId=>(await service.accounts.audit('account.signed-in',{actorId:userId,subjectId:userId})));
+  mountEmailSignin(app,auth,publicUrl,options.signinMailer,async userId=>{(await service.devices.provision({userId}));(await service.accounts.audit('account.registered',{actorId:userId,subjectId:userId}));},async userId=>(await service.accounts.audit('account.signed-in',{actorId:userId,subjectId:userId})));
   app.get('/api/start', async (req,res)=>send(res,(await service.startPage((await account(req)),z.coerce.number().int().min(0).max(10000).parse(req.query.offset??0)))));
   app.post('/api/sessions/:id/rename',operation('kanvas_session_rename',sessionArgs));
   app.post('/api/sessions/:id/displays/:displayId/chat',operation('kanvas_chat_append',displayArgs));
@@ -208,10 +201,13 @@ export async function createApp(options: AppOptions = {}) {
     try { await store.query('SELECT 1'); res.json({ status: 'ready', version: KANVAS_VERSION, database: 'postgresql' }); }
     catch { res.status(503).json({ status: 'unavailable' }); }
   });
+  app.post('/api/auth/activity',async(req,res)=>send(res,await auth.activity(req,res)));
+  app.get('/api/auth/sessions',async(req,res)=>send(res,await service.browserAuth.list(await account(req),{})));
+  app.post('/api/auth/sessions/revoke',async(req,res)=>send(res,await service.browserAuth.revoke(await account(req,'publish'),req.body)));
   app.get('/api/auth/me', async (req, res) => {
     const { principal, session } = (await auth.browser(req));
     const user = principal.scopedDisplayId ? { id: principal.participantId ?? 'capture', username: 'guest', displayName: principal.captureOnly ? 'Visual inspection' : 'Guest viewer' } : required((await auth.user(principal.userId)));
-    send(res, { user, csrfToken: session.csrf, ...(principal.captureOnly ? { captureOnly: true } : {}), ...(principal.scopedDisplayId ? { viewOnly: true, interactive: principal.interactive === true, sessionId: principal.scopedSessionId, displayId: principal.scopedDisplayId } : {}) });
+    send(res, { user, csrfToken: session.csrf, ...(session.publicId?{browserSessionId:session.publicId,expiresAt:session.expiresAt,freshUntil:(session.authenticatedAt??0)+auth.policy.freshMs}:{}), ...(principal.captureOnly ? { captureOnly: true } : {}), ...(principal.scopedDisplayId ? { viewOnly: true, interactive: principal.interactive === true, sessionId: principal.scopedSessionId, displayId: principal.scopedDisplayId } : {}) });
   });
   for (const action of ['register', 'login'] as const) app.post(`/api/auth/${action}`, async (req, res) => {
     limiter.take(`auth:${req.ip}`, 30, 60_000);
@@ -220,7 +216,7 @@ export async function createApp(options: AppOptions = {}) {
     if(action==='register')(await service.devices.provision({userId:user.id}));
     (await service.accounts.audit(action==='register'?'account.registered':'account.signed-in',{actorId:user.id,subjectId:user.id}));
     // Rotate any existing cookie to prevent retaining authority under an earlier account.
-    (await auth.logout(req, res)); const session = (await auth.issueBrowser(user.id, res)); send(res, { user, csrfToken: session.csrf }, action === 'register' ? 201 : 200);
+    (await auth.logout(req, res, 'replaced')); const session = (await auth.issueBrowser(user.id, res, undefined, req)); send(res, { user, csrfToken: session.csrf }, action === 'register' ? 201 : 200);
   });
   app.post('/api/auth/logout', async (req, res) => {
     const principal = (await browser(req)), sessions = (await service.sessions(principal)); (await auth.logout(req, res));
@@ -326,12 +322,16 @@ export async function createApp(options: AppOptions = {}) {
 
   app.get('/api/tokens', async (req, res) => send(res, (await auth.tokenMetadata((await account(req)).userId))));
   app.post('/api/tokens', async (req, res) => {
+    const result=await store.atomic(async()=>{
     const principal = (await account(req, 'publish'));
+    await auth.requireFresh(principal);
     const body = z.strictObject({ name: z.string().trim().min(1).max(160), scopes: z.array(z.enum(['read', 'publish'])).min(1).max(2).default(['read', 'publish']), sessionIds: z.array(z.string().min(1).max(128)).min(1).max(100).optional() }).parse(bodyObject(req));
     if ((await auth.tokenMetadata(principal.userId)).length >= 100) throw new AppError('LIMIT_REACHED', 'Revoke an unused client before creating another.', 429);
     for (const sessionId of body.sessionIds ?? []) (await service.access(principal, sessionId, body.scopes.includes('publish') ? 'editor' : 'viewer'));
     const { value, token } = (await auth.issueToken(principal.userId, body.name, body.scopes, body.sessionIds));
-    send(res, { id: token.id, name: token.name, scopes: token.scopes, sessionIds: token.sessionIds, createdAt: token.createdAt, token: value }, 201);
+    return { id: token.id, name: token.name, scopes: token.scopes, sessionIds: token.sessionIds, createdAt: token.createdAt, token: value };
+    });
+    send(res,result,201);
   });
   app.delete('/api/tokens/:id', async (req, res) => { const principal = (await account(req, 'publish')); (await auth.revokeToken(principal.userId, String(req.params.id))); for (const session of (await service.sessions(principal))) service.emit({ type: 'membership', sessionId: session.id }); send(res, { revoked: true }); });
 
@@ -378,11 +378,9 @@ export async function createApp(options: AppOptions = {}) {
   const staticDirectory = resolve(options.staticDirectory ?? 'dist/client');
   if (existsSync(resolve(staticDirectory, 'index.html'))) {
     app.use(express.static(staticDirectory, { index: false, dotfiles: 'deny', etag: false, cacheControl: false }));
-    // Keep old bookmarks working; the user dashboard is now Console. A separate
-    // console host serves it at /, while single-origin installations use /console.
-    app.get('/admin',(req,res)=>res.redirect(302,`${adminOrigin?`${adminOrigin}/`:'/console'}${req.originalUrl.slice('/admin'.length)}`));
-    app.get('/console',(req,res,next)=>{if(adminOrigin)return res.redirect(302,`${adminOrigin}/${req.originalUrl.slice('/console'.length)}`);next();});
-    app.get('/',(req,res,next)=>{if(adminAddress&&req.hostname===adminAddress.hostname)return next();if(typeof req.query.session==='string'&&/^[A-Za-z0-9_-]+$/.test(req.query.session))return res.redirect(302,`${adminOrigin?`${adminOrigin}/`:'/console'}?session=${req.query.session}`);next();});
+    // Path bookmarks stay on the canonical application origin.
+    app.get('/admin',(req,res)=>res.redirect(302,`/console${req.originalUrl.slice('/admin'.length)}`));
+    app.get('/',(req,res,next)=>{if(typeof req.query.session==='string'&&/^[A-Za-z0-9_-]+$/.test(req.query.session))return res.redirect(302,`/console?session=${req.query.session}`);next();});
     app.get(['/', '/connect', '/console', '/start', '/session/:sessionId', '/view/:sessionId/:displayId', '/join/:shareId','/welcome/:invitationId'], (_req, res) => res.sendFile('index.html', { root: staticDirectory, dotfiles: 'deny' }));
   }
   app.use((_req, _res, next) => next(new AppError('NOT_FOUND', 'This endpoint is unavailable.', 404)));

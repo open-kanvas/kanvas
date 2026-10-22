@@ -1,6 +1,6 @@
 # Account overview and return navigation
 
-The signed-in application root is an agent-native session overview. It registers the current browser window without provisioning a Home session. Existing account Home and `/start` behavior remain compatible. Signed-out, paired-view-only, email confirmation and pending OAuth consent routes retain precedence. `/console` and the configured console host keep the legacy workspace.
+The signed-in application root is an agent-native session overview. It registers the current browser window without provisioning a Home session. Existing account Home and `/start` behavior remain compatible. Signed-out, paired-view-only, email confirmation and pending OAuth consent routes retain precedence. `/console` opens the account workspace on the same origin.
 
 Sessions are ordered by the latest session metadata change, display content/control update, interaction creation or session audit event. Presence heartbeats do not reorder them. Ended sessions and generated account-entry Home sessions are omitted. Fifty sessions are returned per page with up to eight nested display links each. The root uses a two-column grid on larger screens and compact horizontal cards: one 90px primary preview on the left, with session metadata and any secondary display links on the right. Phones use a single column. The page heading remains accessible to screen readers without a visible intro block. A per-session aggregate counts currently receiving devices (falling back to a connection ID when a receiver has no device identity).
 
@@ -14,7 +14,7 @@ To send a window to a display, discover `kanvas.window.present`. To bring it bac
 
 Use the `deviceId`, window ID and window version from `kanvas.devices.read`. Account-wide publish authority and ownership of that registered window are required. The window must be online. Reuse the same request ID and identical arguments for a retry; conflicting input is rejected. A new operation requires the current version. Sibling windows are unchanged. No session or display is created.
 
-A pending command is not success. Inspect that window's command through devices.read until `status: applied`. The browser acknowledges only after the root overview has rendered, clears its session/display observation, and retains the command receipt. Navigation stays on the receiving origin to preserve tab identity. On the legacy console host it selects `/?overview=1`; its ordinary root still opens the console. Expired or superseded commands cannot be acknowledged; replayed requests report supersession without moving the window again.
+A pending command is not success. Inspect that window's command through devices.read until `status: applied`. The browser acknowledges only after the root overview has rendered, clears its session/display observation, and retains the command receipt. Navigation stays on the receiving origin to preserve tab identity. Expired or superseded commands cannot be acknowledged; replayed requests report supersession without moving the window again.
 
 ## Development acceptance
 

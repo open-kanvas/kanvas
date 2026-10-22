@@ -9,7 +9,9 @@ export const hash = (value: string) => createHash('sha256').update(value).digest
 export const opaque = () => randomBytes(32).toString('base64url');
 export interface User { id: string; username: string; displayName: string; avatarUrl?: string }
 export interface AuthPrincipal extends Principal { browserId?: string; scopedSessionId?: string; scopedDisplayId?: string; pairingId?: string; captureOnly?: boolean; oauthAccessId?: string; interactive?: boolean; participantId?: string }
-export interface BrowserSession { createdAt?: string; id: string; userId: string; csrf: string; expiresAt: number; scopedSessionId?: string; scopedDisplayId?: string; pairingId?: string; captureOnly?: boolean; interactive?: boolean }
+export interface BrowserSessionPolicy { idleDays?: number; absoluteDays?: number; renewalHours?: number; freshMinutes?: number }
+export const fullBrowser = (session: BrowserSession) => !session.scopedSessionId && !session.scopedDisplayId && !session.pairingId && !session.captureOnly;
+export interface BrowserSession { publicId?: string; lastActiveAt?: string; idleExpiresAt?: number; absoluteExpiresAt?: number; authenticatedAt?: number; renewedAt?: number; device?: string; browser?: string; origin?: string; createdAt?: string; id: string; userId: string; csrf: string; expiresAt: number; scopedSessionId?: string; scopedDisplayId?: string; pairingId?: string; captureOnly?: boolean; interactive?: boolean }
 /** The stable client connection, not an individual rotating credential. Legacy
  * publisher/OAuth tokens without resource keep their original hash and expiry. */
 export interface Token { id: string; userId: string; agentId: string; name: string; hash: string; scopes: string[]; sessionIds?: string[]; expiresAt: number; createdAt: string; lastUsedAt?: string; revoked?: boolean; clientId?: string; resource?: string; refreshExpiresAt?: number; refreshIdleExpiresAt?: number }
@@ -25,13 +27,103 @@ export const SCOPES = ['read', 'publish'] as const;
 export class Auth {
   private readonly browserRevocations = new EventEmitter().setMaxListeners(2048);
   onBrowserRevoked(browserId:string,callback:()=>void){this.browserRevocations.on(browserId,callback);return ()=>{this.browserRevocations.off(browserId,callback);};}
-  async revokeBrowser(browserId:string){
-    await this.store.delete('browser',browserId);
-    await this.store.db.prepare("DELETE FROM documents WHERE kind='push-subscription' AND value::jsonb->>'browserId'=?").run(browserId);
-    this.store.afterCommit(()=>this.browserRevocations.emit(browserId));
-  }
   readonly cookieName: string;
-  constructor(readonly store: Store, readonly secure: boolean, readonly allowRegistration: boolean, readonly oauthResource?: string) { this.cookieName = secure ? '__Host-kanvas' : 'kanvas'; }
+  readonly policy: { idleMs: number; absoluteMs: number; renewalMs: number; freshMs: number };
+  constructor(readonly store: Store, readonly secure: boolean, readonly allowRegistration: boolean, readonly oauthResource?: string, policy: BrowserSessionPolicy = {}) {
+    this.cookieName = secure ? '__Host-kanvas' : 'kanvas';
+    const idle = policy.idleDays ?? 90, absolute = policy.absoluteDays ?? 365, renewal = policy.renewalHours ?? 24, fresh = policy.freshMinutes ?? 15;
+    if (![idle,absolute,renewal,fresh].every(v=>Number.isFinite(v)&&v>0) || idle>absolute || absolute>3650 || renewal*3600000>=idle*86400000 || fresh>60) throw new Error('Invalid browser session policy.');
+    this.policy = { idleMs: idle*86400000, absoluteMs: absolute*86400000, renewalMs: renewal*3600000, freshMs:fresh*60000 };
+  }
+  private metadata(request?: Request) {
+    const ua = request?.get('user-agent') ?? '';
+    return { device: /iPhone/i.test(ua)?'iPhone':/iPad/i.test(ua)?'iPad':/Android/i.test(ua)?'Android':/Windows/i.test(ua)?'Windows':/Macintosh/i.test(ua)?'Mac':/Linux/i.test(ua)?'Linux':'Unknown device',
+      browser:/Edg\//.test(ua)?'Edge':/Firefox\//.test(ua)?'Firefox':/Chrome\//.test(ua)?'Chrome':/Safari\//.test(ua)?'Safari':'Browser',
+      origin: this.oauthResource ? new URL(this.oauthResource).origin : 'unknown' };
+  }
+  private async audit(session: BrowserSession, reason: string) {
+    if (!fullBrowser(session)) return;
+    await this.store.put('audit-event',{id:id(),at:now(),type:`account.browser.${reason==='signed-in'?'signed-in':'closed'}`,actorId:session.userId,subjectId:session.userId,
+      details:{browserSessionId:session.publicId ?? id(),reason,device:session.device??'Unknown device',browser:session.browser??'Browser',origin:session.origin??'unknown'}});
+  }
+  async revokeBrowser(browserId:string, reason='revoked') {
+    return this.store.atomic(async()=>{
+      const session = await this.store.get<BrowserSession>('browser',browserId);
+      if(session){
+        session.publicId ??= id();
+        await this.audit(session,reason);
+        if(fullBrowser(session))await this.store.put('browser-closed',{id:browserId,reason,closedAt:Date.now()});
+      }
+      await this.store.delete('browser',browserId);
+      await this.store.db.prepare("DELETE FROM documents WHERE kind='push-subscription' AND value::jsonb->>'browserId'=?").run(browserId);
+      this.store.afterCommit(()=>this.browserRevocations.emit(browserId));
+    });
+  }
+  /** Called only for still-valid full account records. Legacy expiry is not extended
+   * until an explicit foreground action; its original creation bounds absolute age. */
+  async migrateBrowser(browserId:string, request?:Request):Promise<BrowserSession|undefined> {
+    return this.store.atomic(async()=>{
+      const session=await this.store.get<BrowserSession>('browser',browserId);
+      if(!session||!fullBrowser(session)||session.expiresAt<=Date.now())return session;
+      if(!session.publicId){
+        const created=Number.isFinite(Date.parse(session.createdAt??''))?Date.parse(session.createdAt!):session.expiresAt-7*86400000;
+        Object.assign(session,{publicId:id(),createdAt:new Date(created).toISOString(),authenticatedAt:created,lastActiveAt:new Date(created).toISOString(),idleExpiresAt:session.expiresAt,absoluteExpiresAt:created+this.policy.absoluteMs,renewedAt:0,...this.metadata(request)});
+        session.expiresAt=Math.min(session.idleExpiresAt!,session.absoluteExpiresAt!);
+        await this.store.put('browser',session);
+      }
+      return session;
+    });
+  }
+  private async currentBrowser(browserId:string,request?:Request):Promise<BrowserSession> {
+    let session=await this.store.get<BrowserSession>('browser',browserId);
+    if(session && fullBrowser(session) && !session.publicId && session.expiresAt>Date.now()) session=await this.migrateBrowser(browserId,request);
+    if(!session){
+      const closed=await this.store.get<{reason:string}>('browser-closed',browserId);
+      throw new AppError(closed?.reason==='idle-expired'?'SESSION_IDLE_EXPIRED':closed?.reason==='absolute-expired'?'SESSION_ABSOLUTE_EXPIRED':closed?'SESSION_REVOKED':'UNAUTHORIZED',closed?'This browser sign-in expired or was revoked. Sign in again.':'Sign in to continue.',401);
+    }
+    if(session.expiresAt<=Date.now() || (session.absoluteExpiresAt??Infinity)<=Date.now()){
+      const reason=(session.absoluteExpiresAt??Infinity)<=Date.now()?'absolute-expired':'idle-expired';
+      const valid=await this.store.atomic(async()=>{
+        const current=await this.store.get<BrowserSession>('browser',browserId);
+        if(current&&current.expiresAt>Date.now()&&(current.absoluteExpiresAt??Infinity)>Date.now())return current;
+        await this.revokeBrowser(browserId,reason);
+      });
+      if(valid&&await this.user(valid.userId))return valid;
+      throw new AppError(reason==='absolute-expired'?'SESSION_ABSOLUTE_EXPIRED':'SESSION_IDLE_EXPIRED','This browser sign-in expired. Sign in again.',401);
+    }
+    if(!await this.user(session.userId)) throw new AppError('UNAUTHORIZED','Sign in to continue.',401);
+    return session;
+  }
+  async requireFresh(principal:AuthPrincipal) {
+    // OAuth/service credentials retain their independently scoped authorization.
+    if(!principal.browserId)return;
+    const session=await this.currentBrowser(principal.browserId);
+    if(!fullBrowser(session))throw new AppError('FORBIDDEN','Full account sign-in is required.',403);
+    if(Date.now()-(session.authenticatedAt??0)>this.policy.freshMs)throw new AppError('REAUTH_REQUIRED','Confirm your sign-in to change account access. Your current session remains open; then review and try the action again.',403);
+  }
+  async activity(request:Request,response:Response) {
+    // No GET, heartbeat, OAuth, polling or stream path invokes renewal.
+    // isTrusted/visibility are checked by the browser; this is not an assertion
+    // that a malicious credential holder can be distinguished from its owner.
+    if(request.get('X-Kanvas-Activity')!=='foreground')throw new AppError('INVALID_ACTIVITY','Foreground activity is required.');
+    const {session:before}=await this.browser(request);this.csrf(request,before);
+    if(!fullBrowser(before))return {renewed:false};
+    return this.store.atomic(async()=>{
+      const session=await this.currentBrowser(before.id);
+      const time=Date.now();
+      if(time-(session.renewedAt??0)<this.policy.renewalMs)return {renewed:false,expiresAt:session.expiresAt};
+      session.lastActiveAt=new Date(time).toISOString();session.renewedAt=time;
+      session.idleExpiresAt=Math.min(time+this.policy.idleMs,session.absoluteExpiresAt!);
+      session.expiresAt=session.idleExpiresAt;
+      await this.store.put('browser',session);
+      const cookie=request.cookies[this.cookieName] as string;
+      this.store.afterCommit(()=>this.setBrowserCookie(response,cookie,session.expiresAt));
+      return {renewed:true,expiresAt:session.expiresAt};
+    });
+  }
+  private setBrowserCookie(response:Response,cookie:string,expiresAt:number) {
+    response.cookie(this.cookieName,cookie,{httpOnly:true,secure:this.secure,sameSite:'strict',path:'/',maxAge:Math.max(0,expiresAt-Date.now())});
+  }
   async user(userId: string): Promise<Awaited<User | undefined>> {
     const row = (await this.store.db.prepare('SELECT id,username,display_name FROM users WHERE id=?').get(userId)) as Omit<DbUser,'password_hash'>|undefined;
     return row ? { id: row.id, username: row.username, displayName: row.display_name, avatarUrl: (await avatarUrl(this.store, row.id)) } : undefined;
@@ -59,25 +151,22 @@ export class Auth {
     if (!row || candidate.length !== expected.length || !timingSafeEqual(candidate, expected)) throw new AppError('INVALID_LOGIN', 'Username or password is incorrect.', 401);
     return {id: row.id, username: row.username, displayName: row.display_name};
   }
-  async issueBrowser(userId: string, response: Response, scope?: Pick<BrowserSession,'scopedSessionId'|'scopedDisplayId'|'pairingId'|'captureOnly'|'interactive'>): Promise<Awaited<BrowserSession>> {
+  async issueBrowser(userId: string, response: Response, scope?: Pick<BrowserSession,'scopedSessionId'|'scopedDisplayId'|'pairingId'|'captureOnly'|'interactive'>, request?:Request): Promise<BrowserSession> {
     return this.store.atomic(async () => {
-    const cookie = opaque();
-    const session = {id: hash(cookie), createdAt: now(), userId, csrf: opaque(), expiresAt: Date.now() + 7 * 86400_000, ...scope};
-    (await this.store.put('browser', session));
-    response.cookie(this.cookieName, cookie, {httpOnly: true, secure: this.secure, sameSite: 'strict', path: '/', maxAge: 7 * 86400_000});
-    return session;
-
+      const cookie=opaque(),time=Date.now();
+      const session:BrowserSession={id:hash(cookie),createdAt:now(),userId,csrf:opaque(),expiresAt:time+7*86400000,...scope};
+      if(fullBrowser(session))Object.assign(session,{publicId:id(),lastActiveAt:now(),authenticatedAt:time,renewedAt:time,idleExpiresAt:time+this.policy.idleMs,absoluteExpiresAt:time+this.policy.absoluteMs,expiresAt:time+this.policy.idleMs,...this.metadata(request)});
+      await this.store.put('browser',session);await this.audit(session,'signed-in');
+      this.store.afterCommit(()=>this.setBrowserCookie(response,cookie,session.expiresAt));
+      return session;
     });
   }
-  async browser(request: Request): Promise<Awaited<{principal: AuthPrincipal; session: BrowserSession}>> {
-    const cookie: unknown = request.cookies?.[this.cookieName];
-    const session = typeof cookie === 'string' ? (await this.store.get<BrowserSession>('browser', hash(cookie))) : undefined;
-    if (!session || session.expiresAt <= Date.now() || !(await this.user(session.userId))) throw new AppError('UNAUTHORIZED', 'Sign in to continue.', 401);
-    const pairing = (await this.currentPairing(session));
-    return {session, principal: {userId: session.userId, browserId: session.id, scopedSessionId: session.scopedSessionId, scopedDisplayId: session.scopedDisplayId, pairingId: session.pairingId, captureOnly: session.captureOnly,
-      interactive: !session.captureOnly && session.interactive === true && pairing?.interactive === true,
-      ...(pairing && !session.captureOnly ? { participantId: `pairing:${pairing.id}` } : {}),
-    }};
+  async browser(request: Request): Promise<{principal: AuthPrincipal; session: BrowserSession}> {
+    const cookie: unknown=request.cookies?.[this.cookieName];
+    if(typeof cookie!=='string')throw new AppError('UNAUTHORIZED','Sign in to continue.',401);
+    const session=await this.currentBrowser(hash(cookie),request),pairing=await this.currentPairing(session);
+    return {session,principal:{userId:session.userId,browserId:session.id,scopedSessionId:session.scopedSessionId,scopedDisplayId:session.scopedDisplayId,pairingId:session.pairingId,captureOnly:session.captureOnly,
+      interactive:!session.captureOnly&&session.interactive===true&&pairing?.interactive===true,...(pairing&&!session.captureOnly?{participantId:`pairing:${pairing.id}`}:{})}};
   }
   private async currentPairing(session: BrowserSession): Promise<Awaited<BrowserPairing | undefined>> {
     if (!session.pairingId) return;
@@ -99,11 +188,11 @@ export class Auth {
     const value = request.get('X-Kanvas-CSRF');
     if (typeof value !== 'string' || hash(value) !== hash(session.csrf)) throw new AppError('CSRF_REQUIRED', 'Refresh the page before trying again.', 403);
   }
-  async logout(request: Request, response: Response): Promise<Awaited<void>> {
+  async logout(request: Request, response: Response, reason='logout'): Promise<Awaited<void>> {
     return this.store.atomic(async () => {
     const cookie: unknown = request.cookies?.[this.cookieName];
-    if (typeof cookie === 'string') await this.revokeBrowser(hash(cookie));
-    response.clearCookie(this.cookieName, {httpOnly:true, secure:this.secure, sameSite:'strict', path:'/'});
+    if (typeof cookie === 'string') await this.revokeBrowser(hash(cookie),reason);
+    this.store.afterCommit(()=>response.clearCookie(this.cookieName, {httpOnly:true, secure:this.secure, sameSite:'strict', path:'/'}));
 
     });
   }
@@ -168,8 +257,8 @@ export class Auth {
       if (!token.scopes.includes(scope) || (credential && !credential.scopes.includes(scope)) || (sessionId && token.sessionIds && !token.sessionIds.includes(sessionId))) throw new AppError('FORBIDDEN','This client has not been granted that access.',403);
     }
     if (principal.browserId) {
-      const session = (await this.store.get<BrowserSession>('browser', principal.browserId));
-      if (!session || session.expiresAt <= Date.now() || session.userId !== principal.userId || !(await this.user(session.userId))) throw new AppError('UNAUTHORIZED','Sign in to continue.',401);
+      const session = await this.currentBrowser(principal.browserId);
+      if (session.userId !== principal.userId) throw new AppError('UNAUTHORIZED','Sign in to continue.',401);
       const pairing = (await this.currentPairing(session));
       // Refresh retained guest flags from the server grant before a domain
       // action checks them; caller-supplied participant identity is never used.

@@ -27,13 +27,6 @@ test('empty overview is agent-first and never loads executable preview content',
  const s=await createSession(page,'Untrusted title'),d=await createDisplay(page,s,'Safe display');await publishPrepared(page,s,[d.id],{version:1,template:'fact',title:'<img src=x onerror=alert(1)>',data:{text:'<script>bad()</script>'}});
  await page.goto('/');await expect(page.locator('.overview-preview').getByText('<img src=x onerror=alert(1)>',{exact:true})).toBeVisible();await expect(page.locator('.overview-preview img,.overview-preview script,.overview-preview iframe')).toHaveCount(0);
 });
-test('legacy console host root stays workspace while explicit overview keeps the same origin',async({page})=>{
- await register(page);
- await page.route('**/api/start?offset=*',async route=>{const response=await route.fetch(),body=await response.json();body.data.consoleUrl=new URL('/',route.request().url()).href;await route.fulfill({response,json:body});});
- await page.goto('/');await expect(page.locator('.workspace')).toBeVisible();
- await page.goto('/?overview=1');await expect(page.locator('.account-overview')).toBeVisible();await expect(page.getByRole('heading',{name:'Your sessions',exact:true})).toBeAttached();await expect(page.getByRole('heading',{name:'Give your conversation a canvas.'})).toBeVisible();await page.unrouteAll({behavior:'wait'});
-});
-
 test('compact root cards paginate 51 sessions, preserve extra display links and refresh automatically',async({page})=>{
  await register(page);
  const runId=process.env.KANVAS_E2E_RUN_ID;if(!runId)throw new Error('Isolated browser run ID is required.');

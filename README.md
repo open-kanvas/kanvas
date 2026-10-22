@@ -3,7 +3,7 @@
 ## Use hosted KANVAS
 
 Connect your MCP client to **https://kanvas.host/mcp** — no self-hosting required.
-Visit [open-kanvas.ai](https://open-kanvas.ai) or manage your account in the [console](https://console.kanvas.host).
+Visit [open-kanvas.ai](https://open-kanvas.ai) or manage your account in the [console](https://kanvas.host/console).
 
 For self-hosted installations, use the MCP endpoint on your configured public origin.
 

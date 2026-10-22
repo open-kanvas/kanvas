@@ -26,14 +26,12 @@ describe('live entry and registered-device authority',()=>{
     const snapshot=(await h.runtime.store.list('display'));success(await a.request('GET','/api/start'));expect((await h.runtime.store.list('display'))).toEqual(snapshot);
   });
 
-  it('keeps the console on its configured host and scopes email sign-in links to that host',async()=>{
-    const mail:{link:string}[]=[];h=await startHarness({consoleUrl:'https://console.kanvas.example',signinMailer:async(_email,link)=>{mail.push({link});}});
-    const browser=h.browser(),redirect=await browser.raw('/admin?session=retained');expect(redirect.status).toBe(302);expect(redirect.headers.get('location')).toBe('https://console.kanvas.example/?session=retained');
-    const admin=await browser.raw('/',{}, {headers:{host:'console.kanvas.example','x-forwarded-host':'console.kanvas.example'},origin:'https://console.kanvas.example'});expect(admin.status).toBe(200);
-    const root=await browser.raw('/',{}, {headers:{host:'console.kanvas.example','x-forwarded-host':'console.kanvas.example'},origin:'https://console.kanvas.example'});expect(root.status).toBe(200);
-    const canonical=await browser.raw('/console?session=retained');expect(canonical.headers.get('location')).toBe('https://console.kanvas.example/?session=retained');
-    success(await browser.request('POST','/api/auth/email/request',{email:'admin-fixture@example.com',returnTo:'/console'}, {headers:{host:'console.kanvas.example','x-forwarded-host':'console.kanvas.example'},origin:'https://console.kanvas.example'}));expect(mail).toHaveLength(1);expect(new URL(mail[0].link).origin).toBe('https://console.kanvas.example');
-    const token=new URL(mail[0].link).hash.slice('#email-signin='.length),result=await browser.request<any>('POST','/api/auth/email/consume',{token,confirm:true,acceptedLegalVersion:'2026-10-14'}, {headers:{host:'console.kanvas.example','x-forwarded-host':'console.kanvas.example'},origin:'https://console.kanvas.example'});expect(success(result).returnTo).toBe('/console');
+  it('keeps console paths, email links and deep links on the canonical origin',async()=>{
+    const mail:{link:string}[]=[];h=await startHarness({signinMailer:async(_email,link)=>{mail.push({link});}});
+    const browser=h.browser(),redirect=await browser.raw('/admin?session=retained');expect(redirect.status).toBe(302);expect(redirect.headers.get('location')).toBe('/console?session=retained');
+    expect((await browser.raw('/console?session=retained')).status).toBe(200);
+    success(await browser.request('POST','/api/auth/email/request',{email:'admin-fixture@example.com',returnTo:'/console?account=sessions'}));expect(mail).toHaveLength(1);expect(new URL(mail[0].link).origin).toBe('http://127.0.0.1');
+    const token=new URL(mail[0].link).hash.slice('#email-signin='.length),result=await browser.request<any>('POST','/api/auth/email/consume',{token,confirm:true,acceptedLegalVersion:'2026-10-14'});expect(success(result).returnTo).toBe('/console?account=sessions');
     expect(result.headers.getSetCookie().every(cookie=>!/(?:^|;)\s*domain=/i.test(cookie))).toBe(true);expect((await h.runtime.store.list('oauth-grant'))).toHaveLength(0);
   });
   it('binds independent receivers to their account, distinguishes pending from paint, rejects spoofing/replays and persists offline after restart',async()=>{

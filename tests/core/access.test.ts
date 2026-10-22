@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { randomBytes } from 'node:crypto';
+import { hash, type BrowserSession } from '../../src/server/auth.js';
 import { denied, fact, PNG, startHarness, success, type Harness } from './harness.js';
 import type { AssetRecord, SessionRecord } from '../../src/shared/types.js';
 
@@ -67,8 +68,12 @@ describe('real HTTP browser authentication and session authority', () => {
 
   it('requires a fresh sign-in after the stored browser session expires', async () => {
     const owner = await h.account(), session = await owner.session();
+    const stored = (await h.runtime.store.get<BrowserSession>('browser', hash(owner.cookies.get('kanvas')!)))!;
     const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 8 * 86400_000);
     try {
+      // Full-account sessions now survive the former seven-day deadline.
+      success(await owner.request('GET', '/api/auth/me'));
+      clock.mockReturnValue(stored.expiresAt);
       denied(await owner.request('GET', '/api/auth/me'), [401]);
       denied(await owner.request('GET', `/api/sessions/${session.id}`), [401]);
       denied(await owner.request('POST', '/api/sessions', { name: 'Expired login cannot mutate' }), [401]);

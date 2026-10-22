@@ -1,7 +1,7 @@
 import {Store} from '../../src/server/store';
 import {hash} from '../../src/server/auth';
 import {testDatabase} from '../postgres';
-import {createDisplay,createSession,expect,publishPrepared,register,test} from './support';
+import {createDisplay,createSession,expect,publishPrepared,register,sessionApi,test} from './support';
 
 test('one actual login shares console, viewer and account controls with a persistent host-only cookie',async({page,context})=>{
  await register(page);const cookie=(await context.cookies()).find(c=>c.name==='kanvas')!;expect(cookie.expires-Date.now()/1000).toBeGreaterThan(89*86400);expect(cookie.httpOnly).toBe(true);expect(cookie.path).toBe('/');
@@ -23,5 +23,9 @@ test('sensitive browser revocation requests reauthentication without logging out
  await page.screenshot({path:`/home/deploy/kanvas-auth-persistence-20261021-evidence/${test.info().project.name}-reauth.png`});
  await page.getByRole('button',{name:'Keep working without changing access'}).click();await page.getByRole('dialog',{name:'Sign out all browsers?'}).getByRole('button',{name:'Close dialog'}).click();
  expect(await page.evaluate(async()=>((await(await fetch('/api/auth/sessions')).json()).data.browsers).length)).toBe(1);
+ // The workspace may have a session read in flight when its cookie is revoked.
+ // Permit only that known fixture's 401 after the deliberate self-revocation.
+ const ownSessions=(await sessionApi<{id:string}[]>(page,'/api/sessions')).data!;
+ for(const session of ownSessions)diagnostics.allowHttp(page,'/api/sessions/'+session.id,401);
  await page.getByRole('button',{name:'Sign out this browser',exact:true}).click();await page.getByRole('button',{name:'Confirm sign out',exact:true}).click();await expect(page.getByRole('heading',{name:'Welcome to KANVAS.'})).toBeVisible();
 });

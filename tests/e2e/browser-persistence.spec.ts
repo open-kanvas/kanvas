@@ -1,7 +1,7 @@
 import {Store} from '../../src/server/store';
 import {hash} from '../../src/server/auth';
 import {testDatabase} from '../postgres';
-import {createDisplay,createSession,expect,publishPrepared,register,sessionApi,test} from './support';
+import {createDisplay,createSession,expect,publishPrepared,register,test} from './support';
 
 test('one actual login shares console, viewer and account controls with a persistent host-only cookie',async({page,context})=>{
  await register(page);const cookie=(await context.cookies()).find(c=>c.name==='kanvas')!;expect(cookie.expires-Date.now()/1000).toBeGreaterThan(89*86400);expect(cookie.httpOnly).toBe(true);expect(cookie.path).toBe('/');
@@ -19,9 +19,9 @@ test('sensitive browser revocation requests reauthentication without logging out
  try{await fixtures.ready;const b=await fixtures.get<any>('browser',hash(cookie.value));b.authenticatedAt=Date.now()-16*60000;await fixtures.put('browser',b);}finally{await fixtures.close();}
  diagnostics.allowHttp(page,'/api/auth/sessions/revoke',403);
  await page.getByRole('button',{name:'Sign out all browsers'}).click();await page.getByRole('button',{name:'Confirm sign out',exact:true}).click();
- await expect(page.getByRole('dialog',{name:"Confirm it's you"})).toBeVisible();await expect(page.getByRole('dialog',{name:"Confirm it's you"})).toContainText('the action has not been applied');expect((await sessionApi(page,'/api/auth/me')).status).toBe(200);
+ await expect(page.getByRole('dialog',{name:"Confirm it's you"})).toBeVisible();await expect(page.getByRole('dialog',{name:"Confirm it's you"})).toContainText('the action has not been applied');expect(await page.evaluate(async()=>(await fetch('/api/auth/me')).status)).toBe(200);
  await page.screenshot({path:`/home/deploy/kanvas-auth-persistence-20261021-evidence/${test.info().project.name}-reauth.png`});
  await page.getByRole('button',{name:'Keep working without changing access'}).click();await page.getByRole('dialog',{name:'Sign out all browsers?'}).getByRole('button',{name:'Close dialog'}).click();
- expect((await sessionApi<any>(page,'/api/auth/sessions')).data.browsers).toHaveLength(1);
+ expect(await page.evaluate(async()=>((await(await fetch('/api/auth/sessions')).json()).data.browsers).length)).toBe(1);
  await page.getByRole('button',{name:'Sign out this browser',exact:true}).click();await page.getByRole('button',{name:'Confirm sign out',exact:true}).click();await expect(page.getByRole('heading',{name:'Welcome to KANVAS.'})).toBeVisible();
 });

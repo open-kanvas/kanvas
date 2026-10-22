@@ -18,7 +18,9 @@ test('normal OAuth provisions via email and grants access only after explicit br
     let receive!:(code:string)=>void;const receipt=new Promise<string>(resolve=>{receive=resolve;});
     await page.route(url=>url.origin+url.pathname===redirect,async route=>{const code=new URL(route.request().url()).searchParams.get('code')??'';await route.fulfill({contentType:'text/html',body:'<!doctype html><script>history.replaceState(null,"","/callback")</script><h1>Connected client</h1>'});receive(code);});
     await page.goto(mail[0].link);await expect(page.getByRole('heading',{name:'Connect Chosen email connector'})).toBeVisible();await expect(page.getByRole('button',{name:'Sign in here and connect',exact:true})).toBeVisible();expect(Number(((await runtime.store.db.prepare('SELECT COUNT(*) n FROM users').get()) as {n:number}).n)).toBe(0);
-    await expect(page.getByRole('button',{name:'Sign in here and connect',exact:true})).toBeDisabled();
+    await page.getByRole('button',{name:'Sign in here and connect',exact:true}).click();
+    await expect(page.getByText('Accept the Terms of Use and acknowledge the Privacy Policy to continue.',{exact:true})).toBeVisible();
+    expect(Number(((await runtime.store.db.prepare('SELECT COUNT(*) n FROM users').get()) as {n:number}).n)).toBe(0);
     await page.getByRole('checkbox',{name:/I accept/}).check();
     await page.getByRole('button',{name:'Sign in here and connect',exact:true}).click();await expect(page.getByRole('heading',{name:'Connected client'})).toBeVisible();const code=await receipt;expect(Boolean(code)).toBe(true);
     const exchange=await page.request.post(`${base}/oauth/token`,{form:{grant_type:'authorization_code',client_id:client.client_id,redirect_uri:redirect,resource:`${base}/mcp`,code,code_verifier:verifier}});expect(exchange.status()).toBe(200);const granted=await exchange.json();

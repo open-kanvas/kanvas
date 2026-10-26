@@ -1,3 +1,5 @@
+import {renderedView,paintedView} from './delivery-timing';
+import {viewerTabId} from './window-identity';
 import { useClientCapture } from './client-capture';
 import { PointingLayer } from './pointing/PointingLayer';
 import { useFilmstrip, FilmstripOverview } from './Filmstrip';
@@ -107,7 +109,7 @@ export function Viewer({ sessionId, displayId }: ViewerRoute) {
   }, [state.connection, display?.view]);
   const renderReady = (revision: number) => {
     if (browsing.current||current.current?.revision !== revision) return;
-    setFailedRevision(previous => previous === revision ? null : previous); setPaintedRevision(revision);
+    renderedView(sessionId,displayId,revision);setFailedRevision(previous => previous === revision ? null : previous); setPaintedRevision(revision);
     setLastGood({ display: current.current, config });
   };
   const renderFailed = (revision: number, code: MediaFailureCode = 'VIEW_RENDER_FAILED') => {
@@ -118,7 +120,7 @@ export function Viewer({ sessionId, displayId }: ViewerRoute) {
   useEffect(()=>{
     if(strip.active){window.dispatchEvent(new Event('kanvas:browsing'));return;}
     if(!display||auth.captureOnly||state.connection!=='live'||display.view&&paintedRevision!==display.revision)return;
-    return afterPaint(()=>{if(!browsing.current)window.dispatchEvent(new CustomEvent('kanvas:painted',{detail:{sessionId,displayId,renderedRevision:display.revision}}));});
+    return afterPaint(()=>{if(!browsing.current){requestAnimationFrame(()=>requestAnimationFrame(()=>{const timing=paintedView(sessionId,displayId,display.revision);if(timing&&timing.visible&&!browsing.current)void api(`${displayPath(sessionId,displayId)}/paint-timing`,{method:'POST',body:{...timing,revision:display.revision,tabId:viewerTabId(),connection:state.connection}}).catch(()=>{});}));window.dispatchEvent(new CustomEvent('kanvas:painted',{detail:{sessionId,displayId,renderedRevision:display.revision}}));}});
   },[strip.active,display?.revision,paintedRevision,state.connection]);
   const returnLive=useRef(strip.live);returnLive.current=strip.live;
   useEffect(()=>{const go=()=>returnLive.current();window.addEventListener('kanvas:return-live',go);return()=>window.removeEventListener('kanvas:return-live',go);},[]);

@@ -1,0 +1,8 @@
+import {singAlongSchema} from '../../shared/sing-along';
+import {useNavigation,useInternalNavigation} from './Navigation';
+import {FitToDisplay} from './FitToDisplay';
+import type {CSSProperties} from 'react';
+export function SingAlongRenderer({data}:{data:unknown}){const song=singAlongSchema.parse(data),nav=useNavigation(),index=Math.max(0,Math.min(song.pages.length-1,nav?.state.page??0)),page=song.pages[index];
+ useInternalNavigation(direction=>{if(index+direction<0||index+direction>=song.pages.length||!nav?.canNavigate)return false;nav.send({action:'page',direction:direction>0?'next':'previous'});return true;});
+ return <FitToDisplay><article className="sing-along" style={{'--song-font':song.fontSize+'px'} as CSSProperties}><header><h2>{song.title}</h2><span>{song.artist}</span><small>{page.label??`Page ${index+1} / ${song.pages.length}`}</small></header><div className="song-lines">{page.lines.map((line,i)=><section key={i}><div className="song-line">{Array.from(line.lyrics).map((character,at)=><span key={at} className="song-character">{line.chords.filter(chord=>chord.at===at).map((chord,j)=><b key={j} className="song-chord">{chord.chord}</b>)}{character}</span>)}</div>{line.tab&&<pre>{line.tab}</pre>}</section>)}</div><footer><button disabled={!nav?.canNavigate||index===0} onClick={()=>nav?.send({action:'page',direction:'previous'})}>Previous page</button><span>{index+1} / {song.pages.length}</span><button disabled={!nav?.canNavigate||index===song.pages.length-1} onClick={()=>nav?.send({action:'page',direction:'next'})}>Next page</button></footer></article></FitToDisplay>;
+}

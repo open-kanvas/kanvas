@@ -1,0 +1,4 @@
+import {z} from 'zod';
+export const inspectionOptionsSchema=z.object({detail:z.enum(['summary','dom']).default('summary'),selector:z.string().max(200).optional(),maxDepth:z.number().int().min(1).max(12).default(6),maxNodes:z.number().int().min(1).max(100).default(40)});
+export type InspectionOptions=z.infer<typeof inspectionOptionsSchema>;
+export const domInspectionSchema=z.object({requestId:z.string().max(128),html:z.string().max(24000),css:z.string().max(24000),truncated:z.boolean(),reason:z.string().max(300).optional(),pixelRatio:z.number().min(.1).max(20),theme:z.string().max(40),scale:z.string().max(40),elements:z.array(z.object({path:z.string().max(300),tag:z.string().max(40),rect:z.object({x:z.number(),y:z.number(),width:z.number(),height:z.number()}),overflow:z.boolean(),hidden:z.boolean(),offscreen:z.boolean(),styles:z.record(z.string().max(60),z.string().max(300))}).strict()).max(100)}).strict();

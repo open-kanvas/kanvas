@@ -27,7 +27,7 @@ export class Navigation {
     const root=d.navigationRoot??d.revision;
     const found=local&&local.revision>=root&&(!global||global.revision<root||local.version>global.version)?local:global;
     if(found&&found.revision>=root&&found.revision<d.revision){const state=structuredClone(found.state);state.page=Math.min(state.page,Math.max(0,navigationCapabilities(d.view,state).pageCount-1));if(state.reading)state.reading.playing=false;return {...found,revision:d.revision,version:0,state,commandId:'',action:undefined};}
-    return found?.revision===d.revision?found:{id:this.key(displayId,viewerId),sessionId,displayId,revision:d.revision,version:0,state:initialNavigation(navigationLeaf(d.view)),commandId:'',updatedAt:now()};
+    return found?.revision===d.revision?found:{id:this.key(displayId,viewerId),sessionId,displayId,revision:d.revision,version:0,state:{...initialNavigation(navigationLeaf(d.view)),...(found?.state.reading?{reading:{...found.state.reading,playing:false}}:{})},commandId:'',updatedAt:now()};
   }
   /** Anonymous publication includes broadcast position only, never a tab target. */
   async publicPosition(sessionId:string,displayId:string){

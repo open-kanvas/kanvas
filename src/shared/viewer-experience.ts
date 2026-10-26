@@ -1,10 +1,11 @@
 import type { RequestContext } from './recognition.js';
 import { z } from 'zod';
+import {domInspectionSchema} from './dom-inspection.js';
 const id = z.string().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/);
 const revision = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const point = z.object({x:z.number().min(0).max(1),y:z.number().min(0).max(1)}).strict();
 export const viewerObservationSchema = z.object({
-  tabId:id, sequence:revision.optional(), revision, renderedRevision:revision.nullable(), status:z.enum(['loading','ready','failed','empty','browsing']), visible:z.boolean(),
+  dom:domInspectionSchema.optional(),tabId:id, sequence:revision.optional(), revision, renderedRevision:revision.nullable(), status:z.enum(['loading','ready','failed','empty','browsing']), visible:z.boolean(),
   browsing:z.object({sourceDisplayId:id,revision,position:z.number().int().nonnegative(),total:z.number().int().nonnegative()}).strict().optional(),
   text:z.string().max(8000), elements:z.array(z.object({role:z.string().max(60),label:z.string().max(300)}).strict()).max(40).default([]),
   width:z.number().int().min(1).max(32768),height:z.number().int().min(1).max(32768),

@@ -1,0 +1,6 @@
+import {z} from 'zod';
+const line=z.object({lyrics:z.string().max(300),chords:z.array(z.object({at:z.number().int().min(0).max(300),chord:z.string().min(1).max(20)}).strict()).max(30).default([]),tab:z.string().max(2000).optional()}).strict().superRefine((v,c)=>{if(v.chords.some(x=>x.at>Array.from(v.lyrics).length))c.addIssue({code:'custom',path:['chords'],message:'Chord positions are zero-based Unicode character positions in the lyric line.'});});
+export const singAlongSchema=z.object({title:z.string().max(300).optional(),artist:z.string().max(200).optional(),pages:z.array(z.object({label:z.string().max(100).optional(),lines:z.array(line).min(1).max(40)}).strict()).min(1).max(100),fontSize:z.number().min(18).max(72).default(32)}).strict();
+export type SingAlong=z.infer<typeof singAlongSchema>;
+/** Text only; returns candidates, never records audio or advances without the caller's choice. */
+export function matchLyric(transcript:string,lines:string[]){const words=(s:string)=>s.toLocaleLowerCase().normalize('NFKD').replace(/[^\p{L}\p{N}\s]/gu,'').split(/\s+/).filter(Boolean);const heard=new Set(words(transcript));return lines.map((text,index)=>{const target=new Set(words(text)),common=[...heard].filter(w=>target.has(w)).length;return {index,score:heard.size&&target.size?2*common/(heard.size+target.size):0};}).sort((a,b)=>b.score-a.score||a.index-b.index);}

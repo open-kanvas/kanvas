@@ -9,6 +9,7 @@ const focus = (primary: string, detail: string, reference = false, heading = fal
 export const TEMPLATE_DISPLAY_GUIDANCE = {
 "vocabulary":focus("Vocabulary","Friendly session \u2192 displays \u2192 devices relationships; shared authoritative vocabulary source.",true),
 "todays-special":focus("Todays Special","Curated signage presets with narrow live updates. Portrait and landscape, flexible optional content.",true),
+"sing-along":focus("Sing along","Preload supplied lyrics/chords/tabs as pages. navigation.control action page direction next advances immediately. Follow transcribed singing approximately; never claim audio/pitch listening. Keep each page short enough to read from a distance.",true),
 "menu-board":focus("Menu Board","Curated signage presets with narrow live updates. Portrait and landscape, flexible optional content.",true),
 "opening-hours":focus("Opening Hours","Curated signage presets with narrow live updates. Portrait and landscape, flexible optional content.",true),
 "back-at":focus("Back At","Curated signage presets with narrow live updates. Portrait and landscape, flexible optional content.",true),

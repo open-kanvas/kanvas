@@ -1,3 +1,4 @@
+import {ComposableChart} from './ComposableChart';
 import { pointEmphasis } from '../../shared/emphasis';
 import { useRegional } from './Regional';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -19,6 +20,7 @@ const unique = <T,>(items: T[]) => [...new Set(items)];
 const format = (n: number) => new Intl.NumberFormat(undefined, { notation: Math.abs(n) >= 10000 ? 'compact' : 'standard', maximumSignificantDigits: 4 }).format(n);
 
 export function ChartRenderer(props: { data: ChartData; showControls?: boolean; showSource?: boolean }) {
+  if(['bar','line','area'].includes(props.data.kind)&&(props.data.stacking||props.data.orientation||props.data.showValues!==undefined||props.data.showTotals!==undefined||props.data.legend!==undefined||props.data.numberFormat||props.data.yMin!==undefined||props.data.yMax!==undefined||props.data.series.some(s=>s.kind||s.axis||s.color||s.lineWidth||s.dashed)))return <ComposableChart data={props.data}/>;
   return isAdvancedChartKind(props.data.kind) ? <AdvancedChartRenderer {...props} /> : <LegacyChartRenderer {...props} />;
 }
 export type ChartTextMeasure = (text: string) => number;

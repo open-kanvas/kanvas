@@ -5,7 +5,7 @@ import { api, errorMessage, viewerPath } from './api';
 import { useAuth } from './hooks';
 import { viewerTabId } from './window-identity';
 
-type Device={id:string;name:string;home?:{sessionId:string;displayId:string};window?:{id:string;name:string;version:number}};
+type Device={id:string;name:string;context?:{device:string;browser:string};home?:{sessionId:string;displayId:string};window?:{id:string;name:string;version:number}};
 type Command={id:string;sessionId?:string;displayId?:string;destination?:'overview';overviewUrl?:string};
 type Paint={sessionId:string;displayId:string;renderedRevision:number}|{destination:'overview'};
 const Context=createContext<{device?:Device;error?:string}>({});
@@ -14,7 +14,7 @@ function installationId(){try{const saved=localStorage.getItem('kanvas-device-in
 export function DeviceReceiver({children,suspended=false}:{children:ReactNode;suspended?:boolean}){
   const auth=useAuth(),[device,setDevice]=useState<Device>(),[error,setError]=useState<string>(),command=useRef<Command|undefined>(undefined),painted=useRef<Paint|undefined>(undefined);
   useEffect(()=>{
-    if(suspended||!auth.user||auth.viewOnly||auth.captureOnly||new URLSearchParams(location.search).has('authorize'))return;
+    if(suspended||!auth.user||auth.viewOnly&&!auth.receiverDeviceId||auth.captureOnly||new URLSearchParams(location.search).has('authorize'))return;
     if('serviceWorker' in navigator)void navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(()=>{});
     let stopped=false,stream:EventSource|undefined,timer:ReturnType<typeof setTimeout>|undefined,registered:Device|undefined;
     const report=()=>{const p=painted.current;if(!registered||!p)return;const c=command.current,match=c&&('destination' in p?c.destination==='overview':c.sessionId===p.sessionId&&c.displayId===p.displayId);
@@ -27,7 +27,7 @@ export function DeviceReceiver({children,suspended=false}:{children:ReactNode;su
       if(data.command){const c=data.command;diagnostic({event:'command',sessionId:c.sessionId,displayId:c.displayId});command.current=c;const path=c.destination==='overview'?'/':c.sessionId&&c.displayId?viewerPath(c.sessionId,c.displayId):undefined;if(!path)return;const target=new URL(path,location.href);if(location.pathname!==target.pathname||location.origin!==target.origin||location.search!==target.search){diagnostic({event:'navigation',sessionId:c.sessionId,displayId:c.displayId});location.assign(path);return;}window.dispatchEvent(new Event('kanvas:return-live'));report();}else command.current=undefined;
     };
     const commandEvent=(event:Event)=>receive((event as CustomEvent).detail);window.addEventListener('kanvas:window-command',commandEvent);
-    const start=async()=>{try{registered=await api<Device>('/api/devices/register',{method:'POST',body:{installationId:installationId(),windowId:viewerTabId(),...(['/', '/console'].includes(location.pathname)?{provisionHome:false}:{})}});if(stopped)return;setDevice(registered);setError(undefined);report();
+    const start=async()=>{try{registered=auth.receiverDeviceId?await api<Device>('/api/screens/receiver'):await api<Device>('/api/devices/register',{method:'POST',body:{installationId:installationId(),windowId:viewerTabId(),...(['/', '/console'].includes(location.pathname)?{provisionHome:false}:{})}});if(stopped)return;setDevice(registered);setError(undefined);report();
       // A viewer carries targeted commands on its content stream. Two streams
       // per tab exhaust HTTP/1.1's six-connection origin limit.
       if(registered.window&&/^\/view\//.test(location.pathname)){window.dispatchEvent(new Event('kanvas:device-registered'));return;}
@@ -35,7 +35,7 @@ export function DeviceReceiver({children,suspended=false}:{children:ReactNode;su
       }catch{/* A malformed stream event cannot change browser location. */}};
     }catch(e){if(!stopped){setError(errorMessage(e));timer=setTimeout(()=>void start(),8000);}}};void start();
     return()=>{stopped=true;stream?.close();clearTimeout(timer);window.removeEventListener('kanvas:painted',ready);window.removeEventListener('kanvas:browsing',browsing);window.removeEventListener('kanvas:window-command',commandEvent);};
-  },[auth.user?.id,auth.viewOnly,auth.captureOnly,suspended]);
+  },[auth.user?.id,auth.viewOnly,auth.receiverDeviceId,auth.captureOnly,suspended]);
   return <Context.Provider value={{device,error}}>{children}</Context.Provider>;
 }
 export function LiveEntry(){

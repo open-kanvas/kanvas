@@ -51,7 +51,7 @@ export const isDiscoveryTool = (name: string): name is keyof typeof discoverySch
 export function parseDiscoveryInput(name: string, raw: unknown): Record<string, unknown> {
   if (!isDiscoveryTool(name)) throw new InputError([{ path: 'tool', problem: 'Unknown tool. Use kanvas_discover or kanvas_call.' }]);
   const parsed = discoverySchemas[name].safeParse(raw ?? {});
-  if (!parsed.success) throw new InputError(validationIssues(parsed.error));
+  if (!parsed.success) throw new InputError(validationIssues(parsed.error,'arguments',raw,false,discoverySchemas[name]));
   return parsed.data;
 }
 const descriptions: Record<typeof DISCOVERY_TOOL_NAMES[number], string> = {

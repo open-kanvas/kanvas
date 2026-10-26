@@ -13,7 +13,7 @@ export const isGrouped = (profile: McpProfile): boolean => profile !== 'legacy';
 
 /** Reviewed, exhaustive registry. Do not synthesize handler names from input. */
 export const OPERATION_REGISTRY = {
-  kanvas_inspect: {"media.list":"kanvas_media_list","media.get":"kanvas_media_get","account.templates.list":"kanvas_account_templates_list", 'browser.list':'kanvas_browser_auth_list', 'guidance.read':'kanvas_guidance_read', 'diagnostics.read':'kanvas_diagnostics_read', 'flashcards.read':'kanvas_flashcards_read', 'checklist.read':'kanvas_checklist_read','archive.list':'kanvas_archive_list',
+  kanvas_inspect: {'screen.read':'kanvas_screen_read',"media.list":"kanvas_media_list","media.get":"kanvas_media_get","account.templates.list":"kanvas_account_templates_list", 'browser.list':'kanvas_browser_auth_list', 'guidance.read':'kanvas_guidance_read', 'diagnostics.read':'kanvas_diagnostics_read', 'flashcards.read':'kanvas_flashcards_read', 'checklist.read':'kanvas_checklist_read','archive.list':'kanvas_archive_list',
     'pointing.read':'kanvas_pointing_read','autoplay.read':'kanvas_autoplay_read','tool-log.read':'kanvas_tool_log_read',
     'profile.read':'kanvas_profile_read','groups.list':'kanvas_groups_list','group.read':'kanvas_group_read',
     'group-access.read':'kanvas_group_access_read','session-context.read':'kanvas_session_context_read',
@@ -65,7 +65,7 @@ export const OPERATION_REGISTRY = {
   kanvas_feedback: { submit: 'kanvas_feedback_submit', 'error.report': 'kanvas_error_report', 'report.update': 'kanvas_report_update', patch:'kanvas_report_patch' },
   kanvas_capture: { snapshot: 'kanvas_display_snapshot', 'request-capture': 'kanvas_display_request_capture', 'capture-status': 'kanvas_display_capture_status' },
   kanvas_monitor: { start: 'kanvas_monitoring_start', update: 'kanvas_monitoring_update', stop: 'kanvas_monitoring_stop', push: 'kanvas_live_push' },
-  kanvas_access: {'browser.revoke':'kanvas_browser_auth_revoke','invite.send':'kanvas_invite_send','pointing.configure':'kanvas_pointing_configure','session.public':'kanvas_session_public_access','group.create':'kanvas_group_create','group.member.set':'kanvas_group_member_set','group-access.set':'kanvas_group_access_set','invite.create':'kanvas_invite_create','invite.accept':'kanvas_invite_accept','invite.revoke':'kanvas_invite_revoke', 'share.create': 'kanvas_share_create', 'pairing.revoke':'kanvas_pairing_revoke', 'pairing.decide': 'kanvas_pairing_decide', 'member.add': 'kanvas_member_add', 'member.remove': 'kanvas_member_remove' },
+  kanvas_access: {'browser.revoke':'kanvas_browser_auth_revoke','invite.send':'kanvas_invite_send','pointing.configure':'kanvas_pointing_configure','session.public':'kanvas_session_public_access','group.create':'kanvas_group_create','group.member.set':'kanvas_group_member_set','group-access.set':'kanvas_group_access_set','invite.create':'kanvas_invite_create','invite.accept':'kanvas_invite_accept','invite.revoke':'kanvas_invite_revoke', 'share.create': 'kanvas_share_create', 'pairing.revoke':'kanvas_pairing_revoke', 'screen.decide':'kanvas_screen_decide', 'pairing.decide': 'kanvas_pairing_decide', 'member.add': 'kanvas_member_add', 'member.remove': 'kanvas_member_remove' },
   kanvas_remove: { 'archive.manage':'kanvas_archive_manage', 'display.clear': 'kanvas_clear', 'session.end': 'kanvas_session_end', 'dataset.delete': 'kanvas_dataset_delete', 'asset.delete': 'kanvas_asset_delete' },
 } as const;
 
@@ -74,6 +74,7 @@ export const OPERATION_REGISTRY = {
  * twelve profile (same name, operations and argument shape): existing agent
  * hosts manage reports through it. */
 export const DOMAIN_REGISTRY = {
+  kanvas_screen:{read:'kanvas_screen_read',decide:'kanvas_screen_decide'},
   kanvas_guidance:{read:'kanvas_guidance_read',set:'kanvas_guidance_set','draft.edit':'kanvas_guidance_draft_edit','draft.save':'kanvas_guidance_draft_save'},
   kanvas_account: {'media.list':'kanvas_media_list','media.get':'kanvas_media_get', 'browser.list':'kanvas_browser_auth_list','browser.revoke':'kanvas_browser_auth_revoke',details:'kanvas_account_details', begin:'kanvas_account_begin', start: 'kanvas_start_read', inventory: 'kanvas_account_inventory', activity: 'kanvas_activity_read', analytics: 'kanvas_analytics_read' },
   kanvas_profile: { read: 'kanvas_profile_read', update: 'kanvas_profile_update', 'preferences.read': 'kanvas_preferences_get', 'preferences.update': 'kanvas_preferences_update', 'styles.list': 'kanvas_styles_list' },

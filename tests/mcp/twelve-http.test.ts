@@ -322,7 +322,7 @@ describe.each(ERAS)('twelve profile on the real %s SDK and application', era => 
     const invalid = await call(peer, 'kanvas_access', 'pairing.decide', args);
     failure(invalid, ['INVALID_ARGUMENT']);
     expect(toolResult(invalid).structuredContent.error).toMatchObject({
-      issues: [{ path: 'approve', problem: 'Required boolean (true or false).' }, { path: 'confirm', problem: expect.stringContaining('owner confirms') }],
+      issues: [{ path: 'approve', problem: 'Required boolean (true or false); received missing.', expected:'boolean', received:'missing' }, { path: 'confirm', problem: expect.stringContaining('owner confirms') }],
       schemaTool: 'kanvas_discover', schemaArguments: {catalog:'tools',action:'get',id:'kanvas.pairing.decide'}, topic: 'tools',
     });
     denied(await guest.request('GET', `/api/sessions/${session.id}`), [401]);

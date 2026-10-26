@@ -32,6 +32,7 @@ const descriptions: Record<TwelveToolName, string> = {
 /** Domain profile: one tool per resource, named for what an agent is looking
  * for. Keep each to what disambiguates it from its neighbours. */
 const domainDescriptions: Record<Exclude<DomainToolName, 'kanvas_feedback'>, string> = {
+  kanvas_screen: 'Review and explicitly approve a code-scoped receive-only screen request.',
   kanvas_account: 'browser.list lists full account cookie sign-ins; browser.revoke explicitly logs out one browserSessionId or all:true with confirm:true/requestId. Account publish authority required; pairings and OAuth grants remain separate. details: own email, display name, quota tier, limits and account-details view recipe. begin: fresh session on connected owned window; none returns bare URL. start: home/recent sessions. inventory: accessible sessions/displays/devices/windows/groups and mutation tools. activity/analytics: account usage.',
   kanvas_profile: 'Your own profile and appearance: read profile (own email, display name, quota tier/limits), update profile (display name, avatar), preferences.read/update (personal theme/style layered over inherited defaults), styles.list (available styles). Changes need the current expectedRevision.',
   kanvas_archive: 'Recoverable archive for sessions, displays and retained views. list finds archived items. manage: archive (default), restore, request-delete then human-confirmed confirm-delete within 120 seconds. Owner only; no automatic purging.',

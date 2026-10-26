@@ -1,3 +1,5 @@
+import {recordDeliveryRequest,markDeliveryPush} from './delivery-telemetry.js';
+import {screenRead,screenDecide} from './screen-enrollment.js';
 import {revisionContext} from './revision-context.js';
 import {assertExpectedRevision} from './revisions.js';
 import {venueUpdate,venueTools} from './venue.js';
@@ -542,7 +544,7 @@ export class KanvasService implements McpService {
     await this.mediaLibrary.authorizeReferences(principal,sessionId,value);
     let validated: ViewSpec;
     try { validated = validateView(value); }
-    catch (error) { throw new InputError(error instanceof z.ZodError ? validationIssues(error, 'view') : [{ path: 'view', problem: 'Exceeds the supported content size or complexity.' }], value?.template); }
+    catch (error) { throw new InputError(error instanceof z.ZodError ? validationIssues(error, 'view',value) : [{ path: 'view', problem: 'Exceeds the supported content size or complexity.' }], value?.template); }
     if(validated.template==='menu-board'){
       const data=validated.data as {sections:{id?:string;items:{id?:string}[]}[];featured?:{id?:string}};
       for(const section of data.sections){section.id??=id();for(const item of section.items)item.id??=id();}
@@ -588,7 +590,7 @@ export class KanvasService implements McpService {
     display.delivery = { revision: display.revision, status: 'pending', updatedAt: display.updatedAt };
     const update: UpdateRecord = { id: id(), sessionId: input.sessionId, requestId: input.requestId, displayIds: [display.id], revisions: { [display.id]: display.revision }, status: 'prepared', createdAt: now(), completedAt: now(), metrics: {  path: 'direct' } };
     (await this.store.put('display', display)); (await this.history.record(display, kind)); (await this.store.put('update', update));
-    (await this.saveRequest(principal, input.sessionId, input.requestId, kind, input, update.id));
+    (await this.saveRequest(principal, input.sessionId, input.requestId, kind, input, update.id));await recordDeliveryRequest(this,update,{...input,view},kind);
     return update;
 
     });
@@ -687,7 +689,7 @@ export class KanvasService implements McpService {
       if (!held) for (const display of displays) { display.generation++; work.generations[display.id] = display.generation; (await this.store.put('display', display)); }
       (await this.store.put('update', update)); (await this.store.put('work', work));
       // Store the original validated wire payload, not source materialization, for identical retry identity.
-      (await this.saveRequest(principal, input.sessionId, input.requestId, kind, wireInput, update.id));
+      (await this.saveRequest(principal, input.sessionId, input.requestId, kind, wireInput, update.id));await recordDeliveryRequest(this,update,wireInput,kind);
     }));
     this.emit({ type: 'update', sessionId: input.sessionId });
     if (inlineDataset) this.emit({ type: 'dataset', sessionId: input.sessionId });
@@ -714,6 +716,7 @@ export class KanvasService implements McpService {
       if (work.recoverableInput) { delete work.recoverableInput; await this.store.put('work', work); }
       await this.experience.log({sessionId:input.sessionId,updateId:update.id,requestId:input.requestId,stage:`render.${update.status}`,elapsedMs:performance.now()-started,code:update.errorCode});
       if (update.status === 'prepared') {
+        await markDeliveryPush(this,update);
         await this.experience.log({sessionId:input.sessionId,updateId:update.id,requestId:input.requestId,stage:'view.pushed'});
         for (const displayId of update.displayIds) this.emit({type:'display',sessionId:update.sessionId,displayId,revision:update.revisions[displayId]});
       }
@@ -1220,6 +1223,8 @@ export class KanvasService implements McpService {
       case 'kanvas_pairing_revoke':return (await this.experience.revokePairing(principal,a as unknown as Parameters<Experience['revokePairing']>[1]));
       case 'kanvas_pairing_decide': return (await this.experience.decide(principal,a as unknown as Parameters<Experience['decide']>[1]));
       case 'kanvas_viewers_read': return (await this.experience.viewers(principal,a.sessionId,a.displayId));
+      case 'kanvas_screen_read':return screenRead(this,principal,a);
+      case 'kanvas_screen_decide':return screenDecide(this,principal,a);
       case 'kanvas_display_inspect': return (await this.experience.inspect(principal,a as unknown as Parameters<Experience['inspect']>[1]));
       case 'kanvas_session_overview': return {...(await this.experience.overview(principal,a.sessionId)),publishRecipe:{tool:'kanvas_publish',operation:'show',sessionId:a.sessionId,displayIds:['CHOOSE_TARGET_DISPLAY_ID'],requestId:'NEW_UNIQUE_REQUEST_ID',view:{version:1,template:'overview',data:{order:'oldest'}}},note:'This read returns metadata, not a new display. The overview template already exists. Use the recipe with the selected target display to show the chronological thumbnail gallery.'};
       case 'kanvas_toast': return (await this.experience.toast(principal,a as unknown as Parameters<Experience['toast']>[1]));

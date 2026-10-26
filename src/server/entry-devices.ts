@@ -1,3 +1,4 @@
+import {retargetReceiver} from './screen-enrollment.js';
 import { asyncFilter, asyncMap } from './async-collections.js';
 import { EventEmitter } from 'node:events';
 import { WindowReceivers } from './window-receivers.js';
@@ -44,7 +45,7 @@ export class EntryDevices {
     });
   }
   private async device(p:AuthPrincipal,deviceId:string,write=false){(await this.account(p,write));const d=(await this.service.store.get<Device>('registered-device',deviceId));if(!d||d.ownerId!==p.userId)throw new AppError('NOT_FOUND','This registered device is unavailable.',404);return d;}
-  private async receiver(p:AuthPrincipal,deviceId:string){const d=(await this.device(p,deviceId));if(!p.browserId||d.browserId!==p.browserId)throw new AppError('FORBIDDEN','Only this device’s signed-in browser can receive or acknowledge its commands.',403);return d;}
+  private async receiver(p:AuthPrincipal,deviceId:string){if(p.receiverDeviceId){const current=await this.service.store.get<{scopedSessionId?:string}>('browser',p.browserId!);await this.service.auth.assertCurrent(p,'read',current?.scopedSessionId);const d=await this.service.store.get<Device>('registered-device',deviceId);if(!d||p.receiverDeviceId!==deviceId||d.browserId!==p.browserId||d.ownerId!==p.userId)throw new AppError('FORBIDDEN','This receiver cannot access another device.',403);return d;}const d=(await this.device(p,deviceId));if(!p.browserId||d.browserId!==p.browserId)throw new AppError('FORBIDDEN','Only this device’s signed-in browser can receive or acknowledge its commands.',403);return d;}
   async ownedDevice(p:AuthPrincipal,deviceId:string,write=false){return (await this.device(p,deviceId,write));}
   async receiverDevice(p:AuthPrincipal,deviceId:string){return (await this.receiver(p,deviceId));}
   private async online(d:Device){if((await this.windows.hasOnline(d)))return true;const c=this.connected.get(d.id);if(!c?.count||c.principal.browserId!==d.browserId)return false;try{(await this.receiver(c.principal,d.id));return true;}catch{return false;}}
@@ -94,7 +95,7 @@ export class EntryDevices {
     if(prior){if(prior.digest!==digest)throw new AppError('REQUEST_ID_CONFLICT','This request ID was used for a different device command.',409);return {device:(await this.public(d)),commandId:prior.commandId,superseded:d.command?.id!==prior.commandId};}
     this.service.assertRevision(a.expectedVersion,d.version);if(!(await this.online(d)))throw new AppError('DEVICE_OFFLINE','Open KANVAS on that device before targeting it.',409);
     const command:DeviceCommand={id:id(),sessionId:a.sessionId,displayId:a.displayId,issuedAt:now(),expiresAt:Date.now()+180000,status:'pending'};d.command=command;d.version++;
-    (await this.service.store.transaction(async ()=>{command.windowIds=(await this.windows.broadcast(p,d.id,command));(await this.service.store.put('registered-device',d));(await this.service.store.put('device-request',{id:requestKey,digest,deviceId:d.id,commandId:command.id}));}));(await this.windows.changed(d.id));this.events.emit(d.id);return {device:(await this.public(d)),commandId:command.id};
+    (await this.service.store.transaction(async ()=>{await retargetReceiver(this.service,d,a.sessionId,a.displayId);command.windowIds=(await this.windows.broadcast(p,d.id,command));(await this.service.store.put('registered-device',d));(await this.service.store.put('device-request',{id:requestKey,digest,deviceId:d.id,commandId:command.id}));}));(await this.windows.changed(d.id));this.events.emit(d.id);return {device:(await this.public(d)),commandId:command.id};
 
     });
   }

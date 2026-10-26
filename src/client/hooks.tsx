@@ -1,10 +1,11 @@
+import {receivedView} from './delivery-timing';
 import {diagnostic} from './frontend-diagnostics';
 import { viewerTabId } from './renderers/Navigation';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { SessionEvent } from '../shared/types';
 import { api, ApiError, authGeneration, confirmAuth, errorMessage, sessionPath, setCsrfToken, type SessionDetail, type User } from './api';
 
-interface AuthState { user: User | null; loading: boolean; previouslyAuthenticated?: boolean; signoutReason?:string; error?: string | null; viewOnly?: boolean; captureOnly?: boolean; interactive?: boolean; sessionId?: string; displayId?: string; refresh: () => Promise<void>; logout: () => Promise<void> }
+interface AuthState { user: User | null; loading: boolean; previouslyAuthenticated?: boolean; signoutReason?:string; error?: string | null; receiverDeviceId?:string; viewOnly?: boolean; captureOnly?: boolean; interactive?: boolean; sessionId?: string; displayId?: string; refresh: () => Promise<void>; logout: () => Promise<void> }
 const AuthContext = createContext<AuthState>({ user: null, loading: true, refresh: async () => {}, logout: async () => {} });
 export const useAuth = () => useContext(AuthContext);
 const returningScreenKey = 'kanvas:authenticated-before';
@@ -17,7 +18,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [previouslyAuthenticated, setPreviouslyAuthenticated] = useState(returningScreen);
-  const [scope, setScope] = useState<{ viewOnly?: boolean; captureOnly?: boolean; interactive?: boolean; sessionId?: string; displayId?: string }>({});
+  const [scope, setScope] = useState<{ receiverDeviceId?:string; viewOnly?: boolean; captureOnly?: boolean; interactive?: boolean; sessionId?: string; displayId?: string }>({});
   const [signoutReason,setSignoutReason]=useState<string>();
   const [authError, setAuthError] = useState<string | null>(null);
   const apply = useCallback((value:Awaited<ReturnType<typeof confirmAuth>>)=>{
@@ -25,7 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if(value.state){
       const state=value.state;setPreviouslyAuthenticated(true);setSignoutReason(undefined);
       try{sessionStorage.setItem(returningScreenKey,'true');}catch{/* Per-tab hint only. */}
-      setUser(state.user);setScope({viewOnly:state.viewOnly,captureOnly:state.captureOnly,interactive:state.interactive,sessionId:state.sessionId,displayId:state.displayId});setAuthError(null);
+      setUser(state.user);setScope({receiverDeviceId:state.receiverDeviceId,viewOnly:state.viewOnly,captureOnly:state.captureOnly,interactive:state.interactive,sessionId:state.sessionId,displayId:state.displayId});setAuthError(null);
     }else{setUser(null);setScope({});setAuthError(null);setSignoutReason(value.reason);}
     setLoading(false);
   },[]);
@@ -90,6 +91,7 @@ export function useSession(id: string | null, displayId?: string) {
     const currentGeneration = generation.current;
     try {
       const state = await api<SessionDetail>(`${sessionPath(id)}${displayId ? `?displayId=${encodeURIComponent(displayId)}&tabId=${encodeURIComponent(viewerTabId())}` : ''}`);
+      for(const d of state.displays)receivedView(id,d.id,d.revision);
       for(const update of state.updates.slice(0,2)){const target=displayId??update.displayIds[0];diagnostic({event:'update-received',sessionId:id,displayId:target,updateId:update.id,revision:target?update.revisions[target]:undefined});}
       // A snapshot started before the stream closed must not resurrect an ended session.
       if (currentGeneration !== generation.current || ended.current) return;

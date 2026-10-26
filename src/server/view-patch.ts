@@ -63,7 +63,7 @@ function parseInput(raw: unknown): ViewPatchInput {
   const parsed = viewPatchSchema.safeParse(raw);
   if (!parsed.success) {
     const issues = validationIssues(parsed.error);
-    throw new InputError(issues.map((issue, index) => ({ ...issue, path: parsed.error.issues[index].path.map(part => typeof part === 'number' ? `[${part}]` : inputFields.has(String(part)) ? String(part) : '[field]').join('.') || 'input' })));
+    throw new InputError(issues.map((issue, index) => ({ ...issue, path: parsed.error.issues[index].path.map(part => typeof part === 'number' ? `[${part}]` : inputFields.has(String(part)) ? String(part) : '<record-key>').join('.') || 'input' })));
   }
   return parsed.data;
 }

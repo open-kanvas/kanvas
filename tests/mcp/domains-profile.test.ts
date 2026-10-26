@@ -34,7 +34,10 @@ describe('domains profile catalog', () => {
     // Group size and exhaustive mapping guards above remain unchanged.
     // Ten new operations; retain max10 per resource group and bounded per-operation growth.
     expect(JSON.stringify(tools).length/CANONICAL_TOOLS.length).toBeLessThan(1000);
-    expect(JSON.stringify(tools).length).toBeLessThan(150_000);
+    // Two added operations plus optional client context on five existing inputs
+    // and device metadata increase the total contract. Keep both the max10
+    // resource guard and unchanged <1000 bytes/operation guard above.
+    expect(JSON.stringify(tools).length).toBeLessThan(155_000);
   });
 
   it('keeps kanvas_feedback byte-for-byte identical to the former profile', () => {

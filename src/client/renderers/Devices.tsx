@@ -81,7 +81,7 @@ export function DevicesRenderer({ view }: RendererProps) {
       group.rows.push({ device, window }); groups.set(key, group);
     }
     const ordered = [...groups.entries()].sort(([a], [b]) => Number(a === '') - Number(b === ''));
-    return <div className="devices-content devices-by-session" data-navigation-scroll>{summary}
+    return <div className="devices-content devices-by-session" data-navigation-scroll>{summary}{[...styles.values()].some(s=>s.color)&&<p className="devices-key">Matching colors connect windows showing the same session.</p>}
       <div className="devices-groups">{ordered.map(([key, group]) => <section key={key || 'none'} className="devices-group" style={group.color ? { '--session-color': group.color } as CSSProperties : undefined}>
         <h2><i aria-hidden="true"/>{group.label}<small>{group.rows.length} {group.rows.length === 1 ? 'window' : 'windows'}</small></h2>
         <ul>{group.rows.map(({ device, window }, index) => { const at = window.lastSeenAt ?? device.lastSeenAt, last = seen(at, now,regional); return <li key={`${device.id ?? device.name}-${window.id ?? index}`} className="devices-group-row">
@@ -92,13 +92,16 @@ export function DevicesRenderer({ view }: RendererProps) {
       </section>)}</div>
     </div>;
   }
-  return <div className="devices-content" data-navigation-scroll>{summary}
+  return <div className="devices-content" data-navigation-scroll>{summary}{[...styles.values()].some(s=>s.color)&&<p className="devices-key">Matching colors connect windows showing the same session.</p>}
     <div className="devices-cards">{devices.map((device, index) => { const last = seen(device.lastSeenAt, now,regional); return <article key={device.id ?? `${device.name}-${index}`} className={`devices-card ${device.connected ? 'is-online' : 'is-offline'}`} aria-label={`${device.name}, ${device.connected ? 'online' : 'offline'}`}>
       <header>
         <span className="devices-kind"><DeviceGlyph kind={deviceKind(device)}/><BrowserGlyph kind={browserKind(device.browser)}/></span>
         <div><h2>{device.name}</h2>{(device.device || device.browser) && <p>{[device.device, device.browser].filter(Boolean).join(' · ')}</p>}</div>
         <span className="devices-state"><Dot on={device.connected}/>{device.connected ? 'Online' : last ? <time dateTime={device.lastSeenAt} title={last.title}>{last.text}</time> : 'Offline'}</span>
       </header>
+      {(device.location||device.role) && <p className="devices-metadata">{[device.location,device.role].filter(Boolean).join(" · ")}</p>}
+      {!!device.tags?.length && <p className="devices-tags">{device.tags.map(tag=><span key={tag}>{tag}</span>)}</p>}
+      {device.defaultSessionId && <p className="devices-metadata">Default session: {styles.get(device.defaultSessionId)?.label??device.defaultSessionId}</p>}
       {device.windows.length ? <ul className="devices-windows">{device.windows.map((window, windowIndex) => { const windowSeen = seen(window.lastSeenAt, now,regional); return <li key={window.id ?? windowIndex} className="devices-window">
         <Dot on={window.connected}/><span className="devices-window-name">{window.name || 'Browser window'}</span>
         {window.connected ? <span className="devices-row-state">Online</span> : windowSeen ? <time dateTime={window.lastSeenAt} title={windowSeen.title}>{windowSeen.text}</time> : <span className="devices-row-state">Offline</span>}

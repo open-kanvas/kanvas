@@ -155,7 +155,7 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
       return profileScope.run(callProfile, async () => {
       const invocationId=randomUUID(),started=Date.now();
       const call = resolveToolCall(callProfile, request.params.name, request.params.arguments);
-      const context = call.reference && call.canonicalName ? { ...call.reference, canonicalName: call.canonicalName } : undefined;
+      const context = call.reference && call.canonicalName ? { ...call.reference, canonicalName: call.canonicalName,connectionId:current().request.get('mcp-session-id')??String(current().principal.agentId??current().principal.tokenId??'stateless'),inferred:{userAgent:current().request.get('user-agent')?.slice(0,500),clientName:server.getClientVersion()?.name?.slice(0,240),clientVersion:server.getClientVersion()?.version?.slice(0,120)} } : undefined;
       // A failed read is still read-only. Validation and execution errors must
       // not allocate diagnostic or lifecycle records in either profile.
       const mayRecordFailure = call.canonicalName !== undefined && !READ_ONLY_CANONICAL.has(call.canonicalName);

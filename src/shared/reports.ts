@@ -1,3 +1,4 @@
+import {clientDetailsSchema,type ClientDetails} from './agent-context.js';
 import { z } from 'zod';
 
 export const REPORT_STATUSES = ['open', 'investigating', 'resolved', 'dismissed'] as const;
@@ -12,6 +13,7 @@ const common = {
   scope:z.enum(['session','account','service']).optional(), sessionId: id.optional(), requestId: z.string().min(1).max(128),
   title: z.string().trim().min(1).max(160), description: z.string().trim().min(1).max(REPORT_DESCRIPTION_MAX),
   displayId: id.optional(), updateId: id.optional(),
+  clientDetails:clientDetailsSchema.optional(),
   client: z.enum(['claude', 'chatgpt', 'browser', 'other']).optional(),
 };
 const scoped=(v:{scope?:string;sessionId?:string;displayId?:string;updateId?:string;diagnosticId?:string},c:z.RefinementCtx)=>{
@@ -61,6 +63,7 @@ export interface ReportRecord {
   displayId?: string; updateId?: string; diagnosticId?: string; diagnostic?: DiagnosticRecord;
   category?: FeedbackInput['category']; severity?: ErrorReportInput['severity']; steps?: string[]; expected?: string; actual?: string;
   createdAt: string; updatedAt: string;
+  clientDetails?:ClientDetails; clientContext?:{inferred?:{userAgent?:string;clientName?:string;clientVersion?:string};selfReported:ClientDetails;verified:false;conflicts:string[]};
   context: { configRevision?: number; displayRevision?: number; template?: string; updateStatus?: string };
   history: { status: typeof REPORT_STATUSES[number]; note: string; actorId: string; createdAt: string }[];
   redacted: boolean;

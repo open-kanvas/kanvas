@@ -13,9 +13,9 @@ it.each(['modern','legacy'])('%s repeats authorized distinct guidance on catalog
  if(era==='modern'){client=new Client({name:'guidance-current',version:'1'});await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',h.baseUrl),{requestInit:{headers}}));}
  else{client=new LegacyClient({name:'guidance-legacy',version:'1'});await client.connect(new LegacyTransport(new URL('/mcp',h.baseUrl),{requestInit:{headers}}));}
  for(const args of [{catalog:'tools',action:'list'},{catalog:'tools',action:'search',query:'guidance'},{catalog:'tools',action:'get',id:'kanvas.guidance.read'},{catalog:'tools',action:'get',id:'nonexistent'}]){
-  const result=await client.callTool({name:'kanvas_discover',arguments:args});expect(JSON.stringify(result)).toContain('agentGuidance');expect(JSON.stringify(result)).toContain('Be proactive with Kanvas');
+  const result=await client.callTool({name:'kanvas_discover',arguments:args});expect(JSON.stringify(result)).toContain('agentGuidance');expect(JSON.stringify(result)).toContain('be proactive with Kanvas');
  }
- for(const [sessionId,expected] of [[s.id,true],[foreign.id,false]] as const){const result=await client.callTool({name:'kanvas_call',arguments:{operationId:'kanvas.session.state',arguments:{sessionId}}});expect(JSON.stringify(result).includes('Only publish when I ask')).toBe(expected);expect(JSON.stringify(result)).not.toContain('PRIVATE FOREIGN GUIDANCE');expect(JSON.stringify(result)).toContain('Be proactive with Kanvas');}
+ for(const [sessionId,expected] of [[s.id,true],[foreign.id,false]] as const){const result=await client.callTool({name:'kanvas_call',arguments:{operationId:'kanvas.session.state',arguments:{sessionId}}});expect(JSON.stringify(result).includes('Only publish when I ask')).toBe(expected);expect(JSON.stringify(result)).not.toContain('PRIVATE FOREIGN GUIDANCE');expect(JSON.stringify(result)).toContain('be proactive with Kanvas');}
  const malformed=await client.callTool({name:'kanvas_call',arguments:{operationId:'kanvas.flashcards.control',arguments:{sessionId:s.id}}});expect(malformed.isError).toBe(true);expect(JSON.stringify(malformed)).toContain('Only publish when I ask');
  const detail=(malformed.content as {text:string}[]).find(item=>item.text?.startsWith('{'));
  expect(detail).toBeDefined();expect(JSON.parse(detail!.text)).toEqual(malformed.structuredContent);

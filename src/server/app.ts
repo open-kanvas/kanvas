@@ -241,6 +241,8 @@ export async function createApp(options: AppOptions = {}) {
     if (displayId !== undefined && (typeof displayId !== 'string' || !displayId || displayId.length > 128)) throw new AppError('INVALID_DISPLAY', 'Supply one valid display identifier.');
     send(res, (await service.detail((await browser(req)), String(req.params.id), displayId)));
   });
+  app.post('/api/sessions/:id/catalog', operation('kanvas_catalog_show', sessionArgs));
+  app.post('/api/sessions/:id/client-context',operation('kanvas_client_context_update',sessionArgs));
   app.patch('/api/sessions/:id/config', operation('kanvas_config_update', sessionArgs));
   app.post('/api/sessions/:id/displays', operation('kanvas_display_register', sessionArgs));
   app.patch('/api/sessions/:id/displays/:displayId', operation('kanvas_display_update', displayArgs));

@@ -4,6 +4,7 @@ import {testDatabase} from '../postgres';
 async function navigation(page:any,s:string,d:string,revision:number,action:unknown){const tabId=await page.evaluate(()=>sessionStorage.getItem('kanvas-viewer-tab'));return sessionApi(page,`/api/sessions/${s}/displays/${d}/navigation`,'POST',{tabId:tabId??'feedback26',requestId:crypto.randomUUID(),expectedRevision:revision,navigation:action});}
 test('zoom fills the physical viewport, reading stays readable, and actual DOM inspection is bounded',async({page})=>{
  await register(page);const s=await createSession(page,'Zoom inspection'),d=await createDisplay(page,s,'Reading');
+ await sessionApi(page,`/api/sessions/${s}/config`,'PATCH',{config:{theme:'dark'}});
  await publishPrepared(page,s,[d.id],{version:1,template:'document',data:{layout:'reading',text:'Read this document comfortably. '.repeat(100)}});
  const revision=(await sessionDetail(page,s)).displays.find(x=>x.id===d.id)!.revision;
  await page.goto(`/view/${s}/${d.id}`);await expect(page.locator('.viewer-candidate .document-content')).toBeVisible();
@@ -19,7 +20,7 @@ test('zoom fills the physical viewport, reading stays readable, and actual DOM i
   await expect.poll(async()=>page.locator('.viewer-candidate .render-surface').evaluate(el=>({width:el.getBoundingClientRect().width,height:el.getBoundingClientRect().height,zoom:getComputedStyle(el).zoom}))).toMatchObject({zoom:String(scale)});
   const box=await page.locator('.viewer-candidate .render-surface').boundingBox(),viewport=page.viewportSize()!;expect(box!.width).toBeGreaterThan(viewport.width*.95);expect(box!.height).toBeGreaterThan(viewport.height*.85);
  }
- const inspected=await sessionApi<any>(page,`/api/sessions/${s}/displays/${d.id}/inspect`,'POST',{detail:'dom',maxNodes:8,maxDepth:3});expect(inspected.status).toBe(200);const dom=inspected.data.observations.find((x:any)=>x.domAvailable)?.dom;expect(dom).toBeTruthy();expect(dom.elements.length).toBeLessThanOrEqual(8);expect(dom.css).toContain('font-size');expect(dom.html).not.toContain('csrf');expect(dom.truncated).toBe(true);
+ const inspected=await sessionApi<any>(page,`/api/sessions/${s}/displays/${d.id}/inspect`,'POST',{detail:'dom',maxNodes:8,maxDepth:3});expect(inspected.status).toBe(200);const dom=inspected.data.observations.find((x:any)=>x.domAvailable)?.dom;expect(dom).toBeTruthy();expect(dom.theme).toBe('dark');expect(dom.elements.length).toBeLessThanOrEqual(8);expect(dom.css).toContain('font-size');expect(dom.html).not.toContain('csrf');expect(dom.truncated).toBe(true);
  const store=new Store(testDatabase(process.env.KANVAS_E2E_RUN_ID!));try{await store.ready;await expect.poll(async()=> (await store.list<any>('delivery-paint',s)).length).toBeGreaterThan(0);const rows=await store.list<any>('delivery-paint',s);expect(rows[0]).toMatchObject({revision:revision,paintConfirmed:true,request:expect.any(Object)});expect(rows[0].receiveToPaintMs).toBeGreaterThanOrEqual(0);}finally{await store.close();}
 });
 test('root honors account theme and previews every returned display; signage and chord pages are real',async({page})=>{
@@ -51,4 +52,14 @@ test('seat axes and explicit seating match the drawn tables; classroom grouping 
  }
  await publishPrepared(page,s,[d.id],{version:1,template:'seat-map',data:{layout:'classroom-pods',tableCount:6,clusterSize:2}});await expect(page.locator('.seat-group')).toHaveCount(6);await expect(page.locator('.seat')).toHaveCount(12);
  await publishPrepared(page,s,[d.id],{version:1,template:'seat-map',data:{layout:'classroom-grid',sections:1,seatsPerTable:20}});await expect(page.locator('.seat-group')).toHaveCount(1);await expect(page.locator('.seat')).toHaveCount(20);
+});
+
+test('live registry catalogs fit without controls and device metadata stays readable',async({page})=>{
+ await register(page);const s=await createSession(page,'Registry and devices'),d=await createDisplay(page,s,'Catalog');
+ const result=await sessionApi<any>(page,`/api/sessions/${s}/catalog`,'POST',{displayIds:[d.id],requestId:crypto.randomUUID(),catalog:'operations'});expect(result.status).toBe(200);
+ await page.goto(`/view/${s}/${d.id}`);await expect(page.locator('.viewer-candidate .catalog-list span')).toHaveCount(151);
+ const bounds=await page.locator('.viewer-candidate .catalog-list').evaluate(root=>{const r=root.getBoundingClientRect();return [...root.querySelectorAll('span')].every(el=>{const b=el.getBoundingClientRect();return b.right<=r.right+1&&b.bottom<=r.bottom+1;});});expect(bounds).toBe(true);await expect(page.locator('.catalog-list button,.catalog-list a,.catalog-list input')).toHaveCount(0);
+ const devices=Array.from({length:10},(_,i)=>({name:`Office laptop Chrome number ${i+1}`,device:'Windows computer',browser:'Chrome',location:'Office',role:'Dashboard',tags:['work'],connected:true,windows:[{name:'Main',connected:true,sessionId:'shared',sessionName:'Planning'}]}));
+ await publishPrepared(page,s,[d.id],{version:1,template:'devices',data:{devices}});await expect(page.locator('.viewer-candidate .devices-card')).toHaveCount(10);
+ expect(await page.locator('.viewer-candidate .devices-card h2').evaluateAll(headings=>headings.every(h=>h.scrollWidth<=h.clientWidth+1))).toBe(true);await expect(page.locator('.viewer-candidate .devices-key')).toContainText('Matching colors');await expect(page.locator('.viewer-candidate .devices-metadata').first()).toHaveText('Office · Dashboard');
 });

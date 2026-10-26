@@ -1,3 +1,4 @@
+import {clientDetailsSchema} from '../../shared/agent-context.js';
 import {venueTools} from '../venue.js';
 import {customTools} from '../custom-templates.js';
 import {mediaTools} from '../media-library.js';
@@ -164,7 +165,7 @@ const definitions: readonly Definition[] = [...venueTools,...customTools,...medi
   {
     name: 'kanvas_session_create',
     description: 'Create an authorized private screen session when needed. New to showing content? kanvas_guide introduces templates, viewer location and current displays and revisions; read kanvas_session_state before display decisions. An initial blank Main display and joinable viewerUrl are created by default; initialDisplay:false opts out. Publish quietly within that policy. A viewer separately signs in; its URL is not an access grant.',
-    schema: z.strictObject({ name,initialDisplay:z.boolean().default(true).describe("Create a blank branded Main display and return its viewerUrl immediately. Set false for an intentionally display-free session.") }),
+    schema: z.strictObject({ name,clientDetails:clientDetailsSchema.optional(),initialDisplay:z.boolean().default(true).describe("Create a blank branded Main display and return its viewerUrl immediately. Set false for an intentionally display-free session.") }),
   },
   {
     name: 'kanvas_sessions_list',

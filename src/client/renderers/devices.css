@@ -35,3 +35,13 @@
 .devices-group-row{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;align-items:center;gap:.6em;padding:.45em .7em;border-radius:8px;background:color-mix(in srgb,var(--text) 4%,transparent);border-inline-start:3px solid var(--session-color,transparent)}
 .devices-row-name{min-width:0;display:flex;align-items:baseline;gap:.4em;white-space:nowrap;overflow:hidden}
 .devices-row-name strong{overflow:hidden;text-overflow:ellipsis}
+
+/* Keep names legible while columns adapt to the available width. */
+.devices-card header{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start}
+.devices-card h2,.devices-card header p{white-space:normal;overflow:visible;overflow-wrap:anywhere}
+.devices-state{grid-column:2;white-space:normal}
+.devices-metadata,.devices-key{margin:0;color:var(--muted);font-size:.85em;overflow-wrap:anywhere}
+.devices-tags{display:flex;flex-wrap:wrap;gap:.3em;margin:0;font-size:.8em}
+.devices-tags span{padding:.15em .45em;border:1px solid var(--line);border-radius:.4em;overflow-wrap:anywhere}
+.devices-row-name{flex-wrap:wrap;white-space:normal;overflow-wrap:anywhere}
+.devices-row-name strong{overflow:visible}

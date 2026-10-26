@@ -1,3 +1,4 @@
+import {CatalogList} from './CatalogList';
 import {useDevice} from '../DeviceReceiver';
 import {FitToDisplay} from './FitToDisplay';
 import {VenueRenderer} from './Venue';
@@ -138,6 +139,7 @@ function ContentInner(props: RendererProps) {
     case 'roster': return <RosterRenderer {...props} />;
     case 'overview': return <SessionOverview {...props}/>;
     case 'display-grid': return <DisplayGridRenderer {...props}/>;
+    case 'catalog-list': return <CatalogList {...props}/>;
     case 'devices': return <DevicesRenderer {...props}/>;
     case 'sports-lineup': return <SportsLineupRenderer {...props}/>;
     case 'device-preview': return <DevicePreview {...props}/>;

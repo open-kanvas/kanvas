@@ -25,5 +25,5 @@ export function inspectDom(shell:HTMLElement,options:InspectionOptions&{requestI
   }return html+`</${tag}>`;
  };
  const html=root?walk(root,0,'root'):'';
- return {requestId:options.requestId,html:html.slice(0,24000),css,truncated,reason,pixelRatio:devicePixelRatio,theme:surface?.className.includes('theme-dark')?'dark':'light',scale:surface?.style.zoom||'1',elements};
+ return {requestId:options.requestId,html:html.slice(0,24000),css,truncated,reason,pixelRatio:devicePixelRatio,theme:surface?.closest('.theme-dark,.theme-light')?.classList.contains('theme-dark')?'dark':'light',scale:surface?.style.zoom||'1',elements};
 }

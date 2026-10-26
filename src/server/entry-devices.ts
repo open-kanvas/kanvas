@@ -11,11 +11,11 @@ import type { KanvasService } from './domain.js';
 import { AppError, id, now } from './store.js';
 
 const identifier=z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
-export const devicePresentSchema=z.object({deviceId:identifier,sessionId:identifier,displayId:identifier,expectedVersion:z.number().int().nonnegative().optional(),requestId:identifier}).strict();
-export const deviceRenameSchema=z.object({deviceId:identifier,name:z.string().trim().min(1).max(100),expectedVersion:z.number().int().nonnegative().optional()}).strict();
+export const devicePresentSchema=z.object({deviceId:identifier.optional(),match:z.object({name:z.string().max(100).optional(),location:z.string().max(160).optional(),tag:z.string().max(80).optional()}).strict().optional(),sessionId:identifier,displayId:identifier,expectedVersion:z.number().int().nonnegative().optional(),requestId:identifier}).strict();
+export const deviceRenameSchema=z.object({deviceId:identifier,name:z.string().trim().min(1).max(100).optional(),location:z.string().trim().max(160).nullable().optional(),role:z.string().trim().max(160).nullable().optional(),tags:z.array(z.string().trim().min(1).max(80)).max(24).optional(),defaultSessionId:identifier.nullable().optional(),expectedVersion:z.number().int().nonnegative().optional()}).strict();
 interface Entry {id:string;sessionId:string;displayId:string}
 export interface DeviceCommand {id:string;sessionId:string;displayId:string;issuedAt:string;expiresAt:number;status:'pending'|'applied';appliedAt?:string;renderedRevision?:number;windowIds?:string[]}
-export interface Device {id:string;ownerId:string;installation:string;browserId:string;name:string;context:ReturnType<typeof browserContext>;homeSessionId?:string;homeDisplayId?:string;version:number;createdAt:string;lastSeenAt:string;sessionId?:string;displayId?:string;renderedRevision?:number;command?:DeviceCommand}
+export interface Device {id:string;ownerId:string;installation:string;browserId:string;name:string;location?:string;role?:string;tags?:string[];defaultSessionId?:string;context:ReturnType<typeof browserContext>;homeSessionId?:string;homeDisplayId?:string;version:number;createdAt:string;lastSeenAt:string;sessionId?:string;displayId?:string;renderedRevision?:number;command?:DeviceCommand}
 interface Connected {principal:AuthPrincipal;count:number;lastSeenAt:string}
 
 /** A device ID is an address, never authority. Browser sessions bind receivers;
@@ -51,7 +51,7 @@ export class EntryDevices {
   private async online(d:Device){if((await this.windows.hasOnline(d)))return true;const c=this.connected.get(d.id);if(!c?.count||c.principal.browserId!==d.browserId)return false;try{(await this.receiver(c.principal,d.id));return true;}catch{return false;}}
   private async public(d:Device){const command=d.command?{...d.command,status:(await this.windows.commandSuperseded(d.command))?'superseded':d.command.status==='pending'&&d.command.expiresAt<=Date.now()?'expired':d.command.status}:undefined;
     const windows=(await this.windows.listForDevice(d));
-    return {id:d.id,name:d.name,version:d.version,context:d.context,windows,connected:(await this.online(d)),lastSeenAt:d.lastSeenAt,...(!windows.some(w=>!w.current||w.current.sessionId!==d.sessionId||w.current.displayId!==d.displayId)&&d.sessionId&&d.displayId?{current:this.target(d.sessionId,d.displayId),renderedRevision:d.renderedRevision}:{}),...(d.homeSessionId&&d.homeDisplayId?{home:this.target(d.homeSessionId,d.homeDisplayId)}:{}),command};}
+    return {id:d.id,name:d.name,location:d.location,role:d.role,tags:d.tags,defaultSessionId:d.defaultSessionId,version:d.version,context:d.context,windows,connected:(await this.online(d)),lastSeenAt:d.lastSeenAt,...(!windows.some(w=>!w.current||w.current.sessionId!==d.sessionId||w.current.displayId!==d.displayId)&&d.sessionId&&d.displayId?{current:this.target(d.sessionId,d.displayId),renderedRevision:d.renderedRevision}:{}),...(d.homeSessionId&&d.homeDisplayId?{home:this.target(d.homeSessionId,d.homeDisplayId)}:{}),command};}
   async register(p:AuthPrincipal,raw:unknown,userAgent:string){
     return this.service.store.atomic(async () => {
     (await this.account(p,true));if(!p.browserId)throw new AppError('FORBIDDEN','Register from a signed-in browser.',403);
@@ -79,18 +79,18 @@ export class EntryDevices {
   }
   async open(p:AuthPrincipal,deviceId:string){
     return this.service.store.atomic(async()=>this.service.store.transaction(async()=>{
-      const d=await this.receiver(p,deviceId),hadHome=Boolean(d.homeSessionId&&d.homeDisplayId),target=await this.ensureHome(p,d);
+      const d=await this.receiver(p,deviceId);if(d.defaultSessionId){/* Only an account owner can set this persisted default; receiver proof was revalidated above. Recheck owner access before consuming that selection. */const owner=p.receiverDeviceId?{userId:d.ownerId}:p;await this.service.access(owner,d.defaultSessionId);const displays=await this.service.store.list<DisplayRecord>('display',d.defaultSessionId);if(displays.length){if(p.receiverDeviceId)await retargetReceiver(this.service,d,d.defaultSessionId,displays[0].id);return this.target(d.defaultSessionId,displays[0].id);}}const hadHome=Boolean(d.homeSessionId&&d.homeDisplayId),target=await this.ensureHome(p,d);
       if(hadHome)await this.service.publishHome(p,target.sessionId,target.displayId);
       await this.service.store.put('registered-device',d);return target;
     }));
   }
   async list(p:AuthPrincipal){(await this.account(p));return {devices:(await asyncMap((await this.service.store.list<Device>('registered-device')).filter(d=>d.ownerId===p.userId), async d=>(await this.public(d)))),note:'Connected means an authenticated receiver stream is open. Pending targeting is not a painted-display acknowledgement.'};}
   async rename(p:AuthPrincipal,raw:unknown){
-    return this.service.store.atomic(async () => {const a=deviceRenameSchema.parse(raw),d=(await this.device(p,a.deviceId,true));this.service.assertRevision(a.expectedVersion,d.version);d.name=a.name;d.version++;(await this.service.store.put('registered-device',d));return (await this.public(d));
+    return this.service.store.atomic(async () => {const a=deviceRenameSchema.parse(raw),d=(await this.device(p,a.deviceId,true));this.service.assertRevision(a.expectedVersion,d.version);if(a.name!==undefined)d.name=a.name;for(const key of ['location','role','defaultSessionId'] as const)if(a[key]!==undefined){if(key==='defaultSessionId'&&a[key])await this.service.access(p,a[key]!);if(a[key])d[key]=a[key]!;else delete d[key];}if(a.tags!==undefined)d.tags=[...new Set(a.tags)];d.version++;(await this.service.store.put('registered-device',d));return (await this.public(d));
     });
   }
   async present(p:AuthPrincipal,raw:unknown){
-    return this.service.store.atomic(async () => {const a=devicePresentSchema.parse(raw),d=(await this.device(p,a.deviceId,true));(await this.service.display(p,a.sessionId,a.displayId));
+    return this.service.store.atomic(async () => {const a=devicePresentSchema.parse(raw);await this.account(p,true);if(Boolean(a.deviceId)===Boolean(a.match))throw new AppError('INVALID_INPUT','Supply exactly one deviceId or match.',400);let deviceId=a.deviceId;if(a.match){const m=a.match;if(!m.name&&!m.location&&!m.tag)throw new AppError('INVALID_INPUT','Supply a name, location or tag.',400);const same=(a:string|undefined,b:string)=>a?.toLocaleLowerCase()===b.toLocaleLowerCase();const candidates=(await this.service.store.list<Device>('registered-device')).filter(d=>d.ownerId===p.userId&&(!m.name||same(d.name,m.name))&&(!m.location||same(d.location,m.location))&&(!m.tag||d.tags?.some(t=>same(t,m.tag!))));if(candidates.length!==1)throw new AppError('INVALID_INPUT','Device match must identify exactly one device. Read devices.read and target each intended device by ID and version.',409);deviceId=candidates[0].id;}const d=(await this.device(p,deviceId!,true));(await this.service.display(p,a.sessionId,a.displayId));
     const requestKey=hash(`${p.userId}:${a.requestId}`),digest=hash(JSON.stringify(a)),prior=(await this.service.store.get<{id:string;digest:string;deviceId:string;commandId:string}>('device-request',requestKey));
     if(prior){if(prior.digest!==digest)throw new AppError('REQUEST_ID_CONFLICT','This request ID was used for a different device command.',409);return {device:(await this.public(d)),commandId:prior.commandId,superseded:d.command?.id!==prior.commandId};}
     this.service.assertRevision(a.expectedVersion,d.version);if(!(await this.online(d)))throw new AppError('DEVICE_OFFLINE','Open KANVAS on that device before targeting it.',409);

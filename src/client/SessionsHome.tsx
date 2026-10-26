@@ -14,7 +14,7 @@ function Row({ session, onChoose }: { session: SessionRecord; onChoose: (id: str
   const meta = [roles[session.role ?? ''] ?? '', updated ? `${session.endedAt ? 'Ended' : 'Updated'} ${updated}` : ''].filter(Boolean).join(' · ');
   return <li><button type="button" className="sessions-home-row" onClick={() => onChoose(session.id)}>
     <span className="sessions-home-initial" aria-hidden="true">{session.name.slice(0, 1).toUpperCase()}</span>
-    <span className="sessions-home-name">{session.name}</span>
+    <span className="sessions-home-name">{session.name}{session.agentConnections?.map(c=><small key={c.id}> · {c.selfReported.agent??c.inferred.clientName??"Agent"}{c.started?" (started)":" (joined)"}</small>)}</span>
     <span className="sessions-home-meta">{meta}</span>
   </button></li>;
 }

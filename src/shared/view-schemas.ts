@@ -305,6 +305,7 @@ export const leafViewSchema = z.discriminatedUnion('template', [
   z.object({ ...base, template: z.literal('tool-call-log'), data: toolLogDataSchema }).strict(),
   z.object({ ...base, template: z.literal('overview'), data: extendedSchemas.overview }).strict(),
   z.object({ ...base, template: z.literal('display-grid'), data: displayGridDataSchema }).strict(),
+  z.object({...base,template:z.literal('catalog-list'),data:z.object({items:z.array(z.string().min(1).max(240)).max(2000),kind:z.enum(['operations','templates'])}).strict()}).strict(),
   z.object({ ...base, template: z.literal('devices'), data: devicesViewDataSchema }).strict(),
   z.object({...base,template:z.literal('sports-lineup'),data:sportsLineupDataSchema}).strict(),
   z.object({...base,template:z.literal('device-preview'),data:devicePreviewDataSchema}).strict(),

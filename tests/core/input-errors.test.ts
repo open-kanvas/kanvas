@@ -9,7 +9,7 @@ describe('repairable, content-free input errors', () => {
     const args = { sessionId: 'session-id', pairingId: 'pairing-id' };
     const error = canonicalArgumentError('kanvas_pairing_decide', args)!;
     expect(error.issues).toEqual([
-      { path: 'approve', problem: 'Required boolean (true or false).' },
+      { path: 'approve', problem: 'Required boolean (true or false); received missing.', expected:'boolean', received:'missing' },
       { path: 'confirm', problem: 'Must be true only after the owner confirms the intended browser.' },
     ]);
     const result = toolFailure(error, undefined, 'twelve');
@@ -24,7 +24,7 @@ describe('repairable, content-free input errors', () => {
 
   it('reports the expected type instead of applying an array size limit to a string', () => {
     const error = canonicalArgumentError('kanvas_submit', { sessionId: 'session-id', requestId: 'show-1', displayIds: 'private display source'.repeat(8) })!;
-    expect(error.issues).toEqual([{ path: 'displayIds', problem: 'Expected array.' }]);
+    expect(error.issues).toEqual([{ path: 'displayIds', problem: 'Expected array; received string.', expected:'array', received:'string' }]);
     expect(JSON.stringify(error.issues)).not.toContain('private');
     expect(error.guidance).toEqual({ schemaTool: 'kanvas_guide', topic: 'tools' });
   });
@@ -39,7 +39,7 @@ describe('repairable, content-free input errors', () => {
     expect(canonicalArgumentError('kanvas_error_report', { ...report, steps: Array(9).fill('Valid step') })?.issues)
       .toEqual([{ path: 'steps', problem: 'Maximum 8 items; submitted 9.', maximum: 8, actual: 9, unit: 'items' }]);
     expect(canonicalArgumentError('kanvas_error_report', { ...report, steps: ['x'.repeat(401)] })?.issues)
-      .toEqual([{ path: 'steps.[item]', problem: 'Maximum 400 characters; submitted 401.', maximum: 400, actual: 401, unit: 'characters' }]);
+      .toEqual([{ path: 'steps[0]', problem: 'Maximum 400 characters; submitted 401.', maximum: 400, actual: 401, unit: 'characters' }]);
     expect(canonicalArgumentError('kanvas_error_report', { ...report, steps: 3 })?.issues)
       .toEqual([{ path: 'steps', problem: 'Expected array or string.' }]);
   });

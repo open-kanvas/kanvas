@@ -1,5 +1,5 @@
 import {afterEach,it,expect} from 'vitest';
-import type {Response} from 'express';
+import type {Request,Response} from 'express';
 import {startHarness,success,type Harness} from './harness.js';
 import {inToolContext} from '../../src/server/mcp/call-context.js';
 import {operationCatalog,templateCatalog} from '../../src/server/mcp/discovery.js';
@@ -34,4 +34,16 @@ it('edits optional device metadata with CAS, returns it in the recipe, and refus
  await service.devices.rename(p,{deviceId:d2.id,location:'Office'});await expect(service.devices.present(p,{match:{location:'Office'},sessionId:s.id,displayId:display.id,requestId:'ambiguous'})).rejects.toThrow(/exactly one/);
  const stream=await service.devices.stream(p,d.id,()=>{});try{expect(await service.devices.present(p,{match:{tag:'work'},sessionId:s.id,displayId:display.id,expectedVersion:changed.version,requestId:'unique'})).toHaveProperty('commandId');}finally{stream.close();}
  const cleared=await service.devices.rename(p,{deviceId:d.id,location:null,role:null,tags:[],defaultSessionId:null});expect(cleared.location).toBeUndefined();expect(cleared.tags).toEqual([]);
+});
+
+it('consumes only owner-configured defaults on a proof-bound receiver and denies revoked receivers',async()=>{
+ h=await startHarness();const a=await h.account(),foreign=await h.account(),screen=h.browser(),service=h.runtime.service,p={userId:a.user!.id};
+ const req=success(await screen.request<any>('POST','/api/screens/request',{}));success(await a.request('POST','/api/screens/decide',{code:req.code,label:req.label,approve:true,confirm:true}));success(await screen.request('POST','/api/screens/claim',{}));
+ const auth=(await h.runtime.auth.browser({cookies:Object.fromEntries(screen.cookies),get:()=>undefined} as unknown as Request)).principal,deviceId=auth.receiverDeviceId!;
+ const session=await a.session('Chosen default'),display=await a.display(session.id),other=await foreign.session('Forbidden default');
+ await expect(service.devices.rename(p,{deviceId,defaultSessionId:other.id})).rejects.toThrow();await service.devices.rename(p,{deviceId,defaultSessionId:session.id});
+ await expect(service.devices.rename(auth,{deviceId,defaultSessionId:session.id})).rejects.toThrow();
+ expect(await service.devices.open(auth,deviceId)).toMatchObject({sessionId:session.id});
+ const renewed=(await h.runtime.auth.browser({cookies:Object.fromEntries(screen.cookies),get:()=>undefined} as unknown as Request)).principal;expect(renewed.scopedSessionId).toBe(session.id);expect(renewed.scopedDisplayId).toBeTruthy();await expect(service.display(renewed,other.id,display.id)).rejects.toThrow();
+ await h.runtime.auth.revokeBrowser(renewed.browserId!);await expect(service.devices.open(renewed,deviceId)).rejects.toThrow();
 });

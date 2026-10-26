@@ -101,7 +101,7 @@ export function DevicesRenderer({ view }: RendererProps) {
       </header>
       {(device.location||device.role) && <p className="devices-metadata">{[device.location,device.role].filter(Boolean).join(" · ")}</p>}
       {!!device.tags?.length && <p className="devices-tags">{device.tags.map(tag=><span key={tag}>{tag}</span>)}</p>}
-      {device.defaultSessionId && <p className="devices-metadata">Default session: {styles.get(device.defaultSessionId)?.label??device.defaultSessionId}</p>}
+      {device.defaultSessionId && <p className="devices-metadata">Default session: {styles.get(device.defaultSessionId)?.label??'Configured session'}</p>}
       {device.windows.length ? <ul className="devices-windows">{device.windows.map((window, windowIndex) => { const windowSeen = seen(window.lastSeenAt, now,regional); return <li key={window.id ?? windowIndex} className="devices-window">
         <Dot on={window.connected}/><span className="devices-window-name">{window.name || 'Browser window'}</span>
         {window.connected ? <span className="devices-row-state">Online</span> : windowSeen ? <time dateTime={window.lastSeenAt} title={windowSeen.title}>{windowSeen.text}</time> : <span className="devices-row-state">Offline</span>}

@@ -121,9 +121,10 @@ export function safeError(error: unknown): SafeError {
   // These errors can arise during authoritative inline-source validation,
   // before rendering. They are not server crashes.
   if (error instanceof RenderingError) return {
+    layer:'template',validateTool:'kanvas.view.validate',
     code: Object.hasOwn(renderingMessages, error.code) ? error.code : 'INVALID_ARGUMENT',
     message: renderingMessages[error.code] ?? 'The supplied content or source binding could not be validated. Check the exact template/source contract.',
-    ...(error.issues?.length ? { issues: error.issues.slice(0, 8).map(issue => ({path: issue.path.slice(0, 160), problem: (issue.rule ?? issue.code).slice(0, 300)})) } : {}),
+    ...(error.issues?.length ? { issues: error.issues.map(issue => ({path: issue.path.slice(0, 160), problem: (issue.rule ?? issue.code).slice(0, 300)})) } : {}),
     schemaTool: 'kanvas_template_get',
   };
   const value = error && typeof error === 'object' ? error as Record<string, unknown> : {};

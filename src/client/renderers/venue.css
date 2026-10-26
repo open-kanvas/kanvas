@@ -46,7 +46,7 @@
 .seat-room .table-horizontal[data-seating=outer] .seat-table{top:auto;bottom:8px}
 .seat-room .table-vertical:not([data-seating=both]) .seats{grid-template-columns:1fr;padding-right:calc(50% + 14px)}
 .seat-room .table-vertical[data-seating=inner][data-side=left] .seats,.seat-room .table-vertical[data-seating=outer][data-side=right] .seats{padding-left:calc(50% + 14px);padding-right:0}
-.menu-board .menu-sections{display:block;column-width:300px;column-count:var(--menu-columns,auto);column-gap:28px;width:100%}
+.menu-board .menu-sections{display:block;column-width:var(--menu-column-width,300px);column-count:var(--menu-columns,auto);column-gap:28px;width:100%}
 .menu-board .menu-sections>section{display:contents}.menu-board .menu-sections>section>h3{break-after:avoid;color:var(--section-color,currentColor);margin-top:.5em}
 .menu-board .menu-items,.menu-board.layout-grid .menu-items{display:contents}.menu-board .menu-item{break-inside:avoid;display:flex}
 .menu-board .menu-item h3{font-size:max(var(--menu-min-font),clamp(22px,2.3vw,36px))}.menu-board .menu-price{color:var(--venue-accent)}
@@ -56,3 +56,5 @@
 .render-surface.is-full-bleed:has(.venue-sign){padding:0!important}.venue-sign:not([style*="8px solid"]) .sign-content{border:0}.fit-display-content .menu-board .menu-sections{width:100%}
 
 .seat-room .table-horizontal[data-edge=bottom][data-seating=inner] .seats{padding-top:0;padding-bottom:28px}.seat-room .table-horizontal[data-edge=bottom][data-seating=inner] .seat-table{top:auto;bottom:8px}.seat-room .table-horizontal[data-edge=bottom][data-seating=outer] .seats{padding-top:28px;padding-bottom:0}.seat-room .table-horizontal[data-edge=bottom][data-seating=outer] .seat-table{top:28px;bottom:auto}
+
+.seat-room.layout-hollow-square{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:auto auto auto}.layout-hollow-square .seat-group:nth-child(1){grid-column:1/-1;grid-row:1}.layout-hollow-square .seat-group:nth-child(2){grid-column:1;grid-row:2}.layout-hollow-square .seat-group:nth-child(3){grid-column:3;grid-row:2}.layout-hollow-square .seat-group:nth-child(4){grid-column:1/-1;grid-row:3}

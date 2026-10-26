@@ -28,7 +28,7 @@ export function mountScreenEnrollment(app:Express,service:KanvasService,browser:
  app.post('/api/screens/request',async(req,res)=>{rate('create:'+req.ip,10);const proof=opaque();const result=await service.store.atomic(async()=>{
   for(const old of await service.store.list<Enrollment>('screen-enrollment'))if(old.expiresAt<Date.now()-86400000)await service.store.delete('screen-enrollment',old.id);
   const pending=(await service.store.list<Enrollment>('screen-enrollment')).filter(e=>e.expiresAt>Date.now());if(pending.length>=2048)throw new AppError('LIMIT_REACHED','Please try again later.',429);
-  const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',code=Array.from({length:8},()=>alphabet[randomInt(alphabet.length)]).join(''),label=NATO_WORDS[randomInt(NATO_WORDS.length)]+' '+NATO_WORDS[randomInt(NATO_WORDS.length)];
+  const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',code=Array.from({length:8},()=>alphabet[randomInt(alphabet.length)]).join(''),label=Array.from({length:4},()=>NATO_WORDS[randomInt(NATO_WORDS.length)]).join(' ');
   const e:Enrollment={id:id(),code,label,proof:hash(proof),status:'pending',expiresAt:Date.now()+10*60000,createdAt:now(),context:await requestContext(req)};
   for(const other of pending)if(['pending','approved'].includes(other.status)&&(other.code===code||other.label===label)){other.status='cancelled';await service.store.put('screen-enrollment',other);e.status='cancelled';}
   await service.store.put('screen-enrollment',e);return e;

@@ -43,17 +43,17 @@ it('expires review tokens and approved claims and never claims a denied request'
  const fresh=await loginRead(s,p,{code:req.code});await loginDecide(s,p,{code:req.code,approvalToken:fresh.approvalToken,approve:true,confirm:true});const request=(await s.store.list<any>('device-login'))[0];request.approvedUntil=Date.now()-1;await s.store.put('device-login',request);expect((await screen.request('POST','/api/login/claim',{})).status).toBe(403);const restarted=success(await screen.request<any>('GET','/api/login/status'));expect(restarted.status).toBe('pending');expect(restarted.code).not.toBe(req.code);expect((await screen.request('POST','/api/login/claim',{})).status).toBe(403);
  const second=h.browser(),next=success(await second.request<any>('POST','/api/login/request',{})),deny=await loginRead(s,p,{code:next.code});await loginDecide(s,p,{code:next.code,approvalToken:deny.approvalToken,approve:false,confirm:true});expect((await second.request('POST','/api/login/claim',{})).status).toBe(403);expect(success(await second.request<any>('GET','/api/login/status')).status).toBe('denied');
 });
-it(retains static-view zoom through edits and history without leaking into fresh publications,async()=>{
- h=await startHarness();const a=await h.account(),session=await a.session(Static zoom),d=await a.display(session.id),other=await a.display(session.id),s=h.runtime.service,p={userId:a.user!.id};
- const view={version:1 as const,template:fact as const,data:{text:Original}};
+it('retains static-view zoom through edits and history without leaking into fresh publications',async()=>{
+ h=await startHarness();const a=await h.account(),session=await a.session('Static zoom'),d=await a.display(session.id),other=await a.display(session.id),s=h.runtime.service,p={userId:a.user!.id};
+ const view={version:1 as const,template:'fact' as const,data:{text:'Original'}};
  await a.submit(session.id,[d.id],view);
- await s.navigation.control(p,{sessionId:session.id,displayId:d.id,requestId:static-zoom,navigation:{action:zoom,scale:1.6}});
- const edited=await s.edit(p,session.id,d.id,undefined,{text:Edited});
+ await s.navigation.control(p,{sessionId:session.id,displayId:d.id,requestId:'static-zoom',navigation:{action:'zoom',scale:1.6}});
+ const edited=await s.edit(p,session.id,d.id,undefined,{text:'Edited'});
  expect((await s.navigation.read(p,{sessionId:session.id,displayId:d.id})).state.scale).toBe(1.6);
- await a.submit(session.id,[d.id],{...view,data:{text:Another}});
+ await a.submit(session.id,[d.id],{...view,data:{text:'Another'}});
  const current=await s.display(p,session.id,d.id);
  expect((await s.navigation.read(p,{sessionId:session.id,displayId:d.id})).state.scale??1).toBe(1);
- await s.navigate(p,{sessionId:session.id,displayIds:[d.id],requestId:history-zoom,expectedRevisions:{[d.id]:current.revision},revision:edited.revision});
+ await s.navigate(p,{sessionId:session.id,displayIds:[d.id],requestId:'history-zoom',expectedRevisions:{[d.id]:current.revision},revision:edited.revision});
  expect((await s.navigation.read(p,{sessionId:session.id,displayId:d.id})).state.scale).toBe(1.6);
  await a.submit(session.id,[other.id],view);
  expect((await s.navigation.read(p,{sessionId:session.id,displayId:other.id})).state.scale??1).toBe(1);

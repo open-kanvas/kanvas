@@ -601,6 +601,7 @@ export class KanvasService implements McpService {
     if (before.generation !== display.generation || before.interactionEpoch !== display.interactionEpoch) throw new AppError('REVISION_CONFLICT', 'The display changed while applying this operation.', 409);
     if (kind === 'timer-control' && display.held) throw new AppError('DISPLAY_HELD', 'Release the display hold before controlling this timer.', 409);
     (await this.history.ensure(display));
+    display.zoomRoot = ['pin-recall','checklist-show','presentation-control'].includes(kind) ? display.revision + 1 : display.zoomRoot ?? display.navigationRoot ?? display.revision;
     display.navigationRoot = ['pin-recall','checklist-show','presentation-control'].includes(kind) ? display.revision + 1 : display.navigationRoot ?? display.revision;
     display.view = view?await (kind==='pin-recall'?this.checklists.restoreSnapshot(display.sessionId,view):this.checklists.capture(display.sessionId,view)):null; display.revision++; display.generation++; display.updatedAt = now();
     if(kind==='pin-recall')display.interactionEpoch=id();

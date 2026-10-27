@@ -22,7 +22,7 @@ export class Navigation {
   private key(displayId:string,viewerId?:string){return hash(`${displayId}:${viewerId??'shared'}`);}
   private zoomKey(sessionId:string,view:ViewSpec|null,displayId:string,root:number,target?:string){
     const leaf=navigationLeaf(view);const checklistId=leaf?.template==='checklist'?leaf.data.checklistId:undefined;
-    return typeof checklistId==='string'?hash(`${sessionId}:checklist:${checklistId}:${target??'shared'}`):undefined;
+    return view?hash(`${sessionId}:${typeof checklistId==='string'?'checklist:'+checklistId:'view:'+displayId+':'+root}:${target??'shared'}`):undefined;
   }
   private async position(sessionId:string,displayId:string,viewerId?:string){
     const d=required((await this.service.store.get<{revision:number;navigationRoot?:number;zoomRoot?:number;view:ViewSpec|null}>('display',displayId)));

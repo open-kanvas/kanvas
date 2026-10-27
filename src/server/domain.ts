@@ -1,3 +1,8 @@
+import {currentToolContext} from './mcp/call-context.js';
+import {clientDetailsSchema,type ClientDetails,type AgentConnection} from '../shared/agent-context.js';
+import {operationCatalog,templateCatalog} from './mcp/discovery.js';
+import {recordDeliveryRequest,markDeliveryPush} from './delivery-telemetry.js';
+import {screenRead,screenDecide} from './screen-enrollment.js';
 import {revisionContext} from './revision-context.js';
 import {assertExpectedRevision} from './revisions.js';
 import {venueUpdate,venueTools} from './venue.js';
@@ -38,7 +43,7 @@ import type { AssetRecord, DatasetRecord, DatasetSummary, DisplayRecord, Interac
 import { validateView, assertJsonBudget, templateViewSchema, retainedProvenance } from '../shared/view-schemas.js';
 import { samples, templateNames, chartVariantSamples } from '../shared/template-examples.js';
 import { InputError, validationIssues } from './input-errors.js';
-import { SessionReports } from './reports.js';
+import { SessionReports,redactReportText } from './reports.js';
 import { safeError } from './mcp/results.js';
 import type { DiagnosticRecord, FeedbackInput, ErrorReportInput, ReportsReadInput, ReportUpdateInput } from '../shared/reports.js';
 import { Auth, hash, type AuthPrincipal } from './auth.js';
@@ -291,16 +296,29 @@ export class KanvasService implements McpService {
     (await this.auth.assertCurrent(principal, scope));
     if (principal.scopedSessionId) throw new AppError('FORBIDDEN', 'This screen has view-only access.', 403);
   }
+  async recordAgentContext(principal:AuthPrincipal,sessionId:string,details:unknown,started=false){
+    await this.fullAccount(principal,'read');await this.access(principal,sessionId);
+    const ctx=currentToolContext(),selfReported=Object.fromEntries(Object.entries(clientDetailsSchema.parse(details??{})).map(([k,v])=>[k,redactReportText(v)])) as ClientDetails,connection=ctx?.connectionId??principal.agentId??principal.tokenId??'direct';
+    const key=hash(`${principal.userId}:${sessionId}:${connection}`),old=await this.store.get<AgentConnection>('agent-connection',key),inferred={...old?.inferred,...ctx?.inferred};
+    const supplied={...old?.selfReported,...selfReported};const conflicts:string[]=[];
+    if(supplied.agent&&inferred.clientName&&supplied.agent.toLowerCase()!==inferred.clientName.toLowerCase())conflicts.push('Self-reported agent differs from MCP client name; neither is verified.');
+    const value:AgentConnection={id:key,sessionId,userId:principal.userId,started:old?.started??started,joinedAt:old?.joinedAt??now(),updatedAt:now(),selfReported:supplied,inferred,conflicts,verified:false};
+    await this.store.put('agent-connection',value);const records=(await this.store.list<AgentConnection>('agent-connection',sessionId)).filter(x=>x.userId===principal.userId).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));for(const stale of records.slice(64))await this.store.delete('agent-connection',stale.id);return value;
+  }
+  async agentConnections(principal:AuthPrincipal,sessionId:string){
+    if(principal.scopedDisplayId||principal.pairingId)return [];
+    return (await this.store.list<AgentConnection>('agent-connection',sessionId)).filter(x=>x.userId===principal.userId);
+  }
   async sessions(principal: AuthPrincipal): Promise<Awaited<SessionRecord[]>> {
     (await this.auth.assertCurrent(principal, 'read', principal.scopedSessionId));
     return (await asyncFlatMap((await this.store.list<SessionRecord>('session')), async session => {
-      try { return [(await this.access(principal, session.id))]; }
+      try { return [{...(await this.access(principal, session.id)),agentConnections:await this.agentConnections(principal,session.id)}]; }
       catch (error) {
         // An ended session is still listed (its role and effective config still
         // resolve); every other denial (no access, revoked, not found) excludes it.
         if (error instanceof AppError && error.code === 'SESSION_ENDED') {
           const role = principal.scopedSessionId === session.id ? 'viewer' : (await this.accounts.effectiveRole(principal.userId, session.id));
-          if (role) return [{ ...session, config: (await this.accounts.effectiveConfig(session, principal.userId)), role }];
+          if (role) return [{ ...session,agentConnections:await this.agentConnections(principal,session.id), config: (await this.accounts.effectiveConfig(session, principal.userId)), role }];
         }
         return [];
       }
@@ -324,6 +342,7 @@ export class KanvasService implements McpService {
     const session: SessionRecord = { id: id(), name, ownerId: principal.userId, config: copy((await this.experience.defaults(principal.userId)).config), configRevision: 0, createdAt: now(), updatedAt: now() };
     (await this.store.transaction(async () => { (await this.store.put('session', session)); (await this.store.db.prepare('INSERT INTO members VALUES(?,?,?)').run(session.id, principal.userId, 'owner')); }));
     (await this.accounts.audit('session.created',{actorId:principal.userId,sessionId:session.id}));
+    if(currentToolContext())await this.recordAgentContext(principal,session.id,{},true);
     this.emit({ type: 'membership', sessionId: session.id }); return { ...session, role: 'owner' };
 
     });
@@ -342,7 +361,7 @@ export class KanvasService implements McpService {
   }
   async detail(principal: AuthPrincipal, sessionId: string, requestedDisplayId?: string) {
     return this.store.snapshot(async () => {
-    const session = (await this.access(principal, sessionId));
+    const session = {...(await this.access(principal, sessionId)),agentConnections:await this.agentConnections(principal,sessionId)};
     const displayId = requestedDisplayId ?? principal.scopedDisplayId;
     if (displayId) (await this.display(principal, sessionId, displayId));
     const displays = (await asyncMap((await this.store.list<StoredDisplay>('display', sessionId)).filter(d => !displayId || d.id === displayId), async d => (await this.publicDisplay(d, principal))));
@@ -379,7 +398,7 @@ export class KanvasService implements McpService {
   }
   /** devices.read: a validated devices-template view. Session and display
    * names appear only where this account still has access; otherwise ids only. */
-  private async devicesRecipe(principal: AuthPrincipal, devices: { id: string; name: string; context?: { device?: string; browser?: string }; connected?: boolean; lastSeenAt?: string; current?: { sessionId: string; displayId: string }; windows: { id: string; name?: string; connected?: boolean; lastSeenAt?: string; current?: { sessionId: string; displayId: string } }[] }[]) {
+  private async devicesRecipe(principal: AuthPrincipal, devices: { id: string; name: string; location?:string;role?:string;tags?:string[];defaultSessionId?:string; context?: { device?: string; browser?: string }; connected?: boolean; lastSeenAt?: string; current?: { sessionId: string; displayId: string }; windows: { id: string; name?: string; connected?: boolean; lastSeenAt?: string; current?: { sessionId: string; displayId: string } }[] }[]) {
     const cache = new Map<string, { name?: string; displays: Map<string, string> }>();
     const place = async (target?: { sessionId: string; displayId: string }) => {
       if (!target) return {};
@@ -394,7 +413,7 @@ export class KanvasService implements McpService {
     };
     const data = { groupBy: 'device', showOffline: true, devices: (await asyncMap(devices.slice(0, 100), async d => {
       const windows = d.windows.length ? d.windows : d.current ? [{ id: d.id, name: 'Browser', connected: d.connected, lastSeenAt: d.lastSeenAt, current: d.current }] : [];
-      return { id: d.id, name: d.name.trim().slice(0, 120) || 'Device', ...(d.context?.device ? { device: d.context.device.slice(0, 80) } : {}), ...(d.context?.browser ? { browser: d.context.browser.slice(0, 40) } : {}), connected: Boolean(d.connected), ...(d.lastSeenAt ? { lastSeenAt: d.lastSeenAt } : {}),
+      return { id: d.id, location:d.location,role:d.role,tags:d.tags,defaultSessionId:d.defaultSessionId, name: d.name.trim().slice(0, 120) || 'Device', ...(d.context?.device ? { device: d.context.device.slice(0, 80) } : {}), ...(d.context?.browser ? { browser: d.context.browser.slice(0, 40) } : {}), connected: Boolean(d.connected), ...(d.lastSeenAt ? { lastSeenAt: d.lastSeenAt } : {}),
         windows: (await asyncMap(windows.slice(0, 40), async w => ({ id: w.id, ...(w.name ? { name: w.name.slice(0, 120) } : {}), connected: Boolean(w.connected), ...(w.lastSeenAt ? { lastSeenAt: w.lastSeenAt } : {}), ...(await place(w.current)) }))) };
     })) };
     const parsed = devicesViewDataSchema.safeParse(data);
@@ -542,7 +561,7 @@ export class KanvasService implements McpService {
     await this.mediaLibrary.authorizeReferences(principal,sessionId,value);
     let validated: ViewSpec;
     try { validated = validateView(value); }
-    catch (error) { throw new InputError(error instanceof z.ZodError ? validationIssues(error, 'view') : [{ path: 'view', problem: 'Exceeds the supported content size or complexity.' }], value?.template); }
+    catch (error) { throw new InputError(error instanceof z.ZodError ? validationIssues(error, 'view',value) : [{ path: 'view', problem: 'Exceeds the supported content size or complexity.' }], value?.template); }
     if(validated.template==='menu-board'){
       const data=validated.data as {sections:{id?:string;items:{id?:string}[]}[];featured?:{id?:string}};
       for(const section of data.sections){section.id??=id();for(const item of section.items)item.id??=id();}
@@ -588,7 +607,7 @@ export class KanvasService implements McpService {
     display.delivery = { revision: display.revision, status: 'pending', updatedAt: display.updatedAt };
     const update: UpdateRecord = { id: id(), sessionId: input.sessionId, requestId: input.requestId, displayIds: [display.id], revisions: { [display.id]: display.revision }, status: 'prepared', createdAt: now(), completedAt: now(), metrics: {  path: 'direct' } };
     (await this.store.put('display', display)); (await this.history.record(display, kind)); (await this.store.put('update', update));
-    (await this.saveRequest(principal, input.sessionId, input.requestId, kind, input, update.id));
+    (await this.saveRequest(principal, input.sessionId, input.requestId, kind, input, update.id));await recordDeliveryRequest(this,update,{...input,view},kind);
     return update;
 
     });
@@ -687,7 +706,7 @@ export class KanvasService implements McpService {
       if (!held) for (const display of displays) { display.generation++; work.generations[display.id] = display.generation; (await this.store.put('display', display)); }
       (await this.store.put('update', update)); (await this.store.put('work', work));
       // Store the original validated wire payload, not source materialization, for identical retry identity.
-      (await this.saveRequest(principal, input.sessionId, input.requestId, kind, wireInput, update.id));
+      (await this.saveRequest(principal, input.sessionId, input.requestId, kind, wireInput, update.id));await recordDeliveryRequest(this,update,wireInput,kind);
     }));
     this.emit({ type: 'update', sessionId: input.sessionId });
     if (inlineDataset) this.emit({ type: 'dataset', sessionId: input.sessionId });
@@ -714,6 +733,7 @@ export class KanvasService implements McpService {
       if (work.recoverableInput) { delete work.recoverableInput; await this.store.put('work', work); }
       await this.experience.log({sessionId:input.sessionId,updateId:update.id,requestId:input.requestId,stage:`render.${update.status}`,elapsedMs:performance.now()-started,code:update.errorCode});
       if (update.status === 'prepared') {
+        await markDeliveryPush(this,update);
         await this.experience.log({sessionId:input.sessionId,updateId:update.id,requestId:input.requestId,stage:'view.pushed'});
         for (const displayId of update.displayIds) this.emit({type:'display',sessionId:update.sessionId,displayId,revision:update.revisions[displayId]});
       }
@@ -1183,6 +1203,7 @@ export class KanvasService implements McpService {
       case 'kanvas_activity_read':return (await this.accounts.activity(principal,a));
       case 'kanvas_analytics_read':return (await this.accounts.analytics(principal,a));
       case 'kanvas_topology_read':return (await this.topology.acrossSessions(principal,a));
+      case 'kanvas_catalog_show': {const entries=a.catalog==='operations'?operationCatalog():[...templateCatalog(),...await this.customTemplateCatalog(principal)];const items=entries.slice().sort((a,b)=>a.id.localeCompare(b.id,'en')).map(x=>x.provider==='account'?`${x.id.replace(/^account\.template\./,'')} (account)`:x.id.replace(/^kanvas\.(template\.)?/,''));return this.submit(principal,{sessionId:a.sessionId,displayIds:a.displayIds,requestId:a.requestId,view:{version:1,template:'catalog-list',showTitle:false,data:{kind:a.catalog,items}}});}
       case 'kanvas_devices_read': { const listing = (await this.devices.list(principal)); const recipe = (await this.devicesRecipe(principal, listing.devices)); return { ...listing, ...(recipe ? { publishRecipe: recipe } : {}) }; }
       case 'kanvas_device_present': return (await this.devices.present(principal,a));
       case 'kanvas_window_present': return (await this.devices.windows.present(principal,a));
@@ -1220,6 +1241,8 @@ export class KanvasService implements McpService {
       case 'kanvas_pairing_revoke':return (await this.experience.revokePairing(principal,a as unknown as Parameters<Experience['revokePairing']>[1]));
       case 'kanvas_pairing_decide': return (await this.experience.decide(principal,a as unknown as Parameters<Experience['decide']>[1]));
       case 'kanvas_viewers_read': return (await this.experience.viewers(principal,a.sessionId,a.displayId));
+      case 'kanvas_screen_read':return screenRead(this,principal,a);
+      case 'kanvas_screen_decide':return screenDecide(this,principal,a);
       case 'kanvas_display_inspect': return (await this.experience.inspect(principal,a as unknown as Parameters<Experience['inspect']>[1]));
       case 'kanvas_session_overview': return {...(await this.experience.overview(principal,a.sessionId)),publishRecipe:{tool:'kanvas_publish',operation:'show',sessionId:a.sessionId,displayIds:['CHOOSE_TARGET_DISPLAY_ID'],requestId:'NEW_UNIQUE_REQUEST_ID',view:{version:1,template:'overview',data:{order:'oldest'}}},note:'This read returns metadata, not a new display. The overview template already exists. Use the recipe with the selected target display to show the chronological thumbnail gallery.'};
       case 'kanvas_toast': return (await this.experience.toast(principal,a as unknown as Parameters<Experience['toast']>[1]));
@@ -1234,13 +1257,14 @@ export class KanvasService implements McpService {
       case 'kanvas_reports_read': return (await this.reports.read(principal, a as unknown as ReportsReadInput));
       case 'kanvas_report_patch': return await this.reports.patch(principal, a as unknown as import('../shared/reports.js').ReportPatchInput);
       case 'kanvas_report_update': return (await this.reports.update(principal, a as unknown as ReportUpdateInput));
-      case 'kanvas_account_begin': return await this.beginSession(principal,a as unknown as Parameters<KanvasService['beginSession']>[1]);
+      case 'kanvas_account_begin': {const result=await this.beginSession(principal,a as unknown as Parameters<KanvasService['beginSession']>[1]);if(a.clientDetails&&'sessionId' in result&&typeof result.sessionId==='string')await this.recordAgentContext(principal,result.sessionId,a.clientDetails,true);return result;}
       case 'kanvas_start_read': return (await this.startPage(principal,a.offset));
       case 'kanvas_session_rename': return (await this.renameSession(principal,a.sessionId,a.expectedRevision,a.name));
       case 'kanvas_display_rename': return (await this.renameDisplay(principal,a.sessionId,a.displayId,a.expectedRevision,a.name));
       case 'kanvas_selection_set': return (await this.setSelection(principal,a));
       case 'kanvas_sessions_list': return (await this.sessions(principal));
-      case 'kanvas_session_create': return (await this.createReadySession(principal, a.name,a.initialDisplay));
+      case 'kanvas_session_create': {const result=await this.createReadySession(principal,a.name,a.initialDisplay);if(a.clientDetails)await this.recordAgentContext(principal,result.id,a.clientDetails,true);return {...result,agentConnections:await this.agentConnections(principal,result.id)};}
+      case 'kanvas_client_context_update': return this.recordAgentContext(principal,a.sessionId,a.clientDetails);
       case 'kanvas_session_state': return (await this.detail(principal, a.sessionId));
       case 'kanvas_session_end': return (await this.end(principal, a.sessionId));
       case 'kanvas_display_register': return (await this.createDisplay(principal, a.sessionId, a as unknown as Parameters<KanvasService['createDisplay']>[2]));
@@ -1309,7 +1333,7 @@ export class KanvasService implements McpService {
         Object.assign(result.metadata,{assetId:asset.id,assetUrl:new URL(asset.url,this.publicUrl).href,assetPath:asset.url,reusable:true});return result;
       }
       case 'kanvas_config_update': return (await this.experience.scopedSettings(principal,a));
-      case 'kanvas_submit': { const result=await this.publication.show(principal,a as unknown as PublishInput);return (a.view as ViewSpec|undefined)?.template==='settings'||a.templateHint==='settings'?{...result,settingsGuidance:{tool:'kanvas_config_update',sessionId:a.sessionId??('sessionId' in result?result.sessionId:undefined),readRevision:'Read session.state for configRevision; pass it as expectedRevision.',nextAction:'Apply user-requested changes now via settings.update with config:{style,theme,accent,readingFontSize,readingWpm,readingZoom}. This is live configuration, not static display content. Account defaults use profile preferences.update and its current revision; never change scope implicitly.'}}:result; }
+      case 'kanvas_submit': { const result=await this.publication.show(principal,a as unknown as PublishInput);if(a.clientDetails&&'sessionId' in result&&typeof result.sessionId==='string')await this.recordAgentContext(principal,result.sessionId,a.clientDetails);return (a.view as ViewSpec|undefined)?.template==='settings'||a.templateHint==='settings'?{...result,settingsGuidance:{tool:'kanvas_config_update',sessionId:a.sessionId??('sessionId' in result?result.sessionId:undefined),readRevision:'Read session.state for configRevision; pass it as expectedRevision.',nextAction:'Apply user-requested changes now via settings.update with config:{style,theme,accent,readingFontSize,readingWpm,readingZoom}. This is live configuration, not static display content. Account defaults use profile preferences.update and its current revision; never change scope implicitly.'}}:result; }
       case 'kanvas_presentation_navigate': return (await this.navigatePresentation(principal, a as unknown as PresentationNavigation));
       case 'kanvas_clear': return (await this.clear(principal, a.sessionId, a.displayIds, a.requestId));
       case 'kanvas_update_status': { (await this.access(principal, a.sessionId)); const update = required(a.updateId ? (await this.store.get<UpdateRecord>('update', a.updateId)) : (await this.retryStatus(principal, a.sessionId, a.requestId))); if (update.sessionId !== a.sessionId) throw new AppError('NOT_FOUND', 'This update is unavailable.', 404); return (await this.updateDelivery(update)); }

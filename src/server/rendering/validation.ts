@@ -20,15 +20,15 @@ export function safeSchemaIssues(error: unknown, prefix: string[] = []): Renderi
     if (issues.length >= 8) return;
     const timerRule = timerValidationRule(issue);
     if (timerRule) {
-      issues.push({ path: [...prefix, ...issue.path.map(part => typeof part === 'number' ? String(part) : safeFields.has(String(part)) ? String(part) : '[field]')].join('.') || '$', code: issue.code, rule: timerRule });
+      issues.push({ path: [...prefix, ...issue.path.map(part => typeof part === 'number' ? String(part) : safeFields.has(String(part)) ? String(part) : '<record-key>')].join('.') || '$', code: issue.code, rule: timerRule });
       return;
     }
     if (issue.code === 'invalid_union') {
       // A discriminated view is validated separately, so any remaining union is a field type.
-      issues.push({ path: [...prefix, ...issue.path.map(part => typeof part === 'number' ? String(part) : safeFields.has(String(part)) ? String(part) : '[field]')].join('.') || '$', code: 'invalid_union', rule: 'Use a permitted type or layout from the supplied schema.' });
+      issues.push({ path: [...prefix, ...issue.path.map(part => typeof part === 'number' ? String(part) : safeFields.has(String(part)) ? String(part) : '<record-key>')].join('.') || '$', code: 'invalid_union', rule: 'Use a permitted type or layout from the supplied schema.' });
       return;
     }
-    const path = [...prefix, ...issue.path.map(part => typeof part === 'number' ? String(part) : safeFields.has(String(part)) ? String(part) : '[field]')].join('.') || '$';
+    const path = [...prefix, ...issue.path.map(part => typeof part === 'number' ? String(part) : safeFields.has(String(part)) ? String(part) : '<record-key>')].join('.') || '$';
     if (issue.code === 'unrecognized_keys' && issue.keys.includes('targetTime')) {
       issues.push({ path: `${path}.targetTime`, code: 'unrecognized_keys', rule: COUNTDOWN_TARGET_TIME_RULE });
       if (issue.keys.length === 1 || issues.length >= 8) return;

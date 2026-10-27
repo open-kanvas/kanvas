@@ -20,7 +20,7 @@ export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string) { super(message); this.name = 'ApiError'; }
 }
 
-export interface BrowserAuthState { user:User; csrfToken:string; browserSessionId?:string; expiresAt?:number; freshUntil?:number; viewOnly?:boolean; captureOnly?:boolean; interactive?:boolean; sessionId?:string; displayId?:string }
+export interface BrowserAuthState { user:User; csrfToken:string; browserSessionId?:string; expiresAt?:number; freshUntil?:number; receiverDeviceId?:string;viewOnly?:boolean; captureOnly?:boolean; interactive?:boolean; sessionId?:string; displayId?:string }
 let csrfToken = '';
 let generation = 0;
 let confirmedIdentity:string|undefined;

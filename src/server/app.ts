@@ -1,3 +1,5 @@
+import {deliveryIngress,mountDeliveryTelemetry} from './delivery-telemetry.js';
+import {mountScreenEnrollment} from './screen-enrollment.js';
 import {mountLegal} from './legal.js';
 import {mountPush,type PushOptions} from './push.js';
 import { mountFrontendDiagnostics } from './frontend-diagnostics.js';
@@ -112,6 +114,7 @@ export async function createApp(options: AppOptions = {}) {
   service.accounts.serviceAdmins=new Set(options.serviceAdmins??[]);
   const app = express(); app.disable('x-powered-by'); app.set('trust proxy', 'loopback');
   app.use((req,res,next)=>{const started=performance.now();res.on('finish',async ()=>{if(req.method==='GET'&&String(res.getHeader('content-type')).startsWith('text/event-stream'))return;const category=req.path.startsWith('/mcp')?'agent':req.path.startsWith('/api/auth/')||req.path.startsWith('/oauth/')?'account':req.path.startsWith('/api/')?'api':'page';try{(await service.accounts.recordRequest(category,res.statusCode,performance.now()-started));}catch{/* Metrics must not affect a completed response or shutdown. */}});next();});
+  app.use(deliveryIngress);
   const limiter = new Limiter();
   const streams = new Set<() => void | Promise<void>>();
   const browser = async (req: Request): Promise<Awaited<AuthPrincipal>> => { const { principal, session } = (await auth.browser(req)); if (unsafe(req)) { if (principal.captureOnly) throw new AppError('FORBIDDEN', 'Capture identities are read-only.', 403); auth.csrf(req, session); } return principal; };
@@ -207,7 +210,7 @@ export async function createApp(options: AppOptions = {}) {
   app.get('/api/auth/me', async (req, res) => {
     const { principal, session } = (await auth.browser(req));
     const user = principal.scopedDisplayId ? { id: principal.participantId ?? 'capture', username: 'guest', displayName: principal.captureOnly ? 'Visual inspection' : 'Guest viewer' } : required((await auth.user(principal.userId)));
-    send(res, { user, csrfToken: session.csrf, ...(session.publicId?{browserSessionId:session.publicId,expiresAt:session.expiresAt,freshUntil:(session.authenticatedAt??0)+auth.policy.freshMs}:{}), ...(principal.captureOnly ? { captureOnly: true } : {}), ...(principal.scopedDisplayId ? { viewOnly: true, interactive: principal.interactive === true, sessionId: principal.scopedSessionId, displayId: principal.scopedDisplayId } : {}) });
+    send(res, { user, ...(principal.receiverDeviceId?{receiverDeviceId:principal.receiverDeviceId}:{}), csrfToken: session.csrf, ...(session.publicId?{browserSessionId:session.publicId,expiresAt:session.expiresAt,freshUntil:(session.authenticatedAt??0)+auth.policy.freshMs}:{}), ...(principal.captureOnly ? { captureOnly: true } : {}), ...(principal.scopedDisplayId ? { viewOnly: true, interactive: principal.interactive === true, sessionId: principal.scopedSessionId, displayId: principal.scopedDisplayId } : {}) });
   });
   for (const action of ['register', 'login'] as const) app.post(`/api/auth/${action}`, async (req, res) => {
     limiter.take(`auth:${req.ip}`, 30, 60_000);
@@ -238,6 +241,8 @@ export async function createApp(options: AppOptions = {}) {
     if (displayId !== undefined && (typeof displayId !== 'string' || !displayId || displayId.length > 128)) throw new AppError('INVALID_DISPLAY', 'Supply one valid display identifier.');
     send(res, (await service.detail((await browser(req)), String(req.params.id), displayId)));
   });
+  app.post('/api/sessions/:id/catalog', operation('kanvas_catalog_show', sessionArgs));
+  app.post('/api/sessions/:id/client-context',operation('kanvas_client_context_update',sessionArgs));
   app.patch('/api/sessions/:id/config', operation('kanvas_config_update', sessionArgs));
   app.post('/api/sessions/:id/displays', operation('kanvas_display_register', sessionArgs));
   app.patch('/api/sessions/:id/displays/:displayId', operation('kanvas_display_update', displayArgs));
@@ -371,6 +376,8 @@ export async function createApp(options: AppOptions = {}) {
     try{(await windowReceiver?.push());}catch{(await finish());}
   });
 
+  mountDeliveryTelemetry(app,service,browser);
+  mountScreenEnrollment(app,service,browser);
   const closeAccess=mountAccessFlows(app, { auth, store, publicUrl, browser, access: service.access, emit: service.emit,pairingFailedLimit:options.pairingFailedLimit,pairingLabel:options.pairingLabel });
   mountSharing(app, { auth, store, publicUrl, browser, access: service.access, emit: service.emit });
   app.all('/mcp/signup',(_req,res)=>res.status(410).json({error:{code:'SIGNUP_RETIRED',message:'Connect to /mcp using normal OAuth. OAuth already verifies and provisions the account. For standalone browser access, open the KANVAS root and sign in by email.'}}));

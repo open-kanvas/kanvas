@@ -1,3 +1,4 @@
+import type {AgentConnection} from '../shared/agent-context.js';
 import {assertExpectedRevision} from './revisions.js';
 import type { Role, SessionRecord, DisplayRecord, UpdateRecord } from '../shared/types.js';
 import { TEMPLATE_IDS } from '../shared/types.js';
@@ -127,7 +128,10 @@ export class SessionReports {
     }
     let redacted = false;
     const clean = (text: string): string => { const result = redactReportText(text); redacted ||= result !== text; return result; };
+    const ctx=currentToolContext(),connectionKey=hash(`${principal.userId}:${input.sessionId}:${ctx?.connectionId??principal.agentId??principal.tokenId??'direct'}`),saved=input.sessionId?await this.store.get<AgentConnection>('agent-connection',connectionKey):undefined;
+    const selfReported=Object.fromEntries(Object.entries({...saved?.selfReported,...input.clientDetails}).map(([k,v])=>[k,clean(v)])),inferred=ctx?.inferred??saved?.inferred;
     const record: ReportRecord = {
+      ...(input.clientDetails?{clientDetails:selfReported}:{}),clientContext:{selfReported,inferred,verified:false,conflicts:selfReported.agent&&inferred?.clientName&&selfReported.agent.toLowerCase()!==inferred.clientName.toLowerCase()?['Self-reported agent differs from MCP client name.']:[]},
       id: id(), ...(session?{sessionId:session.id}:{scope,...(scope==='account'?{accountId:principal.userId}:{})}), kind, status: 'open', revision: 0,
       title: clean(input.title), description: clean(input.description), authorId: principal.userId,
       ...(principal.agentId ? { agentId: principal.agentId } : {}), ...(input.client ? { client: input.client } : {}),

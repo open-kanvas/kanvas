@@ -11,7 +11,7 @@ it('5000-char guidance including Unicode, and exact owner-overridable default',(
  const schema=guidanceTools.find(t=>t.name==='kanvas_guidance_set')!.schema;
  expect(schema.safeParse({scope:'user',text:'å'.repeat(5000),requestId:'long',expectedRevision:0}).success).toBe(true);
  expect(schema.safeParse({scope:'user',text:'x'.repeat(5001),requestId:'long',expectedRevision:0}).success).toBe(false);
- expect(DEFAULT_AGENT_GUIDANCE).toContain('Retry failed Kanvas calls silently for up to 3 attempts');
+ expect(DEFAULT_AGENT_GUIDANCE).toContain('Default behavior: be proactive with Kanvas');
 });
 it('group grids, meaningful labels and localizable microcopy retain explicit names',()=>{
  expect(materializeSeats({layout:'round-tables',tableCount:4,tableColumns:2}).tableColumns).toBe(2);

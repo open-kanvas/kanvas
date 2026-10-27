@@ -8,10 +8,10 @@ import { AppError, id, now, required, Store } from './store.js';
 export const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 export const opaque = () => randomBytes(32).toString('base64url');
 export interface User { id: string; username: string; displayName: string; avatarUrl?: string }
-export interface AuthPrincipal extends Principal { browserId?: string; scopedSessionId?: string; scopedDisplayId?: string; pairingId?: string; captureOnly?: boolean; oauthAccessId?: string; interactive?: boolean; participantId?: string }
+export interface AuthPrincipal extends Principal { browserId?: string; receiverDeviceId?: string; scopedSessionId?: string; scopedDisplayId?: string; pairingId?: string; captureOnly?: boolean; oauthAccessId?: string; interactive?: boolean; participantId?: string }
 export interface BrowserSessionPolicy { idleDays?: number; absoluteDays?: number; renewalHours?: number; freshMinutes?: number }
-export const fullBrowser = (session: BrowserSession) => !session.scopedSessionId && !session.scopedDisplayId && !session.pairingId && !session.captureOnly;
-export interface BrowserSession { publicId?: string; lastActiveAt?: string; idleExpiresAt?: number; absoluteExpiresAt?: number; authenticatedAt?: number; renewedAt?: number; device?: string; browser?: string; origin?: string; createdAt?: string; id: string; userId: string; csrf: string; expiresAt: number; scopedSessionId?: string; scopedDisplayId?: string; pairingId?: string; captureOnly?: boolean; interactive?: boolean }
+export const fullBrowser = (session: BrowserSession) => !session.scopedSessionId && !session.scopedDisplayId && !session.pairingId && !session.captureOnly && !session.receiverDeviceId;
+export interface BrowserSession { publicId?: string; lastActiveAt?: string; idleExpiresAt?: number; absoluteExpiresAt?: number; authenticatedAt?: number; renewedAt?: number; device?: string; browser?: string; origin?: string; createdAt?: string; id: string; receiverDeviceId?: string; userId: string; csrf: string; expiresAt: number; scopedSessionId?: string; scopedDisplayId?: string; pairingId?: string; captureOnly?: boolean; interactive?: boolean }
 /** The stable client connection, not an individual rotating credential. Legacy
  * publisher/OAuth tokens without resource keep their original hash and expiry. */
 export interface Token { id: string; userId: string; agentId: string; name: string; hash: string; scopes: string[]; sessionIds?: string[]; expiresAt: number; createdAt: string; lastUsedAt?: string; revoked?: boolean; clientId?: string; resource?: string; refreshExpiresAt?: number; refreshIdleExpiresAt?: number }
@@ -151,7 +151,7 @@ export class Auth {
     if (!row || candidate.length !== expected.length || !timingSafeEqual(candidate, expected)) throw new AppError('INVALID_LOGIN', 'Username or password is incorrect.', 401);
     return {id: row.id, username: row.username, displayName: row.display_name};
   }
-  async issueBrowser(userId: string, response: Response, scope?: Pick<BrowserSession,'scopedSessionId'|'scopedDisplayId'|'pairingId'|'captureOnly'|'interactive'>, request?:Request): Promise<BrowserSession> {
+  async issueBrowser(userId: string, response: Response, scope?: Pick<BrowserSession,'scopedSessionId'|'scopedDisplayId'|'pairingId'|'captureOnly'|'interactive'|'receiverDeviceId'>, request?:Request): Promise<BrowserSession> {
     return this.store.atomic(async () => {
       const cookie=opaque(),time=Date.now();
       const session:BrowserSession={id:hash(cookie),createdAt:now(),userId,csrf:opaque(),expiresAt:time+7*86400000,...scope};
@@ -165,7 +165,7 @@ export class Auth {
     const cookie: unknown=request.cookies?.[this.cookieName];
     if(typeof cookie!=='string')throw new AppError('UNAUTHORIZED','Sign in to continue.',401);
     const session=await this.currentBrowser(hash(cookie),request),pairing=await this.currentPairing(session);
-    return {session,principal:{userId:session.userId,browserId:session.id,scopedSessionId:session.scopedSessionId,scopedDisplayId:session.scopedDisplayId,pairingId:session.pairingId,captureOnly:session.captureOnly,
+    return {session,principal:{userId:session.userId,browserId:session.id,receiverDeviceId:session.receiverDeviceId,scopedSessionId:session.scopedSessionId,scopedDisplayId:session.scopedDisplayId,pairingId:session.pairingId,captureOnly:session.captureOnly,
       interactive:!session.captureOnly&&session.interactive===true&&pairing?.interactive===true,...(pairing&&!session.captureOnly?{participantId:`pairing:${pairing.id}`}:{})}};
   }
   private async currentPairing(session: BrowserSession): Promise<Awaited<BrowserPairing | undefined>> {
@@ -260,6 +260,7 @@ export class Auth {
       const session = await this.currentBrowser(principal.browserId);
       if (session.userId !== principal.userId) throw new AppError('UNAUTHORIZED','Sign in to continue.',401);
       const pairing = (await this.currentPairing(session));
+      principal.receiverDeviceId=session.receiverDeviceId;principal.scopedSessionId=session.scopedSessionId;principal.scopedDisplayId=session.scopedDisplayId;principal.pairingId=session.pairingId;principal.captureOnly=session.captureOnly;
       // Refresh retained guest flags from the server grant before a domain
       // action checks them; caller-supplied participant identity is never used.
       principal.interactive = !session.captureOnly && session.interactive === true && pairing?.interactive === true;

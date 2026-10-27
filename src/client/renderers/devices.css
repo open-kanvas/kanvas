@@ -1,5 +1,5 @@
 /* Devices & windows: account device inventory with session grouping. */
-.devices-content{width:100%;height:100%;min-height:0;overflow:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:clamp(8px,1.4cqh,18px);font-size:clamp(12px,calc(.4cqw + .55cqh),20px)}
+.devices-content{width:100%;height:100%;min-height:0;overflow:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:clamp(8px,1.4cqh,18px);font-size:clamp(16px,calc(.8cqw + 1cqh),32px)}
 .devices-summary{flex:none;margin:0;display:flex;flex-wrap:wrap;gap:.3em 1.2em;color:var(--muted)}
 .devices-summary b{color:var(--text);font-variant-numeric:tabular-nums}
 .devices-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,19em),1fr));gap:clamp(8px,1.2cqw,18px);align-content:start}
@@ -35,3 +35,13 @@
 .devices-group-row{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;align-items:center;gap:.6em;padding:.45em .7em;border-radius:8px;background:color-mix(in srgb,var(--text) 4%,transparent);border-inline-start:3px solid var(--session-color,transparent)}
 .devices-row-name{min-width:0;display:flex;align-items:baseline;gap:.4em;white-space:nowrap;overflow:hidden}
 .devices-row-name strong{overflow:hidden;text-overflow:ellipsis}
+
+/* Keep names legible while columns adapt to the available width. */
+.devices-card header{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start}
+.devices-card h2,.devices-card header p{white-space:normal;overflow:visible;overflow-wrap:anywhere}
+.devices-state{grid-column:2;white-space:normal}
+.devices-metadata,.devices-key{margin:0;color:var(--muted);font-size:.85em;overflow-wrap:anywhere}
+.devices-tags{display:flex;flex-wrap:wrap;gap:.3em;margin:0;font-size:.8em}
+.devices-tags span{padding:.15em .45em;border:1px solid var(--line);border-radius:.4em;overflow-wrap:anywhere}
+.devices-row-name{flex-wrap:wrap;white-space:normal;overflow-wrap:anywhere}
+.devices-row-name strong{overflow:visible}

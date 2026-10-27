@@ -18,18 +18,23 @@ async function fit(v:Page){
  await expect(v.locator('.fit-display')).toHaveAttribute('data-fit-scale',/^[0-9.]+$/);
  await v.waitForTimeout(200);
  const bounds=await v.locator('.fit-display').evaluate(box=>{const outer=box.getBoundingClientRect(),inner=box.firstElementChild!.getBoundingClientRect();const descendants=[...box.querySelectorAll<HTMLElement>('.seat,.menu-item,.menu-group article,.opening-hours>div,.sign-content')];return {scale:Number((box as HTMLElement).dataset.fitScale),fits:descendants.every(n=>{const b=n.getBoundingClientRect();return b.bottom<=outer.bottom+2&&b.right<=outer.right+2&&b.top>=outer.top-2&&b.left>=outer.left-2;}),height:inner.height,width:outer.width};});
- expect(bounds.scale).toBeGreaterThan(0);expect(bounds.scale).toBeLessThanOrEqual(1);expect(bounds.fits,JSON.stringify(bounds)).toBe(true);
+ expect(bounds.scale).toBeGreaterThan(0);expect(bounds.scale).toBeLessThanOrEqual(1);
+ // October26 supersedes shrinking menu text indefinitely: retain the font floor and expose scroll.
+ if(!bounds.fits&&await v.locator('.menu-board').count()){
+  const readable=await v.locator('.fit-display').evaluate(box=>({scrollable:getComputedStyle(box).overflow==='auto'&&box.scrollHeight>box.clientHeight,font:parseFloat(getComputedStyle(box.querySelector('.menu-item h3')!).fontSize)*Number((box as HTMLElement).dataset.fitScale)}));
+  expect(readable.scrollable).toBe(true);expect(readable.font).toBeGreaterThanOrEqual(19.9);
+ }else expect(bounds.fits,JSON.stringify(bounds)).toBe(true);
 }
 test('compact seating fits, explicit 2x2 and continuous horseshoe geometry',async({page,baseURL},info)=>{
  const a=await setup(page,baseURL!);try{
  await a.show('seat-map',{layout:'round-tables',tableCount:4,seatsPerTable:8,tableColumns:2});await expect(a.viewer.locator('.seat')).toHaveCount(32);await expect(a.viewer.locator('.seating')).not.toContainText('Open');await fit(a.viewer);
  const boxes=await a.viewer.locator('.seat-group').evaluateAll(ns=>ns.map(n=>{const b=n.getBoundingClientRect();return {x:b.x,y:b.y};}));expect(Math.abs(boxes[0].y-boxes[1].y)).toBeLessThan(2);expect(boxes[2].y).toBeGreaterThan(boxes[0].y);await photo(a.viewer,info,'seats-2x2');
  await a.show('seat-map',{layout:'cocktail-rounds',tableCount:6,seatsPerTable:4});await fit(a.viewer);await photo(a.viewer,info,'cocktail-24');
- for(const layout of ['horseshoe','hollow-square']){await a.show('seat-map',{layout,seatsPerTable:16});await fit(a.viewer);await photo(a.viewer,info,layout);const seats=a.viewer.locator('.seat-group').first().locator('.seat');const b=await seats.evaluateAll(ns=>ns.slice(0,2).map(n=>n.getBoundingClientRect().y));expect(Math.abs(b[0]-b[1])).toBeLessThan(2);}
+ for(const layout of ['horseshoe','hollow-square']){await a.show('seat-map',{layout,seatsPerTable:16});await fit(a.viewer);await photo(a.viewer,info,layout);const seats=a.viewer.locator('.seat-group').first().locator('.seat');const b=await seats.evaluateAll(ns=>ns.slice(0,2).map(n=>{const box=n.getBoundingClientRect();return box.y+box.height/2;}));const table=await a.viewer.locator('.seat-group').first().locator('.seat-table').boundingBox();expect(Math.min(...b)).toBeLessThan(table!.y+table!.height/2);expect(Math.max(...b)).toBeGreaterThan(table!.y+table!.height/2);}
  await a.show('seat-map',{layout:'theater',tableCount:3,seatsPerTable:8});await expect(a.viewer.locator('.seat-group h3').first()).toHaveText('Row 1');
  }finally{await a.client.close();}
 });
-test('all realistic signage content stays visible and shrinks instead of scrolling',async({page,baseURL},info)=>{
+test('signage fits where possible and menus preserve readable minimum text with accessible overflow',async({page,baseURL},info)=>{
  const a=await setup(page,baseURL!);try{
  const items=Array.from({length:4},(_,i)=>({name:'Lunch item '+i,description:'Fresh local vegetables and herbs',price:'129 kr'}));
  const image=await a.call('kanvas.asset.import',{sessionId:a.sessionId,name:'menu-photo.png',mimeType:'image/png',base64:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6Ot8AAAAASUVORK5CYII='});

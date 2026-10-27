@@ -38,7 +38,7 @@ describe('exact task views and personal reading state',()=>{
   it('merges independent reading defaults, starts paused on new documents, preserves position on pause, and leaves content/history untouched',async()=>{
     const view:ViewSpec={version:1,template:'document',data:{text:'Exact words. '.repeat(150),layout:'reading'}};
     await owner.submit(s,[d],view);const before=(await owner.detail(s)).displays[0],history=await call('kanvas_display_history',{sessionId:s,displayId:d});
-    const initial=success(await owner.request<NavigationSnapshot>('GET',`${path()}/navigation?tabId=reading-test`));expect(initial.state.reading).toEqual({fontSize:22,wpm:220,zoom:1,playing:false});
+    const initial=success(await owner.request<NavigationSnapshot>('GET',`${path()}/navigation?tabId=reading-test`));expect(initial.state.reading).toEqual({fontSize:30,wpm:220,zoom:1,playing:false});
     expect(success(await move({action:'reading',fontSize:28,saveDefaults:true})).state.reading?.wpm).toBe(220);
     const configured=success(await move({action:'reading',wpm:160,saveDefaults:true}));expect(configured.state.reading).toEqual({fontSize:28,wpm:160,zoom:1,playing:false});
     expect(success(await move({action:'reading',command:'start'})).state.reading?.playing).toBe(true);

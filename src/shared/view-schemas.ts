@@ -240,6 +240,7 @@ export const actionSchema = z.object({ id: identifier, label, kind: z.enum(['but
 export const codeWorkspaceDataSchema=z.object({files:codeDataSchema.shape.files.unwrap(),activePath:z.string().min(1).max(500),excerpt:codeDataSchema}).strict().refine(v=>v.files.some(f=>f.path===v.activePath&&f.kind==='file'),'Active path must name a supplied file.').refine(v=>['code','diff'].includes(v.excerpt.kind),'Workspace excerpt must be code or diff.');
 const base = { format: viewFormatSchema.optional().describe('Display-only format overrides; source stays ISO.'), selection: selectionSchema.optional().describe('Agent-controlled filter/sort/highlight; full source is retained. No display filter widgets.'), version: z.literal(1).default(1), title: short.optional(), showTitle: z.boolean().optional().describe('Show the stored title on the display only when explicitly true.'), showCaption: z.boolean().optional().describe('Opt in to supporting captions on the display; content remains stored when hidden.'), showSource: z.boolean().optional().describe('Opt in to visible source metadata. Required attribution is always retained.'), showControls: z.boolean().optional().describe('Opt in to utility controls such as table search or chart data. Intrinsic responses and navigation remain available.'), source: provenanceSchema.optional(), actions: z.array(actionSchema).max(8).refine(uniqueIds, 'Action IDs must be unique').optional() };
 export const leafViewSchema = z.discriminatedUnion('template', [
+  z.object({...base,template:z.literal('sing-along'),data:venueSchemas['sing-along']}).strict(),
   z.object({...base,template:z.literal('seat-map'),data:venueSchemas['seat-map']}).strict(),
   z.object({...base,template:z.literal('vocabulary'),data:venueSchemas['vocabulary']}).strict(),
   z.object({...base,template:z.literal('todays-special'),data:venueSchemas['todays-special']}).strict(),
@@ -304,6 +305,7 @@ export const leafViewSchema = z.discriminatedUnion('template', [
   z.object({ ...base, template: z.literal('tool-call-log'), data: toolLogDataSchema }).strict(),
   z.object({ ...base, template: z.literal('overview'), data: extendedSchemas.overview }).strict(),
   z.object({ ...base, template: z.literal('display-grid'), data: displayGridDataSchema }).strict(),
+  z.object({...base,template:z.literal('catalog-list'),data:z.object({items:z.array(z.string().min(1).max(240)).max(2000),kind:z.enum(['operations','templates'])}).strict()}).strict(),
   z.object({ ...base, template: z.literal('devices'), data: devicesViewDataSchema }).strict(),
   z.object({...base,template:z.literal('sports-lineup'),data:sportsLineupDataSchema}).strict(),
   z.object({...base,template:z.literal('device-preview'),data:devicePreviewDataSchema}).strict(),

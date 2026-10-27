@@ -11,8 +11,10 @@ export function FitToDisplay({children}:{children:ReactNode}){
    const sign=content.querySelector('.venue-sign');box.style.background=sign?getComputedStyle(sign).backgroundColor:'';
    content.style.width=box.clientWidth+'px';content.style.minHeight=box.clientHeight+'px';
    const w=Math.max(box.clientWidth,content.scrollWidth),h=Math.max(box.clientHeight,content.scrollHeight);
-   const scale=Math.min(1,box.clientWidth/w,box.clientHeight/h);
-   content.style.transform=`scale(${scale})`;content.style.left=(box.clientWidth-w*scale)/2+'px';content.style.top=(box.clientHeight-h*scale)/2+'px';box.dataset.fitScale=String(scale);
+   const floor=content.querySelector<HTMLElement>('.menu-board'),item=floor?.querySelector<HTMLElement>('.menu-item h3'),minimum=floor?parseFloat(getComputedStyle(floor).getPropertyValue('--menu-min-font')):0;
+   const requested=Math.min(1,box.clientWidth/w,box.clientHeight/h),scale=item&&minimum?Math.max(requested,Math.min(1,minimum/parseFloat(getComputedStyle(item).fontSize))):requested;
+   box.style.overflow=scale>requested?'auto':'hidden';
+   content.style.transform=`scale(${scale})`;content.style.left=Math.max(0,(box.clientWidth-w*scale)/2)+'px';content.style.top=Math.max(0,(box.clientHeight-h*scale)/2)+'px';box.dataset.fitScale=String(scale);
   });};
   const resize=new ResizeObserver(fit);resize.observe(box);resize.observe(content);
   const mutation=new MutationObserver(fit);mutation.observe(content,{childList:true,subtree:true,characterData:true});

@@ -199,3 +199,12 @@
 .identify-overlay small{font-size:clamp(14px,2.4vmin,28px);opacity:.75}
 @keyframes identify-fade{0%{opacity:0}10%{opacity:1}85%{opacity:1}100%{opacity:0}}
 @media (prefers-reduced-motion:reduce){.identify-overlay{animation:none}}
+
+/* A quiet, readable first impression on screens at any distance. */
+.auth-story.auth-logo-panel{background:#000;color:#fff;display:flex;align-items:center;justify-content:center;padding:8%;}.auth-logo-panel .wordmark{width:100%;max-width:640px;height:auto;font-size:clamp(64px,10vw,180px)}
+
+.screen-pairing{margin-top:30px;padding-top:24px;border-top:1px solid var(--line);display:flex;align-items:center;flex-direction:column;gap:12px;text-align:center}.screen-label{font-size:clamp(28px,3vw,60px);letter-spacing:.03em}.screen-code{font-size:28px;letter-spacing:.18em}.screen-pairing img{background:white;padding:8px;max-width:100%}.screen-pairing p{font-size:15px;line-height:1.5}
+
+.render-surface:not(.is-preview){font-size:clamp(16px,1.2cqw,28px)}.render-surface[data-device-kind="TV"]{font-size:clamp(24px,1.6cqw,40px)}.render-surface[data-device-kind="TV"] .devices-content{font-size:clamp(24px,calc(1cqw + 1.2cqh),40px)}
+
+.auth-logo-panel .wordmark.kanvas-brand>svg.kanvas-brand-art{width:100%;max-width:640px}

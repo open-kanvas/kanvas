@@ -2,6 +2,11 @@
  * lives in drafting-ops, planner-ops, display-sync, window-invitations and
  * account-home; real SDK coverage lives in workflows-http/event-feedback-http. */
 export const CURRENT_MAPPING = [
+ ['kanvas_catalog_show','kanvas_publish','catalog.show'],
+ ['kanvas_client_context_update','kanvas_session','client.context.update'],
+ // October26: code-scoped receiver approval/claim/ACL coverage in feedback-oct26.
+ ['kanvas_screen_read','kanvas_inspect','screen.read'],
+ ['kanvas_screen_decide','kanvas_access','screen.decide'],
  // October18: real scoped media import exercised by feedback-oct18 core and HTTPS/browser acceptance.
  ['kanvas_media_import','kanvas_import','media.import'],
  // October 17: real state/authorization tests in feedback-oct17; real SDK/browser in feedback-oct17.spec.

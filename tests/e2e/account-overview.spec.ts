@@ -45,13 +45,14 @@ test('compact root cards paginate 51 sessions, preserve extra display links and 
  await expect(page.getByRole('button',{name:'Previous',exact:true})).toBeDisabled();
  await expect(page.locator('.overview-intro, .account-overview>footer')).toHaveCount(0);
  const card=page.locator('.overview-session').filter({has:page.getByRole('heading',{name:all.sessions[0].name,exact:true})});
- await expect(card.getByRole('link',{name:'Secondary display',exact:true})).toHaveAttribute('href',new RegExp(`/view/${s}/${extra.id}$`));
+ await expect(card.getByRole('link',{name:`Open Secondary display in ${all.sessions[0].name}`,exact:true})).toHaveAttribute('href',new RegExp(`/view/${s}/${extra.id}$`));
  const primary=card.getByRole('link',{name:`Open Primary display in ${all.sessions[0].name}`,exact:true});
  await expect(primary).toHaveAttribute('href',new RegExp(`/view/${s}/${d.id}$`));
- const layout=await page.locator('.overview-session').evaluateAll(cards=>cards.slice(0,2).map(card=>{const r=card.getBoundingClientRect();const head=card.querySelector('header')!.getBoundingClientRect();const preview=card.querySelector('.overview-displays')!.getBoundingClientRect();return {x:r.x,y:r.y,headX:head.x,previewX:preview.x};}));
- expect(layout[0].headX).toBeGreaterThan(layout[0].previewX);
+ const layout=await page.locator('.overview-session').evaluateAll(cards=>cards.slice(0,2).map(card=>{const r=card.getBoundingClientRect();const head=card.querySelector('header')!.getBoundingClientRect();const preview=card.querySelector('.overview-displays')!.getBoundingClientRect();return {x:r.x,y:r.y,headX:head.x,previewX:preview.x,headY:head.y,previewY:preview.y};}));
+ expect(layout[0].previewY).toBeGreaterThan(layout[0].headY);
+ await expect(card.locator('.overview-preview')).toHaveCount(3);
  if(page.viewportSize()!.width>760){expect(layout[0].y).toBe(layout[1].y);expect(layout[1].x).toBeGreaterThan(layout[0].x);}else{expect(layout[0].x).toBe(layout[1].x);expect(layout[1].y).toBeGreaterThan(layout[0].y);}
- expect((await card.locator('.overview-preview').boundingBox())!.height).toBe(90);
+ expect((await card.locator('.overview-preview').first().boundingBox())!.height).toBe(90);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  await page.screenshot({path:`/home/deploy/kanvas-root-feedback-20261016-visuals/${test.info().project.name}-50-sessions.png`});
  await primary.click();await expect(page.locator('.viewer-shell')).toBeVisible();

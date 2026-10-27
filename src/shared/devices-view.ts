@@ -13,6 +13,7 @@ export const devicesViewDataSchema = z.object({
   devices: z.array(z.object({
     id: identifier.optional(),
     name: text(120),
+    location:z.string().max(160).optional(),role:z.string().max(160).optional(),tags:z.array(z.string().max(80)).max(24).optional(),defaultSessionId:identifier.optional(),
     kind: z.enum(DEVICE_KINDS).optional().describe('Device type; otherwise derived from device and name.'),
     device: z.string().max(80).optional().describe('Detected device, for example Mac, Windows computer, iPhone, Android device or TV.'),
     browser: z.string().max(40).optional().describe('Chrome, Safari, Firefox, Edge, Opera or another browser.'),

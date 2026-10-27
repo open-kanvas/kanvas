@@ -1,3 +1,4 @@
+import {clientDetailsSchema} from './agent-context.js';
 import { viewFormatSchema } from './regional.js';
 import { selectionSchema } from './selection.js';
 import { z } from 'zod';
@@ -13,6 +14,7 @@ const resolution = z.strictObject({ ref: id, sessionId: id.optional(), displayId
   }).meta({ oneOf: [{ required: ['sessionId'], not: { required: ['newSession'] } }, { required: ['newSession'], not: { anyOf: [{ required: ['sessionId'] }, { required: ['displayIds'] }] } }] });
 
 export const publishInputSchema = z.strictObject({
+  clientDetails:clientDetailsSchema.optional(),
   requestId: z.string().min(1).max(128), sessionId: id.optional(), displayIds: targets.optional(),
   sessionName: z.string().trim().min(1).max(160).optional(), newSession: z.literal(true).optional(),
   targetRef: id.optional(), contextId: z.string().min(1).max(128).optional(), resolution: resolution.optional(),

@@ -14,13 +14,13 @@ export interface ChecklistMeasurements {
 /** Keep prose full-width. Compact labels use their rendered width, not a
  * character count, so wide glyphs, fonts and zoom cannot silently crowd rows. */
 export function checklistColumns(items: readonly Item[], measured: ChecklistMeasurements): number {
-  if (items.length < 2 || items.some(item => Boolean(item.detail) || /[\r\n]/.test(item.text))) return 1;
+  if (items.length < 2) return 1;
   const { width, labelWidths, fontSize, checkboxWidth, itemGap, columnGap, minimumColumnWidth } = measured;
   if (width < 480 || labelWidths.length !== items.length || !labelWidths.every(Number.isFinite)) return 1;
   const widest = Math.max(...labelWidths);
-  if (widest > fontSize * 12) return 1;
+  const prose = items.some(item => Boolean(item.detail) || /[\r\n]/.test(item.text)) || widest > fontSize * 12;
   // Leave a little breathing room beyond the measured label and checkbox.
-  const columnWidth = Math.max(minimumColumnWidth, widest + checkboxWidth + itemGap + fontSize * .5);
+  const columnWidth = Math.max(minimumColumnWidth, (prose ? Math.min(widest, fontSize * 24) : widest) + checkboxWidth + itemGap + fontSize * .5, prose ? fontSize * 20 : 0);
   return Math.max(1, Math.min(items.length, Math.floor((width + columnGap) / (columnWidth + columnGap))));
 }
 
@@ -35,7 +35,7 @@ export function useChecklistColumns(ref: RefObject<HTMLUListElement | null>, ite
       const labels = [...list.querySelectorAll<HTMLElement>(':scope > li > div > span')];
       const first = labels[0], row = first?.parentElement?.parentElement;
       const checkbox = row?.querySelector<HTMLElement>('.checklist-checkbox');
-      if (!first || !row || !checkbox || list.closest('.is-preview') || items.some(item => Boolean(item.detail) || /[\r\n]/.test(item.text))) {
+      if (!first || !row || !checkbox || list.closest('.is-preview')) {
         setColumns(1); return;
       }
       // Measure native text shaping off-layout, with the exact computed label

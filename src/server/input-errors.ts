@@ -1,10 +1,10 @@
 import { z } from 'zod';
-import { viewSchema } from '../shared/view-schemas.js';
+import { viewSchema, leafViewSchema } from '../shared/view-schemas.js';
 import { feedbackSubmitSchema, errorReportSchema, reportsReadSchema, reportUpdateSchema } from '../shared/reports.js';
 import { AppError } from './store.js';
 import { COUNTDOWN_TARGET_TIME_RULE, timerValidationRule } from '../shared/timer.js';
 
-export interface ValidationIssue { expected?:string; received?:string; path: string; problem: string; maximum?: number; actual?: number; unit?: 'characters' | 'items' | 'bytes' }
+export interface ValidationIssue { allowedFields?:string[]; hint?:string; expected?:string; received?:string; path: string; problem: string; maximum?: number; actual?: number; unit?: 'characters' | 'items' | 'bytes' }
 
 // Only schema-defined property names may reach a diagnostic. Dynamic record
 // keys, received values and Zod messages can contain private source material.
@@ -65,11 +65,20 @@ export function validationIssues(error: z.ZodError, prefix = '', submitted?: unk
     // unknown keys stay redacted, even when they contain source text.
     if (issue.code === 'unrecognized_keys' && issue.keys.includes('targetTime')) return [{ path: `${path}.targetTime`, problem: COUNTDOWN_TARGET_TIME_RULE }, ...(issue.keys.length > 1 ? [{ path, problem: 'Contains other unsupported fields. Use the documented tool or template schema.' }] : [])];
     if (issue.code === 'unrecognized_keys' && issue.keys.includes('displayId') && schema && Object.hasOwn((z.toJSONSchema(schema,{unrepresentable:'any',io:'input'}) as {properties?:object}).properties??{},'displayIds')) return [{path:'displayId',problem:'Unsupported singular field for this operation. Use displayIds: [the intended display ID], an array.'},...(issue.keys.length>1?[{path,problem:'Contains other unsupported fields. Use the documented tool schema.'}]:[])];
+    if(issue.code==='unrecognized_keys'){
+      // Schema-selected fields only; untrusted arbitrary record keys stay redacted.
+      const selected=submitted&&typeof submitted==='object'&&'template' in submitted?leafViewSchema.options.find(option=>option.shape.template.value===submitted.template):undefined;
+      const root=z.toJSONSchema(schema??selected??viewSchema,{unrepresentable:'any',io:'input'});
+      const select=(node:any,value:any):any=>{const expand=(n:any):any[]=>(n?.oneOf??n?.anyOf)?.flatMap(expand)??[n];const choices=expand(node);if(choices.length===1)return node;return select(choices.find((c:any)=>Object.entries(c.properties??{}).some(([k,v]:[string,any])=>v.const!==undefined&&value?.[k]===v.const))??choices.find((c:any)=>c.type==='object')??choices[0],value);};
+      let node:any=select(root,submitted),value:any=submitted;
+      for(const part of issue.path){node=select(node,value);node=typeof part==='number'?node?.items:node?.properties?.[part];value=value?.[part];}
+      node=select(node,value);const allowedFields=Object.keys(node?.properties??{});
+      return issue.keys.map(key=>{const known=names.has(key),field=known?key:'<record-key>',misplaced=path.endsWith('.data')&&['title','showTitle','showCaption','showSource','showControls','source','actions'].includes(key);return {path:`${path}.${field}`,problem:'Unsupported field.',received:value?.[key]===null?'null':Array.isArray(value?.[key])?'array':typeof value?.[key],...(allowedFields.length?{allowedFields}:{}),...(misplaced?{hint:`${key} belongs beside template/data in view, not inside data.`}:{})};});
+    }
     return [{
     path,...(expected?{expected,received:received===undefined?'missing':received===null?'null':Array.isArray(received)?'array':typeof received}:{}),
     problem: timerValidationRule(issue) ?? (issue.code === 'invalid_type' ? expected ? `${received === undefined ? 'Required' : 'Expected'} ${expected}${expected === 'boolean' ? ' (true or false)' : ''}; received ${received===undefined?'missing':received===null?'null':Array.isArray(received)?'array':typeof received}.` : 'A required field is missing or has the wrong type.'
       : issue.code === 'invalid_union' && unionTypes.length > 1 ? `Expected ${unionTypes.join(' or ')}.`
-      : issue.code === 'unrecognized_keys' ? 'Contains unsupported fields. Use the documented tool or template schema.'
       : issue.code === 'too_big' ? `Maximum ${String(issue.maximum)}${issue.origin === 'string' ? ' characters' : issue.origin === 'array' ? ' items' : ''}${actual === undefined ? '' : `; submitted ${actual}`}.`
       : issue.code === 'too_small' ? `Is below the supported minimum (${String(issue.minimum)}${issue.origin === 'string' ? ' characters' : issue.origin === 'array' ? ' items' : ''}).`
       : issue.code === 'invalid_value' && issue.values.length === 1 && typeof issue.values[0] === 'boolean' ? `Must be ${String(issue.values[0])}${path === 'confirm' ? ' only after the owner confirms the intended browser' : ''}.`

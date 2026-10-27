@@ -1,3 +1,4 @@
+import {loginRead,loginDecide} from './device-login.js';
 import {currentToolContext} from './mcp/call-context.js';
 import {clientDetailsSchema,type ClientDetails,type AgentConnection} from '../shared/agent-context.js';
 import {operationCatalog,templateCatalog} from './mcp/discovery.js';
@@ -1203,7 +1204,7 @@ export class KanvasService implements McpService {
       case 'kanvas_activity_read':return (await this.accounts.activity(principal,a));
       case 'kanvas_analytics_read':return (await this.accounts.analytics(principal,a));
       case 'kanvas_topology_read':return (await this.topology.acrossSessions(principal,a));
-      case 'kanvas_catalog_show': {const entries=a.catalog==='operations'?operationCatalog():[...templateCatalog(),...await this.customTemplateCatalog(principal)];const items=entries.slice().sort((a,b)=>a.id.localeCompare(b.id,'en')).map(x=>x.provider==='account'?`${x.id.replace(/^account\.template\./,'')} (account)`:x.id.replace(/^kanvas\.(template\.)?/,''));return this.submit(principal,{sessionId:a.sessionId,displayIds:a.displayIds,requestId:a.requestId,view:{version:1,template:'catalog-list',showTitle:false,data:{kind:a.catalog,items}}});}
+      case 'kanvas_catalog_show': {const entries=a.catalog==='operations'?operationCatalog():[...(a.scope==='account'?[]:templateCatalog()),...(a.scope==='system'?[]:await this.customTemplateCatalog(principal))];const items=entries.map(x=>x.provider==='account'?`${x.title} (account)`:x.id.replace(/^kanvas\.(template\.)?/,'')).sort((a,b)=>a.localeCompare(b,'en'));return this.submit(principal,{sessionId:a.sessionId,displayIds:a.displayIds,requestId:a.requestId,view:{version:1,template:'catalog-list',showTitle:false,data:{kind:a.catalog,items}}});}
       case 'kanvas_devices_read': { const listing = (await this.devices.list(principal)); const recipe = (await this.devicesRecipe(principal, listing.devices)); return { ...listing, ...(recipe ? { publishRecipe: recipe } : {}) }; }
       case 'kanvas_device_present': return (await this.devices.present(principal,a));
       case 'kanvas_window_present': return (await this.devices.windows.present(principal,a));
@@ -1241,6 +1242,8 @@ export class KanvasService implements McpService {
       case 'kanvas_pairing_revoke':return (await this.experience.revokePairing(principal,a as unknown as Parameters<Experience['revokePairing']>[1]));
       case 'kanvas_pairing_decide': return (await this.experience.decide(principal,a as unknown as Parameters<Experience['decide']>[1]));
       case 'kanvas_viewers_read': return (await this.experience.viewers(principal,a.sessionId,a.displayId));
+      case 'kanvas_login_read':return loginRead(this,principal,a);
+      case 'kanvas_login_decide':return loginDecide(this,principal,a);
       case 'kanvas_screen_read':return screenRead(this,principal,a);
       case 'kanvas_screen_decide':return screenDecide(this,principal,a);
       case 'kanvas_display_inspect': return (await this.experience.inspect(principal,a as unknown as Parameters<Experience['inspect']>[1]));

@@ -585,7 +585,7 @@ export class KanvasService implements McpService {
     (await this.store.transaction(async () => {
       (await this.history.ensure(display));
       if (!participationCompatible(display.view, view)) display.interactionEpoch = id();
-      display.navigationRoot ??= display.revision;
+      display.zoomRoot ??= display.navigationRoot ?? display.revision; display.navigationRoot ??= display.revision;
       display.view = view?await this.checklists.capture(display.sessionId,view):null; display.revision++; display.generation++; display.updatedAt = now();
       display.delivery = { revision: display.revision, status: 'pending', updatedAt: display.updatedAt };
       (await this.store.put('display', display)); (await this.history.record(display, 'edit'));
@@ -799,7 +799,7 @@ export class KanvasService implements McpService {
               const candidate=views[index],checklistKey=candidate?.template==='checklist'&&!candidate.data.checklistId?canonical(candidate):undefined;
               display.view=checklistKey&&checklistCopies.has(checklistKey)?copy(checklistCopies.get(checklistKey)!):candidate?await this.checklists.capture(display.sessionId,candidate):null;
               if(checklistKey&&display.view)checklistCopies.set(checklistKey,display.view);
-              display.revision++; display.navigationRoot=display.revision; display.interactionEpoch=epoch; display.targetAgentId=work.principal.agentId; display.updatedAt=now();
+              display.revision++; display.navigationRoot=display.revision; display.zoomRoot=display.revision; display.interactionEpoch=epoch; display.targetAgentId=work.principal.agentId; display.updatedAt=now();
               display.delivery={revision:display.revision,status:'pending',updatedAt:now()};
               await this.store.put('display',display); await this.history.record(display,input.view?'prepared':'interpreted');
             }
@@ -829,7 +829,7 @@ export class KanvasService implements McpService {
     const displays = (await asyncMap(displayIds, async displayId => (await this.display(principal, sessionId, displayId, 'editor'))));
     const update: UpdateRecord = { id: id(), sessionId, requestId, displayIds, revisions: {}, status: 'prepared', createdAt: now(), completedAt: now() };
     (await this.store.transaction(async () => {
-      for (const display of displays) { (await this.history.ensure(display)); display.view = null; display.revision++; display.navigationRoot=display.revision; display.generation++; display.interactionEpoch = id(); delete display.targetAgentId; display.updatedAt = now(); display.delivery = { revision: display.revision, status: 'pending', updatedAt: now() }; update.revisions[display.id] = display.revision; (await this.store.put('display', display)); (await this.history.record(display, 'clear')); }
+      for (const display of displays) { (await this.history.ensure(display)); display.view = null; display.revision++; display.navigationRoot=display.revision; display.zoomRoot=display.revision; display.generation++; display.interactionEpoch = id(); delete display.targetAgentId; display.updatedAt = now(); display.delivery = { revision: display.revision, status: 'pending', updatedAt: now() }; update.revisions[display.id] = display.revision; (await this.store.put('display', display)); (await this.history.record(display, 'clear')); }
       (await this.store.put('update', update)); (await this.saveRequest(principal, sessionId, requestId, 'clear', payload, update.id));
     }));
     for (const display of displays) this.emit({ type: 'display', sessionId, displayId: display.id, revision: display.revision });
@@ -897,7 +897,7 @@ export class KanvasService implements McpService {
     (await this.store.transaction(async () => {
       for (const { display, cursor, view, entry } of targets) {
         (await this.history.ensure(display));
-        display.view = view?await this.checklists.restoreSnapshot(display.sessionId,view):null; display.revision++; display.generation++; display.navigationRoot=display.revision; display.interactionEpoch = entry.interactionEpoch ?? id(); display.targetAgentId = principal.agentId; display.updatedAt = now(); display.delivery = { revision: display.revision, status: 'pending', updatedAt: now() };
+        display.view = view?await this.checklists.restoreSnapshot(display.sessionId,view):null; display.revision++; display.generation++; display.navigationRoot=display.revision; display.zoomRoot=entry.zoomRoot??entry.revision; display.interactionEpoch = entry.interactionEpoch ?? id(); display.targetAgentId = principal.agentId; display.updatedAt = now(); display.delivery = { revision: display.revision, status: 'pending', updatedAt: now() };
         update.revisions[display.id] = display.revision; (await this.store.put('display', display)); (await this.history.moved(display, cursor));
       }
       (await this.store.put('update', update)); (await this.saveRequest(principal, input.sessionId, input.requestId, 'navigate', input, update.id));
@@ -984,7 +984,7 @@ export class KanvasService implements McpService {
     (await this.store.transaction(async () => {
       if (!nextView && response === undefined) { const accepted = (await this.engagement.submit(display, principal.participantId ?? principal.userId, value)); actionId = accepted.actionId; response = accepted.value; }
       if (nextView) {
-        (await this.history.ensure(display)); display.navigationRoot ??= display.revision; display.view = await this.checklists.capture(display.sessionId,nextView); display.revision++; display.generation++; display.updatedAt = now(); (await this.store.put('display', display)); (await this.history.record(display, actionId));
+        (await this.history.ensure(display)); display.zoomRoot ??= display.navigationRoot ?? display.revision; display.navigationRoot ??= display.revision; display.view = await this.checklists.capture(display.sessionId,nextView); display.revision++; display.generation++; display.updatedAt = now(); (await this.store.put('display', display)); (await this.history.record(display, actionId));
       }
       interaction.actionId = actionId; interaction.value = response; (await this.store.put('interaction', interaction)); (await this.saveRequest(principal, sessionId, input.requestId, 'interaction', payload, interaction.id));
     }));

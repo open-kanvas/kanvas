@@ -9,10 +9,11 @@
 .checklist-content.checklist-adaptive li > div > span { white-space: pre-wrap; }
 .render-surface:not(.is-preview) .checklist-content.checklist-adaptive li:not(.is-preview *) {
   gap: clamp(10px, 1cqw, 18px);
-  padding-block: clamp(8px, 1.2cqh, 14px);
+  padding-block: clamp(6px, .9cqh, 12px);
 }
 .render-surface:not(.is-preview) .checklist-content.checklist-adaptive li > div > span:not(.is-preview *) {
   font-size: clamp(1rem, 1.8cqw, 2.8cqh);
+  line-height: 1.25;
 }
 .render-surface:not(.is-preview) .checklist-content.checklist-adaptive .checklist-checkbox:not(.is-preview *) {
   width: clamp(24px, 2cqw, 30px);
@@ -25,4 +26,4 @@
   .render-surface:not(.is-preview) .checklist-content.checklist-adaptive li > div > span:not(.is-preview *) { font-size: clamp(1rem, 4.675cqw, 2.465cqh); }
 }
 
-.render-surface:not(.is-preview) .checklist-content.checklist-adaptive li small{font-size:.82em;line-height:1.35;margin-top:3px}
+.render-surface:not(.is-preview) .checklist-content.checklist-adaptive li .checklist-detail{font-size:clamp(14px,1.45cqw,2.3cqh);line-height:1.25;margin:4px 0 0}

@@ -152,7 +152,7 @@ export async function signOutWorkspace(page: Page) {
   const navigation = page.getByRole('button', { name: 'Open navigation', exact: true });
   if (await navigation.isVisible() && await navigation.getAttribute('aria-expanded') !== 'true') await navigation.click();
   await signOut.click();
-  await expect(page.getByRole('heading', { name: 'Welcome to KANVAS.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sign in on this screen' })).toBeVisible();
 }
 
 export async function createSession(page: Page, name: string): Promise<string> {
@@ -208,9 +208,10 @@ export async function tab(page: Page, name: string) {
 
 /** Run scoped business API requests inside the browser; never return auth headers or cookies. */
 export async function sessionApi<T>(page: Page, path: string, method = 'GET', body?: unknown): Promise<{ status: number; data?: T; code?: string }> {
-  const allowedAccountRead = method === 'GET' && ['/api/start', '/api/devices', '/api/account/details'].includes(path);
+  const allowedAccountRead = method === 'GET' && ['/api/start', '/api/devices', '/api/account/details','/api/auth/me','/api/auth/sessions'].includes(path);
+  const allowedLoginConsent=method==='POST'&&['/api/login/lookup','/api/login/decide','/api/auth/sessions/revoke'].includes(path);
   const allowedWindowPresent = method === 'POST' && /^\/api\/devices\/[A-Za-z0-9_-]+\/windows\/[A-Za-z0-9_-]+\/(present|overview)$/.test(path);
-  if (!path.startsWith('/api/sessions') && path !== '/api/tokens' && !allowedAccountRead && !allowedWindowPresent) throw new Error('Browser fixture helper permits scoped session APIs, read-only account discovery, explicit window targeting and test token creation.');
+  if (!path.startsWith('/api/sessions') && path !== '/api/tokens' && !allowedAccountRead && !allowedWindowPresent && !allowedLoginConsent) throw new Error('Browser fixture helper permits scoped session APIs, read-only account discovery, explicit window targeting and test token creation.');
   return page.evaluate(async ({ path, method, body }) => {
     const me = await fetch('/api/auth/me', { credentials: 'same-origin', cache: 'no-store' });
     if (!me.ok) return { status: me.status, code: 'FIXTURE_NOT_SIGNED_IN' };

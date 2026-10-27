@@ -20,7 +20,7 @@ export function checklistColumns(items: readonly Item[], measured: ChecklistMeas
   const widest = Math.max(...labelWidths);
   const prose = items.some(item => Boolean(item.detail) || /[\r\n]/.test(item.text)) || widest > fontSize * 12;
   // Leave a little breathing room beyond the measured label and checkbox.
-  const columnWidth = Math.max(minimumColumnWidth, (prose ? Math.min(widest, fontSize * 24) : widest) + checkboxWidth + itemGap + fontSize * .5, prose ? fontSize * 20 : 0);
+  const columnWidth = Math.max(minimumColumnWidth, (prose ? Math.min(widest, fontSize * 24) : widest) + checkboxWidth + itemGap + fontSize * .5, prose ? fontSize * (items.some(item=>(item.detail?.length??0)>100||item.text.length>100)?28:20) : 0);
   return Math.max(1, Math.min(items.length, Math.floor((width + columnGap) / (columnWidth + columnGap))));
 }
 

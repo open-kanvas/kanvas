@@ -116,7 +116,7 @@ export class EntryDevices {
     });
   }
   async stream(p:AuthPrincipal,deviceId:string,send:(data:unknown)=>void){(await this.receiver(p,deviceId));let done=false;const c=this.connected.get(deviceId);const state=c&&c.principal.browserId===p.browserId?c:{principal:p,count:0,lastSeenAt:now()};state.count++;this.connected.set(deviceId,state);
-    const push=async ()=>{const d=(await this.receiver(p,deviceId));d.lastSeenAt=now();(await this.service.store.put('registered-device',d));let command=d.command;if(command?.status!=='pending'||command.expiresAt<=Date.now())command=undefined;if(command)(await this.service.display(p,command.sessionId,command.displayId));send({deviceId,command,connected:true});};
+    const push=async ()=>this.service.store.atomic(async()=>{const d=(await this.receiver(p,deviceId));d.lastSeenAt=now();(await this.service.store.put('registered-device',d));let command=d.command;if(command?.status!=='pending'||command.expiresAt<=Date.now())command=undefined;if(command)(await this.service.display(p,command.sessionId,command.displayId));send({deviceId,command,connected:true});});
     const changed=async ()=>{try{(await push());}catch{send({unavailable:true});}};this.events.on(deviceId,changed);
     return {push,close:()=>{if(done)return;done=true;this.events.off(deviceId,changed);state.count--;if(!state.count&&this.connected.get(deviceId)===state)this.connected.delete(deviceId);}};
   }

@@ -58,3 +58,6 @@
 .seat-room .table-horizontal[data-edge=bottom][data-seating=inner] .seats{padding-top:0;padding-bottom:28px}.seat-room .table-horizontal[data-edge=bottom][data-seating=inner] .seat-table{top:auto;bottom:8px}.seat-room .table-horizontal[data-edge=bottom][data-seating=outer] .seats{padding-top:28px;padding-bottom:0}.seat-room .table-horizontal[data-edge=bottom][data-seating=outer] .seat-table{top:28px;bottom:auto}
 
 .seat-room.layout-hollow-square{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:auto auto auto}.layout-hollow-square .seat-group:nth-child(1){grid-column:1/-1;grid-row:1}.layout-hollow-square .seat-group:nth-child(2){grid-column:1;grid-row:2}.layout-hollow-square .seat-group:nth-child(3){grid-column:3;grid-row:2}.layout-hollow-square .seat-group:nth-child(4){grid-column:1/-1;grid-row:3}
+
+/* Phone-sized song sheets start at 75% of the supplied type size. Agent zoom remains independent. */
+@container (max-width: 600px){.sing-along{padding:12px;gap:12px}.sing-along .song-lines{font-size:clamp(16px,calc(var(--song-font) * .75),54px)}.sing-along header{gap:8px}.sing-along footer{gap:8px;font-size:14px}}

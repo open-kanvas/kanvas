@@ -117,7 +117,7 @@ describe.each(['modern', 'legacy'] as const)('%s MCP countdown field guidance', 
     expect(JSON.stringify(source)).not.toContain(marker);
     const wrapper = failure(await call({ view: { version: 1, template: 'countdown', data: { endsAt }, unsupported: marker } }));
     expect(wrapper.template).toBe('countdown');
-    expect(wrapper.issues).toEqual(expect.arrayContaining([expect.objectContaining({ path: 'view' })]));
+    expect(wrapper.issues).toEqual(expect.arrayContaining([expect.objectContaining({ path: 'view.<record-key>' })]));
     expect(JSON.stringify(wrapper)).not.toContain(marker);
     expect((await owner.detail(session.id)).updates).toHaveLength(1);
     expect((await owner.detail(session.id)).displays[0].revision).toBe(0);

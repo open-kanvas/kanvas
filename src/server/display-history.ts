@@ -3,7 +3,7 @@ import { asyncMap, asyncReduce } from './async-collections.js';
 import type { DisplayRecord, ViewSpec } from '../shared/types.js';
 import { AppError, id, Store } from './store.js';
 
-interface Entry { id: string; sessionId: string; displayId: string; revision: number; view: ViewSpec | null; createdAt: string; reason: string; archivedAt?:string; interactionEpoch?: string }
+interface Entry { id: string; sessionId: string; displayId: string; revision: number; view: ViewSpec | null; createdAt: string; reason: string; archivedAt?:string; interactionEpoch?: string; zoomRoot?: number }
 type HistoricalDisplay = DisplayRecord & { interactionEpoch?: string };
 interface Timeline { id: string; sessionId: string; entries: string[]; cursor: number }
 const MAX_ENTRIES = 60, MAX_BYTES = 6 * 1024 * 1024;
@@ -25,7 +25,7 @@ export class DisplayHistory {
     if (timeline) return { timeline, entries: (await asyncMap(timeline.entries, async key => (await this.store.get<Entry>('display-history', key))!)).filter(Boolean) };
     // This ID is only a local lookup key; ensure() assigns a durable history ID
     // when a mutation actually needs to retain the original view.
-    const entry: Entry = { id: display.id, sessionId: display.sessionId, displayId: display.id, revision: display.revision, view: structuredClone(display.view), createdAt: display.updatedAt, reason: 'initial', interactionEpoch: display.interactionEpoch };
+    const entry: Entry = { id: display.id, sessionId: display.sessionId, displayId: display.id, revision: display.revision, view: structuredClone(display.view), createdAt: display.updatedAt, reason: 'initial', interactionEpoch: display.interactionEpoch, zoomRoot: display.zoomRoot ?? display.navigationRoot ?? display.revision };
     return { timeline: { id: display.id, sessionId: display.sessionId, entries: [entry.id], cursor: 0 }, entries: [entry] };
   }
   async frames(display:DisplayRecord){const {timeline,entries}=(await this.snapshot(display));return entries.map((entry,index)=>({...entry,current:index===timeline.cursor}));}
@@ -42,7 +42,7 @@ export class DisplayHistory {
     for (const key of timeline.entries.splice(timeline.cursor + 1)) await this.archiveEntry(key);
     const limit=(await sessionUsageLimits(this.store,display.sessionId)).views;
     if(display.view&&(await this.store.list<Entry>('display-history',display.sessionId,true)).filter(e=>e.view).length>=limit)throw new AppError('LIMIT_REACHED',`Trial session view limit (${limit}) reached. Existing views remain available. Contact the administrator about upgrading. Archived views still count.`,429);
-    const entry: Entry = { id: id(), sessionId: display.sessionId, displayId: display.id, revision: display.revision, view: structuredClone(display.view), createdAt: display.updatedAt, reason, interactionEpoch: display.interactionEpoch };
+    const entry: Entry = { id: id(), sessionId: display.sessionId, displayId: display.id, revision: display.revision, view: structuredClone(display.view), createdAt: display.updatedAt, reason, interactionEpoch: display.interactionEpoch, zoomRoot: display.zoomRoot ?? display.navigationRoot ?? display.revision };
     (await this.store.put('display-history', entry)); timeline.entries.push(entry.id); timeline.cursor = timeline.entries.length - 1;
     const size = async () => (await asyncReduce(timeline.entries, async (total, key) => total + Buffer.byteLength(JSON.stringify((await this.store.get<Entry>('display-history', key)) ?? {})), 0));
     while (timeline.entries.length > 1 && (timeline.entries.length > MAX_ENTRIES || (await size()) > MAX_BYTES)) {

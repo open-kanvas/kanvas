@@ -20,14 +20,21 @@ const browserInput=z.object({tabId:tab,requestId:tab,expectedRevision:z.number()
 export class Navigation {
   constructor(readonly service:KanvasService){}
   private key(displayId:string,viewerId?:string){return hash(`${displayId}:${viewerId??'shared'}`);}
+  private zoomKey(sessionId:string,view:ViewSpec|null,displayId:string,root:number,target?:string){
+    const leaf=navigationLeaf(view);const checklistId=leaf?.template==='checklist'?leaf.data.checklistId:undefined;
+    return view?hash(`${sessionId}:${typeof checklistId==='string'?'checklist:'+checklistId:'view:'+displayId+':'+root}:${target??'shared'}`):undefined;
+  }
   private async position(sessionId:string,displayId:string,viewerId?:string){
-    const d=required((await this.service.store.get<{revision:number;navigationRoot?:number;view:ViewSpec|null}>('display',displayId)));
+    const d=required((await this.service.store.get<{revision:number;navigationRoot?:number;zoomRoot?:number;view:ViewSpec|null}>('display',displayId)));
     const global=(await this.service.store.get<Position>('navigation',this.key(displayId)));
     const local=viewerId?(await this.service.store.get<Position>('navigation',this.key(displayId,viewerId))):undefined;
     const root=d.navigationRoot??d.revision;
     const found=local&&local.revision>=root&&(!global||global.revision<root||local.version>global.version)?local:global;
     if(found&&found.revision>=root&&found.revision<d.revision){const state=structuredClone(found.state);state.page=Math.min(state.page,Math.max(0,navigationCapabilities(d.view,state).pageCount-1));if(state.reading)state.reading.playing=false;return {...found,revision:d.revision,version:0,state,commandId:'',action:undefined};}
-    return found?.revision===d.revision?found:{id:this.key(displayId,viewerId),sessionId,displayId,revision:d.revision,version:0,state:{...initialNavigation(navigationLeaf(d.view)),...(found?.state.reading?{reading:{...found.state.reading,playing:false}}:{})},commandId:'',updatedAt:now()};
+    const zoomId=this.zoomKey(sessionId,d.view,displayId,d.zoomRoot??root,viewerId),globalZoomId=this.zoomKey(sessionId,d.view,displayId,d.zoomRoot??root);
+    const zoom=zoomId?await this.service.store.get<{scale:number;updatedAt:string}>('view-zoom',zoomId):undefined,globalZoom=globalZoomId?await this.service.store.get<{scale:number;updatedAt:string}>('view-zoom',globalZoomId):undefined;
+    const savedZoom=zoom&&(!globalZoom||zoom.updatedAt>globalZoom.updatedAt)?zoom:globalZoom;
+    return found?.revision===d.revision?found:{id:this.key(displayId,viewerId),sessionId,displayId,revision:d.revision,version:0,state:{...initialNavigation(navigationLeaf(d.view)),...(savedZoom?{scale:savedZoom.scale}:{}),...(found?.state.reading?{reading:{...found.state.reading,playing:false}}:{})},commandId:'',updatedAt:now()};
   }
   /** Anonymous publication includes broadcast position only, never a tab target. */
   async publicPosition(sessionId:string,displayId:string){
@@ -79,6 +86,7 @@ export class Navigation {
     const result:Position={action:a.navigation.action,id:this.key(d.id,target),sessionId:a.sessionId,displayId:d.id,revision:d.revision,version:Math.max(0,...all.map(x=>x.version))+1,state,commandId:id(),target,updatedAt:now()};
     (await s.store.transaction(async ()=>{
       if(a.navigation.action==='reading'&&a.navigation.saveDefaults){const current=(await s.experience.preferences(p)),r=state.reading!,patch:Record<string,number>={};if(a.navigation.fontSize!==undefined)patch.readingFontSize=r.fontSize;if(a.navigation.zoom!==undefined)patch.readingZoom=r.zoom;if(a.navigation.wpm!==undefined||['slower','faster'].includes(a.navigation.command))patch.readingWpm=r.wpm;if(!Object.keys(patch).length)Object.assign(patch,{readingFontSize:r.fontSize,readingWpm:r.wpm,readingZoom:r.zoom});(await s.experience.preferences(p,{expectedRevision:current.revision,config:patch}));}
+      const zoomId=this.zoomKey(a.sessionId,d.view,d.id,d.zoomRoot??d.navigationRoot??d.revision,target);if(zoomId&&['zoom','reset'].includes(a.navigation.action))await s.store.put('view-zoom',{id:zoomId,sessionId:a.sessionId,scale:state.scale??1,updatedAt:now()});
       if(evict)(await s.store.delete('navigation',evict.id));(await s.store.put('navigation',result));(await s.store.put('navigation-receipt',{id:key,sessionId:a.sessionId,digest,result,createdAt:now()}));for(const old of (await s.store.list<Receipt>('navigation-receipt',a.sessionId)).slice(0,-1000))(await s.store.delete('navigation-receipt',old.id));}));
     s.emit({type:'display',sessionId:a.sessionId,displayId:d.id,revision:d.revision});
     return {...result,note:'Accepted navigation; read navigation.read for per-viewer application. No source data or history changed.'};

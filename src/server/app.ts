@@ -1,3 +1,4 @@
+import {mountDeviceLogin} from './device-login.js';
 import {deliveryIngress,mountDeliveryTelemetry} from './delivery-telemetry.js';
 import {mountScreenEnrollment} from './screen-enrollment.js';
 import {mountLegal} from './legal.js';
@@ -378,6 +379,7 @@ export async function createApp(options: AppOptions = {}) {
 
   mountDeliveryTelemetry(app,service,browser);
   mountScreenEnrollment(app,service,browser);
+  mountDeviceLogin(app,service,browser);
   const closeAccess=mountAccessFlows(app, { auth, store, publicUrl, browser, access: service.access, emit: service.emit,pairingFailedLimit:options.pairingFailedLimit,pairingLabel:options.pairingLabel });
   mountSharing(app, { auth, store, publicUrl, browser, access: service.access, emit: service.emit });
   app.all('/mcp/signup',(_req,res)=>res.status(410).json({error:{code:'SIGNUP_RETIRED',message:'Connect to /mcp using normal OAuth. OAuth already verifies and provisions the account. For standalone browser access, open the KANVAS root and sign in by email.'}}));

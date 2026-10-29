@@ -136,10 +136,10 @@ describe('safe source rendering', () => {
     expect(html).toContain('hljs-');
   });
 
-  it('retains attribution and distinguishes an interpretation from an exact quotation', () => {
+  it('retains attribution without adding an unsolicited interpretation label', () => {
     const view: ViewSpec = { version: 1, template: 'document', data: { text: 'A concise interpretation.', quote: false }, source: { title: 'Source report', url: 'https://example.com/report', locator: 'Section 4' } };
     const html = renderToStaticMarkup(<Renderer view={validateView({ ...view, showSource: true })} />);
-    expect(html).toContain('Interpretation');
+    expect(html).not.toContain('Interpretation');
     expect(html).not.toContain('<blockquote');
     expect(html).toContain('Source report');
     expect(html).toContain('Section 4');

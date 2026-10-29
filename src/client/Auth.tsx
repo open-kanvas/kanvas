@@ -1,3 +1,4 @@
+import {DeviceLogin} from './DeviceLogin';
 import {ScreenPairingPanel,ScreenApproval} from './ScreenEnrollment';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { SessionRecord } from '../shared/types';
@@ -13,6 +14,7 @@ export function AuthScreen({ viewer, authorizationRequestId }: { viewer?: Viewer
   const [choice,setChoice]=useState<'account'|'pairing'|null>(viewer?null:'account');
   const [options,setOptions]=useState<{emailSignin:boolean}|null>(null),[key,setKey]=useState('');
   useEffect(()=>{void api<{emailSignin:boolean}>('/api/auth/options').then(setOptions).catch(()=>setOptions({emailSignin:false}));},[]);
+  if(!viewer&&!authorizationRequestId)return <DeviceLogin/>;
   return <main className="auth-layout"><div className="auth-story auth-logo-panel"><Wordmark/></div>
     <div className="auth-panel"><div className="auth-mobile-mark"><Wordmark/></div><div className="auth-card">
       {viewer&&choice==='pairing'?<PairingScreen viewer={viewer} onBack={()=>setChoice(null)}/>:<>

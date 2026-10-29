@@ -141,11 +141,11 @@ export class WindowReceivers {
   async stream(p:AuthPrincipal,deviceId:string,windowId:string,send:(value:unknown)=>void){
     const w=(await this.window(p,deviceId,windowId,false,true));let done=false;
     const previous=this.live.get(w.id),state=previous&&previous.principal.browserId===p.browserId?previous:{principal:p,count:0};state.count++;this.live.set(w.id,state);
-    const push=async ()=>{const current=(await this.window(p,deviceId,windowId,false,true));current.lastSeenAt=now();(await this.service.store.put('registered-window',current));
+    const push=async ()=>this.service.store.atomic(async()=>{const current=(await this.window(p,deviceId,windowId,false,true));current.lastSeenAt=now();(await this.service.store.put('registered-window',current));
       let command=current.command;if(command?.status!=='pending'||command.expiresAt<=Date.now())command=undefined;
       if(command&&!('destination' in command))(await this.service.display(p,command.sessionId,command.displayId));
       send({deviceId,windowId,connected:true,command});
-    };
+    });
     const changed=async ()=>{try{(await push());}catch{send({unavailable:true});}};this.events.on(windowId,changed);
     return {push,close:()=>{if(done)return;done=true;this.events.off(windowId,changed);state.count--;if(!state.count&&this.live.get(windowId)===state)this.live.delete(windowId);}};
   }

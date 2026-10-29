@@ -131,6 +131,17 @@ function string(value: unknown, field: string, max = 2048): string {
   if (typeof value !== 'string' || !value.length || value.length > max || CONTROL_CHARACTERS.test(value)) throw new AppError('INVALID_REQUEST', `A valid ${field} is required.`);
   return value;
 }
+// Bound the serialized callback as well as decoded input. This accommodates
+// opaque client state above 1 KiB while staying below the HTTP header budget.
+const OAUTH_STATE_MAX_ENCODED_LENGTH = 8192;
+function oauthState(value: unknown): string {
+  const state = string(value, 'OAuth state', OAUTH_STATE_MAX_ENCODED_LENGTH);
+  if (encodeURIComponent(state).length > OAUTH_STATE_MAX_ENCODED_LENGTH) {
+    throw new OAuthError('invalid_request', 'OAuth state exceeds the 8192-character URL-encoded limit.');
+  }
+  return state;
+}
+
 function identifier(value: unknown): string {
   if (typeof value !== 'string' || !IDENTIFIER.test(value)) throw new AppError('INVALID_REQUEST', 'A valid identifier is required.');
   return value;
@@ -487,8 +498,11 @@ export function mountAccessFlows(app: Express, options: AccessFlowOptions): () =
       const client = (await store.get<OAuthClient>('oauth-client', clientId));
       const candidateRedirect = string(query.redirect_uri, 'redirect URI');
       if (!client || !(client.grantTypes ?? ['authorization_code']).includes('authorization_code') || !client.redirectUris.includes(candidateRedirect)) throw new OAuthError('invalid_request', 'The client or its exact redirect URI is not registered.');
+      // A rejected state cannot correlate a client callback. Fail locally in
+      // that case, after validating the registered target but before allowing
+      // redirects. Every later protocol error echoes accepted state unchanged.
+      if (query.state !== undefined) state = oauthState(query.state);
       redirectUri = candidateRedirect;
-      if (query.state !== undefined) state = string(query.state, 'state', 1024);
       if (query.response_type !== 'code') throw new OAuthError('unsupported_response_type', 'Only the authorization code response is supported.');
       if (query.response_mode !== undefined && query.response_mode !== 'query') throw new OAuthError('invalid_request', 'Only the query response mode is supported.');
       if (query.code_challenge_method !== 'S256' || typeof query.code_challenge !== 'string' || !COOKIE_VALUE.test(query.code_challenge)) throw new OAuthError('invalid_request', 'S256 PKCE with a valid code challenge is required.');

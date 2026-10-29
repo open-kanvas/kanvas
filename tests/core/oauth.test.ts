@@ -140,3 +140,70 @@ describe('OAuth consent, PKCE and single-use grants', () => {
     denied(await owner.request('POST', '/api/oauth/approve', { requestId: request.requestId, approve: true, sessionIds: [foreign.id] }), [400, 403, 404, 409, 410]);
   });
 });
+
+
+describe('OAuth opaque state compatibility', () => {
+  let h: Harness;
+  beforeEach(async () => { h = await startHarness(); });
+  afterEach(async () => { await h?.close(); });
+
+  it.each([
+    ['above old limit', 'a'.repeat(1025)],
+    ['encoded boundary', 'a'.repeat(8192)],
+    ['opaque punctuation and Unicode', 'é +&=/%?🦊'.repeat(100)],
+  ])('preserves %s exactly on success, denial and protocol errors', async (_label, state) => {
+    const owner = await h.account(), client = h.browser();
+    const metadata = await discover(client), registered = await register(client, metadata);
+    const request = await authorize(client, metadata, registered, { state });
+    expect(request.requestId).toEqual(expect.any(String));
+    const approved = success(await owner.request<{ redirectUri: string }>('POST', '/api/oauth/approve', { requestId: request.requestId, approve: true, accessMode: 'account' }));
+    const callback = new URL(approved.redirectUri);
+    expect(callback.searchParams.get('state')).toBe(state);
+    expect(callback.searchParams.get('iss')).toBe(ORIGIN);
+    const issued = await exchange(client, metadata, registered, callback.searchParams.get('code')!, request.verifier);
+    expect(issued.response.status).toBe(200);
+    const denial = await authorize(client, metadata, registered, { state });
+    const deniedResult = success(await owner.request<{ redirectUri: string }>('POST', '/api/oauth/approve', { requestId: denial.requestId, approve: false }));
+    const deniedCallback = new URL(deniedResult.redirectUri);
+    expect(deniedCallback.searchParams.get('state')).toBe(state);
+    expect(deniedCallback.searchParams.get('error')).toBe('access_denied');
+    for (const overrides of [{ resource: 'https://wrong.example/mcp' }, { code_challenge_method: 'plain' }] as Record<string, string>[]) {
+      const failure = await authorize(client, metadata, registered, { state, ...overrides });
+      expect(failure.response.status).toBe(303);
+      const errorCallback = new URL(failure.location!);
+      expect(errorCallback.searchParams.get('state')).toBe(state);
+      expect(errorCallback.searchParams.has('error')).toBe(true);
+      expect(errorCallback.searchParams.has('code')).toBe(false);
+    }
+  });
+
+  it.each([
+    ['empty', ''], ['control character', 'state\nvalue'],
+    ['over ASCII bound', 'a'.repeat(8193)], ['over encoded bound', 'é'.repeat(1366)],
+    ['over callback punctuation bound', '!'.repeat(2731)],
+  ])('rejects %s locally without an uncorrelatable callback', async (_label, state) => {
+    const client = h.browser(), metadata = await discover(client), registered = await register(client, metadata);
+    const query = new URLSearchParams({ client_id: registered.client_id, redirect_uri: CALLBACK, response_type: 'code', state });
+    const response = await client.raw('/oauth/authorize?' + query);
+    expect(response.status).toBe(400);
+    expect(response.headers.get('location')).toBeNull();
+    expect(response.headers.get('cache-control')).toMatch(/no-store/);
+    const body = await response.json();
+    expect(body.error).toBe('invalid_request');
+    expect(body.error_description).toMatch(/state/);
+    if (state.length > 100) expect(JSON.stringify(body)).not.toContain(state);
+  });
+
+  it('rejects duplicate state locally and still refuses unregistered redirect targets', async () => {
+    const client = h.browser(), metadata = await discover(client), registered = await register(client, metadata);
+    const query = new URLSearchParams({ client_id: registered.client_id, redirect_uri: CALLBACK, state: 'one' });
+    query.append('state', 'two');
+    const duplicate = await client.raw('/oauth/authorize?' + query);
+    expect(duplicate.status).toBe(400);
+    expect(duplicate.headers.get('location')).toBeNull();
+    expect((await duplicate.json()).error).toBe('invalid_request');
+    const invalidRedirect = await authorize(client, metadata, registered, { state: 'a'.repeat(8192), redirect_uri: 'https://unregistered.example/callback' });
+    expect(invalidRedirect.response.status).toBe(400);
+    expect(invalidRedirect.location).toBeNull();
+  });
+});

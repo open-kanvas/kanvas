@@ -18,6 +18,12 @@ All new OAuth connections use **Account access**: the signed-in human explicitly
 
 Account consent never grants another account's private sessions. Current membership, role, session lifetime, and per-display restrictions remain authoritative on every action. Removing membership removes that access even from an account-wide connection. An empty or missing selected-session list is not interpreted as account consent.
 
+## Opaque authorization state
+
+Authorization-code requests may include opaque `state` up to **8,192 URL-encoded characters** (measured using the callback’s `URLSearchParams` serialization, excluding the `state=` key; the decoded string is also capped at 8,192 characters). Accepted state is returned exactly on success, explicit denial, and subsequent protocol-error callbacks. Non-ASCII and reserved characters are preserved, not normalized or trimmed.
+
+Empty, duplicate/non-string, control-character-containing, or oversized state is rejected locally with HTTP 400 `invalid_request`, without a `Location` redirect or reflection of the submitted value. This avoids sending the client an error callback it cannot correlate. An omitted state remains supported; clients are responsible for their own OAuth request correlation. Registered redirect matching, S256 PKCE, resource audience, scope and explicit account consent remain mandatory.
+
 ## Expiry and transparent renewal
 
 - Access credentials last at most **one hour**.

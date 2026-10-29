@@ -6,7 +6,8 @@ import { expect, register, sessionApi, signOutWorkspace, test } from './support'
 const CALLBACK = 'https://kanvas-oauth-client.example/callback';
 
 async function beginConnection(page: Page, origin: string) {
-  const verifier = randomBytes(32).toString('base64url'), state = randomUUID();
+  // Exercise a state above the former 1 KiB cap through real browser consent.
+  const verifier = randomBytes(32).toString('base64url'), state = randomUUID() + 'x'.repeat(4096);
   const registered = await page.request.post('/oauth/register', { data: {
     client_name: 'Browser onboarding client', redirect_uris: [CALLBACK],
     token_endpoint_auth_method: 'none', grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], scope: 'read publish',

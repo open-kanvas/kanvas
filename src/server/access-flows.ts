@@ -136,7 +136,7 @@ function string(value: unknown, field: string, max = 2048): string {
 const OAUTH_STATE_MAX_ENCODED_LENGTH = 8192;
 function oauthState(value: unknown): string {
   const state = string(value, 'OAuth state', OAUTH_STATE_MAX_ENCODED_LENGTH);
-  if (encodeURIComponent(state).length > OAUTH_STATE_MAX_ENCODED_LENGTH) {
+  if (new URLSearchParams({ state }).toString().length - 'state='.length > OAUTH_STATE_MAX_ENCODED_LENGTH) {
     throw new OAuthError('invalid_request', 'OAuth state exceeds the 8192-character URL-encoded limit.');
   }
   return state;

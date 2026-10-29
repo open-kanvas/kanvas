@@ -180,6 +180,7 @@ describe('OAuth opaque state compatibility', () => {
   it.each([
     ['empty', ''], ['control character', 'state\nvalue'],
     ['over ASCII bound', 'a'.repeat(8193)], ['over encoded bound', 'é'.repeat(1366)],
+    ['over callback punctuation bound', '!'.repeat(2731)],
   ])('rejects %s locally without an uncorrelatable callback', async (_label, state) => {
     const client = h.browser(), metadata = await discover(client), registered = await register(client, metadata);
     const query = new URLSearchParams({ client_id: registered.client_id, redirect_uri: CALLBACK, response_type: 'code', state });

@@ -41,7 +41,7 @@ test('weather variants stay recognizable and legible on the actual receiving scr
   test.setTimeout(150000);const {s,d,viewer}=await setup(page);
   for(const condition of ['clear','partly-cloudy','cloudy','rain','snow','storm','fog'] as const){
     const period=condition==='clear'?'night':'day';await show(page,viewer,s,d.id,validateView({version:1,template:'weather',data:{place:'Supplied location',temperature:'12.00°',condition,period}}));
-    await expect(viewer.locator('.weather-symbol').first()).toBeInViewport();await expect(viewer.locator('.weather-temperature')).toBeInViewport();await expect(viewer.locator('.weather-condition')).toBeInViewport();
+    await expect(viewer.locator('.weather-scene')).toBeInViewport();await expect(viewer.locator('.weather-temperature')).toBeInViewport();await expect(viewer.locator('.weather-scene-reading h2')).toBeInViewport();await viewer.waitForTimeout(1100);
     expect(await viewer.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await photo(viewer,info,`weather-${condition}`);
   }
 });

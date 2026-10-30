@@ -50,12 +50,12 @@ describe('supplied weather, not model-inferred data',()=>{
     const html=renderToStaticMarkup(<Renderer view={view}/>);
     expect(html).toContain('High');expect(html).toContain('Low');expect(html).toContain('19°C');expect(html).toContain('12°C');
     expect(html).not.toContain('class="weather-temperature"');
-    expect(html).toContain('weather-cloud-shape');expect(html).toContain('Rain illustration');
+    expect(html).toContain('weather-scene');expect(html).toContain('<h2>Rain</h2>');
     expect(()=>validateView({version:1,template:'weather',data:{place:'Arendal',condition:'rain'}})).toThrow();
   });
   it('preserves the reported temperature pair verbatim instead of guessing its meaning',()=>{
     const html=renderToStaticMarkup(<Renderer view={validateView({version:1,template:'weather',title:'Arendal, Norway Tomorrow',data:{place:'Arendal, Norway',temperature:'19C / 12C',condition:'rain',period:'day',description:'Morning rain and drizzle clearing later, light winds.'}})}/>);
-    expect(html).toContain('19C / 12C');expect(html).toContain('Arendal, Norway');expect(html).toContain('class="weather-place">Arendal, Norway</p>');expect(html).toContain('Morning rain and drizzle clearing later, light winds.');
+    expect(html).toContain('19C / 12C');expect(html).toContain('Arendal, Norway');expect(html).toContain('<p>Arendal, Norway</p>');expect(html).toContain('Morning rain and drizzle clearing later, light winds.');
     expect(html).not.toContain('<dt>High</dt>');expect(html).not.toContain('<dt>Low</dt>');
   });
   it('preserves full forecast/detail text and produces self-contained recognizable SVG variants',()=>{

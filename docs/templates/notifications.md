@@ -1,17 +1,5 @@
-# Notifications management
+# Notification summaries versus device push
 
-**Status:** Accepted category; individual layouts and implementation details remain exploratory. Planning only, not a committed feature list.
+The implemented `notifications` template displays agent-supplied alert items on a Kanvas view. Kanvas does not fetch the underlying inbox/calendar/flight feeds. Preserve source, timing and relevant urgency without inventing unseen alerts.
 
-## Candidate layouts
-
-Focused notification summary, highlighted alert/event.
-
-## Core information
-
-Agent-supplied notifications, relevance, timing, source and urgency.
-
-## Category notes
-
-Display relevant alerts supplied by the connected agent, such as flight updates, calendar reminders, or message notifications. The user's accepted example was a morning-session summary. The name does not commit KANVAS to collecting alerts directly, maintaining inboxes, or implementing each source integration; notification actions and filtering details remain open.
-
-See the [template index](README.md) for shared planning boundaries and related categories.
+This is distinct from an in-view toast (`kanvas.toast`) and from browser/PWA push. Push is explicitly enabled in the corner menu and can target named browser subscriptions with `kanvas.notifications.send`. See [notification controls](../feedback-oct29.md). A toast is not OS push; a provider receipt is not evidence that a person read it.

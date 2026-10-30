@@ -13,7 +13,7 @@ export const isGrouped = (profile: McpProfile): boolean => profile !== 'legacy';
 
 /** Reviewed, exhaustive registry. Do not synthesize handler names from input. */
 export const OPERATION_REGISTRY = {
-  kanvas_inspect: {'login.read':'kanvas_login_read','screen.read':'kanvas_screen_read',"media.list":"kanvas_media_list","media.get":"kanvas_media_get","account.templates.list":"kanvas_account_templates_list", 'browser.list':'kanvas_browser_auth_list', 'guidance.read':'kanvas_guidance_read', 'diagnostics.read':'kanvas_diagnostics_read', 'flashcards.read':'kanvas_flashcards_read', 'checklist.read':'kanvas_checklist_read','archive.list':'kanvas_archive_list',
+  kanvas_inspect: {'help.visual':'kanvas_help_visual','notifications.targets':'kanvas_notifications_targets','guidance.library.list':'kanvas_guidance_library_list','login.read':'kanvas_login_read','screen.read':'kanvas_screen_read',"media.list":"kanvas_media_list","media.get":"kanvas_media_get","account.templates.list":"kanvas_account_templates_list", 'browser.list':'kanvas_browser_auth_list', 'guidance.read':'kanvas_guidance_read', 'diagnostics.read':'kanvas_diagnostics_read', 'flashcards.read':'kanvas_flashcards_read', 'checklist.read':'kanvas_checklist_read','archive.list':'kanvas_archive_list',
     'pointing.read':'kanvas_pointing_read','autoplay.read':'kanvas_autoplay_read','tool-log.read':'kanvas_tool_log_read',
     'profile.read':'kanvas_profile_read','groups.list':'kanvas_groups_list','group.read':'kanvas_group_read',
     'group-access.read':'kanvas_group_access_read','session-context.read':'kanvas_session_context_read',
@@ -46,8 +46,8 @@ export const OPERATION_REGISTRY = {
     'monitoring.read': 'kanvas_monitoring_read',
   },
   kanvas_session: {'client.context.update':'kanvas_client_context_update',rename:'kanvas_session_rename', create: 'kanvas_session_create', 'display.register': 'kanvas_display_register', 'display.rename':'kanvas_display_rename', 'address.get': 'kanvas_address_get', 'address.customize':'kanvas_address_customize' },
-  kanvas_publish: {'catalog.show':'kanvas_catalog_show',"seat-map.update":"kanvas_seat_map_update","menu.update":"kanvas_menu_update","kanban.update":"kanvas_kanban_update","signage.update":"kanvas_signage_update","account.templates.create":"kanvas_account_templates_create","account.templates.delete":"kanvas_account_templates_delete","account.templates.publish":"kanvas_account_templates_publish",'checklist.update':'kanvas_checklist_update','checklist.show':'kanvas_checklist_show','tool-log.append':'kanvas_tool_log_append','chat.append':'kanvas_chat_append', show: 'kanvas_submit', 'progress.append': 'kanvas_progress_append', replace_data: 'kanvas_display_edit', patch: 'kanvas_view_patch', notify: 'kanvas_toast', 'draft.edit': 'kanvas_draft_edit', 'draft.suggest': 'kanvas_draft_suggest', 'draft.review': 'kanvas_draft_review', 'planner.edit': 'kanvas_planner_edit', 'planner.propose': 'kanvas_planner_propose', 'planner.review': 'kanvas_planner_review', 'planner.finalize': 'kanvas_planner_finalize' },
-  kanvas_control: { 'window.overview':'kanvas_window_overview', 'flashcards.control':'kanvas_flashcards_control','flashcards.show':'kanvas_flashcards_show','start.begin':'kanvas_account_begin','autoplay.control':'kanvas_autoplay_control','scoreboard.control':'kanvas_scoreboard_control',
+  kanvas_publish: {'help.show':'kanvas_help_show','catalog.show':'kanvas_catalog_show',"seat-map.update":"kanvas_seat_map_update","menu.update":"kanvas_menu_update","kanban.update":"kanvas_kanban_update","signage.update":"kanvas_signage_update","account.templates.create":"kanvas_account_templates_create","account.templates.delete":"kanvas_account_templates_delete","account.templates.publish":"kanvas_account_templates_publish",'checklist.update':'kanvas_checklist_update','checklist.show':'kanvas_checklist_show','tool-log.append':'kanvas_tool_log_append','chat.append':'kanvas_chat_append', show: 'kanvas_submit', 'progress.append': 'kanvas_progress_append', replace_data: 'kanvas_display_edit', patch: 'kanvas_view_patch', notify: 'kanvas_toast', 'draft.edit': 'kanvas_draft_edit', 'draft.suggest': 'kanvas_draft_suggest', 'draft.review': 'kanvas_draft_review', 'planner.edit': 'kanvas_planner_edit', 'planner.propose': 'kanvas_planner_propose', 'planner.review': 'kanvas_planner_review', 'planner.finalize': 'kanvas_planner_finalize' },
+  kanvas_control: {'notifications.send':'kanvas_notifications_send','screen.control':'kanvas_screen_control', 'window.overview':'kanvas_window_overview', 'flashcards.control':'kanvas_flashcards_control','flashcards.show':'kanvas_flashcards_show','start.begin':'kanvas_account_begin','autoplay.control':'kanvas_autoplay_control','scoreboard.control':'kanvas_scoreboard_control',
     'selection.set':'kanvas_selection_set',
     'device.present':'kanvas_device_present',
     'window.present':'kanvas_window_present','connection.redirect':'kanvas_connection_redirect',
@@ -59,7 +59,7 @@ export const OPERATION_REGISTRY = {
     'procedure.control': 'kanvas_procedure_control',
     'displays.identify': 'kanvas_displays_identify', 'displays.sync': 'kanvas_displays_sync',
   },
-  kanvas_configure: { 'guidance.set':'kanvas_guidance_set','guidance.draft.edit':'kanvas_guidance_draft_edit','guidance.draft.save':'kanvas_guidance_draft_save', 'profile.update':'kanvas_profile_update','group.update':'kanvas_group_update','session-context.set':'kanvas_session_context_set', 'session.update': 'kanvas_config_update', 'preferences.update': 'kanvas_preferences_update' },
+  kanvas_configure: {'notifications.rename':'kanvas_notifications_rename','guidance.library.save':'kanvas_guidance_library_save','guidance.library.delete':'kanvas_guidance_library_delete','guidance.library.activate':'kanvas_guidance_library_activate', 'guidance.set':'kanvas_guidance_set','guidance.draft.edit':'kanvas_guidance_draft_edit','guidance.draft.save':'kanvas_guidance_draft_save', 'profile.update':'kanvas_profile_update','group.update':'kanvas_group_update','session-context.set':'kanvas_session_context_set', 'session.update': 'kanvas_config_update', 'preferences.update': 'kanvas_preferences_update' },
   kanvas_import: { 'media.import':'kanvas_media_import', 'dataset.import': 'kanvas_dataset_import', 'asset.import': 'kanvas_asset_import', 'asset.export':'kanvas_asset_export' },
   kanvas_interactions: { acknowledge: 'kanvas_interaction_ack' },
   kanvas_feedback: { submit: 'kanvas_feedback_submit', 'error.report': 'kanvas_error_report', 'report.update': 'kanvas_report_update', patch:'kanvas_report_patch' },
@@ -74,8 +74,9 @@ export const OPERATION_REGISTRY = {
  * twelve profile (same name, operations and argument shape): existing agent
  * hosts manage reports through it. */
 export const DOMAIN_REGISTRY = {
-  kanvas_screen:{'login.read':'kanvas_login_read','login.decide':'kanvas_login_decide',read:'kanvas_screen_read',decide:'kanvas_screen_decide'},
-  kanvas_guidance:{read:'kanvas_guidance_read',set:'kanvas_guidance_set','draft.edit':'kanvas_guidance_draft_edit','draft.save':'kanvas_guidance_draft_save'},
+  kanvas_screen:{'control':'kanvas_screen_control','login.read':'kanvas_login_read','login.decide':'kanvas_login_decide',read:'kanvas_screen_read',decide:'kanvas_screen_decide'},
+  kanvas_guidance:{'library.list':'kanvas_guidance_library_list','library.save':'kanvas_guidance_library_save','library.delete':'kanvas_guidance_library_delete','library.activate':'kanvas_guidance_library_activate',read:'kanvas_guidance_read',set:'kanvas_guidance_set','draft.edit':'kanvas_guidance_draft_edit','draft.save':'kanvas_guidance_draft_save'},
+  kanvas_notifications: {targets:'kanvas_notifications_targets',rename:'kanvas_notifications_rename',send:'kanvas_notifications_send'},
   kanvas_account: {'media.list':'kanvas_media_list','media.get':'kanvas_media_get', 'browser.list':'kanvas_browser_auth_list','browser.revoke':'kanvas_browser_auth_revoke',details:'kanvas_account_details', begin:'kanvas_account_begin', start: 'kanvas_start_read', inventory: 'kanvas_account_inventory', activity: 'kanvas_activity_read', analytics: 'kanvas_analytics_read' },
   kanvas_profile: { read: 'kanvas_profile_read', update: 'kanvas_profile_update', 'preferences.read': 'kanvas_preferences_get', 'preferences.update': 'kanvas_preferences_update', 'styles.list': 'kanvas_styles_list' },
   kanvas_session_history: { list: 'kanvas_sessions_list' },
@@ -88,9 +89,9 @@ export const DOMAIN_REGISTRY = {
   kanvas_display_clear: { clear: 'kanvas_clear' },
   kanvas_display_revisions: { list: 'kanvas_display_history', go: 'kanvas_display_navigate' },
   kanvas_display_sync: { set: 'kanvas_displays_sync', read: 'kanvas_displays_sync_read' },
-  kanvas_publish: {'seat-map.update':'kanvas_seat_map_update','menu.update':'kanvas_menu_update','kanban.update':'kanvas_kanban_update','signage.update':'kanvas_signage_update', show: 'kanvas_submit', replace: 'kanvas_display_edit', patch: 'kanvas_view_patch', validate: 'kanvas_view_validate', status: 'kanvas_update_status', notify: 'kanvas_toast' },
+  kanvas_publish: {'help.show':'kanvas_help_show','seat-map.update':'kanvas_seat_map_update','menu.update':'kanvas_menu_update','kanban.update':'kanvas_kanban_update','signage.update':'kanvas_signage_update', show: 'kanvas_submit', replace: 'kanvas_display_edit', patch: 'kanvas_view_patch', validate: 'kanvas_view_validate', status: 'kanvas_update_status', notify: 'kanvas_toast' },
   kanvas_template: { 'catalog.show':'kanvas_catalog_show',get: 'kanvas_template_get', 'account.create':'kanvas_account_templates_create','account.list':'kanvas_account_templates_list','account.delete':'kanvas_account_templates_delete','account.publish':'kanvas_account_templates_publish' },
-  kanvas_help: { read: 'kanvas_help', guide: 'kanvas_guide' },
+  kanvas_help: {visual:'kanvas_help_visual', read: 'kanvas_help', guide: 'kanvas_guide' },
   kanvas_feed: { 'chat.append': 'kanvas_chat_append', 'progress.append': 'kanvas_progress_append', 'tool-log.append': 'kanvas_tool_log_append', 'tool-log.read': 'kanvas_tool_log_read' },
   kanvas_view_navigation: { control: 'kanvas_navigation_control', read: 'kanvas_navigation_read', 'selection.set': 'kanvas_selection_set' },
   kanvas_pins: { save: 'kanvas_pin_save', recall: 'kanvas_pin_recall', remove: 'kanvas_pin_remove', list: 'kanvas_pins_read' },

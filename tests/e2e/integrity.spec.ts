@@ -284,9 +284,8 @@ test('the PDF adapter exposes a safe protected download and document provenance 
   const download = await viewer.evaluate(async url => { const response = await fetch(url, { credentials: 'same-origin' }); return { status: response.status, type: response.headers.get('content-type'), attachment: response.headers.get('content-disposition')?.startsWith('attachment'), pdf: (await response.text()).startsWith('%PDF-') }; }, asset.data!.url);
   expect(download).toMatchObject({ status: 200, type: 'application/pdf', attachment: true, pdf: true });
   await waitForDisplay(page, sessionId, display.id, item => item.revision > 0 && item.appliedRevision === item.revision);
-  await publishPrepared(page, sessionId, [display.id], { version: 1, template: 'document', data: { text: 'The relevant document passage.', quote: true }, source: { url: asset.data!.url, locator: 'Page 1' } });
+  await publishPrepared(page, sessionId, [display.id], { version: 1, template: 'document', showSource: true, data: { text: 'The relevant document passage.', quote: true }, source: { url: asset.data!.url, locator: 'Page 1' } });
   await waitForDisplay(page, sessionId, display.id, item => item.view?.template === 'document' && item.appliedRevision === item.revision);
-  await viewer.getByRole('button',{name:'Display controls',exact:true}).click();
   await viewer.getByLabel('About this view',{exact:true}).click();
   await expect(viewer.locator('.view-information-panel a')).toHaveAttribute('href', asset.data!.url);
   await expect(viewer.locator('.view-information-panel a')).toContainText('Protected document');

@@ -1,0 +1,21 @@
+import {createServer} from 'node:http';
+import {createHash,randomBytes,randomUUID} from 'node:crypto';
+import type {Page,APIRequestContext} from '@playwright/test';
+import {createApp} from '../../src/server/app';
+import {testDatabase,removeTestDatabase} from '../postgres';
+import {expect} from './support';
+export async function emailRuntime(){
+ const server=createServer();await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));const address=server.address();if(!address||typeof address==='string')throw new Error('Missing listener');
+ const base=`http://127.0.0.1:${address.port}`,database=testDatabase(),mail:string[]=[],runtime=await createApp({database,publicUrl:base,allowRegistration:true,signinMailer:async(_email,link)=>{mail.push(link);}});server.on('request',runtime.app);
+ return {base,runtime,mail,async close(){server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));await runtime.close();await removeTestDatabase(database);}};
+}
+export type EmailRuntime=Awaited<ReturnType<typeof emailRuntime>>;
+export async function emailAccount(h:EmailRuntime,request:APIRequestContext,email='existing-'+randomUUID()+'@example.invalid'){
+ expect((await request.post(h.base+'/api/auth/email/request',{data:{email}})).status()).toBe(200);const token=new URL(h.mail.pop()!).hash.slice('#email-signin='.length),response=await request.post(h.base+'/api/auth/email/consume',{data:{token,confirm:true,acceptedLegalVersion:'2026-10-14'}});expect(response.status()).toBe(200);return {...(await response.json()).data,email};
+}
+export async function beginEmailConnector(h:EmailRuntime,page:Page,scope='read publish'){
+ const callback='https://email-test-client.example/callback',verifier=randomBytes(32).toString('base64url'),state=randomUUID()+'x'.repeat(4096),registration=await page.request.post(h.base+'/oauth/register',{data:{client_name:'Email acceptance client',redirect_uris:[callback],grant_types:['authorization_code','refresh_token'],response_types:['code'],token_endpoint_auth_method:'none',scope}});expect(registration.status()).toBe(201);const client=await registration.json();
+ const params=new URLSearchParams({client_id:client.client_id,redirect_uri:callback,response_type:'code',scope,resource:h.base+'/mcp',state,code_challenge_method:'S256',code_challenge:createHash('sha256').update(verifier).digest('base64url')}),pending=await page.request.get(h.base+'/oauth/authorize?'+params,{maxRedirects:0});expect(pending.status()).toBe(303);const url=pending.headers().location,requestId=new URL(url).searchParams.get('authorize')!;let returned:URL|undefined;
+ await page.route(u=>u.origin+u.pathname===callback,async route=>{returned=new URL(route.request().url());await route.fulfill({contentType:'text/html',body:'<!doctype html><h1>Connection approved</h1>'});});
+ return {url,requestId,clientId:client.client_id,get returned(){return returned;},async request(email:string){await page.goto(url);await expect(page.getByLabel('Email address',{exact:true})).toBeEditable();await expect(page.getByRole('link',{name:'Terms of Use'})).toBeVisible();await page.getByLabel('Email address',{exact:true}).fill(email);await page.getByRole('button',{name:'Continue with email',exact:true}).click();await expect(page.getByRole('heading',{name:'Check your email'})).toBeVisible();await expect.poll(()=>h.mail.length).toBe(1);return h.mail.pop()!;},async confirm(confirmation:Page,link:string){await confirmation.goto(link);await expect(confirmation.getByRole('heading',{name:'Confirm your email',exact:true})).toBeVisible();await expect(confirmation.getByRole('checkbox')).toHaveCount(0);await confirmation.getByRole('button',{name:'Confirm email and connect',exact:true}).click();await expect(confirmation.getByRole('status')).toContainText('Return to the tab');},async exchange(){await expect(page.getByRole('heading',{name:'Connection approved'})).toBeVisible();expect(returned?.searchParams.get('state')).toBe(state);const response=await page.request.post(h.base+'/oauth/token',{form:{grant_type:'authorization_code',client_id:client.client_id,redirect_uri:callback,resource:h.base+'/mcp',code:returned!.searchParams.get('code')!,code_verifier:verifier}});expect(response.status()).toBe(200);return response.json();}};
+}

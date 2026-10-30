@@ -1,5 +1,7 @@
 # Returning-device and interactive-view improvements
 
+> Historical release notes. For current behavior and exact schemas, use [current workflows](feedback-oct29.md) and the running `/docs/` reference. Later changes may supersede these release-specific descriptions.
+
 ## Sign-in and connector identity
 Email sign-in buttons are centered primary actions, confirmation numbers are centered, and spacing separates the form from delivery guidance. Actual sender: **kanvas@open-kanvas.ai**. Checking spam or adding a contact does not guarantee delivery. Paired-browser OAuth recovery and explicit connector consent are unchanged.
 

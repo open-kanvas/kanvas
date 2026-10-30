@@ -65,7 +65,7 @@ export function ExtendedRenderer(props: RendererProps) {
     case 'timeline': return <TimelineRenderer data={view.data as ExtendedData<'timeline'>}/>;
     case 'itinerary': return <ItineraryRenderer data={view.data as ExtendedData<'itinerary'>}/>;
     case 'product': { const d=view.data as ExtendedData<'product'>; if(d.layout==='comparison'||d.layout==='multi-vendor') return <ProductComparison data={d}/>; return <div className={`product-content layout-${d.layout}`}><div className="product-intro"><Photo image={d.image}/><div><h2>{d.name}</h2><p>{d.description}</p><Details items={d.details} showControls={surface.showControls}/></div></div><div className="product-offers">{d.offers.map((offer,i)=><article key={i}><span className="content-eyebrow"><Link url={offer.url}>{offer.vendor}</Link></span><strong className="offer-price">{offer.price}</strong>{[offer.availability,offer.hours,offer.distance,offer.shipping].filter(Boolean).map((x,j)=><p key={j}>{x}</p>)}{surface.showControls && offer.url && <Link url={offer.url}>View offer</Link>}</article>)}</div></div>; }
-    case 'weather': return <WeatherRenderer data={view.data as ExtendedData<'weather'>} showControls={surface.showControls}/>;
+    case 'weather': return <WeatherRenderer preview={props.preview} data={view.data as ExtendedData<'weather'>} showControls={surface.showControls}/>;
     case 'profile': {
       const d=view.data as ExtendedData<'profile'>;
       const contacts = d.details?.filter(item => item.type && item.type !== 'text') ?? [], plain = d.details?.filter(item => !item.type || item.type === 'text');

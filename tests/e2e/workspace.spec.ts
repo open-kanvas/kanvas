@@ -69,9 +69,7 @@ test('real account, two independently targeted displays, source-bound chart and 
   await expect(second.locator('.view-qualification')).toHaveCount(0);
   await expect(second.locator('.view-information>summary')).toHaveCount(0);
   await second.getByRole('button',{name:'Display controls',exact:true}).click();
-  await second.getByLabel('About this view',{exact:true}).click();
-  await expect(second.getByRole('region',{name:'View information'})).toContainText('Synthetic revenue ledger');
-  await second.getByRole('button',{name:'Close view information',exact:true}).click();
+  await expect(second.locator('.viewer-menu').getByLabel('About this view',{exact:true})).toHaveCount(0);
   await second.keyboard.press('Escape');
   await expect(first.locator('.fact-text')).toHaveText('One useful idea deserves the entire screen.');
   const chart = await waitForDisplay(page, sessionId, secondary.id, display => display.view?.template === 'chart' && display.appliedRevision === display.revision);

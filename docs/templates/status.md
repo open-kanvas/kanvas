@@ -8,7 +8,7 @@ A supplied operational snapshot with textual labels and colored states.
 
 States are ok, warning, down and unknown. Up to 100 items, optional as-of label and notes. This is not a background monitoring system; stale supplied health remains a snapshot and does not become a live uptime guarantee.
 
-Read `kanvas_call` with `operationId:"kanvas.template.get"` and nested `arguments` for `status` before constructing a prepared view. It returns the exact same schema used by `kanvas_call` with `operationId:"kanvas.view.validate"` and nested `arguments` and publishing.
+Read `kanvas_discover` with `catalog:"templates", action:"get", id:"kanvas.template.status"` for `status` before constructing a prepared view. It returns the exact same schema used by `kanvas_call` with `operationId:"kanvas.view.validate"` and nested `arguments` and publishing.
 
 ## Illustrative example
 

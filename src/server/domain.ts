@@ -1,3 +1,4 @@
+import {visualHelp,showHelp} from './visual-help.js';
 import {loginRead,loginDecide} from './device-login.js';
 import {currentToolContext} from './mcp/call-context.js';
 import {clientDetailsSchema,type ClientDetails,type AgentConnection} from '../shared/agent-context.js';
@@ -81,7 +82,7 @@ import { Topology } from './topology.js';
 import { EntryDevices } from './entry-devices.js';
 
 interface StoredDisplay extends DisplayRecord { generation: number; targetAgentId?: string; interactionEpoch?: string }
-interface Deck { id: string; sessionId: string; name: string; slides: ViewSpec[]; createdAt: string }
+interface Deck { instructions?:string;cardInstructions?:string[];mirrored?:boolean; id: string; sessionId: string; name: string; slides: ViewSpec[]; createdAt: string }
 interface Member { userId: string; username: string; displayName: string; role: Role }
 interface RequestRecord { digest: string; result_id: string; kind: string }
 interface Work { id: string; sessionId: string; principal: AuthPrincipal; generations: Record<string, number>; configRevision: number; deckId?: string; recoverableInput?: SubmissionInput; bypassHold?: boolean }
@@ -235,7 +236,7 @@ export class KanvasService implements McpService {
           if (!reviewExisting || !(error instanceof AppError) || error.code !== 'SESSION_ENDED') throw error;
           session = required((await this.store.get<SessionRecord>('session', sessionId)));
         }
-        if (principal.scopedDisplayId) throw new AppError('FORBIDDEN', 'Paired screens have display-only access.', 403);
+        if (principal.scopedSessionId) throw new AppError('FORBIDDEN', 'Paired screens have display-only access.', 403);
         if (write) (await this.auth.assertCurrent(principal, 'publish', sessionId));
         return session;
       },
@@ -307,7 +308,7 @@ export class KanvasService implements McpService {
     await this.store.put('agent-connection',value);const records=(await this.store.list<AgentConnection>('agent-connection',sessionId)).filter(x=>x.userId===principal.userId).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));for(const stale of records.slice(64))await this.store.delete('agent-connection',stale.id);return value;
   }
   async agentConnections(principal:AuthPrincipal,sessionId:string){
-    if(principal.scopedDisplayId||principal.pairingId)return [];
+    if(principal.scopedSessionId||principal.pairingId)return [];
     return (await this.store.list<AgentConnection>('agent-connection',sessionId)).filter(x=>x.userId===principal.userId);
   }
   async sessions(principal: AuthPrincipal): Promise<Awaited<SessionRecord[]>> {
@@ -366,7 +367,7 @@ export class KanvasService implements McpService {
     const displayId = requestedDisplayId ?? principal.scopedDisplayId;
     if (displayId) (await this.display(principal, sessionId, displayId));
     const displays = (await asyncMap((await this.store.list<StoredDisplay>('display', sessionId)).filter(d => !displayId || d.id === displayId), async d => (await this.publicDisplay(d, principal))));
-    if (principal.scopedDisplayId) return { session, displays, members: [], updates: [], interactions: [], datasets: [], assets: [] };
+    if (principal.scopedSessionId) return { session, displays, members: [], updates: [], interactions: [], datasets: [], assets: [] };
     if (displayId) return { session, displays, members: [], updates: [], interactions: (await this.interactions(principal, sessionId, 'all', 500)).interactions.filter(item => item.displayId === displayId), datasets: [], assets: [] };
     const members = (await asyncMap((await this.store.db.prepare('SELECT user_id AS "userId",role FROM members WHERE session_id=?').all(sessionId)), async row => ({ ...row, ...(await this.auth.user(String(row.userId))) })));
     return { session, displays, members, updates: (await asyncMap((await this.store.list<UpdateRecord>('update', sessionId)).slice(-200), async update => (await this.updateDelivery(update)))), interactions: (await this.interactions(principal, sessionId, 'all', 500)).interactions, datasets: (await this.store.list<DatasetSummary>('dataset-summary', sessionId)), assets: (await this.store.list<AssetRecord>('asset', sessionId)), recentDiagnostics: (await this.reports.recentDiagnostics(principal, sessionId)) };
@@ -928,7 +929,7 @@ export class KanvasService implements McpService {
     return this.store.atomic(async () => {
     const input = z.object({ revision: revisionSchema, requestId: z.string().min(1).max(128), value: z.record(z.string(), z.unknown()) }).strict().parse(raw);
     (await this.access(principal, sessionId));
-    if (principal.captureOnly || principal.scopedDisplayId && !principal.interactive) throw new AppError('FORBIDDEN', 'This screen has read-only access.', 403);
+    if (principal.captureOnly || principal.scopedSessionId && !principal.interactive) throw new AppError('FORBIDDEN', 'This screen has read-only access.', 403);
     try { assertJsonBudget(input.value, 32_000); } catch { throw new AppError('INVALID_RESPONSE', 'The response exceeds its supported size.'); }
     const payload = { displayId, ...input }, duplicate = (await this.retry<InteractionRecord>(principal, sessionId, input.requestId, 'interaction', payload)); if (duplicate) return duplicate;
     const display = (await this.display(principal, sessionId, displayId)); this.assertRevision(input.revision, display.revision);
@@ -1005,7 +1006,7 @@ export class KanvasService implements McpService {
   async interact(principal: AuthPrincipal, sessionId: string, raw: unknown): Promise<Awaited<InteractionRecord>> {
     return this.store.atomic(async () => {
     const input = z.strictObject({ displayId: z.string().min(1).max(128), revision: revisionSchema, actionId: z.string().min(1).max(128), value: z.unknown(), requestId: z.string().min(1).max(128) }).parse(raw);
-    (await this.access(principal, sessionId)); if (principal.captureOnly || principal.scopedDisplayId && !principal.interactive) throw new AppError('FORBIDDEN', 'This screen has view-only access.', 403);
+    (await this.access(principal, sessionId)); if (principal.captureOnly || principal.scopedSessionId && !principal.interactive) throw new AppError('FORBIDDEN', 'This screen has view-only access.', 403);
     try { assertJsonBudget(input.value, 16_000); } catch { throw new AppError('INVALID_ACTION_VALUE', 'The action value exceeds its size or complexity limit.'); }
     const duplicate = (await this.retry<InteractionRecord>(principal, sessionId, input.requestId, 'interaction', input)); if (duplicate) return duplicate;
     const display = (await this.display(principal, sessionId, input.displayId));
@@ -1020,7 +1021,7 @@ export class KanvasService implements McpService {
     });
   }
   async interactions(principal: AuthPrincipal, sessionId: string, status = 'pending', limit = 25, after?: string) {
-    const session = (await this.access(principal, sessionId)); if (principal.scopedDisplayId) return { interactions: [] as InteractionRecord[] };
+    const session = (await this.access(principal, sessionId)); if (principal.scopedSessionId) return { interactions: [] as InteractionRecord[] };
     const items = (await this.store.list<InteractionRecord>('interaction', sessionId)).filter(i => (session.role !== 'viewer' || i.userId === principal.userId) && (!principal.agentId || !i.targetAgentId || i.targetAgentId === principal.agentId) && (status === 'all' || i.status === status));
     const offset = after ? items.findIndex(i => i.id === after) + 1 : 0;
     if (after && !offset) throw new AppError('INVALID_CURSOR', 'Read the inbox again without a cursor.');
@@ -1104,20 +1105,20 @@ export class KanvasService implements McpService {
 
     });
   }
-  async createDeck(principal: AuthPrincipal, sessionId: string, name: string, slides: ViewSpec[]): Promise<Awaited<Deck>> {
+  async createDeck(principal: AuthPrincipal, sessionId: string, name: string, slides: ViewSpec[], cue?:{instructions?:string;cardInstructions?:string[];mirrored?:boolean}): Promise<Awaited<Deck>> {
     return this.store.atomic(async () => {
     (await this.access(principal, sessionId, 'editor')); if ((await this.store.list('deck', sessionId)).length >= 100) throw new AppError('LIMIT_REACHED', 'This session has reached its saved-deck limit.', 429);
     if (slides.length > 64 || slides.some(s => s.template === 'presentation')) throw new AppError('INVALID_DECK', 'Use 1–64 ordinary template slides; nested presentations are not supported.');
-    const deck = { id: id(), sessionId, name, slides: (await asyncMap(slides, async slide => (await this.verifyView(principal, sessionId, slide)))), createdAt: now() }; (await this.store.put('deck', deck)); return deck;
+    const deck = { ...cue,id: id(), sessionId, name, slides: (await asyncMap(slides, async slide => (await this.verifyView(principal, sessionId, slide)))), createdAt: now() }; (await this.store.put('deck', deck)); return deck;
 
     });
   }
-  async decks(principal: AuthPrincipal, sessionId: string): Promise<Awaited<Deck[]>> { (await this.access(principal, sessionId)); if (principal.scopedDisplayId) throw new AppError('FORBIDDEN', 'This screen has view-only access.', 403); return (await this.store.list<Deck>('deck', sessionId)); }
+  async decks(principal: AuthPrincipal, sessionId: string): Promise<Awaited<Deck[]>> { (await this.access(principal, sessionId)); if (principal.scopedSessionId) throw new AppError('FORBIDDEN', 'This screen has view-only access.', 403); return (await this.store.list<Deck>('deck', sessionId)); }
   async cue(principal: AuthPrincipal, sessionId: string, deckId: string, index: number, displayIds: string[], requestId: string): Promise<Awaited<UpdateRecord>> {
     (await this.access(principal, sessionId, 'editor')); const deck = required((await this.store.get<Deck>('deck', deckId)));
     if (deck.sessionId !== sessionId) throw new AppError('NOT_FOUND', 'This deck is unavailable.', 404);
     required(deck.slides[index], 'This slide is unavailable.');
-    const view: ViewSpec = { version: 1, template: 'presentation', title: deck.name, data: { slides: deck.slides, index } };
+    const view: ViewSpec = { version: 1, template: 'presentation', title: deck.name, data: { slides: deck.slides, index,...(deck.instructions||deck.cardInstructions?{cueMode:true}:{}),...(deck.mirrored?{mirrored:true}:{}) } };
     return (await this.submit(principal, { sessionId, displayIds, requestId, intent: `Cue saved deck ${deckId}, slide ${index}`, view }, 'cue', true, deckId));
   }
   async end(principal: AuthPrincipal, sessionId: string): Promise<Awaited<{ended: true}>> {
@@ -1136,7 +1137,7 @@ export class KanvasService implements McpService {
     if (!match) throw new AppError('NOT_FOUND', 'This resource is unavailable.', 404);
     if (match[2] === 'state') return (await this.detail(principal, match[1]));
     if (match[2] === 'interactions') return (await this.interactions(principal, match[1]));
-    if (match[2] === 'reports') return (await this.reports.read(principal, { sessionId: match[1], status: 'all', kind: 'all', limit: 10 }));
+    if (match[2] === 'reports') return (await this.reports.read(principal, { sessionId: match[1], allAccounts:false,status: 'all', kind: 'all', limit: 10 }));
     const session = (await this.access(principal, match[1])); return { sessionId: session.id, config: session.config, revision: session.configRevision };
   }
   async listResources(principal: AuthPrincipal): Promise<McpResourceDescriptor[]> {
@@ -1180,6 +1181,12 @@ export class KanvasService implements McpService {
 
       case 'kanvas_diagnostics_read':return this.diagnostics.read(principal,a);
       case 'kanvas_window_overview':return this.devices.windows.overview(principal,a);
+      case 'kanvas_guidance_library_list':return this.guidance.library(principal,a,'list');
+      case 'kanvas_guidance_library_save':return this.guidance.library(principal,a,'save');
+      case 'kanvas_guidance_library_delete':return this.guidance.library(principal,a,'delete');
+      case 'kanvas_guidance_library_activate':return this.guidance.library(principal,a,'activate');
+      case 'kanvas_help_visual':return visualHelp(a);
+      case 'kanvas_help_show':return showHelp(this,principal,a);
       case 'kanvas_guidance_read':return this.guidance.read(principal,a);
       case 'kanvas_guidance_set':return this.guidance.mutate(principal,a,'set');
       case 'kanvas_guidance_draft_edit':return this.guidance.mutate(principal,a,'draft_edit');
@@ -1249,6 +1256,10 @@ export class KanvasService implements McpService {
       case 'kanvas_screen_decide':return screenDecide(this,principal,a);
       case 'kanvas_display_inspect': return (await this.experience.inspect(principal,a as unknown as Parameters<Experience['inspect']>[1]));
       case 'kanvas_session_overview': return {...(await this.experience.overview(principal,a.sessionId)),publishRecipe:{tool:'kanvas_publish',operation:'show',sessionId:a.sessionId,displayIds:['CHOOSE_TARGET_DISPLAY_ID'],requestId:'NEW_UNIQUE_REQUEST_ID',view:{version:1,template:'overview',data:{order:'oldest'}}},note:'This read returns metadata, not a new display. The overview template already exists. Use the recipe with the selected target display to show the chronological thumbnail gallery.'};
+      case 'kanvas_screen_control':return this.experience.screenControl(principal,a);
+      case 'kanvas_notifications_targets':return this.push.targets(principal);
+      case 'kanvas_notifications_rename':return this.push.rename(principal,a);
+      case 'kanvas_notifications_send':return this.push.notify(principal,a);
       case 'kanvas_toast': return (await this.experience.toast(principal,a as unknown as Parameters<Experience['toast']>[1]));
       case 'kanvas_session_log': return (await this.experience.logs(principal,a as unknown as Parameters<Experience['logs']>[1]));
       case 'kanvas_map_camera': {const d=(await this.display(principal,a.sessionId,a.displayId,'editor'));this.assertRevision(a.expectedRevision,d.revision);if(d.view?.template!=='map')throw new AppError('INVALID_VIEW','The current view is not a map.');return (await this.submit(principal,{sessionId:a.sessionId,displayIds:[a.displayId],requestId:a.requestId,view:{...d.view,data:{...d.view.data,center:a.center,zoom:a.zoom}}}));}
@@ -1354,7 +1365,7 @@ export class KanvasService implements McpService {
         return {assetId:asset.id,name:asset.name,mimeType:asset.mimeType,size:bytes.length,offset:a.offset,bytes:chunk.length,base64:chunk.toString('base64'),...(end<bytes.length?{nextOffset:end}:{}),complete:end===bytes.length};
       }
       case 'kanvas_asset_delete': return (await this.deleteContent(principal, a.sessionId, 'asset', a.assetId));
-      case 'kanvas_presentation_create': return (await this.createDeck(principal, a.sessionId, a.name, a.slides));
+      case 'kanvas_presentation_create': return (await this.createDeck(principal, a.sessionId, a.name, a.slides,{instructions:a.instructions,cardInstructions:a.cardInstructions,mirrored:a.mirrored}));
       case 'kanvas_presentations_list': return (await this.decks(principal, a.sessionId));
       case 'kanvas_presentation_cue': return (await this.cue(principal, a.sessionId, a.deckId, a.index, a.displayIds, a.requestId));
       case 'kanvas_interactions_read': return (await this.interactions(principal, a.sessionId, a.status, a.limit, a.afterId));

@@ -26,19 +26,14 @@ test('weather gives conditions and explicit highs/lows the surface, with full de
   const {s,d,viewer}=await setup(page);
   const external:string[]=[];viewer.on('request',r=>{if(new URL(r.url()).origin!==new URL(page.url()).origin)external.push(new URL(r.url()).host);});
   const original=validateView({version:1,template:'weather',title:'Arendal, Norway Tomorrow',data:{place:'Arendal, Norway',temperature:'19C / 12C',condition:'rain',period:'day',description:'Morning rain and drizzle clearing later, light winds.'}});
-  await show(page,viewer,s,d.id,original);await expect(viewer.locator('.weather-cloud-shape')).toBeVisible();await expect(viewer.locator('.weather-temperature')).toHaveText('19C / 12C');await expect(viewer.locator('.weather-temperature')).toBeInViewport();await photo(viewer,info,'weather-reported-payload');
+  await show(page,viewer,s,d.id,original);await expect(viewer.locator('.weather-scene')).toBeVisible();await expect(viewer.locator('.weather-temperature')).toHaveText('19C / 12C');await expect(viewer.locator('.weather-temperature')).toBeInViewport();await photo(viewer,info,'weather-reported-payload');
   const explicit=validateView({version:1,template:'weather',showControls:true,showSource:true,data:{place:'Arendal, Norway',timeLabel:'Tomorrow',high:'19°C',low:'12°C',condition:'rain',description:'Morning rain, clearer later.',forecast:[{time:'08:00',temperature:'12.00°C',condition:'rain'},{time:'14:00',temperature:'19.00°C',condition:'partly-cloudy'}],details:[{label:'Wind',value:'4.000 m/s'}]},source:{title:'Synthetic acceptance forecast'}});
   await show(page,viewer,s,d.id,explicit);
-  await expect(viewer.getByRole('img',{name:'Rain illustration',exact:true}).first()).toBeInViewport();
-  const high=viewer.locator('.weather-range dd').first();await expect(high).toHaveText('19°C');await expect(high).toBeInViewport();expect(await high.evaluate(x=>parseFloat(getComputedStyle(x).fontSize))).toBeGreaterThanOrEqual(44);
-  await expect(viewer.locator('.weather-temperature')).toHaveCount(0);
-  await expect(viewer.getByText('4.000 m/s',{exact:true})).not.toBeVisible();
-  expect(await viewer.locator('.weather-drop').first().evaluate(x=>getComputedStyle(x).animationName)).toBe('none');
-  await photo(viewer,info,'weather-range');
-  await viewer.getByText('Forecast & details',{exact:true}).click();await expect(viewer.getByText('4.000 m/s',{exact:true})).toBeVisible();await expect(viewer.getByText('19.00°C',{exact:true})).toBeVisible();
-  await viewer.getByLabel('About this view',{exact:true}).click();await expect(viewer.getByRole('region',{name:'View information'})).toContainText('Synthetic acceptance forecast');await expect(viewer.getByRole('region',{name:'View information'})).toBeInViewport();
-  await viewer.keyboard.press('Escape');await expect(viewer.getByRole('region',{name:'View information'})).toBeHidden();
-  await viewer.emulateMedia({reducedMotion:'no-preference'});expect(await viewer.locator('.weather-drop').first().evaluate(x=>getComputedStyle(x).animationName)).toBe('weather-rainfall');await viewer.emulateMedia({reducedMotion:'reduce'});
+  await expect(viewer.locator('.weather-scene')).toBeInViewport();
+  await expect(viewer.locator('.weather-scene-reading')).toContainText('High 19°C');await expect(viewer.locator('.weather-scene-reading')).toContainText('Low 12°C');await expect(viewer.locator('.weather-temperature')).toHaveCount(0);
+  await expect(viewer.getByText('4.000 m/s',{exact:true})).toBeVisible();await photo(viewer,info,'weather-range');
+  await viewer.getByRole('button',{name:/14:00/}).click();await expect(viewer.locator('.weather-scene-reading')).toContainText('19.00°C');await expect(viewer.locator('.weather-scene-reading')).not.toContainText('4.000 m/s');
+  await viewer.getByLabel('About this view',{exact:true}).click();await expect(viewer.getByRole('region',{name:'View information'})).toContainText('Synthetic acceptance forecast');await viewer.getByRole('button',{name:'Close view information',exact:true}).click();
   expect(external).toEqual([]);expect((await sessionDetail(page,s)).displays.find(item => item.id === d.id)!.view?.data).toEqual(explicit.data);
 });
 

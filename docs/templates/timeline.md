@@ -8,7 +8,7 @@ A proportionally spaced horizontal timeline, with named lanes, points and durati
 
 Supply real date-only or timezone-qualified ISO timestamps, unique event IDs and end >= start. Up to 200 events. Nearby labels pack into separate rows; time spacing is preserved and narrow displays can scroll horizontally. Optional links are outbound source links, not fetched content.
 
-Read `kanvas_call` with `operationId:"kanvas.template.get"` and nested `arguments` for `timeline` before constructing a prepared view. It returns the exact same schema used by `kanvas_call` with `operationId:"kanvas.view.validate"` and nested `arguments` and publishing.
+Read `kanvas_discover` with `catalog:"templates", action:"get", id:"kanvas.template.timeline"` for `timeline` before constructing a prepared view. It returns the exact same schema used by `kanvas_call` with `operationId:"kanvas.view.validate"` and nested `arguments` and publishing.
 
 ## Illustrative example
 

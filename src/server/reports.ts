@@ -93,12 +93,11 @@ export class SessionReports {
 
   async submit(principal: AuthPrincipal, kind: ReportRecord['kind'], input: FeedbackInput | ErrorReportInput): Promise<Awaited<ReportRecord>> {
     return this.store.atomic(async () => {
-    const scope=input.scope??'session';
-    const session=scope==='session'?(await this.access.session(principal,required(input.sessionId),'viewer',true)):undefined;
+    const session=input.sessionId?(await this.access.session(principal,required(input.sessionId),'viewer',true)):undefined;
     if(!session)(await this.access.account(principal,true));
-    const bucket=session?.id??`report-${scope}:${principal.userId}`;
-    const where=session?"session_id=?":"(value::jsonb->>'scope')=? AND (value::jsonb->>'authorId')=?";
-    const params=session?[session.id]:[scope,principal.userId];
+    const bucket=session?.id??`report-account:${principal.userId}`;
+    const where=session?"session_id=?":"(value::jsonb->>'authorId')=?";
+    const params=session?[session.id]:[principal.userId];
     const digest = hash(canonical({ kind, input }));
     const previous = (await this.store.db.prepare('SELECT digest,result_id,kind FROM requests WHERE session_id=? AND principal=? AND request_id=?').get(bucket, identity(principal), input.requestId));
     if (previous) {
@@ -132,7 +131,7 @@ export class SessionReports {
     const selfReported=Object.fromEntries(Object.entries({...saved?.selfReported,...input.clientDetails}).map(([k,v])=>[k,clean(v)])),inferred=ctx?.inferred??saved?.inferred;
     const record: ReportRecord = {
       ...(input.clientDetails?{clientDetails:selfReported}:{}),clientContext:{selfReported,inferred,verified:false,conflicts:selfReported.agent&&inferred?.clientName&&selfReported.agent.toLowerCase()!==inferred.clientName.toLowerCase()?['Self-reported agent differs from MCP client name.']:[]},
-      id: id(), ...(session?{sessionId:session.id}:{scope,...(scope==='account'?{accountId:principal.userId}:{})}), kind, status: 'open', revision: 0,
+      id: id(), accountId:principal.userId,...(session?{sessionId:session.id}:{}), kind, status: 'open', revision: 0,
       title: clean(input.title), description: clean(input.description), authorId: principal.userId,
       ...(principal.agentId ? { agentId: principal.agentId } : {}), ...(input.client ? { client: input.client } : {}),
       ...(input.displayId ? { displayId: input.displayId } : {}), ...(input.updateId ? { updateId: input.updateId } : {}),
@@ -156,15 +155,11 @@ export class SessionReports {
   }
 
   async read(principal: AuthPrincipal, input: ReportsReadInput): Promise<Awaited<ReportPage>> {
-    const scope=input.scope??'session';
-    let where='session_id=?',params:(string|number)[]=[input.sessionId??''];
-    if(scope==='session')(await this.access.session(principal,required(input.sessionId),'viewer',false,true));
-    else{
-      (await this.access.account(principal,false));
-      if(scope==='all'){if(!(await this.access.serviceAdmin(principal)))throw new AppError('FORBIDDEN','Unified service reports require a configured service administrator.',403);where='1=1';params=[];}
-      else if(scope==='account'){where="(value::jsonb->>'scope')='account' AND (value::jsonb->>'accountId')=?";params=[principal.userId];}
-      else {where="(value::jsonb->>'scope')='service'";params=[];if(!(await this.access.serviceAdmin(principal))){where+=" AND (value::jsonb->>'authorId')=?";params.push(principal.userId);}}
-    }
+    let where="(value::jsonb->>'authorId')=?",params:(string|number)[]=[principal.userId];
+    if(input.allAccounts){await this.access.account(principal,false);if(!await this.access.serviceAdmin(principal))throw new AppError('FORBIDDEN','All-account review requires a service administrator.',403);where='1=1';params=[];}
+    else if(input.sessionId){await this.access.session(principal,input.sessionId,'viewer',false,true);where='session_id=?';params=[input.sessionId];}
+    else await this.access.account(principal,false);
+    if(input.allAccounts&&input.sessionId){where+=' AND session_id=?';params.push(input.sessionId);}
     let cursor:number|undefined;
     if(input.afterId){const row=(await this.store.db.prepare(`SELECT rowid FROM documents WHERE kind='report' AND ${where} AND id=?`).get(...params,input.afterId));if(!row)throw new AppError('INVALID_CURSOR','Read reports again without a cursor.');cursor=Number(row.rowid);}
     const rows=(await this.store.db.prepare(`SELECT value FROM documents WHERE kind='report' AND ${where} AND (?='all' OR (value::jsonb->>'kind')=?) AND (?='all' OR (value::jsonb->>'status')=?) AND (?::bigint IS NULL OR rowid<?) ORDER BY rowid DESC LIMIT ?`).all(...params,input.kind,input.kind,input.status,input.status,cursor??null,cursor??null,input.limit+1));
@@ -200,11 +195,10 @@ export class SessionReports {
 
   async update(principal: AuthPrincipal, input: ReportUpdateInput): Promise<Awaited<ReportRecord>> {
     return this.store.atomic(async () => {
-    const scope=input.scope??'session';
-    if(scope==='session')(await this.access.session(principal,required(input.sessionId),'owner',true,true));else (await this.access.account(principal,true));
-    const record = required((await this.store.get<ReportRecord>('report', input.reportId)));
-    if(scope==='service'&&!(await this.access.serviceAdmin(principal)))throw new AppError('FORBIDDEN','Service report review requires a configured administrator.',403);
-    if ((record.scope??'session')!==scope || scope==='account'&&record.accountId!==principal.userId || record.sessionId !== input.sessionId) throw new AppError('NOT_FOUND', 'This report is unavailable.', 404);
+    const record = required(await this.store.get<ReportRecord>('report',input.reportId));
+    if(input.sessionId&&record.sessionId!==input.sessionId)throw new AppError('NOT_FOUND','This report is unavailable.',404);
+    if(record.sessionId)await this.access.session(principal,record.sessionId,'owner',true,true);
+    else {await this.access.account(principal,true);if(record.authorId!==principal.userId&&!await this.access.serviceAdmin(principal))throw new AppError('NOT_FOUND','This report is unavailable.',404);}
     assertExpectedRevision(input.expectedRevision,record.revision);
     const note = redactReportText(input.note);
     record.redacted ||= note !== input.note;
@@ -214,7 +208,7 @@ export class SessionReports {
     while (record.history.length > 1 && Buffer.byteLength(JSON.stringify(record)) > REPORT_RECORD_BYTES) record.history.shift();
     const bytes = Buffer.byteLength(JSON.stringify(record));
     if (bytes > REPORT_RECORD_BYTES) throw new InputError([{ path: 'note', problem: `This note makes the report ${bytes} UTF-8 JSON bytes; maximum ${REPORT_RECORD_BYTES}. Shorten the note without changing the original report.`, maximum: REPORT_RECORD_BYTES, actual: bytes, unit: 'bytes' }], undefined, { schemaTool: 'kanvas_guide', topic: 'feedback' });
-    (await this.store.put('report', record)); if(input.sessionId)this.access.changed(input.sessionId); return record;
+    (await this.store.put('report', record)); if(record.sessionId)this.access.changed(record.sessionId); return record;
 
     });
   }

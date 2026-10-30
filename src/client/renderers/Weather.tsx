@@ -1,5 +1,6 @@
+import {WeatherScene} from './WeatherScene';
 import { FormattedTime } from './Regional';
-import { useId, type CSSProperties } from 'react';
+import { useId,useState,useEffect, type CSSProperties } from 'react';
 import type { ExtendedData } from '../../shared/extended-templates';
 import './weather.css';
 import { useRegional } from './Regional';
@@ -25,19 +26,15 @@ export function WeatherSymbol({ condition, night = false, miniature = false }: {
   </svg>;
 }
 
-export function WeatherRenderer({ data: supplied, title: _title, showControls = false }: { data: ExtendedData<'weather'>; title?: string; showControls?: boolean }) {
-  const regional=useRegional(),convert=(value:string|undefined)=>regionalTemperature(value,regional,supplied.temperatureUnit);
-  const data={...supplied,temperature:convert(supplied.temperature),high:convert(supplied.high),low:convert(supplied.low),forecast:supplied.forecast?.map(item=>({...item,temperature:convert(item.temperature)}))};
-  const hasRange = data.high !== undefined || data.low !== undefined;
-  const Support = showControls ? 'details' : 'section';
-  return <div className={`weather-visual weather-${data.condition} weather-period-${data.period}`}>
-    <p className="weather-place">{data.place}{data.timeLabel && <span>{data.timeLabel}</span>}</p>
-    <div className="weather-focus"><WeatherSymbol condition={data.condition} night={data.period === 'night'}/><div className="weather-values">
-      {data.temperature && <strong className={`weather-temperature ${data.temperature.length>8?'weather-temperature-long':''}`} style={{'--temperature-length':data.temperature.length} as CSSProperties}>{data.temperature}</strong>}
-      {hasRange && <dl className={`weather-range ${data.temperature?'has-current':''}`}>{data.high!==undefined&&<div><dt>High</dt><dd>{data.high}</dd></div>}{data.low!==undefined&&<div><dt>Low</dt><dd>{data.low}</dd></div>}</dl>}
-      <h2 className="weather-condition">{labels[data.condition]}</h2>
-      {data.description && <p className="weather-description">{data.description}</p>}
-    </div></div>
-    {(Boolean(data.details?.length)||Boolean(data.forecast?.length))&&<Support className="weather-more">{showControls && <summary>Forecast & details</summary>}{!!data.forecast?.length&&<ol className="weather-forecast-cards">{data.forecast.map((item,i)=><li key={i}><time>{<FormattedTime value={item.time}/>} </time><WeatherSymbol condition={item.condition} miniature night={data.period==='night'}/><span>{labels[item.condition]}</span><strong>{item.temperature}</strong></li>)}</ol>}{!!data.details?.length&&<dl className="weather-detail-list">{data.details.map((item,i)=><div key={i}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl>}</Support>}
-  </div>;
+export function WeatherRenderer({data:supplied,preview=false}: {preview?:boolean;data:ExtendedData<'weather'>;title?:string;showControls?:boolean}){
+ const regional=useRegional(),convert=(v:string|undefined)=>regionalTemperature(v,regional,supplied.temperatureUnit),[index,setIndex]=useState(-1),[playing,setPlaying]=useState(true);
+ const identity=JSON.stringify(supplied);useEffect(()=>setIndex(-1),[identity]);
+ useEffect(()=>{if(preview||!playing||!supplied.forecast?.length)return;const reduced=matchMedia('(prefers-reduced-motion: reduce)');const timer=setInterval(()=>{if(!document.hidden&&!reduced.matches)setIndex(i=>i+1>=supplied.forecast!.length?-1:i+1);},8000);return()=>clearInterval(timer);},[playing,identity,preview]);
+ const moment=index>=0?supplied.forecast?.[index]:undefined,condition=moment?.condition??supplied.condition,period=moment?.period??supplied.period,temperature=convert(moment?.temperature??supplied.temperature);
+ return <div className={`weather-cinema weather-${condition} weather-period-${period}`} data-weather-moment={index}>
+  <WeatherScene preview={preview} condition={condition} period={period} intensity={moment?moment.intensity:supplied.intensity}/>
+  <header className="weather-scene-heading"><p>{supplied.place}</p><span>{moment?<FormattedTime value={moment.time}/>:supplied.timeLabel??'Current forecast'}</span></header>
+  <section className="weather-scene-reading" aria-label="Forecast conditions"><h2>{labels[condition]}</h2>{temperature&&<strong className="weather-temperature">{temperature}</strong>}{!moment&&(supplied.high||supplied.low)&&<p>{supplied.high&&`High ${convert(supplied.high)}`} {supplied.low&&` · Low ${convert(supplied.low)}`}</p>}{(moment?.description??(!moment?supplied.description:undefined))&&<p>{moment?.description??supplied.description}</p>}{Boolean((moment?.details??(!moment?supplied.details:undefined))?.length)&&<dl>{(moment?.details??supplied.details)?.map((d,i)=><div key={i}><dt>{d.label}</dt><dd>{d.value}</dd></div>)}</dl>}</section>
+  {Boolean(supplied.forecast?.length)&&<footer className="weather-time-strip"><button className="weather-play" onClick={()=>setPlaying(v=>!v)} aria-label={playing?'Pause forecast scenes':'Play forecast scenes'}>{playing?'Ⅱ':'▶'}</button><ol><li><button aria-current={index===-1?'step':undefined} onClick={()=>{setIndex(-1);setPlaying(false);}}><span>{supplied.timeLabel??'Overview'}</span><strong>{convert(supplied.temperature)??[convert(supplied.low),convert(supplied.high)].filter(Boolean).join(' – ')}</strong></button></li>{supplied.forecast?.map((f,i)=><li key={i}><button aria-current={index===i?'step':undefined} onClick={()=>{setIndex(i);setPlaying(false);}}><time><FormattedTime value={f.time}/></time><strong>{convert(f.temperature)}</strong><span>{labels[f.condition]}</span></button></li>)}</ol></footer>}
+ </div>;
 }

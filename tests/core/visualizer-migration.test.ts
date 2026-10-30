@@ -27,7 +27,7 @@ describe('visualizer-only data migration',()=>{
     expect((await s.get<any>('invitation','invite')).revokedAt).toBeDefined();expect(await s.get<any>('invitation','invite')).not.toHaveProperty('gameId');
     expect((await s.get<any>('update','update')).metrics).toEqual({renderMs:10,validationMs:2,'display.display.validationMs':2});
     expect((await s.query('SELECT value FROM documents WHERE kind=$1 AND id=$2',['dataset','literal'])).rows[0].value).toBe(raw);
-    expect((await s.query('SELECT version FROM schema_migrations')).rows).toEqual([{version:1}]);expect((await s.query('SELECT version FROM data_migrations ORDER BY version')).rows).toEqual([{version:1},{version:2}]);
+    expect((await s.query('SELECT version FROM schema_migrations')).rows).toEqual([{version:1}]);expect((await s.query('SELECT version FROM data_migrations ORDER BY version')).rows).toEqual([{version:1},{version:2},{version:3}]);
     expect(await s.get('agent-guidance','user:user')).toMatchObject({revision:1,migratedFrom:'legacy-update-policy'});
     await s.put('display-history',{id:'late-history',view});expect((await s.get<any>('display-history','late-history')).view.template).toBe('fact');
     await s.put('preferences',{id:'old-defaults',config:{theme:'dark',accent:'#123456',density:'compact'},configOverrides:{density:'compact'},appearanceOverrides:{density:'compact'}});
@@ -49,4 +49,11 @@ describe('visualizer-only data migration',()=>{
   it.each(['density','mode','modeExplicit','model','language','sourceLanguage','retainOriginal','updatePolicy'])('rejects retired setting %s at the public boundary',key=>{
     expect(configPatchSchema.safeParse({theme:'dark',[key]:'retired'}).success).toBe(false);
   });
+});
+it('migrates all historical feedback classifications without losing prose, histories, status, IDs or context and runs once',async()=>{
+ const db=testDatabase();databases.push(db);const s=new Store(db);stores.push(s);await s.ready;
+ const records=['account','service','session'].map((scope,i)=>({id:'report-'+i,scope,authorId:'owner-'+i,...(scope==='session'?{sessionId:'retained-session',displayId:'screen',updateId:'update'}:{}),status:'investigating',revision:7,title:'Exact supplied title',description:'Full Unicode Ω\n  spacing and 9007199254740993.00100',createdAt:'2026-10-01T10:00:00.000Z',history:[{status:'open',note:'Original context',actorId:'owner-'+i,createdAt:'2026-10-01T10:01:00.000Z'},{status:'investigating',note:'Do not change this status',actorId:'reviewer',createdAt:'2026-10-02T10:01:00.000Z'}]}));
+ for(const r of records)await s.put('report',r);await s.query('DELETE FROM data_migrations WHERE version=3');const c=await s.pool.connect();try{await migrateDatabase(c,s.schema);await migrateDatabase(c,s.schema);}finally{c.release();}
+ for(const {scope,...original} of records)expect(await s.get('report',original.id)).toEqual({...original,accountId:original.authorId});
+ expect((await s.query('SELECT COUNT(*) n FROM documents WHERE kind=\'report\'')).rows[0].n).toBe(3);
 });

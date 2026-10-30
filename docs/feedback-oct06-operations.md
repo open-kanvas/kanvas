@@ -1,5 +1,7 @@
 # October 6 feedback: connected screens and contextual workflows
 
+> Historical release notes. For current behavior and exact schemas, use [current workflows](feedback-oct29.md) and the running `/docs/` reference. Later changes may supersede these release-specific descriptions.
+
 The public MCP surface remains exactly `kanvas_discover` and `kanvas_call`.
 
 ## First contact

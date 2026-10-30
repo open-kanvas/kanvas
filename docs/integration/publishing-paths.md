@@ -128,6 +128,6 @@ The following complete examples are exercised against the current publishing rec
 
 ## Errors and delivery
 
-Malformed supplied transcript, table, time, geometry or media receives a safe field-specific error. Do not retry unchanged, invent absent values or replace source with a summary. Correct the source or send a prepared view that passes `kanvas_call with operationId:"kanvas.template.get" and arguments:{…}` / `validate`.
+Malformed supplied transcript, table, time, geometry or media receives a safe field-specific error. Do not retry unchanged, invent absent values or replace source with a summary. Correct the source or send a prepared view that passes `kanvas_discover {catalog:"templates",action:"get",id:"kanvas.template.TEMPLATE_ID"}` and `kanvas.view.validate`.
 
 An update receipt is not proof of display. Check status and actual receiver acknowledgements. Failed validation preserves the previous display. Exact retries are idempotent.

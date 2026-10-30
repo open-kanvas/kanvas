@@ -1,4 +1,4 @@
-import { legacySelectedCode } from './legacy-oauth-fixture.js';
+import { legacySelectedCode, verifiedEmailConsent } from './legacy-oauth-fixture.js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AssetRecord, ViewSpec } from '../../src/shared/types.js';
@@ -22,6 +22,7 @@ async function authorize(browser: Browser, clientId: string) {
   return { requestId: requestId!, verifier };
 }
 async function consent(h:Harness, owner: Browser, requestId: string, sessionIds: string[]) {
+  await verifiedEmailConsent(h,owner,requestId);
   const result = success(await owner.request<{ redirectUri: string }>('POST', '/api/oauth/approve', { requestId, approve: true, accessMode:'account' }));
   const code = new URL(result.redirectUri).searchParams.get('code');
   expect(typeof code).toBe('string');
@@ -51,11 +52,13 @@ describe('authorization expiry and paired-screen exchange boundaries', () => {
     const me = success(await screen.request<{csrfToken:string;viewOnly:boolean}>('GET','/api/auth/me'));
     expect(me.viewOnly).toBe(true); screen.csrf=me.csrfToken;
     const clientId=await client(screen),pending=await authorize(screen,clientId);
-    denied(await screen.request('GET', `/api/oauth/requests/${pending.requestId}`),[403]);
+    // Public bounded connector metadata is safe to preview, never a grant.
+    success(await screen.request('GET', `/api/oauth/requests/${pending.requestId}`));
     for(const approve of [true,false]) denied(await screen.request('POST','/api/oauth/approve',{requestId:pending.requestId,approve,accessMode:'account'}),[403]);
     expect(success(await owner.request<unknown[]>('GET','/api/tokens'))).toHaveLength(0);
     // A different, deliberately signed-in account owns the resulting grant.
     const identity=await screen.register();
+    await verifiedEmailConsent(h,screen,pending.requestId);
     const decision=success(await screen.request<{redirectUri:string}>('POST','/api/oauth/approve',{requestId:pending.requestId,approve:true,accessMode:'account'}));
     const issued=await exchange(screen,clientId,new URL(decision.redirectUri).searchParams.get('code')!,pending.verifier);
     expect(issued.response.status).toBe(200);

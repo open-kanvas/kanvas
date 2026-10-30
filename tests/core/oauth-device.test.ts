@@ -1,3 +1,4 @@
+import {verifiedEmailConsent} from './legacy-oauth-fixture.js';
 import {createHash} from 'node:crypto';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { operationRequest } from '../mcp/requests.js';
@@ -137,6 +138,7 @@ describe('RFC8628 durable account-only device authorization',()=>{
       const query=new URLSearchParams({response_type:'code',client_id:codeClient,redirect_uri:redirectUri,resource:RESOURCE,code_challenge:createHash('sha256').update(verifier).digest('base64url'),code_challenge_method:'S256'});
       const authorization=await h.browser().raw(`/oauth/authorize?${query}`);expect(authorization.status).toBe(303);
       const requestId=new URL(authorization.headers.get('location')!,ORIGIN).searchParams.get('authorize');await authorization.arrayBuffer();
+      await verifiedEmailConsent(h,owner,requestId);
       const approved=success(await owner.request<{redirectUri:string}>('POST','/api/oauth/approve',{requestId,approve:true,accessMode:'account'}));
       const code=new URL(approved.redirectUri).searchParams.get('code')!;
       const exchange=await post(h.browser(),'/oauth/token',{grant_type:'authorization_code',client_id:codeClient,code,redirect_uri:redirectUri,code_verifier:verifier,resource:RESOURCE});

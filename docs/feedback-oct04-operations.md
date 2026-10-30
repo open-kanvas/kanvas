@@ -1,5 +1,7 @@
 # Persistent checklists and account-aware startup
 
+> Historical release notes. For current behavior and exact schemas, use [current workflows](feedback-oct29.md) and the running `/docs/` reference. Later changes may supersede these release-specific descriptions.
+
 ## Checklists
 
 Publishing a `checklist` automatically saves an independent session document. Its `data.checklistId` and `data.checklistRevision` identify it. Normal item patches and viewer checkbox changes update that document too. Replacing or clearing a display does not erase it.

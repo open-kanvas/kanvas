@@ -35,16 +35,5 @@ Preview/retained fallback videos are explicitly muted and paused, do not loop, h
 
 See the [runtime schemas](../../src/shared/view-schemas.ts) for the source contract and [MCP integration](../README.md) for discovery/authorization.
 
-## Candidate layouts
 
-Relevant video segment, short animation.
-
-## Core information
-
-Media reference, optional segment boundaries, and explanatory context.
-
-## Category notes
-
-Short clips or animations when movement communicates something a static image cannot. Keep this a display capability, not a video editor or streaming-platform product.
-
-See the [template index](README.md) for shared planning boundaries and related categories.
+See the [template index](README.md) and running `/docs/` reference for current fields and examples.

@@ -21,7 +21,7 @@ Agent parameters must be discoverable and validated. A requested grouping or foc
 
 ## Deliberate interaction exceptions
 
-Interaction is appropriate when it is intrinsic to the task: answering a poll or form, playing a game, drawing, controlling media, reading/navigation, or inspecting a map. Required attribution, consent and meaningful accessibility affordances also remain. An exception should have a specific user purpose; it is not permission to add generic application chrome to every template.
+Interaction is appropriate when it is intrinsic to the task: answering a poll or form, drawing, controlling media, reading/navigation, or inspecting a map. Required attribution, consent and meaningful accessibility affordances also remain. An exception should have a specific user purpose; it is not permission to add generic application chrome to every template.
 
 Account administration, invitations and access management are separate workflows and may use ordinary forms. Showing a connection map does not grant access or authorize location collection beyond its existing permission contract.
 

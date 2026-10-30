@@ -8,22 +8,14 @@
 
 ## Implemented navigation — 2026-09-09
 
-Prepared decks contain 1–64 validated leaf `ViewSpec`s, not arbitrary uploaded HTML or nested decks. A `kanvas_call` with `operationId:"kanvas.presentation.create"` and nested `arguments` / `kanvas_call` with `operationId:"kanvas.presentation.cue"` and nested `arguments` sequence displays the retained deck with its current index. Authorized presenters have built-in previous/next buttons and arrow/Page Up/Page Down/Home/End navigation. Input fields and video controls retain their own keyboard behavior.
+Prepared decks contain 1–64 validated leaf `ViewSpec`s, not arbitrary uploaded HTML or nested decks. A `kanvas_call` with `operationId:"kanvas.presentation.create"` and nested `arguments` / `kanvas_call` with `operationId:"kanvas.presentation.cue"` and nested `arguments` sequence displays the retained deck with its current index. Authorized presenters have built-in previous/next buttons and arrow navigation; Home opens the session overview and End returns to live content when not editing or scrolling. Input fields and video controls retain their own keyboard behavior.
 
 Manual navigation sends the revision-bound intrinsic response `{"kind":"presentation.navigate","index":1}` and appears in the interaction inbox. The server still enforces editor access. Forms, polls, Q&A and checklists on the active slide use that same outer display revision; inactive slides cannot accept responses. Media/whiteboard readiness is forwarded from the actual active slide before it is reported applied.
 
 The original category notes below describe the preparation concept; [schemas](../../src/shared/view-schemas.ts) define the implemented data contract.
 
-## Candidate layouts
+## Cue cards and teleprompter use
 
-Prepared HTML slide sequence, selected slide on cue.
+Prepared decks may include `instructions` and one `cardInstructions` entry per slide. These remain private author guidance returned by `kanvas.presentations.list`, not text on the audience's view. Every card is an ordinary validated template: notes, bullets, diagrams or other supplied visuals. The listening agent cues retained zero-based indexes with `kanvas.presentation.cue`; it may move forward or back without regenerating content. Set `mirrored:true` for beam-splitter glass.
 
-## Core information
-
-Prebuilt content, structure/order, and presenter-requested selection.
-
-## Category notes
-
-Unlike organically evolving conversation displays, the presenter usually prepares content, topics, and structure beforehand, potentially by talking it through with the agent. Build and retain adaptable **HTML slides** in advance. During delivery, the user cues the agent to show an already-prepared slide, aiming for immediate display rather than regenerating it. This is its own preparation-and-delivery workflow; how authoring, slide selection, and commands work will be explored later. For the initial pure-MCP version, the agent cues prepared content through MCP tools, while ordinary updates likewise use MCP submissions. Observer-based delivery is deferred under D29.
-
-See the [template index](README.md) for shared planning boundaries and related categories.
+Kanvas does not listen, recognize speech, control client muting, or wake an idle agent. Automatic flipping requires a host that actually supplies live speech and a user-authorized listening agent following the authored cues. Test the real client's listen-only behavior before relying on it in a talk. Personal saved guidance can supply reusable cueing conventions.

@@ -2,6 +2,9 @@
 
 Kanvas renders supplied content. The agent or data producer owns retrieval, reasoning, translation and listening; Kanvas owns validation, source binding, access, display revisions and browser delivery.
 
+- [Current screen workflows, visual help and shortcuts](feedback-oct29.md)
+- [Personal guidance and prompt library](agent-guidance.md)
+
 ## Start here
 
 - [Agent workflows](integration/agent-workflows.md)

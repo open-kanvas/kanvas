@@ -39,8 +39,8 @@ test('a failed video replacement retains the actual previously painted DOM and h
   await expect(viewer.locator('.viewer-last-good')).toHaveCount(0);
   await expect(viewer.getByRole('img', {name: 'Previously decoded image'})).toBeVisible();
   await viewer.getByRole('button', {name: 'Display controls', exact: true}).click();
-  await viewer.getByLabel('About this view', {exact: true}).click();
-  await expect(viewer.getByRole('region', {name: 'View information'})).toContainText('Previous successful content');
+  await expect(viewer.locator('.viewer-menu').getByLabel('About this view', {exact: true})).toHaveCount(0);
+  expect(restored.view?.title).toBe('Previous successful content');
 });
 
 test('MCP visual readback returns real renderer pixels without impersonating physical viewer delivery', async ({ page, baseURL }) => {

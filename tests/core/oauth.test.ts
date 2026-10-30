@@ -1,5 +1,5 @@
 import { operationRequest } from '../mcp/requests.js';
-import { legacySelectedCode } from './legacy-oauth-fixture.js';
+import { legacySelectedCode, verifiedEmailConsent } from './legacy-oauth-fixture.js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -37,6 +37,7 @@ async function authorize(browser: Browser, metadata: Metadata, registered: Regis
 }
 
 async function approve(h:Harness, browser: Browser, requestId: string, sessionIds: string[]) {
+  await verifiedEmailConsent(h,browser,requestId);
   const result = success(await browser.request<{ redirectUri: string }>('POST', '/api/oauth/approve', { requestId, approve: true, accessMode:'account' }));
   const redirect = new URL(result.redirectUri);
   expect(`${redirect.origin}${redirect.pathname}`).toBe(CALLBACK);
@@ -156,6 +157,7 @@ describe('OAuth opaque state compatibility', () => {
     const metadata = await discover(client), registered = await register(client, metadata);
     const request = await authorize(client, metadata, registered, { state });
     expect(request.requestId).toEqual(expect.any(String));
+    await verifiedEmailConsent(h,owner,request.requestId!);
     const approved = success(await owner.request<{ redirectUri: string }>('POST', '/api/oauth/approve', { requestId: request.requestId, approve: true, accessMode: 'account' }));
     const callback = new URL(approved.redirectUri);
     expect(callback.searchParams.get('state')).toBe(state);

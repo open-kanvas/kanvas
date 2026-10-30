@@ -332,14 +332,15 @@ export const leafViewSchema = z.discriminatedUnion('template', [
   z.object({ ...base, template: z.literal('status'), data: extendedSchemas.status }).strict(),
 ]);
 export const presenterPreviewSchema = z.boolean().optional().describe('Notes display: private preview, with explicit Go live to cue linked screens.');
-export const presentationDataSchema = z.object({ slides: z.array(leafViewSchema).min(1).max(VIEW_LIMITS.slides), index: z.number().int().min(0).default(0), presenterPreview: presenterPreviewSchema,
+export const cueOptionsSchema={mirrored:z.boolean().optional(),cueMode:z.boolean().optional()};
+export const presentationDataSchema = z.object({ ...cueOptionsSchema,slides: z.array(leafViewSchema).min(1).max(VIEW_LIMITS.slides), index: z.number().int().min(0).default(0), presenterPreview: presenterPreviewSchema,
 }).strict().refine((v) => v.index < v.slides.length, 'Slide index is outside this deck');
 export const viewSchema = z.union([leafViewSchema, z.object({ ...base, template: z.literal('presentation'), data: presentationDataSchema }).strict()]).describe('title, showTitle, showCaption, showSource, showControls, source and actions are view-level fields beside template/data, never inside data.');
 export type ValidatedView = z.infer<typeof viewSchema>;
 
 /** The same per-template contract powers runtime validation and MCP discovery. */
 export function templateViewSchema(template: TemplateId): z.ZodType {
-  return template === 'presentation' ? z.object({...base,template:z.literal('presentation'),data:z.object({slides:z.array(z.union(leafViewSchema.options.filter(option=>!['web'].includes(option.shape.template.value)))).min(1).max(VIEW_LIMITS.slides),index:z.number().int().min(0).default(0),presenterPreview:presenterPreviewSchema}).strict().refine(data=>data.index<data.slides.length,'Slide index is outside the presentation.')}).strict()
+  return template === 'presentation' ? z.object({...base,template:z.literal('presentation'),data:z.object({...cueOptionsSchema,slides:z.array(z.union(leafViewSchema.options.filter(option=>!['web'].includes(option.shape.template.value)))).min(1).max(VIEW_LIMITS.slides),index:z.number().int().min(0).default(0),presenterPreview:presenterPreviewSchema}).strict().refine(data=>data.index<data.slides.length,'Slide index is outside the presentation.')}).strict()
     : sourceDescribedSchema(template);
 }
 

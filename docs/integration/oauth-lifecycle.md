@@ -48,7 +48,7 @@ Only SHA-256 credential hashes and non-secret connection metadata are persisted.
 
 Existing access tokens keep their original expiry and their original selected-session or account restriction. The upgrade does not mint a refresh token for a previously issued bearer or widen an existing grant.
 
-To gain renewal when an old client was registered code-only, reconnect using a **fresh dynamic client registration that requests refresh support**, then approve it. Some hosts reuse stored registration information when reconnecting; those hosts must also renew that client registration. To gain account-level session creation, separately choose **Account access** on the new human consent page. Neither change alters the Kanvas service configuration.
+To gain renewal when an old client was registered code-only, reconnect using a **fresh dynamic client registration that requests refresh support**, then approve it. Some hosts reuse stored registration information when reconnecting; those hosts must also renew that client registration. To gain account-level session creation, separately confirm the new account-access email request. Neither change alters the Kanvas service configuration.
 
 Connection metadata exposes `accessMode`, `refreshable`, the effective `refreshExpiresAt`, `status`, and `reconnectRequired` without exposing tokens. `expiresAt` remains the latest access-credential expiry; a renewable connection can still be active after that access credential expires. A code-only OAuth connection reports `reconnectRequired` to indicate that renewal requires a fresh registration/approval, even while its current access token remains valid.
 
@@ -58,15 +58,13 @@ Connection metadata exposes `accessMode`, `refreshable`, the effective `refreshE
 - Existing OAuth registration, PKCE, access-boundary, pairing, and publisher suites remain applicable.
 - `tests/e2e/oauth-continuity.spec.ts`: real desktop/phone account consent without session creation, read-only account restrictions, and expired consent. Existing account-only onboarding and historical-grant regression coverage remains in `oauth-onboarding.spec.ts`.
 
-## Reconnecting from a paired screen
+## Email-confirmed connector sign-in
 
-An agent's connection link takes precedence over the browser's paired-display or default-viewer destination. A screen pairing is view-only: it cannot inspect or approve account OAuth consent, even though the display belongs to a signed-in owner elsewhere.
+Every new authorization-code connection asks for an editable email address, even when the browser is already signed in. The page identifies the requested client and reading/publishing permissions, includes the Terms of Use and Privacy Policy, and offers **Continue with email**. Account creation and sign-in use this same flow; registration-disabled installations still accept only existing eligible accounts.
 
-When reconnecting, sign in with **your own email account**, then choose **Allow account access**. The consent page identifies the signed-in account; **Use another account** restarts sign-in without dropping the pending connection. Clearing site cookies is unnecessary. Pairing a screen or entering a session key is not a substitute for account sign-in.
+The email link only confirms the pending request. It never signs in the email browser or redirects that browser to the OAuth client. The original requesting browser holds an HttpOnly proof, completes its approved request, and receives a new account session. A short-lived verification record binds that browser, account and exact OAuth consent. Only it may finish account approval and redirect to the registered callback. An existing login, another browser, another consent or a reused link cannot substitute for this proof.
 
-Email confirmation preserves the pending connection both when signing in on the email device and when approving the originating browser. Approving the originating browser signs it in but does not approve the agent: consent is still required there. Device commands do not navigate away during email confirmation or OAuth consent. Ordinary paired-display entry is unchanged.
-
-If a request is invalid, expired, declined, or already completed, return to the agent and choose **Connect** again. Kanvas never reopens a completed request or revives a revoked connection. A failed connection approval after email sign-in returns to the consent/recovery page instead of requiring reuse of a consumed email link.
+The original tab shows **Check your email** and finishes automatically after deliberate confirmation. Keep that tab open. Expired or denied requests must be restarted from the agent. The email screen shows the account/client and permission summary before confirmation; only confirm a connection you started. Screen sign-in with six letters remains a separate flow.
 
 ## Callback-free device authorization
 

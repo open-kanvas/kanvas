@@ -522,7 +522,7 @@ export function mountAccessFlows(app: Express, options: AccessFlowOptions): () =
   }));
 
   app.get('/api/oauth/requests/:id', async (request, response) => {
-    noStore(response); (await fullBrowser(request));
+    noStore(response);
     const pending = (await consent(request.params.id));
     const client = required((await store.get<OAuthClient>('oauth-client', pending.clientId)), 'This client connection is unavailable.');
     response.json({ data: { id: pending.id, clientId: client.id, clientName: client.clientName, scopes: pending.scopes, expiresAt: pending.expiresAt, redirectUri: pending.redirectUri, resource: pending.resource, accessModes: ['account'], ...(pending.deviceCode ? { userCode: pending.userCode } : {}), refreshable: refreshable(client) } });
@@ -537,6 +537,8 @@ export function mountAccessFlows(app: Express, options: AccessFlowOptions): () =
       if(body.approve)await auth.requireFresh(principal);
       const pending = (await consent(body.requestId));
       required((await store.get<OAuthClient>('oauth-client', pending.clientId)), 'This client connection is unavailable.');
+      if(body.approve&&(body.accessMode!=='account'||body.sessionIds!==undefined))throw new AppError('INVALID_SCOPE','New connections require explicit account access approval. Existing selected-session grants remain restricted.');
+      if(body.approve&&!pending.deviceCode){const verification=await store.get<{userId:string;browserId:string;expiresAt:number}>('oauth-email-verification',pending.id);if(!verification||verification.userId!==principal.userId||verification.browserId!==principal.browserId||verification.expiresAt<=Date.now())throw new AppError('EMAIL_CONFIRMATION_REQUIRED','Confirm your email for this connection in the original browser.',403);await store.delete('oauth-email-verification',pending.id);}
       pending.userId = principal.userId; pending.decidedAt = now();
       if (!body.approve) {
         pending.status = 'denied'; (await store.put('oauth-consent', pending));

@@ -2,6 +2,18 @@
  * lives in drafting-ops, planner-ops, display-sync, window-invitations and
  * account-home; real SDK coverage lives in workflows-http/event-feedback-http. */
 export const CURRENT_MAPPING = [
+ // October29: real domain/HTTP proof boundaries in feedback-oct29 core;
+ // native controls/help/guidance/notification discovery via SDK in feedback-oct29 browser.
+ ['kanvas_guidance_library_list','kanvas_inspect','guidance.library.list'],
+ ['kanvas_guidance_library_save','kanvas_configure','guidance.library.save'],
+ ['kanvas_guidance_library_delete','kanvas_configure','guidance.library.delete'],
+ ['kanvas_guidance_library_activate','kanvas_configure','guidance.library.activate'],
+ ['kanvas_screen_control','kanvas_control','screen.control'],
+ ['kanvas_notifications_targets','kanvas_inspect','notifications.targets'],
+ ['kanvas_notifications_send','kanvas_control','notifications.send'],
+ ['kanvas_notifications_rename','kanvas_configure','notifications.rename'],
+ ['kanvas_help_visual','kanvas_inspect','help.visual'],
+ ['kanvas_help_show','kanvas_publish','help.show'],
  // October27: real SDK/profile matrix in device-login-http; proof/revocation boundaries in feedback-oct27.
  ['kanvas_login_read','kanvas_inspect','login.read'],
  ['kanvas_login_decide','kanvas_access','login.decide'],

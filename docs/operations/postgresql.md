@@ -8,6 +8,8 @@ Startup takes a schema advisory lock and applies transactional, checksummed migr
 
 For 0.20.0, retired settings are removed from session/preferences configuration, obsolete game/demo records are deleted, game invitations are revoked, old game views become neutral retained notices, and obsolete rendering metrics are removed. Display revisions and unrelated source records are preserved. Tolerant reads also handle historical shapes without making them valid publishing inputs.
 
+Data migration2 preserves any still-present legacy update policy as scope-specific guidance before historical normalization. Data migration3 removes obsolete feedback `scope` fields and infers `accountId` from `authorId`; IDs, content, context, status, revision and history are preserved. Structural version remains1. These are semantic migrations: old binaries do not implement the new authorization and report interpretation. Retain the pre-upgrade database dump and prior software, and review compatibility before rollback; never restore over subsequent user writes without an explicit recovery decision.
+
 ## Backups
 
 `npm run backup -- --out /path/to/private-backups/new-backup.dump` creates and verifies a new custom-format PostgreSQL dump; the destination must not already exist. Use private output directories outside the checkout and a service-owned credential file. Retain schema, data and roles needed for recovery; test restoration into an isolated database before trusting a backup. Never point tests at the production database.

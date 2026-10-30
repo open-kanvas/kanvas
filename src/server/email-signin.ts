@@ -42,9 +42,9 @@ export function mountEmailSignin(app:Express,auth:Auth,origin:string,mailer?:Sig
   app.get('/api/auth/options',(_req,res)=>res.json({data:{emailSignin:Boolean(mailer),allowRegistration:auth.allowRegistration,passwordSignin:false}}));
   const requestLink=async(raw:unknown,rateKey:string,linkOrigin=origin,pendingId?:string)=>{
     if(!mailer)throw new AppError('EMAIL_UNAVAILABLE','Email sign-in is not configured on this installation.',503);
-    const a=z.object({email:emailSchema,returnTo:z.string().max(300).default('/start'),authorizationRequestId:z.string().regex(/^[A-Za-z0-9_-]+$/).max(128).optional()}).strict().parse(raw);
+    const a=z.object({email:emailSchema,returnTo:z.string().max(300).default('/start'),acceptedLegalVersion:z.literal(LEGAL_VERSION).optional(),authorizationRequestId:z.string().regex(/^[A-Za-z0-9_-]+$/).max(128).optional()}).strict().parse(raw);
     let returnTo=returnPath(a.returnTo);
-    if(a.authorizationRequestId){const consent=(await auth.store.get<{status:string;expiresAt:string}>('oauth-consent',a.authorizationRequestId));if(!consent||consent.status!=='pending'||Date.parse(consent.expiresAt)<=Date.now())throw new AppError('SIGNIN_CONNECTION_EXPIRED','This connector request expired. Restart its OAuth connection.',410);returnTo=`/?authorize=${a.authorizationRequestId}`;}
+    if(a.authorizationRequestId){const consent=(await auth.store.get<{status:string;expiresAt:string}>('oauth-consent',a.authorizationRequestId));if(!consent||consent.status!=='pending'||Date.parse(consent.expiresAt)<=Date.now())throw new AppError('SIGNIN_CONNECTION_EXPIRED','This connector request expired. Restart its OAuth connection.',410);if(!a.acceptedLegalVersion)throw new AppError('LEGAL_REQUIRED','Accept the terms before continuing.',400);returnTo=`/?authorize=${a.authorizationRequestId}`;}
     limit(`ip:${rateKey}`,20);limit(`mail:${hash(a.email)}`,5);
     for(const x of (await auth.store.list<Challenge>('email-challenge')))if(x.expiresAt<Date.now())(await auth.store.delete('email-challenge',x.id));
     const user=(await auth.store.db.prepare('SELECT id FROM users WHERE username=?').get(a.email));
@@ -77,6 +77,7 @@ export function mountEmailSignin(app:Express,auth:Auth,origin:string,mailer?:Sig
       if(!pending||pending.expiresAt<=Date.now()||pending.status!=='approved'||!pending.userId)throw new AppError('SIGNIN_NOT_APPROVED','This device has not been approved, or the request expired.',410);
       await auth.store.delete('email-pending',key);
       await auth.logout(req,res,'replaced');const session=await auth.issueBrowser(pending.userId,res,undefined,req);
+      const consentId=/^\/\?authorize=([A-Za-z0-9_-]+)$/.exec(pending.returnTo??'')?.[1];if(consentId)await auth.store.put('oauth-email-verification',{id:consentId,userId:pending.userId,browserId:session.id,expiresAt:Date.now()+300000});
       return {user:await auth.user(pending.userId),csrfToken:session.csrf,returnTo:pending.returnTo??'/start'};
     });
     res.clearCookie(pendingCookie,cookieOptions);res.json({data});
@@ -101,11 +102,14 @@ export function mountEmailSignin(app:Express,auth:Auth,origin:string,mailer?:Sig
     const a=z.object({token:z.string().regex(/^[A-Za-z0-9_-]{43}$/),confirm:z.literal(true),acceptedLegalVersion:z.literal(LEGAL_VERSION),target:z.enum(['current','origin']).default('current'),matchesCode:z.literal(true).optional(),displayName:z.string().trim().min(1).max(80).optional(),avatar:profileImageSchema.optional()}).strict().parse(req.body);
     const key=hash(a.token),challenge=(await auth.store.get<Challenge>('email-challenge',key));
     if(!challenge||challenge.expiresAt<=Date.now())throw new AppError('SIGNIN_EXPIRED','This sign-in link expired or was already used. Request another.',410);
+    const consentId=/^\/\?authorize=([A-Za-z0-9_-]+)$/.exec(challenge.returnTo)?.[1],connector=consentId?await auth.store.get<{status:string;expiresAt:string;deviceCode?:string}>('oauth-consent',consentId):undefined;
+    const originOnly=Boolean(connector&&!connector.deviceCode);
+    if(consentId&&(!connector||connector.status!=='pending'||Date.parse(connector.expiresAt)<=Date.now()))throw new AppError('SIGNIN_CONNECTION_EXPIRED','Restart the connector request.',410);
     let userId:string;
     (await auth.store.transaction(async ()=>{
       const current=(await auth.store.get<Challenge>('email-challenge',key));if(!current||current.expiresAt<=Date.now())throw new AppError('SIGNIN_EXPIRED','This sign-in link is no longer valid.',410);
       const pending=current.pendingId?await auth.store.get<PendingSignin>('email-pending',current.pendingId):undefined;
-      if(a.target==='origin'&&(!a.matchesCode||!pending||pending.status!=='pending'||pending.expiresAt<=Date.now()))throw new AppError('SIGNIN_CONFIRM_DEVICE','Compare the code on the requesting device and explicitly confirm it before approving.',400);
+      if((originOnly||a.target==='origin')&&((!originOnly&&!a.matchesCode)||!pending||pending.status!=='pending'||pending.expiresAt<=Date.now()))throw new AppError('SIGNIN_CONFIRM_DEVICE','Compare the code on the requesting device and explicitly confirm it before approving.',400);
       const existing=(await auth.store.db.prepare('SELECT id FROM users WHERE username=?').get(current.email)) as {id:string}|undefined;
       if(!existing&&!auth.allowRegistration)throw new AppError('REGISTRATION_CLOSED','This installation is not accepting new accounts.',403);
       userId=existing?.id??id();
@@ -122,9 +126,9 @@ export function mountEmailSignin(app:Express,auth:Auth,origin:string,mailer?:Sig
       (await auth.store.put('verified-email',{id:userId!,email:current.email,verifiedAt:now()}));
       await onSignedIn?.(userId);
       await auth.store.delete('email-challenge',current.id);
-      if(pending){pending.status=a.target==='origin'?'approved':'transferred';if(a.target==='origin'){pending.userId=userId;pending.returnTo=current.returnTo;}await auth.store.put('email-pending',pending);}
+      if(pending){pending.status=originOnly||a.target==='origin'?'approved':'transferred';if(originOnly||a.target==='origin'){pending.userId=userId;pending.returnTo=current.returnTo;}await auth.store.put('email-pending',pending);}
     }));
-    if(a.target==='origin'){res.json({data:{approved:true}});return;}
+    if(originOnly||a.target==='origin'){res.json({data:{approved:true}});return;}
     (await auth.logout(req,res,'replaced'));const session=(await auth.issueBrowser(userId!,res,undefined,req));res.json({data:{user:(await auth.user(userId!)),csrfToken:session.csrf,returnTo:challenge.returnTo}});
   });
   return {requestLink};

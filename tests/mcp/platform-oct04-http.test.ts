@@ -1,3 +1,4 @@
+import {KANVAS_VERSION} from '../../src/shared/version.js';
 import { operationRequest } from './requests.js';
 import {Client,StreamableHTTPClientTransport} from '@modelcontextprotocol/client';
 import {Client as LegacyClient} from '@modelcontextprotocol/sdk/client/index.js';
@@ -21,5 +22,5 @@ it.each(['modern','legacy'])('%s real MCP restores a durable checklist and expos
  const edited=await call('kanvas_publish','checklist.update',{sessionId:s.id,checklistId:key,expectedRevision:read.revision,requestId:'edit',items:[{id:'a',text:'Review',checked:true}]});expect(edited.revision).toBe(1);
  const shown=await call('kanvas_publish','checklist.show',{sessionId:s.id,checklistId:key,displayId:second.id,expectedRevision:0,requestId:'show'});expect(shown.status).toBe('prepared');
  expect((await owner.detail(s.id)).displays.find(x=>x.id===second.id)!.view!.data.items).toEqual([{id:'a',text:'Review',checked:true}]);
- if(era==='legacy'){const info=(client as LegacyClient).getServerVersion();expect(info?.icons).toEqual([{src:'http://127.0.0.1/favicon.svg',mimeType:'image/svg+xml',sizes:['any']}]);}
+ if(era==='legacy'){const info=(client as LegacyClient).getServerVersion();expect(info?.icons).toEqual([{src:'http://127.0.0.1/icons/kanvas-192.png?v='+KANVAS_VERSION,mimeType:'image/png',sizes:['192x192']},{src:'http://127.0.0.1/favicon.svg?v='+KANVAS_VERSION,mimeType:'image/svg+xml',sizes:['any']}]);}
 },30000);

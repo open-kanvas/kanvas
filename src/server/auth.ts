@@ -270,7 +270,7 @@ export class Auth {
     if (principal.captureOnly && scope !== 'read') throw new AppError('FORBIDDEN','This capture has view-only access.',403);
     if (principal.scopedSessionId) {
       if (sessionId !== principal.scopedSessionId || scope !== 'read') throw new AppError('FORBIDDEN','This screen has view-only access.',403);
-      if ((await this.store.get<{status:string}>('pairing', principal.pairingId ?? ''))?.status !== 'approved') throw new AppError('FORBIDDEN','This screen access has been revoked.',403);
+      if (principal.pairingId&&(await this.store.get<{status:string}>('pairing', principal.pairingId))?.status !== 'approved') throw new AppError('FORBIDDEN','This screen access has been revoked.',403);
     }
   }
 }

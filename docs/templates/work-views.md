@@ -15,7 +15,7 @@ These source-driven templates extend KANVAS without connecting it to email, chat
 | `developer` | `kind`: pull-request, pipeline, commits or review; issues can use generic cards |
 | `operations` | `kind`: environments, alerts, access, cost or rollout; free-form supplied status/fields/stages |
 
-Get each exact contract and a ready example through `kanvas_call` with `operationId:"kanvas.template.get"` and nested `arguments`. The [public schema index](https://kanvas.creatrix.no/docs/index.json) is generated from the same runtime definitions.
+Get each exact contract and a ready example through `kanvas_discover` with `catalog:"templates", action:"get", id:"kanvas.template.TEMPLATE_ID"` (replace TEMPLATE_ID). The [public schema index](https://docs.open-kanvas.ai/docs/index.json) is generated from the same runtime definitions.
 
 ## Agent-authored selection
 
@@ -31,7 +31,7 @@ Get each exact contract and a ready example through `kanvas_call` with `operatio
 
 No filtering inputs, dropdowns or sorting buttons are added. Literal keys and dotted field paths are supported; the empty key addresses a scalar list item. Decimal-string comparison avoids floating-point loss. Invalid or missing numeric fields sort last. Currency and date strings are not silently parsed. Raw log line IDs remain tied to the original line numbers.
 
-Collection targets and examples are in [public selection Help](https://kanvas.creatrix.no/docs/selection).
+Collection targets and examples are in [public selection Help](https://docs.open-kanvas.ai/docs/selection).
 
 Email, inbox and chat are read-oriented surfaces: they accept no generic reply/input actions. To compose text, publish a separate drafting view; the authorized agent handles actual delivery in the original system. Parameter type cells in tool detail stay on one line.
 

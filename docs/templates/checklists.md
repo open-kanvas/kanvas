@@ -1,6 +1,6 @@
 # Checklists
 
-**Status:** Accepted category; individual layouts and implementation details remain exploratory. Planning only, not a committed feature list.
+**Status:** Implemented. Current source contracts and the running schema reference define supported fields and limits.
 
 ## Implemented controls — 2026-09-09
 
@@ -8,16 +8,5 @@
 
 Read-only access shows a disabled checkbox and “View-only checklist”. Checklists inside the active prepared-presentation slide use the same response path. Broader process/walk-through authoring remains outside the narrower accepted checklist category.
 
-## Candidate layouts
 
-Concise item list with completion state.
-
-## Core information
-
-Items and known status; broader instruction/walk-through variants are not yet accepted.
-
-## Category notes
-
-User explicitly accepted checklists after a broader process-guidance suggestion. Record the narrower category without treating every suggested workflow feature as approved.
-
-See the [template index](README.md) for shared planning boundaries and related categories.
+See the [template index](README.md) and running `/docs/` reference for current fields and examples.

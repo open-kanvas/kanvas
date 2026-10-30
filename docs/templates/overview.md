@@ -10,7 +10,7 @@ Uses service history, not agent-reconstructed content. Includes current indicato
 
 These are live renderings of retained source, not historical screenshots of a physical display. Current appearance/media may differ from the original rendering. Clicking **Show this view** navigates the original display through its revision-safe history API; editor authority is required. Up to 60 views / 6 MiB per display and 200 gallery entries are retained; branching can discard forward history. This is not an unlimited archive.
 
-Read `kanvas_call` with `operationId:"kanvas.template.get"` and nested `arguments` for `overview` before constructing a prepared view. It returns the exact same schema used by `kanvas_call` with `operationId:"kanvas.view.validate"` and nested `arguments` and publishing.
+Read `kanvas_discover` with `catalog:"templates", action:"get", id:"kanvas.template.overview"` for `overview` before constructing a prepared view. It returns the exact same schema used by `kanvas_call` with `operationId:"kanvas.view.validate"` and nested `arguments` and publishing.
 
 ## Illustrative example
 
@@ -26,3 +26,7 @@ Read `kanvas_call` with `operationId:"kanvas.template.get"` and nested `argument
 ```
 
 Examples are illustrative, not evidence. Shared source, security and delivery behavior is in [implemented rendering](../display/implemented-rendering.md). [Template index](README.md).
+
+## Native slide sorter
+
+Home opens the native session overview. It groups lazy, inert retained previews by original display and retains a global chronological position label. The live revision is marked per display. Shared source views appear under each display's own retained history, not as claims of one physical screen. Small collections use bounded cards; up to 48 entries fit one responsive page before pagination. On a phone the grid uses two columns. Selecting a card browses that retained state locally; End returns to the live publication stream. This differs from a published overview's editor-authorized Show action, which changes its target display.

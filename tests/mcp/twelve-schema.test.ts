@@ -60,7 +60,7 @@ describe('twelve-tool strict published and runtime contract', () => {
   });
 
   it.each([
-    ['kanvas_feedback', {operation:'submit',requestId:'r',title:'T',description:'D'}],
+    ['kanvas_feedback', {operation:'submit',displayId:'without-session',requestId:'r',title:'T',description:'D'}],
     ['kanvas_feedback', {operation:'submit',scope:'account',sessionId:'s',requestId:'r',title:'T',description:'D'}],
     ['kanvas_feedback', {operation:'error.report',scope:'service',diagnosticId:'private',requestId:'r',title:'T',description:'D'}],
     ['kanvas_inspect', {operation:'reports.read',scope:'all',sessionId:'s'}],
@@ -128,9 +128,10 @@ describe('twelve-tool strict published and runtime contract', () => {
     expect(bytes('twelve') / OPERATION_ENTRIES.length).toBeLessThan(960);
     // The ceiling covers this round's drafting, planner, display-sync and account operations; the
     // per-operation average above is the primary guard against unbounded growth.
-    // Eight new guidance/browser-auth/invite/overview operations; keep the unchanged
-    // per-operation 960-byte guard and a bounded 144-KiB full catalog ceiling for the ten new operations.
-    expect(bytes('twelve')).toBeLessThan(144 * 1024);
+    // October29 adds ten real operations (153 to163). Preserve the unchanged
+    // 960-byte per-operation ceiling and flat-vs-grouped reduction; scale only
+    // the absolute inventory ceiling from144KiB to153KiB for that feature growth.
+    expect(bytes('twelve')).toBeLessThan(153 * 1024);
     // Returned schemas/examples are detached; callers cannot poison later catalogs.
     const changed = listToolDefinitions('twelve');
     (changed[0].inputSchema.examples as unknown[]).push({ poison: true });

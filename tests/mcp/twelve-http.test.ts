@@ -660,7 +660,7 @@ async function oauthConnection(h: Harness, owner: Browser, sessionIds: string[])
   expect(pending.status).toBe(303);
   const requestId = new URL(pending.headers.get('location')!).searchParams.get('authorize'); await pending.arrayBuffer();
   expect(typeof requestId).toBe('string');
-  await verifiedEmailConsent(h,owner,requestId);
+  if(!requestId)throw new Error("Missing test authorization request");await verifiedEmailConsent(h,owner,requestId);
   const approval = success(await owner.request<{ redirectUri: string }>('POST', '/api/oauth/approve', { requestId, approve: true, accessMode:'account' }));
   const code = new URL(approval.redirectUri).searchParams.get('code'); expect(typeof code).toBe('string'); await legacySelectedCode(h,code!,sessionIds);
   const tokens = issued(await tokenRequest(h, { grant_type: 'authorization_code', client_id: clientId, redirect_uri: CALLBACK, resource: RESOURCE, code: code!, code_verifier: verifier }));

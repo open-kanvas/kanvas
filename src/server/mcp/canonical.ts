@@ -147,12 +147,12 @@ const definitions: readonly Definition[] = [...venueTools,...customTools,...medi
   {
     name: 'kanvas_feedback_submit',
     description: `Offer after errors, workarounds or confusion; file only on request or consent, without private content or credentials. Do not nag. Save detailed product feedback or an improvement suggestion. Description: 1–${REPORT_DESCRIPTION_MAX} characters, title: 1–160; stored record at most ${REPORT_CREATE_BYTES} UTF-8 JSON bytes. Over-limit errors name the field, maximum and submitted size; do not retry unchanged. kanvas_guide feedback explains limits. Category: usability, feature, quality or other (bugs use kanvas_error_report). Returns a durable private report ID/status/revision. Reuse requestId only for an identical retry. No credentials, private payloads or raw logs. Separate from viewer interactions; filing does not change code or send messages.`,
-    schema: feedbackSubmitSchema, idempotent: true,
+    schema: feedbackSubmitSchema, jsonSchemaExtras: {anyOf:[{required:['sessionId']},{not:{anyOf:[{required:['displayId']},{required:['updateId']}]}}]}, idempotent: true,
   },
   {
     name: 'kanvas_error_report',
     description: `Save a reproducible KANVAS problem. Description: 1–${REPORT_DESCRIPTION_MAX} characters; title 1–160; steps accepts a list of up to 8 strings of 400 characters each OR one reproduction-text string up to 3200 characters; expected/actual each 1000; stored record at most ${REPORT_CREATE_BYTES} UTF-8 JSON bytes. Errors identify the field/limit/submitted size; see kanvas_guide feedback. Severity: low, normal or high. Link display/update and diagnosticId. Never include credentials, headers or raw private content. Reuse requestId only for identical retries. Returns a durable private report ID; filing does not mean it is fixed.`,
-    schema: errorReportSchema, idempotent: true,
+    schema: errorReportSchema, jsonSchemaExtras: {anyOf:[{required:['sessionId']},{not:{anyOf:[{required:['displayId']},{required:['updateId']},{required:['diagnosticId']}]}}]}, idempotent: true,
   },
   {
     name: 'kanvas_reports_read',

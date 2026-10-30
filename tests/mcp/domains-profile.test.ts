@@ -30,14 +30,10 @@ describe('domains profile catalog', () => {
     const tools = listToolDefinitions('domains');
     expect(tools.map(tool => tool.name)).toEqual([...DOMAIN_TOOL_NAMES]);
     expect(tools.every(tool => tool.name.startsWith('kanvas_') && tool.inputSchema.required?.includes('operation'))).toBe(true);
-    // Eight requested guidance/browser-auth/invite/overview operations: bounded catalog growth.
-    // Group size and exhaustive mapping guards above remain unchanged.
-    // Ten new operations; retain max10 per resource group and bounded per-operation growth.
+    // October29 adds ten operations (153 -> 163). Keep the max10/group
+    // and <1000 bytes/operation bounds; cap total at the same per-op budget.
     expect(JSON.stringify(tools).length/CANONICAL_TOOLS.length).toBeLessThan(1000);
-    // Two added operations plus optional client context on five existing inputs
-    // and device metadata increase the total contract. Keep both the max10
-    // resource guard and unchanged <1000 bytes/operation guard above.
-    expect(JSON.stringify(tools).length).toBeLessThan(155_000);
+    expect(JSON.stringify(tools).length).toBeLessThan(163_000);
   });
 
   it('keeps kanvas_feedback byte-for-byte identical to the former profile', () => {

@@ -22,7 +22,7 @@ Kanvas renders supplied content. The agent or data producer owns retrieval, reas
 
 ## Live reference
 
-On your own instance, `/docs/` provides task-oriented help for navigation, accounts/teams, invitations, access, images, pointing, feedback, events, installation and device presentation. `/docs/index.json` lists current templates and tools; `/docs/reference` and `/docs/operations/<tool>.json` provide exact operation contracts. The server-generated reference is authoritative when a prose example and runtime schema differ.
+On your own instance, `/docs/` provides task-oriented help for navigation, accounts/teams, invitations, access, images, pointing, feedback, events, installation and device presentation. `/docs/index.json` lists current templates and tools; `/docs/reference` and `/docs/operations/<operationId>.json` provide exact operation contracts (the two public tool envelopes are also available by tool name). The server-generated reference is authoritative when a prose example and runtime schema differ.
 
 Source code lives under `src/shared` (contracts), `src/server` (service) and `src/client` (receiving UI). Tests use only synthetic/disposable data. Contributor and reporting guidance are in the root CONTRIBUTING and SECURITY documents.
 

@@ -6,7 +6,7 @@ Session limits count all owned sessions, including ended/archived sessions. View
 
 # Safe schema fallbacks
 
-Every effectful MCP operation with a top-level requestId accepts omission and generates a unique ID. Agents must still supply stable IDs for retry safety; omitted IDs cannot deduplicate retries. Read-side requestId selectors remain unchanged. Target IDs, expected revisions, access scope, participant identity, source coordinates and content have no safe generic defaults and remain explicit. Publishing already selects the only display in an explicit session; multiple candidates return needs_target, never retarget to whichever screen happened to be active. No access scope is inferred or broadened.
+Every effectful MCP operation with a top-level requestId accepts omission and generates a unique ID. Agents must still supply stable IDs for retry safety; omitted IDs cannot deduplicate retries. Read-side requestId selectors remain unchanged. Revision/version guards can be omitted under the current mutation policy; when supplied they must be actual current state and stale guards are rejected. Target identity, access scope, participant identity, source coordinates and content are never fabricated. A publication with an explicit session but omitted display target uses that session's stable primary display; it does not broadcast or choose whichever screen happened to be active. Supply explicit display IDs to choose other or multiple authorized targets. No access scope is inferred or broadened.
 
 # Scoped settings
 

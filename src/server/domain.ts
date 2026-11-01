@@ -82,7 +82,7 @@ import { Topology } from './topology.js';
 import { EntryDevices } from './entry-devices.js';
 
 interface StoredDisplay extends DisplayRecord { generation: number; targetAgentId?: string; interactionEpoch?: string }
-interface Deck { instructions?:string;cardInstructions?:string[];mirrored?:boolean; id: string; sessionId: string; name: string; slides: ViewSpec[]; createdAt: string }
+interface Deck { instructions?:string;cardInstructions?:string[];mirrored?:boolean|'vertical'|'horizontal'|'both'; id: string; sessionId: string; name: string; slides: ViewSpec[]; createdAt: string }
 interface Member { userId: string; username: string; displayName: string; role: Role }
 interface RequestRecord { digest: string; result_id: string; kind: string }
 interface Work { id: string; sessionId: string; principal: AuthPrincipal; generations: Record<string, number>; configRevision: number; deckId?: string; recoverableInput?: SubmissionInput; bypassHold?: boolean }
@@ -1105,7 +1105,7 @@ export class KanvasService implements McpService {
 
     });
   }
-  async createDeck(principal: AuthPrincipal, sessionId: string, name: string, slides: ViewSpec[], cue?:{instructions?:string;cardInstructions?:string[];mirrored?:boolean}): Promise<Awaited<Deck>> {
+  async createDeck(principal: AuthPrincipal, sessionId: string, name: string, slides: ViewSpec[], cue?:{instructions?:string;cardInstructions?:string[];mirrored?:boolean|'vertical'|'horizontal'|'both'}): Promise<Awaited<Deck>> {
     return this.store.atomic(async () => {
     (await this.access(principal, sessionId, 'editor')); if ((await this.store.list('deck', sessionId)).length >= 100) throw new AppError('LIMIT_REACHED', 'This session has reached its saved-deck limit.', 429);
     if (slides.length > 64 || slides.some(s => s.template === 'presentation')) throw new AppError('INVALID_DECK', 'Use 1–64 ordinary template slides; nested presentations are not supported.');
@@ -1118,7 +1118,7 @@ export class KanvasService implements McpService {
     (await this.access(principal, sessionId, 'editor')); const deck = required((await this.store.get<Deck>('deck', deckId)));
     if (deck.sessionId !== sessionId) throw new AppError('NOT_FOUND', 'This deck is unavailable.', 404);
     required(deck.slides[index], 'This slide is unavailable.');
-    const view: ViewSpec = { version: 1, template: 'presentation', title: deck.name, data: { slides: deck.slides, index,...(deck.instructions||deck.cardInstructions?{cueMode:true}:{}),...(deck.mirrored?{mirrored:true}:{}) } };
+    const view: ViewSpec = { version: 1, template: 'presentation', title: deck.name, data: { slides: deck.slides, index,...(deck.instructions||deck.cardInstructions?{cueMode:true}:{}),...(deck.mirrored?{mirrored:deck.mirrored}:{}) } };
     return (await this.submit(principal, { sessionId, displayIds, requestId, intent: `Cue saved deck ${deckId}, slide ${index}`, view }, 'cue', true, deckId));
   }
   async end(principal: AuthPrincipal, sessionId: string): Promise<Awaited<{ended: true}>> {

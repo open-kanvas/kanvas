@@ -1,7 +1,7 @@
 import {useEffect,useState} from 'react';
 import {api,errorMessage} from './api';
 import {Button} from './components/ui';
-export function PushSettings(){
+export function PushSettings({compact=false}:{compact?:boolean}){
  const supported=typeof window!=='undefined'&&'serviceWorker'in navigator&&'PushManager'in window&&'Notification'in window;
  const [state,setState]=useState<{configured:boolean;enabled:boolean;publicKey?:string}>(),[busy,setBusy]=useState(false),[error,setError]=useState('');
  useEffect(()=>{void api<{configured:boolean;enabled:boolean;publicKey?:string}>('/api/push').then(setState).catch(()=>{});},[]);
@@ -14,5 +14,6 @@ export function PushSettings(){
   const json=subscription.toJSON();try{await api('/api/push',{method:'POST',body:{endpoint:subscription.endpoint,keys:json.keys}});}catch(e){await subscription.unsubscribe();throw e;}
   setState({...state,enabled:true});
  }catch(e){setError(errorMessage(e));}finally{setBusy(false);}}
- return <section><h3>New-session notifications</h3><p>Opt in on this device to be notified when your agent starts a new session while no Kanvas screen is connected. Notifications contain no session title or content. Signing out revokes this device’s subscription.</p>{!supported?<p>This browser does not support push notifications here. On iPhone or iPad, install Kanvas on your Home Screen first.</p>:state&&!state.configured?<p>Notifications are not configured on this installation.</p>:<Button variant="secondary" busy={busy} disabled={!state} onClick={()=>void toggle()}>{state?.enabled?'Disable notifications':'Enable notifications on this device'}</Button>}{error&&<p role="alert">{error}</p>}</section>;
+ if(compact)return <section><Button variant="secondary" busy={busy} disabled={!supported||!state?.configured} title={!supported?'This browser does not support push notifications here.':state&&!state.configured?'Notifications are not configured on this installation.':undefined} onClick={()=>void toggle()}>{state?.enabled?'Disable notifications':'Enable notifications'}</Button>{error&&<p role="alert">{error}</p>}</section>;
+ return <section><h3>New-session notifications</h3><p>Opt in on this device to be notified when your agent starts a new session while no Kanvas screen is connected. Notifications contain no session title or content. Signing out revokes this device’s subscription.</p>{!supported?<p>This browser does not support push notifications here. On iPhone or iPad, install Kanvas on your Home Screen first.</p>:state&&!state.configured?<p>Notifications are not configured on this installation.</p>:<Button variant="secondary" busy={busy} disabled={!state} onClick={()=>void toggle()}>{state?.enabled?'Disable notifications':'Enable notifications'}</Button>}{error&&<p role="alert">{error}</p>}</section>;
 }

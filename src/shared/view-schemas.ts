@@ -322,6 +322,7 @@ export const leafViewSchema = z.discriminatedUnion('template', [
   z.object({ ...base, template: z.literal('timeline'), data: extendedSchemas.timeline }).strict(),
   z.object({ ...base, template: z.literal('itinerary'), data: extendedSchemas.itinerary }).strict(),
   z.object({ ...base, template: z.literal('product'), data: extendedSchemas.product }).strict(),
+  z.object({...base,template:z.literal('keyboard-shortcuts'),data:extendedSchemas['keyboard-shortcuts']}).strict(),
   z.object({ ...base, template: z.literal('weather'), data: extendedSchemas.weather }).strict(),
   z.object({ ...base, template: z.literal('profile'), data: extendedSchemas.profile }).strict(),
   z.object({ ...base, template: z.literal('kpi'), data: extendedSchemas.kpi }).strict(),
@@ -332,7 +333,7 @@ export const leafViewSchema = z.discriminatedUnion('template', [
   z.object({ ...base, template: z.literal('status'), data: extendedSchemas.status }).strict(),
 ]);
 export const presenterPreviewSchema = z.boolean().optional().describe('Notes display: private preview, with explicit Go live to cue linked screens.');
-export const cueOptionsSchema={mirrored:z.boolean().optional(),cueMode:z.boolean().optional()};
+export const cueOptionsSchema={mirrored:z.union([z.boolean(),z.enum(['vertical','horizontal','both'])]).optional().describe('false disables mirroring; true defaults to vertical (top/bottom flip). Choose vertical, horizontal (left/right flip), or both (180-degree rotation). Select for your physical rig; no glass calibration is inferred.'),cueMode:z.boolean().optional()};
 export const presentationDataSchema = z.object({ ...cueOptionsSchema,slides: z.array(leafViewSchema).min(1).max(VIEW_LIMITS.slides), index: z.number().int().min(0).default(0), presenterPreview: presenterPreviewSchema,
 }).strict().refine((v) => v.index < v.slides.length, 'Slide index is outside this deck');
 export const viewSchema = z.union([leafViewSchema, z.object({ ...base, template: z.literal('presentation'), data: presentationDataSchema }).strict()]).describe('title, showTitle, showCaption, showSource, showControls, source and actions are view-level fields beside template/data, never inside data.');

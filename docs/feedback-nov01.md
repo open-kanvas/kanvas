@@ -1,0 +1,9 @@
+# November 1 viewer refinements (0.33.0)
+
+- Show all maintained hotkeys with `template: "keyboard-shortcuts", data: {}` or `kanvas.help.show`, topic `keyboard-shortcuts`, page 0. This reference has one logical page; small screens can scroll if needed. The corner menu no longer expands a shortcut list.
+- To enlarge the current view, use `kanvas.navigation.control` with `navigation: {action: "zoom", scale: 1.5}` and the current revision/new request ID. `readingFontSize`, `readingZoom` and `readingWpm` only affect documents using the reading layout, not facts or checklists.
+- `kanvas.presentation.create` and presentation view data accept `mirrored: "vertical"`, `"horizontal"`, `"both"`, `true` or `false`. Vertical flips top/bottom without reversing left/right; horizontal reverses left/right; both rotates 180 degrees. `true` now defaults to vertical, including retained boolean decks/views; `false` or omission leaves the view unchanged. To retain the earlier horizontal result, explicitly select `"horizontal"`. Private deck/card instructions remain private. These are software transforms, not verification of a physical glass rig.
+- Sign out returns every screen to `/` for a fresh code. Notification clicks explicitly navigate reused PWA windows to the owned session/display; permissions and browser/provider delivery remain external acceptance points.
+- Daily/hourly forecast playback advances approximately every two seconds while visible, with slower scene blending, livelier clouds and a restrained storm glow. Reduced motion disables playback/motion/glow. Weather stays edge-to-edge and the temperature block no longer has a scroll container. No claim of photo-realism or physical display performance.
+
+Production is unchanged until owner approval. This release does not retire the console or resolve the older icon/photographic-weather backlog.

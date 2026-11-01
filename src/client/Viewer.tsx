@@ -10,7 +10,6 @@ import { useAuth, useMedia, useSession } from './hooks';
 import { Icon, Wordmark } from './icons';
 import { BrowsingProvider } from './renderers/Navigation';
 import { Renderer } from './renderers/Renderer';
-import {KEYBOARD_SHORTCUTS} from '../shared/keyboard-shortcuts';
 import {PushSettings} from './PushSettings';
 import { ViewerExperience } from './ViewerExperience';
 import { IdentifyOverlay } from './IdentifyOverlay';
@@ -252,8 +251,7 @@ export function Viewer({ sessionId, displayId }: ViewerRoute) {
         <button onClick={() => void hold()}><Icon name={display?.held ? 'play' : 'pause'} size={17} />{display?.held ? 'Resume updates' : 'Hold this view'}</button>
       </>}
       <button onClick={() => { state.reconnect(); setMenu(false); }}><Icon name="refresh" size={17} />Refresh connection</button>
-      {!auth.viewOnly&&<PushSettings/>}
-      <details><summary>Keyboard shortcuts</summary><dl>{KEYBOARD_SHORTCUTS.map(s=><div key={s.keys}><dt><kbd>{s.keys}</kbd></dt><dd>{s.action}</dd></div>)}</dl></details>
+      {!auth.viewOnly&&<PushSettings compact/>}
       <button onClick={() => void auth.logout().catch(e => setNotice(errorMessage(e)))}><Icon name="logout" size={17} />Sign out of this screen</button>
     </div>}
     {!auth.captureOnly && <IdentifyOverlay sessionId={sessionId} displayId={displayId}/>}

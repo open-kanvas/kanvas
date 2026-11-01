@@ -57,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     await api('/api/auth/logout', { method: 'POST', body: {} });
     setCsrfToken(''); setUser(null); setScope({}); setAuthError(null);
+    window.location.replace('/');
   };
   return <AuthContext.Provider value={{ user, loading, previouslyAuthenticated, signoutReason, error: authError, ...scope, refresh, logout }}>{children}</AuthContext.Provider>;
 }

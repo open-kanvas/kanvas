@@ -1,3 +1,4 @@
+import {KeyboardShortcuts} from './KeyboardShortcuts';
 import { ItineraryRenderer } from './Itinerary';
 import { TimelineRenderer } from './TaskViews';
 import { useRegional } from './Regional';
@@ -55,6 +56,7 @@ export function ExtendedRenderer(props: RendererProps) {
   const {view,onReady}=props;
   const surface=liveSurfaceOptions(view,props.containerView);
   switch (view.template) {
+    case 'keyboard-shortcuts': return <KeyboardShortcuts/>;
     case 'html': {
       const data = view.data as ExtendedData<'html'>;
       const css = (data.css ?? '').replace(/<\/style/gi, '');

@@ -10,7 +10,8 @@ import { useAuth, useMedia, useSession } from './hooks';
 import { Icon, Wordmark } from './icons';
 import { BrowsingProvider } from './renderers/Navigation';
 import { Renderer } from './renderers/Renderer';
-import { ViewInformation } from './renderers/ViewInformation';
+import {KEYBOARD_SHORTCUTS} from '../shared/keyboard-shortcuts';
+import {PushSettings} from './PushSettings';
 import { ViewerExperience } from './ViewerExperience';
 import { IdentifyOverlay } from './IdentifyOverlay';
 import { sourceStatusText } from './monitoring-status';
@@ -185,13 +186,23 @@ export function Viewer({ sessionId, displayId }: ViewerRoute) {
   const fullscreen = async () => { try { if (document.fullscreenElement) await document.exitFullscreen(); else await shell.current?.requestFullscreen(); setMenu(false); } catch { setNotice('Fullscreen is unavailable in this browser. The display still uses the available surface.'); } };
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
-      if ((event.target as HTMLElement).closest('input,textarea,select,.board-surface,[contenteditable="true"]') || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.defaultPrevented||(event.target as HTMLElement).closest('input,textarea,select,button,a,.board-surface,[contenteditable="true"]') || event.metaKey || event.altKey || window.getSelection()?.toString()) return;
+      if(event.ctrlKey){if(event.key==='Home'&&!auth.viewOnly){event.preventDefault();location.assign('/');}return;}
       if (event.key.toLowerCase() === 'f') { event.preventDefault(); void fullscreen(); }
       if (event.key === 'Escape') { setMenu(false); setScreenOptions(false); }
       if (event.key === '?') setMenu(value => !value);
     };
     window.addEventListener('keydown', keydown); return () => window.removeEventListener('keydown', keydown);
-  }, []);
+  }, [auth.viewOnly]);
+  useEffect(()=>{const el=shell.current;if(!el||auth.captureOnly)return;const control=(event:Event)=>{const action=(event as CustomEvent<string>).detail;
+    if(action==='help'){location.assign('/docs/');return;}
+    if(['menu','fullscreen','notifications'].includes(action)){setMenu(true);setScreenOptions(false);}
+    else if(action==='options'){setMenu(false);setScreenOptions(true);}
+    else if(action==='reconnect')state.reconnect();
+    else if(action==='signout')void auth.logout().catch(e=>setNotice(errorMessage(e)));
+    else if(action==='home'&&!auth.viewOnly)location.assign('/');
+    else if(config?.syncMode!=='presenter'){if(action==='overview')strip.positional.overview();else if(action==='live')strip.live();else if(action==='previous')strip.positional.step(-1);else if(action==='next')strip.positional.step(1);}
+  };el.addEventListener('kanvas:screen-control',control);return()=>el.removeEventListener('kanvas:screen-control',control);},[auth,config?.syncMode,strip,state]);
   const isLoading = state.loading && !display, inaccessible = state.connection === 'closed' && Boolean(state.error), missing = !state.loading && !display && !state.error;
   const style = config?.accent && /^#[0-9a-fA-F]{6}$/.test(config.accent) ? { '--source-accent': config.accent } as CSSProperties : undefined;
   const draftKey = (value: DisplayRecord | undefined): string | undefined => {
@@ -233,7 +244,6 @@ export function Viewer({ sessionId, displayId }: ViewerRoute) {
       <div className="viewer-menu-meta"><span>{display?.width} × {display?.height}</span><span>Revision {display?.revision ?? 0}</span>{auth.viewOnly && <span>{auth.interactive ? 'Guest · responses enabled' : 'Paired · view only'}</span>}</div>
       {!auth.viewOnly&&<a href="/">Home · choose a session</a>}
       <a href="/docs/" target="_blank" rel="noopener noreferrer">Kanvas Help</a>
-      {display?.view && <ViewInformation view={display.view} placement="menu" />}
       {display?.monitoring && <section className="viewer-monitoring"><strong>Source updates · {display.monitoring.status}</strong>{display.monitoring.nextPollAt && <p>Next check {new Date(display.monitoring.nextPollAt).toLocaleTimeString()}</p>}{editable && display.monitoring.status !== 'stopped' && <button onClick={() => void stopMonitoring()}>Stop source updates</button>}</section>}
       <button onClick={() => void fullscreen()}><Icon name="fullscreen" size={17} />{document.fullscreenElement ? 'Leave fullscreen' : 'Enter fullscreen'}<kbd>F</kbd></button>
       {display && state.connection === 'live' && <button onClick={() => { setMenu(false); setScreenOptions(true); }}><Icon name="screen" size={17} />Screen options</button>}
@@ -242,7 +252,8 @@ export function Viewer({ sessionId, displayId }: ViewerRoute) {
         <button onClick={() => void hold()}><Icon name={display?.held ? 'play' : 'pause'} size={17} />{display?.held ? 'Resume updates' : 'Hold this view'}</button>
       </>}
       <button onClick={() => { state.reconnect(); setMenu(false); }}><Icon name="refresh" size={17} />Refresh connection</button>
-      {!auth.viewOnly && <a href={`/console?session=${encodeURIComponent(sessionId)}`}><Icon name="layers" size={17} />Open console</a>}
+      {!auth.viewOnly&&<PushSettings/>}
+      <details><summary>Keyboard shortcuts</summary><dl>{KEYBOARD_SHORTCUTS.map(s=><div key={s.keys}><dt><kbd>{s.keys}</kbd></dt><dd>{s.action}</dd></div>)}</dl></details>
       <button onClick={() => void auth.logout().catch(e => setNotice(errorMessage(e)))}><Icon name="logout" size={17} />Sign out of this screen</button>
     </div>}
     {!auth.captureOnly && <IdentifyOverlay sessionId={sessionId} displayId={displayId}/>}

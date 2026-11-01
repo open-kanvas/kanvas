@@ -9,7 +9,7 @@ The additional kinds are `candlestick`, `ohlc`, `area`, `violin`, `radar`, `netw
 | Kind | Actual source data needed | Important semantics |
 |---|---|---|
 | `candlestick` / `ohlc` | Ordered observations with x, open, high, low, close | `low ≤ open/close ≤ high`. Candlesticks draw bodies/wicks; OHLC draws open/close ticks. Neither derives missing prices from a line. |
-| `area` | Ordinary x/y series | Filled to zero. Missing observations break both the line and fill. Series are overlaid, not silently stacked. |
+| `area` | Ordinary x/y series | Filled to zero. Missing observations break both the line and fill. Series are overlaid by default; explicit stacking/stackGroup composes independent stacks. |
 | `violin` | Actual numeric samples per distribution | Gaussian kernel density estimate; actual samples remain inspectable. Quartiles alone cannot reconstruct a distribution. |
 | `radar` | Matching attributes across one to four series, with explicit ranges | Every axis declares its min/max and optional unit. No fabricated attributes, default normalization, or claim that “larger is better.” |
 | `network` | Entity IDs and their actual connections | Optional supplied x/y for every node, otherwise deterministic circular layout. Position is layout, not an inferred physical location. |
@@ -146,6 +146,10 @@ The Data alternative includes exact raw observations and source row indexes; it 
 
 Measured CSS-pixel SVG sizing keeps text readable. Discrete long-label plots wrap complete labels and gain a scrollable extent instead of ellipsizing source identities or shrinking text. Continuous axes use spaced ticks without dropping observations; every supplied mark remains in the plot. Network/radar keys identify indexed marks with full names, and dense legends/long datasets can scroll within the chart.
 
-Shared view limits still apply: 2 MiB per view, 5,000 ordinary points across at most four series. Additional bounded contracts are 200 graph/hierarchy nodes, 500 links, 12 hierarchy levels, 50 violin groups / 20,000 total actual samples, 50 proportion/funnel categories, 250 choropleth regions / 20,000 total vertices, 2,000 vertices per ring, and eight gauge thresholds. Structured charts do not accept unrelated binding fields or implicit row truncation. Unsupported, incomplete, cyclic, nonnumeric, out-of-range or impossible geometry fails validation; choose a suitable existing chart/table or supply the missing real source data.
+Shared view limits still apply: 2 MiB per view, 5,000 ordinary points across at most 16 series. Additional bounded contracts are 200 graph/hierarchy nodes, 500 links, 12 hierarchy levels, 50 violin groups / 20,000 total actual samples, 50 proportion/funnel categories, 250 choropleth regions / 20,000 total vertices, 2,000 vertices per ring, and eight gauge thresholds. Structured charts do not accept unrelated binding fields or implicit row truncation. Unsupported, incomplete, cyclic, nonnumeric, out-of-range or impossible geometry fails validation; choose a suitable existing chart/table or supply the missing real source data.
 
 See [data displays](data-displays.md) and the [template index](README.md).
+
+## Independently grouped stacks
+
+For bar or area series, assign `stackGroup` to stack matching categories within that group. Different groups are side by side; axis and kind also partition stacks. A secondary-axis line stays independent and is never accumulated. `stacking:"percent"` normalizes each stack independently and rejects negative stacked values. Category zoom and pan preserve the complete source; legend toggles only affect the current local projection.

@@ -29,6 +29,8 @@ Registration can be disabled with `KANVAS_ALLOW_REGISTRATION=false`; provision a
 
 ## Upgrade and rollback
 
+Current connector authorization-code sign-in requires a functioning email mailer even for an already signed-in browser. Verify delivery before exposing MCP. Data migration3 removes feedback scope without changing report status/history. Older report semantics are not a safe blind software rollback; retain and verify the pre-upgrade backup.
+
 Build and test a separate release package. Back up PostgreSQL and verify the backup before switching. Stop the old service before the new process acquires the same database runtime lease. Serve the client from the same release as the backend. Check `/readyz`, `/healthz`, `/version.json`, `/docs/index.json`, authenticated publication and browser delivery.
 
 The 0.20.0 upgrade removes retired settings/records and normalizes historical game views. It uses a data-only ledger while retaining structural schema version 1 for 0.19.0 rollback compatibility. Keep the prior package and pre-upgrade backup; rollback restores software, while restoring deleted retired records requires the backup. Do not restore a database over new user writes without an explicit recovery decision.

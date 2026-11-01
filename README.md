@@ -1,85 +1,38 @@
 # Kanvas
 
-## Use hosted KANVAS
+Kanvas is a shared visual workspace for people and their AI agents. Talk or type to your agent; it puts charts, notes, maps, diagrams and other focused views on your screens. A phone, laptop or room display can each show a different view of the same session.
 
-Connect your MCP client to **https://kanvas.host/mcp** — no self-hosting required.
-Visit [open-kanvas.ai](https://open-kanvas.ai) or manage your account in the [console](https://kanvas.host/console).
+Kanvas preserves supplied content and keeps access private unless you choose otherwise. It does not run a language model, fetch your source data or listen to your microphone. Your connected agent does that work; Kanvas renders the results and reports whether a browser received them.
 
-For self-hosted installations, use the MCP endpoint on your configured public origin.
+## Run it yourself
 
+Give your agent this repository URL and ask it to install and run Kanvas on your infrastructure. The [self-hosting guide](docs/operations/self-hosting.md) has the exact prerequisites, commands, PostgreSQL settings, email configuration and upgrade procedure. It needs Node.js 24+, PostgreSQL 15+ and a public HTTPS origin for remote clients.
 
-Kanvas is a shared visual workspace for agents and people. Agents publish structured content through the Model Context Protocol (MCP); signed-in or explicitly approved browsers receive responsive views and return real interaction and delivery receipts.
+Ask the agent to keep credentials outside the checkout, use an isolated test database, verify the installation and explain its backup plan before exposing it. [Contributing](CONTRIBUTING.md) covers local development and tests.
 
-Release: **0.21.0**. Publication candidate; no license has been selected yet.
+## Or use hosted Kanvas
 
-## What it does
+The hosted service uses the same application. Connect your agent to **https://kanvas.host/mcp**, confirm your email, and open **https://kanvas.host** on a screen. The screen shows a six-letter code: read it to your connected agent and confirm the screen details. You can approve full-account access or view-only access to one session.
 
-- Displays exact supplied text, data, charts, maps, images, documents, code and other structured views.
-- Supports multiple independent screens, presentations, navigation, drafting, schedules and explicit collaboration.
-- Preserves source data and validates template contracts. Browser acknowledgement is separate from preparation.
-- Uses PostgreSQL, account/session permissions, OAuth, revision checks and idempotent mutations.
+[Getting started](https://open-kanvas.ai/#getting-started) explains connecting an agent. Hosted and self-hosted installations remain separate; links locate content but never grant access.
 
-Kanvas does not run a language model, listen to audio, translate text, or generate missing source content. An external agent can do those tasks and send the results to Kanvas. Supplied transcription and translation layouts remain available.
+## What you can do
 
-## Agent connection
+- Show exact supplied data, text, images, code and interactive charts.
+- Prepare presentations or cue cards, with authored cues for a listening agent.
+- Keep multiple screens independent, browse retained views, and return to live content.
+- Save personal guidance prompts and activate one for a session.
+- Collaborate through explicit session permissions and revocable screen approval.
+- Opt into browser/PWA notifications and choose which subscription receives them.
 
-Connect an MCP client to `https://<your-host>/mcp` and complete its OAuth flow. Every connection exposes exactly two tools: `kanvas_discover` and `kanvas_call`. Discover takes `catalog: tools | templates | help` and `action: list | search | get`. List returns all IDs/descriptions in concise plain text with no default pagination. Search returns ranked short summaries (default five), never full detail; get retrieves one exact ID’s complete schema or help content. Get an unfamiliar template or operation before calling it. For example, discover an operation, get its exact schema, then execute:
-
-```json
-{
-  "name": "kanvas_call",
-  "arguments": {
-    "operationId": "kanvas.submit",
-    "arguments": {
-      "requestId": "first-visual",
-      "view": {"version": 1, "template": "fact", "data": {"text": "Exact supplied words."}}
-    }
-  }
-}
-```
-
-Indices are exhaustive across pages: follow `nextCursor` until null, and search an exact ID for details. [Discovery architecture and migration](docs/architecture/mcp-discovery.md).
-
-The result identifies the session, display, update and actual viewer URL. A URL locates a view; it does not grant access. Continue with the returned target reference, check publication status, and verify receiving-browser delivery before claiming it was shown.
-
-## Self-host
-
-Use Node.js 24+ and PostgreSQL 15+. Copy `.env.example` to a private local configuration, provision a dedicated database and run:
-
-```sh
-npm ci
-npm run build
-npm start
-```
-
-The application reads process environment; it does not automatically load `.env`. With Node, a local start can use `node --env-file=.env dist/server/index.js`. Configure your public HTTPS origin and authentication before exposing the service. See [self-hosting](docs/operations/self-hosting.md) and [PostgreSQL operations](docs/operations/postgresql.md). `compose.yaml` connects to a separately provisioned PostgreSQL service; it does not expose a database port.
-
-## Develop
-
-```sh
-npm ci
-npm run dev
-# In another terminal for the client:
-npm run dev:client
-```
-
-Native invitation email is opt-in (`KANVAS_INVITE_EMAIL=true`) and reuses the protected sign-in mailer credential and sender. Link creation never sends email. See [browser sign-ins and invitation email](docs/browser-auth-invites.md) for exact MCP operations, required permissions, delivery limits and operator configuration.
-
-Set `KANVAS_DEV_CLIENT=true` for the development client origin. Use a separate database for development and tests. `npm run check:all`, `npm test -- --maxWorkers=2`, `npm run build`, and `npm run test:e2e -- --workers=1` form the full validation sequence. Test database settings and cleanup are in [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Documentation
+## Find the details
 
 - [Documentation map](docs/README.md)
-- [Architecture](docs/architecture/system-overview.md)
-- [Agent workflows](docs/integration/agent-workflows.md)
-- [Publishing contracts and examples](docs/integration/publishing-paths.md)
-- [Templates](docs/templates/README.md)
-- [Security policy draft](SECURITY.md)
+- [Agent workflows](docs/integration/agent-workflows.md) and [two-tool discovery](docs/architecture/mcp-discovery.md)
+- [Templates](docs/templates/README.md), [visual help and shortcuts](docs/feedback-oct29.md)
+- [OAuth and email confirmation](docs/integration/oauth-lifecycle.md)
+- [Security policy](SECURITY.md)
 
-Every running instance serves current human guidance at `/docs/`, machine-readable help at `/docs/index.json`, and exact schemas at `/docs/templates/<template>.json`. These are generated from the same contracts used at runtime.
+Agents use exactly two tools, `kanvas_discover` and `kanvas_call`. Discovery finds current operations, templates and help; the running instance provides exact schemas at `/docs/`. Release identity is in `package.json` and the running `/version.json`, not a copied version number here.
 
-The hosted service and self-hosted application use the same code. The package remains `private: true` to prevent accidental npm publication. Third-party assets retain their own notices; no repository-wide license grant is implied before a license is selected.
-
-### Account connection without a callback
-
-OAuth authorization code with S256 PKCE remains primary. RFC 8628 device authorization is available for compatible callback-free clients through discovery; the user verifies a code at `/connect`, signs in, and explicitly approves account access. No session selection is required. Existing historical restricted credentials keep their limits. See [OAuth lifecycle](docs/integration/oauth-lifecycle.md) and [device implementation and compatibility](docs/auth-device-implementation.md). Never paste OAuth credentials into agent conversations.
+The package remains private to prevent accidental npm publication. No repository-wide license has been selected; third-party assets retain their own notices. A repository being readable does not imply a license grant.

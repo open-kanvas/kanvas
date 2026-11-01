@@ -8,9 +8,9 @@ Visual controls for appearance, reading and regional settings; synchronization i
 
 Changes require editor permission and the current configuration revision. Saving account defaults is a separate explicit action available only to that account; a session-only MCP grant cannot change them. Existing sessions retain their own configuration, and only new sessions copy defaults.
 
-The UI separates selection from application: selected palettes are visibly marked, drafts survive normal refreshes, and a reachable footer shows pending/saving/saved or conflict state. **Apply settings** persists the change and emits `settings.changed` for the agent. Interactive guests can submit `settings.request` proposals, but cannot mutate configuration. View-only screens explain their permission boundary before showing disabled controls. A received proposal is not an applied change.
+Selections save immediately in the chosen scope (This session, All new sessions, or an authorized group). There is no Apply button. Concurrent selections are queued and revisions still protect conflicting writes. Interactive guests submit settings.request proposals but cannot mutate configuration. The current session is not silently changed by editing defaults. See [Live settings](../settings.md).
 
-Read `kanvas_call` with `operationId:"kanvas.template.get"` and nested `arguments` for `settings` before constructing a prepared view. It returns the exact same schema used by `kanvas_call` with `operationId:"kanvas.view.validate"` and nested `arguments` and publishing.
+Read `kanvas_discover` with `catalog:"templates", action:"get", id:"kanvas.template.settings"` for `settings` before constructing a prepared view. It returns the exact same schema used by `kanvas_call` with `operationId:"kanvas.view.validate"` and nested `arguments` and publishing.
 
 ## Illustrative example
 

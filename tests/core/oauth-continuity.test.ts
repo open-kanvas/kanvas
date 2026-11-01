@@ -1,5 +1,5 @@
 import { operationRequest } from '../mcp/requests.js';
-import { legacySelectedCode } from './legacy-oauth-fixture.js';
+import { legacySelectedCode, verifiedEmailConsent } from './legacy-oauth-fixture.js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { Request } from 'express';
 import { Client, StreamableHTTPClientTransport, type OAuthClientProvider } from '@modelcontextprotocol/client';
@@ -59,6 +59,7 @@ function refresh(h: Harness, client: Registered, credential: string, extra: Reco
   return tokenRequest(h, { grant_type: 'refresh_token', client_id: client.client_id, resource: RESOURCE, refresh_token: credential, ...extra });
 }
 async function approve(h: Harness, owner: Browser, client: Registered, pending: Awaited<ReturnType<typeof begin>>, sessionIds?: string[]) {
+  await verifiedEmailConsent(h,owner,pending.requestId);
   const result = success(await owner.request<{ redirectUri: string }>('POST', '/api/oauth/approve', {
     requestId: pending.requestId, approve: true, accessMode: 'account',
   }));

@@ -35,6 +35,7 @@ export async function migrateDatabase(client: PoolClient, schema: string): Promi
     }
     await preserveLegacyGuidance(client);
     await migrateVisualizerData(client);
+    await migrateReportContext(client);
     await client.query('COMMIT');
   } catch (error) { await client.query('ROLLBACK'); throw error; }
 }
@@ -82,4 +83,13 @@ async function preserveLegacyGuidance(client:PoolClient){
   await client.query("INSERT INTO documents(kind,id,value) VALUES('agent-guidance',$1,$2) ON CONFLICT(kind,id) DO NOTHING",[key,JSON.stringify(record)]);
  }
  await client.query('INSERT INTO data_migrations(version,checksum) VALUES(2,$1)',[checksum]);
+}
+
+/** Preserve all report prose/history/status while removing obsolete classification. */
+async function migrateReportContext(client:PoolClient){
+ const checksum='kanvas-0.32.0-report-context-v1',previous=(await client.query<{checksum:string}>('SELECT checksum FROM data_migrations WHERE version=3')).rows[0];
+ if(previous){if(previous.checksum!==checksum)throw new Error('Report context migration differs.');return;}
+ const rows=(await client.query<{id:string;value:string}>("SELECT id,value FROM documents WHERE kind='report'")).rows;
+ for(const row of rows){const record=JSON.parse(row.value);delete record.scope;record.accountId=record.authorId;await client.query("UPDATE documents SET value=$1 WHERE kind='report' AND id=$2",[JSON.stringify(record),row.id]);}
+ await client.query('INSERT INTO data_migrations(version,checksum) VALUES(3,$1)',[checksum]);
 }

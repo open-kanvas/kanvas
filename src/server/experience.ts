@@ -134,6 +134,16 @@ export class Experience {
     });
   }
   viewerId(p:AuthPrincipal,tabId:string){if(!p.browserId||p.captureOnly)throw new AppError('FORBIDDEN','Only a receiving browser can report observations.',403);return hash(`${p.browserId}:${tabId}`).slice(0,32);}
+  async screenControl(p:AuthPrincipal,raw:unknown){
+    const a=z.strictObject({sessionId:slot,displayId:slot,viewerId:slot.optional(),requestId:slot,action:z.enum(['menu','help','fullscreen','notifications','overview','live','previous','next','home','reconnect','signout','options']),confirm:z.literal(true).optional()}).parse(raw);
+    await this.owner(p,a.sessionId);await this.service.display(p,a.sessionId,a.displayId);
+    if(a.action==='signout'){await this.service.auth.requireFresh(p);if(!a.confirm||!a.viewerId)throw new AppError('CONFIRM_REQUIRED','Choose one viewer and confirm signing it out.');}
+    if(a.viewerId){const viewer=await this.store.get<ViewerPresence>('viewer',a.viewerId);if(!viewer||viewer.sessionId!==a.sessionId||viewer.displayId!==a.displayId||viewer.participantId!==p.userId)throw new AppError('NOT_FOUND','Your viewer is unavailable.',404);}
+    const key=hash(`${p.userId}:screen-control:${a.requestId}`),digest=hash(JSON.stringify(a));
+    return this.store.atomic(async()=>{const old=await this.store.get<{id:string;digest:string}>('screen-command',key);if(old){if(old.digest!==digest)throw new AppError('REQUEST_ID_CONFLICT','Request already used.',409);return old;}
+      const active=(await this.store.list<{ownerId:string;expiresAt:number}>('screen-command',a.sessionId)).filter(c=>c.ownerId===p.userId&&c.expiresAt>Date.now());if(active.length>=30)throw new AppError('RATE_LIMIT','Too many screen commands. Wait a minute before sending another.',429);
+      const record={id:key,...a,ownerId:p.userId,digest,expiresAt:Date.now()+60000,status:'queued'};await this.store.put('screen-command',record);return {...record,status:'queued',note:'Delivered only to your active screen browsers. Fullscreen and notifications open controls; the user must click to grant browser permission.'};});
+  }
   async observe(p:AuthPrincipal,sessionId:string,displayId:string,raw:unknown){
     return this.store.atomic(async () => {
     const d=(await this.service.display(p,sessionId,displayId)),a=viewerObservationSchema.parse(raw);(await this.cleanupViewers());const viewerId=this.viewerId(p,a.tabId);
@@ -159,7 +169,8 @@ export class Experience {
     const toasts=(await this.store.list<ToastRecord>('toast',sessionId)).filter(x=>x.displayId===displayId&&Date.parse(x.expiresAt)>Date.now()&&!dismissed.includes(x.id)&&(!x.ownerId||!p.scopedDisplayId&&p.userId===x.ownerId));
     const annotations=(await this.store.list<AnnotationRecord>('annotation',sessionId)).filter(x=>x.displayId===displayId&&x.revision===d.revision).map(({tabId:_tab,...x})=>x);
     const inspection=this.inspections.get(displayId);
-    return {viewerId,revision:d.revision,ignored:false,toasts,annotations,...(inspection&&inspection.expiresAt>Date.now()&&(!inspection.viewerId||inspection.viewerId===viewerId)&&a.dom?.requestId!==inspection.requestId?{inspectionRequest:inspection}:{})};
+    const commands=(await this.store.list<any>('screen-command',sessionId)).filter(c=>c.displayId===displayId&&c.ownerId===p.userId&&c.expiresAt>Date.now()&&(!c.viewerId||c.viewerId===viewerId)).map(({id,action})=>({id,action}));
+    return {viewerId,revision:d.revision,ignored:false,toasts,annotations,commands,...(inspection&&inspection.expiresAt>Date.now()&&(!inspection.viewerId||inspection.viewerId===viewerId)&&a.dom?.requestId!==inspection.requestId?{inspectionRequest:inspection}:{})};
 
     });
   }

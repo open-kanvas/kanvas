@@ -118,7 +118,7 @@ export function BrowsingProvider({view,sessionId,displayId,revision,config,enabl
     };
     const key=(event:KeyboardEvent)=>{if(event.defaultPrevented||event.metaKey||event.ctrlKey||event.altKey||event.shiftKey||excluded(event.target)||window.getSelection()?.toString())return;
       if(event.key==='ArrowLeft'||event.key==='ArrowRight'){const el=root.current;if(el){const scroll=scrollElement(el),max=scroll.scrollWidth-scroll.clientWidth;if(max>2&&(event.key==='ArrowRight'?scroll.scrollLeft<max-2:scroll.scrollLeft>2))return;}event.preventDefault();step(event.key==='ArrowLeft'?-1:1);}
-      else if(positionalRef.current&&(event.key==='Home'||event.key==='End')){event.preventDefault();if(event.key==='Home')positionalRef.current?.home();else positionalRef.current?.end();}
+      else if(positionalRef.current&&(event.key==='Home'||event.key==='End')){const el=root.current;if(el){const scroll=scrollElement(el);if(scroll.scrollHeight>scroll.clientHeight+2)return;}event.preventDefault();if(event.key==='Home')positionalRef.current?.home();else positionalRef.current?.end();}
     };
     let start:{x:number;y:number;at:number}|undefined;
     const touchStart=(event:TouchEvent)=>{if(event.touches.length!==1||excluded(event.target)){start=undefined;return;}start={x:event.touches[0].clientX,y:event.touches[0].clientY,at:Date.now()};};

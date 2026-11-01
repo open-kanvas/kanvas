@@ -23,7 +23,7 @@ describe('workflows over both MCP protocols',()=>{
     const c=await connect(legacy,'/mcp',{Authorization:`Bearer ${issued.value}`}),stranger=await connect(legacy,'/mcp',{Authorization:`Bearer ${foreign.value}`}),reader=await connect(legacy,'/mcp',{Authorization:`Bearer ${read.value}`});
     const call=async(name:string,operation:string,args:Record<string,unknown>={})=>{const r=await c.callTool(operationRequest({name,arguments:{operation,...args}}));expect(r.isError,JSON.stringify(r.structuredContent)).not.toBe(true);return (r.structuredContent as any).data;};
     try{
-      const report=await call('kanvas_feedback','submit',{scope:'account',requestId:'wire-report',title:'Synthetic finding',description:'Initial observation',category:'feature'});
+      const report=await call('kanvas_feedback','submit',{requestId:'wire-report',title:'Synthetic finding',description:'Initial observation',category:'feature'});
       expect(await call('kanvas_feedback','patch',{reportId:report.id,expectedRevision:0,note:'Follow-up observation'})).toMatchObject({revision:1,history:[{note:'Follow-up observation'}]});
       expect((await stranger.callTool(operationRequest({name:'kanvas_feedback',arguments:{operation:'patch',reportId:report.id,expectedRevision:1,note:'Foreign'}}))).isError).toBe(true);
       const pixel='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6Ot8AAAAASUVORK5CYII=';
@@ -101,12 +101,12 @@ describe('workflows over both MCP protocols',()=>{
     const auth=await b.raw(`/oauth/authorize?${query}`),requestId=new URL(auth.headers.get('location')!,ORIGIN).searchParams.get('authorize')!;
     expect((await b.raw('/mcp/signup',{method:'POST',headers:{'content-type':'application/json'},body:'{}'})).status).toBe(410);
     {
-      const result=success(await b.request<any>('POST','/api/auth/email/request',{email:`verification-${randomUUID()}@example.com`,returnTo:`/?authorize=${requestId}`}));expect(mail).toHaveLength(1);
+      const result=success(await b.request<any>('POST','/api/auth/email/request',{email:`verification-${randomUUID()}@example.com`,authorizationRequestId:requestId,acceptedLegalVersion:'2026-10-14'}));expect(mail).toHaveLength(1);
       expect(result.authenticated).toBe(false);expect(JSON.stringify(result).includes('#email-signin=')).toBe(false);
       expect(Number(((await h.runtime.store.db.prepare('SELECT COUNT(*) n FROM users').get()) as {n:number}).n)).toBe(0);expect((await h.runtime.store.list('oauth-grant'))).toHaveLength(0);
       const main=await b.raw('/mcp',{method:'POST',headers:{'content-type':'application/json',accept:'application/json, text/event-stream'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/list'})});expect(main.status).toBe(401);await main.body?.cancel();
       const token=new URL(mail[0].link).hash.slice('#email-signin='.length),inspect=success(await b.request<any>('POST','/api/auth/email/inspect',{token}));expect(inspect.connection).toMatchObject({requestId,clientName:'Explicit test connector',scopes:['read','publish']});
-      const login=success(await b.request<any>('POST','/api/auth/email/consume',{token,confirm:true,acceptedLegalVersion:'2026-10-14'}));b.csrf=login.csrfToken;expect((await h.runtime.store.list('oauth-grant'))).toHaveLength(0);
+      success(await b.request<any>('POST','/api/auth/email/consume',{token,confirm:true,acceptedLegalVersion:'2026-10-14'}));const login=success(await b.request<any>('POST','/api/auth/email/complete',{}));b.csrf=login.csrfToken;expect((await h.runtime.store.list('oauth-grant'))).toHaveLength(0);
       const consent=success(await b.request<any>('POST','/api/oauth/approve',{requestId,approve:true,accessMode:'account'})),code=new URL(consent.redirectUri).searchParams.get('code')!;
       const exchange=await b.raw('/oauth/token',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',client_id:registered.client_id,redirect_uri:redirect,resource:`${ORIGIN}/mcp`,code,code_verifier:verifier}).toString()});expect(exchange.status).toBe(200);const credential=await exchange.json();expect(Boolean(credential.access_token)).toBe(true);
       const connected=await connect(legacy,'/mcp',{Authorization:`Bearer ${credential.access_token}`});try{const start=await connected.callTool(operationRequest({name:'kanvas_inspect',arguments:{operation:'start.read'}}));expect(Boolean(start.isError)).toBe(false);expect((start.structuredContent as any).data.sessions).toEqual([]);}finally{await connected.close();}

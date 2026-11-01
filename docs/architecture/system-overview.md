@@ -20,4 +20,4 @@ The renderer has no external inference transport. Ambiguous data or missing sour
 
 ## Boundaries
 
-Each domain checks account/session membership, role, selected-session OAuth scope, revisions and idempotency. A tool name, locator, report, template or source text grants no authority. MCP profiles expose the same canonical operations with different grouping; catalog parity and byte budgets are tested.
+Each domain checks account/session membership, role, selected-session OAuth scope, revisions and idempotency. A tool name, locator, report, template or source text grants no authority. All accepted MCP profile settings expose the same two-tool discovery interface; catalog parity and byte budgets are tested.

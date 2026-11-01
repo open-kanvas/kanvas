@@ -210,8 +210,8 @@ export async function createApp(options: AppOptions = {}) {
   app.post('/api/auth/sessions/revoke',async(req,res)=>send(res,await service.browserAuth.revoke(await account(req,'publish'),req.body)));
   app.get('/api/auth/me', async (req, res) => {
     const { principal, session } = (await auth.browser(req));
-    const user = principal.scopedDisplayId ? { id: principal.participantId ?? 'capture', username: 'guest', displayName: principal.captureOnly ? 'Visual inspection' : 'Guest viewer' } : required((await auth.user(principal.userId)));
-    send(res, { user, ...(principal.receiverDeviceId?{receiverDeviceId:principal.receiverDeviceId}:{}), csrfToken: session.csrf, ...(session.publicId?{browserSessionId:session.publicId,expiresAt:session.expiresAt,freshUntil:(session.authenticatedAt??0)+auth.policy.freshMs}:{}), ...(principal.captureOnly ? { captureOnly: true } : {}), ...(principal.scopedDisplayId ? { viewOnly: true, interactive: principal.interactive === true, sessionId: principal.scopedSessionId, displayId: principal.scopedDisplayId } : {}) });
+    const user = principal.scopedSessionId ? { id: principal.participantId ?? (principal.scopedDisplayId?'capture':'session-viewer'), username: 'guest', displayName: principal.captureOnly ? 'Visual inspection' : principal.scopedDisplayId?'Guest viewer':'Session viewer' } : required((await auth.user(principal.userId)));
+    send(res, { user, ...(principal.receiverDeviceId?{receiverDeviceId:principal.receiverDeviceId}:{}), csrfToken: session.csrf, ...(session.publicId?{browserSessionId:session.publicId,expiresAt:session.expiresAt,freshUntil:(session.authenticatedAt??0)+auth.policy.freshMs}:{}), ...(principal.captureOnly ? { captureOnly: true } : {}), ...(principal.scopedSessionId ? { viewOnly: true, interactive: principal.interactive === true, sessionId: principal.scopedSessionId, displayId: principal.scopedDisplayId } : {}) });
   });
   for (const action of ['register', 'login'] as const) app.post(`/api/auth/${action}`, async (req, res) => {
     limiter.take(`auth:${req.ip}`, 30, 60_000);
@@ -274,7 +274,7 @@ export async function createApp(options: AppOptions = {}) {
   app.post('/api/sessions/:id/clear', operation('kanvas_clear', sessionArgs));
   app.post('/api/feedback',operation('kanvas_feedback_submit',bodyObject));
   app.post('/api/error-reports',operation('kanvas_error_report',bodyObject));
-  app.get('/api/reports',operation('kanvas_reports_read',req=>({...req.query,...(req.query.limit?{limit:Number(req.query.limit)}:{})})));
+  app.get('/api/reports',operation('kanvas_reports_read',req=>({...req.query,...(req.query.allAccounts?{allAccounts:req.query.allAccounts==='true'}:{}),...(req.query.limit?{limit:Number(req.query.limit)}:{})})));
   app.patch('/api/reports/:reportId',operation('kanvas_report_update',req=>({...bodyObject(req),reportId:String(req.params.reportId)})));
   app.post('/api/sessions/:id/feedback', operation('kanvas_feedback_submit', sessionArgs));
   app.post('/api/sessions/:id/error-reports', operation('kanvas_error_report', sessionArgs));

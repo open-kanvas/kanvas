@@ -10,7 +10,7 @@ Up to 20 groups and 100 items per group, subject to the overall view budget. Pri
 
 Optional `image: {url, alt}` is accepted on the menu, each group and each item. Supplied public or protected asset URLs use normal source validation and media-readiness checks. No images are invented or fetched from a dish name. Image-free menus remain supported; failed images retain the normal visible failure behavior. For glanceability, publish the relevant dishes rather than every possible item.
 
-Read `kanvas_call` with `operationId:"kanvas.template.get"` and nested `arguments` for `menu` before constructing a prepared view. It returns the exact same schema used by `kanvas_call` with `operationId:"kanvas.view.validate"` and nested `arguments` and publishing.
+Read `kanvas_discover` with `catalog:"templates", action:"get", id:"kanvas.template.menu"` for `menu` before constructing a prepared view. It returns the exact same schema used by `kanvas_call` with `operationId:"kanvas.view.validate"` and nested `arguments` and publishing.
 
 ## Illustrative example
 

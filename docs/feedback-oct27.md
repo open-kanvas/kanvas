@@ -1,5 +1,7 @@
 # v0.31: account sign-in and view refinements
 
+> Historical release notes. For current behavior and exact schemas, use [current workflows](feedback-oct29.md) and the running `/docs/` reference. Later changes may supersede these release-specific descriptions.
+
 ## One-code account sign-in
 
 The signed-out root screen displays six A–Z letters and the same code in NATO words. Tell your connected agent that code. `login.read` returns approximate city/country (or unavailable), device/browser, request age and the scope of access. The agent must read these back and obtain your explicit confirmation before `login.decide` with `confirm:true`. Its opaque `approvalToken` is protocol state, not a second human code. No QR, second device or screen interaction is required. Email remains an optional alternative for keyboard-equipped devices.

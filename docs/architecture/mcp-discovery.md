@@ -1,12 +1,12 @@
 # Two-tool discovery architecture
 
-Version 0.22.0 replaces the former seven-tool interface. Every protocol era and deployment profile now exposes and accepts only:
+The two-tool interface supersedes the former seven-tool interface. Every protocol era and deployment profile now exposes and accepts only:
 - `kanvas_discover`
 - `kanvas_call`
 
 ## Discover → get → call
 
-```json
+```jsonl
 {"name":"kanvas_discover","arguments":{"catalog":"tools","action":"search","query":"bring back my saved checklist on another screen"}}
 {"name":"kanvas_discover","arguments":{"catalog":"tools","action":"get","id":"kanvas.checklist.show"}}
 {"name":"kanvas_call","arguments":{"operationId":"kanvas.checklist.show","arguments":{"sessionId":"live-session","checklistId":"live-checklist","displayId":"live-display","expectedRevision":3,"requestId":"unique-request"}}}
@@ -33,7 +33,7 @@ No external APIs, embeddings, downloaded model, paid service, query-history coll
 
 ## Provider boundaries and future templates
 
-Providers receive the authenticated principal and cancellation signal. Private template providers must query by principal before returning records; visibility is checked before ranking, totals, exact lookup and detail materialization. No account-filtered global cache. Namespace IDs and provider revisions prevent collisions and invalidate cursors. This release does not implement custom-template CRUD. Template schemas are payloads of get, not separate catalogs.
+Providers receive the authenticated principal and cancellation signal. Private template providers must query by principal before returning records; visibility is checked before ranking, totals, exact lookup and detail materialization. No account-filtered global cache. Namespace IDs and provider revisions prevent collisions and invalidate cursors. Private account templates can be created, listed, published and deleted through the account.templates operations; visibility remains account-bound. Template schemas are payloads of get, not separate catalogs.
 
 ## Execution and compatibility
 

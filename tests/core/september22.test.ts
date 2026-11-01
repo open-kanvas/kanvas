@@ -16,20 +16,20 @@ it('accepts documented bare autoplay pause/resume/stop while retaining optional 
   await expect(svc.execute('kanvas_autoplay_control',{...pause,action:'resume',requestId:id(),expectedVersion:start.version},p)).rejects.toThrow(/changed|revision/i);
   for(const action of ['resume','stop'])expect(await svc.execute('kanvas_autoplay_control',{...pause,action,requestId:id()},p)).toMatchObject({status:action==='stop'?'stopped':'running'});
 });
-it('supports private account and general service reports without session targets, safe unified administration, scoped-token rejection and restart recovery',async()=>{
-  h=await startHarness();const a=await h.account(),b=await h.account(),admin=await h.account(),s=await a.session(),svc=h.runtime.service;
-  svc.accounts.serviceAdmins.add(admin.user!.id);
-  const input={requestId:id(),title:'General UI',description:'No particular session',scope:'service'},one=success(await a.request<any>('POST','/api/feedback',input));expect(one.sessionId).toBeUndefined();expect(one.accountId).toBeUndefined();expect(one.scope).toBe('service');expect(success(await a.request<any>('POST','/api/feedback',input)).id).toBe(one.id);
-  const privateReport=success(await a.request<any>('POST','/api/feedback',{...input,scope:'account',requestId:id()}));expect(privateReport.accountId).toBe(a.user!.id);
-  const sessionReport=success(await a.request<any>('POST',`/api/sessions/${s.id}/feedback`,{requestId:id(),title:'Session',description:'Private session'}));
-  expect(success(await b.request<any>('GET','/api/reports?scope=account')).reports).toHaveLength(0);expect(success(await b.request<any>('GET','/api/reports?scope=service')).reports).toHaveLength(0);denied(await b.request('GET','/api/reports?scope=all'));
-  expect(success(await a.request<any>('GET','/api/reports?scope=account')).reports.map((r:any)=>r.id)).toEqual([privateReport.id]);
-  const all=success(await admin.request<any>('GET','/api/reports?scope=all&limit=2'));expect(all.reports).toHaveLength(2);const rest=success(await admin.request<any>('GET',`/api/reports?scope=all&afterId=${all.nextCursor}`));expect([...all.reports,...rest.reports].map(r=>r.id)).toEqual([sessionReport.id,privateReport.id,one.id]);
-  for(const scope of ['account','service'])denied(await b.request('PATCH',`/api/reports/${scope==='account'?privateReport.id:one.id}`,{scope,expectedRevision:0,status:'resolved',note:'Cannot review another account'}));
-  success(await admin.request('PATCH',`/api/reports/${one.id}`,{scope:'service',expectedRevision:0,status:'resolved',note:'Confirmed service fix'}));
-  expect((await a.request('POST','/api/feedback',{...input,requestId:id(),sessionId:s.id})).status).toBe(400);
-  const token=(await h.runtime.auth.issueToken(a.user!.id,'selected',['read','publish'],[s.id]));const p={userId:a.user!.id,tokenId:token.token.id,scopes:['read','publish']};await expect(svc.execute('kanvas_feedback_submit',{...input,requestId:id()},p)).rejects.toMatchObject({code:'FORBIDDEN'});
-  await h.shutdown();const restored=await createApp({database:h.database});try{expect((await restored.service.reports.read({userId:a.user!.id},{scope:'account',status:'all',kind:'all',limit:10})).reports[0].id).toBe(privateReport.id);}finally{await restored.close();}
+it('supports context-free reports with private ownership, unified administration, scoped-token rejection and restart recovery',async()=>{
+ h=await startHarness();const a=await h.account(),b=await h.account(),admin=await h.account(),s=await a.session(),svc=h.runtime.service;
+ svc.accounts.serviceAdmins.add(admin.user!.id);
+ const input={requestId:id(),title:'General UI',description:'No particular session'},one=success(await a.request<any>('POST','/api/feedback',input));expect(one.sessionId).toBeUndefined();expect(one.accountId).toBe(a.user!.id);expect(one.scope).toBeUndefined();expect(success(await a.request<any>('POST','/api/feedback',input)).id).toBe(one.id);
+ const privateReport=success(await a.request<any>('POST','/api/feedback',{...input,requestId:id()}));
+ const sessionReport=success(await a.request<any>('POST',`/api/sessions/${s.id}/feedback`,{requestId:id(),title:'Session',description:'Private session'}));
+ expect(success(await b.request<any>('GET','/api/reports')).reports).toHaveLength(0);denied(await b.request('GET','/api/reports?allAccounts=true'));
+ expect(success(await a.request<any>('GET','/api/reports')).reports.map((r:any)=>r.id)).toEqual([sessionReport.id,privateReport.id,one.id]);
+ const all=success(await admin.request<any>('GET','/api/reports?allAccounts=true&limit=2'));expect(all.reports).toHaveLength(2);const rest=success(await admin.request<any>('GET',`/api/reports?allAccounts=true&afterId=${all.nextCursor}`));expect([...all.reports,...rest.reports].map(r=>r.id)).toEqual([sessionReport.id,privateReport.id,one.id]);
+ for(const report of [privateReport,one])denied(await b.request('PATCH',`/api/reports/${report.id}`,{expectedRevision:0,status:'resolved',note:'Cannot review another account'}));
+ success(await admin.request('PATCH',`/api/reports/${one.id}`,{expectedRevision:0,status:'resolved',note:'Confirmed service fix'}));
+ expect((await a.request('POST','/api/feedback',{...input,requestId:id(),scope:'service'})).status).toBe(400);
+ const token=(await h.runtime.auth.issueToken(a.user!.id,'selected',['read','publish'],[s.id]));const p={userId:a.user!.id,tokenId:token.token.id,scopes:['read','publish']};await expect(svc.execute('kanvas_feedback_submit',{...input,requestId:id()},p)).rejects.toMatchObject({code:'FORBIDDEN'});
+ await h.shutdown();const restored=await createApp({database:h.database});try{expect((await restored.service.reports.read({userId:a.user!.id},{allAccounts:false,status:'all',kind:'all',limit:10})).reports.map(r=>r.id)).toEqual([sessionReport.id,privateReport.id,one.id]);}finally{await restored.close();}
 });
 it('revokes only the selected approved browser while other paired browsers and owner account remain authorized',async()=>{
   h=await startHarness();const owner=await h.account(),stranger=await h.account(),s=await owner.session(),d=await owner.display(s.id),browsers=[h.browser(),h.browser()],pairs:any[]=[];

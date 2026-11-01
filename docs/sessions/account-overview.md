@@ -12,7 +12,7 @@ To send a window to a display, discover `kanvas.window.present`. To bring it bac
 {"operationId":"kanvas.window.overview","arguments":{"deviceId":"device-id","windowId":"window-id","expectedVersion":3,"requestId":"return-overview-1"}}
 ```
 
-Use the `deviceId`, window ID and window version from `kanvas.devices.read`. Account-wide publish authority and ownership of that registered window are required. The window must be online. Reuse the same request ID and identical arguments for a retry; conflicting input is rejected. A new operation requires the current version. Sibling windows are unchanged. No session or display is created.
+Use the `deviceId`, window ID and window version from `kanvas.devices.read`. Account-wide publish authority and ownership of that registered window are required. The window must be online. Reuse the same request ID and identical arguments for a retry; conflicting input is rejected. For stale-command protection, supply the actual current version on a new operation; the shared mutation contract also permits an omitted guard. Sibling windows are unchanged. No session or display is created.
 
 A pending command is not success. Inspect that window's command through devices.read until `status: applied`. The browser acknowledges only after the root overview has rendered, clears its session/display observation, and retains the command receipt. Navigation stays on the receiving origin to preserve tab identity. Expired or superseded commands cannot be acknowledged; replayed requests report supersession without moving the window again.
 

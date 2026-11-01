@@ -132,13 +132,13 @@ test('month calendar retains every day and custom HTML stays in an opaque static
   const frame=viewer.frames().find(x=>x.parentFrame());expect(Boolean(frame)).toBe(true);expect(await frame!.evaluate(()=>{try{void parent.document.body;return false;}catch{return true;}})).toBe(true);
 });
 
-test('email entry is primary when configured and confirmation never consumes a link merely by opening it',async({page})=>{
+test('screen code stays primary, email is available, and opening confirmation never consumes a link',async({page})=>{
   let requests=0,consumes=0,inspections=0,statusReads=0;await page.route('**/api/auth/email/inspect',route=>{inspections++;return route.fulfill({json:{data:{email:'synthetic@example.com'}}});});await page.route('**/api/auth/options',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({data:{emailSignin:true,allowRegistration:false}})}));
   await page.route('**/api/auth/email/request',route=>{requests++;return route.fulfill({json:{data:{device:'Synthetic browser',code:'Synthetic fixture — not a sign-in code',expiresAt:Date.now()+600000}}});});
   // This isolated UI test mocks creation, so it must also mock the matching
   // status read instead of racing the real server's correctly expired result.
   await page.route('**/api/auth/email/status',route=>{statusReads++;return route.fulfill({json:{data:{status:'pending'}}});});
-  await page.goto('/');await page.getByLabel('Email address',{exact:true}).fill('synthetic@example.com');await page.getByRole('button',{name:'Email a sign-in link'}).click();await expect.poll(()=>statusReads).toBeGreaterThan(0);await expect(page.getByRole('status')).toContainText('If this address is eligible');expect(requests).toBe(1);
+  await page.goto('/');await page.getByRole('button',{name:'Have a keyboard? Sign in with email instead',exact:true}).click();await page.getByLabel('Email address',{exact:true}).fill('synthetic@example.com');await page.getByRole('button',{name:'Email a sign-in link'}).click();await expect.poll(()=>statusReads).toBeGreaterThan(0);await expect(page.getByRole('status')).toContainText('If this address is eligible');expect(requests).toBe(1);
   const synthetic='x'.repeat(43);await page.route('**/api/auth/email/consume',route=>{consumes++;return route.fulfill({contentType:'application/json',body:JSON.stringify({data:{returnTo:'/'}})});});
-  await page.goto(`/#email-signin=${synthetic}`);await expect(page.getByRole('button',{name:'Confirm sign-in'})).toBeVisible();expect(new URL(page.url()).hash).toBe('');expect(consumes).toBe(0);await expect.poll(()=>inspections).toBe(1);await page.getByRole('checkbox',{name:/I accept/}).check();await page.getByRole('button',{name:'Confirm sign-in'}).click();await expect.poll(()=>consumes).toBe(1);await expect(page.getByLabel('Email address',{exact:true})).toBeVisible();
+  await page.goto(`/#email-signin=${synthetic}`);await expect(page.getByRole('button',{name:'Confirm sign-in'})).toBeVisible();expect(new URL(page.url()).hash).toBe('');expect(consumes).toBe(0);await expect.poll(()=>inspections).toBe(1);await page.getByRole('checkbox',{name:/I accept/}).check();await page.getByRole('button',{name:'Confirm sign-in'}).click();await expect.poll(()=>consumes).toBe(1);await expect(page.getByRole('heading',{name:'Sign in on this screen',exact:true})).toBeVisible();
 });

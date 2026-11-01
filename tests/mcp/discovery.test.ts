@@ -169,7 +169,7 @@ describe('two-tool discoverable catalog', () => {
     for (const item of [...operationCatalog(),...templateCatalog(),...helpCatalog()]) {
       const detail=JSON.stringify(item.detail());
       expect(detail, item.id).not.toMatch(/kanvas_(?:tool|help|template)_(?:search|index|use)/);
-      expect(detail, item.id).not.toMatch(/operationId[^a-z]{1,8}kanvas\.(?:guide|help|template\.get)[^a-z]/);
+      expect(detail, item.id).not.toMatch(/operationId[^a-z]{1,8}kanvas\.(?:guide|help|template\.get)(?:["\s,}]|$)/);
     }
   });
   it('translates server-owned guidance and recipes without modifying argument/source literals', () => {

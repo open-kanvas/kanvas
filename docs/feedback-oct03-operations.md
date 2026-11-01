@@ -1,5 +1,7 @@
 # October acceptance workflow
 
+> Historical release notes. For current behavior and exact schemas, use [current workflows](feedback-oct29.md) and the running `/docs/` reference. Later changes may supersede these release-specific descriptions.
+
 All new changes are acceptance-only until owner approval. This release preserves the PostgreSQL structural schema (version 1): no table migration or irreversible data rewrite is needed. Existing records may retain removed density fields; runtime normalization ignores them. A rollback restores the prior release; quota entitlement records are ignored by the prior release and trial limits apply again. Take the standard local pre-deploy database snapshot as usual.
 
 ## Account tiers (quota entitlement, not authorization)

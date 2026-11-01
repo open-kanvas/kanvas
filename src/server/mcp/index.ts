@@ -95,7 +95,7 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
   const allowedOrigins: string[] | undefined = options.allowedOrigins ?? app.locals.mcpAllowedOrigins;
   const metadataUrl=options.resourceMetadataUrl ?? app.locals.mcpResourceMetadataUrl;
   const challenge = metadataChallenge(metadataUrl);
-  const icons=typeof metadataUrl==='string'?[{src:new URL('/favicon.svg',metadataUrl).href,mimeType:'image/svg+xml',sizes:['any']}]:undefined;
+  const icons=typeof metadataUrl==='string'?[{src:new URL('/icons/kanvas-192.png?v='+KANVAS_VERSION,metadataUrl).href,mimeType:'image/png',sizes:['192x192']},{src:new URL('/favicon.svg?v='+KANVAS_VERSION,metadataUrl).href,mimeType:'image/svg+xml',sizes:['any']}]:undefined;
   const maxLegacySessions = options.maxLegacySessions ?? 256;
   const maxPerPrincipal = options.maxSessionsPerPrincipal ?? 16;
   const idleMs = options.legacySessionIdleMs ?? 30 * 60 * 1000;

@@ -9,12 +9,40 @@ const hosts=new Set(['fcm.googleapis.com','updates.push.services.mozilla.com','w
 export function safePushEndpoint(input:string){try{const u=new URL(input);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&!u.hash&&hosts.has(u.hostname)&&u.pathname.length>1&&u.href===input;}catch{return false;}}
 export const pushSubscriptionSchema=z.strictObject({endpoint:z.string().max(2048).refine(safePushEndpoint,'Unsupported push service.'),keys:z.strictObject({p256dh:z.string().regex(/^[A-Za-z0-9_-]{87}$/),auth:z.string().regex(/^[A-Za-z0-9_-]{22}$/)})});
 type Subscription=z.infer<typeof pushSubscriptionSchema>;
-interface Saved{id:string;ownerId:string;browserId:string;subscription:Subscription;createdAt:string}
+interface Saved{id:string;name?:string;ownerId:string;browserId:string;subscription:Subscription;createdAt:string}
 export interface PushOptions{publicKey:string;privateKey:string;subject:string;send?:(subscription:Subscription,payload:string)=>Promise<unknown>}
 export class SessionPush{
  private active=new Set<Promise<void>>();
  constructor(private service:KanvasService,private options?:PushOptions){}
  get publicKey(){return this.options?.publicKey;}
+ async targets(p:AuthPrincipal){await this.service.fullAccount(p);await this.service.accounts.account(p);const targets=[];for(const record of await this.service.store.list<Saved>('push-subscription'))if(record.ownerId===p.userId){const browser=await this.service.store.get<BrowserSession>('browser',record.browserId);if(browser&&browser.userId===p.userId&&browser.expiresAt>Date.now()&&!browser.scopedSessionId)targets.push({targetId:record.id,name:record.name??([browser.device,browser.browser].filter(Boolean).join(' · ')||'Browser'),createdAt:record.createdAt});}return {configured:Boolean(this.options),targets,note:'Each target is one browser-profile or installed-app subscription, not a reliably identifiable physical device. Rename it to recognize it. Permission must be enabled by a click on that browser. Offline delivery is best effort for five minutes.'};}
+ async rename(p:AuthPrincipal,raw:unknown){await this.service.fullAccount(p,'publish');await this.service.accounts.account(p,true);const a=z.strictObject({targetId:z.string().min(1).max(128),name:z.string().trim().min(1).max(80)}).parse(raw);return this.service.store.atomic(async()=>{const r=await this.service.store.get<Saved>('push-subscription',a.targetId);if(!r||r.ownerId!==p.userId)throw new AppError('NOT_FOUND','Notification target unavailable.',404);r.name=a.name;await this.service.store.put('push-subscription',r);return {targetId:r.id,name:r.name};});}
+ async notify(p:AuthPrincipal,raw:unknown){
+  await this.service.fullAccount(p,'publish');await this.service.accounts.account(p,true);
+  const a=z.strictObject({sessionId:z.string().min(1).max(128),displayId:z.string().min(1).max(128),targetIds:z.array(z.string().min(1).max(128)).min(1).max(10).optional(),requestId:z.string().min(1).max(128)}).parse(raw);
+  const session=await this.service.access(p,a.sessionId,'owner');await this.service.display(p,a.sessionId,a.displayId,'editor');
+  if(session.ownerId!==p.userId)throw new AppError('FORBIDDEN','Notify only your own account.',403);
+  if(!this.options)throw new AppError('UNAVAILABLE','Notifications are not configured.',409);
+  const available=(await this.targets(p)).targets,ids=a.targetIds??available.map(t=>t.targetId);
+  if(ids.some(id=>!available.some(t=>t.targetId===id)))throw new AppError('NOT_FOUND','One or more notification targets are disabled or unavailable.',404);
+  const key=hash(`${p.userId}:push:${a.requestId}`),digest=hash(JSON.stringify(a));
+  const prior=await this.service.store.atomic(async()=>{const saved=await this.service.store.get<any>('push-delivery',key);if(saved){if(saved.digest!==digest)throw new AppError('REQUEST_ID_CONFLICT','Request already used.',409);return saved;}
+    const recent=(await this.service.store.list<any>('push-delivery')).filter(r=>r.ownerId===p.userId&&r.createdAt>Date.now()-3600000);if(recent.length>=20)throw new AppError('RATE_LIMITED','Notification rate limit reached.',429);
+    await this.service.store.put('push-delivery',{id:key,ownerId:p.userId,digest,createdAt:Date.now(),status:'sending',note:'A retry never resends; interrupted delivery may be unknown.'});return undefined;});
+  if(prior)return prior;
+  const results=[];for(const targetId of [...new Set(ids)]){const target=await this.service.store.get<Saved>('push-subscription',targetId);if(!target||target.ownerId!==p.userId)continue;results.push({targetId,status:await this.deliver(p,a.sessionId,a.displayId,target)});}
+  const result={id:key,ownerId:p.userId,digest,createdAt:Date.now(),status:'complete',results,note:'Accepted means the push provider accepted delivery, not proof the notification was displayed.'};await this.service.store.put('push-delivery',result);return result;
+ }
+ private async deliver(p:AuthPrincipal,sessionId:string,displayId:string,target:Saved){
+  const options=this.options;if(!options)return 'unavailable';
+  const current=await this.service.store.get<Saved>('push-subscription',target.id),browser=await this.service.store.get<BrowserSession>('browser',target.browserId);
+  if(!current||current.ownerId!==p.userId||current.browserId!==target.browserId)return 'disabled';
+  if(!browser||browser.userId!==p.userId||browser.expiresAt<=Date.now()||browser.scopedSessionId){await this.service.store.atomic(()=>this.service.store.delete('push-subscription',target.id));return 'disabled';}
+  await this.service.display(p,sessionId,displayId,'editor');if(!safePushEndpoint(target.subscription.endpoint))return 'unavailable';
+  const payload=JSON.stringify({title:'Kanvas is ready',body:'Open your session.',url:'/view/'+encodeURIComponent(sessionId)+'/'+encodeURIComponent(displayId),tag:'kanvas-session-'+sessionId});
+  try{if(options.send)await options.send(target.subscription,payload);else await webpush.sendNotification(target.subscription,payload,{TTL:300,timeout:5000,urgency:'normal',vapidDetails:{subject:options.subject,publicKey:options.publicKey,privateKey:options.privateKey}});return 'accepted';}
+  catch(e){const status=(e as {statusCode?:number}).statusCode;if(status===404||status===410){await this.service.store.atomic(()=>this.service.store.delete('push-subscription',target.id));return 'disabled';}return 'failed';}
+ }
  async canNotify(ownerId:string){
   if(!this.options)return false;
   for(const s of await this.service.store.list<Saved>('push-subscription'))if(s.ownerId===ownerId){const b=await this.service.store.get<BrowserSession>('browser',s.browserId);if(b&&b.userId===ownerId&&b.expiresAt>Date.now()&&!b.scopedSessionId)return true;}
@@ -31,7 +59,7 @@ export class SessionPush{
    }
    const records=(await this.service.store.list<Saved>('push-subscription')).filter(s=>s.ownerId===p.userId);
    if(!old&&records.length>=10)throw new AppError('LIMIT_REACHED','At most ten notification devices per account.',429);
-   await this.service.store.put('push-subscription',{id:key,ownerId:p.userId,browserId:p.browserId,subscription,createdAt:now()});return {enabled:true};
+   await this.service.store.put('push-subscription',{id:key,ownerId:p.userId,browserId:p.browserId,subscription,...(old?.ownerId===p.userId&&old.name?{name:old.name}:{}),createdAt:old?.ownerId===p.userId?old.createdAt:now()});return {enabled:true};
   });
  }
  async unsubscribe(p:AuthPrincipal){await this.service.fullAccount(p,'publish');await this.service.store.atomic(async()=>{for(const r of await this.service.store.list<Saved>('push-subscription'))if(r.ownerId===p.userId&&r.browserId===p.browserId)await this.service.store.delete('push-subscription',r.id);});return {enabled:false};}
@@ -53,17 +81,7 @@ export class SessionPush{
    await this.service.store.put('push-notice',{id:sessionId,sessionId,ownerId:p.userId,at:now()});
    return (await this.service.store.list<Saved>('push-subscription')).filter(s=>s.ownerId===p.userId).slice(0,10);
   });
-  for(const target of targets){
-   // Recheck immediately before egress; logout/revocation and account switching invalidate the binding.
-   const current=await this.service.store.get<Saved>('push-subscription',target.id),browser=await this.service.store.get<BrowserSession>('browser',target.browserId);
-   if(!current||current.ownerId!==p.userId||current.browserId!==target.browserId)continue;
-   if(!browser||browser.userId!==p.userId||browser.expiresAt<=Date.now()||browser.scopedSessionId){await this.service.store.atomic(()=>this.service.store.delete('push-subscription',target.id));continue;}
-   await this.service.display(p,sessionId,displayId,'editor');
-   if(!safePushEndpoint(target.subscription.endpoint))continue;
-   const payload=JSON.stringify({title:'Kanvas is ready',body:'Open your new session.',url:'/view/'+encodeURIComponent(sessionId)+'/'+encodeURIComponent(displayId),tag:'kanvas-session-'+sessionId});
-   try{if(options.send)await options.send(target.subscription,payload);else await webpush.sendNotification(target.subscription,payload,{TTL:300,timeout:5000,urgency:'normal',vapidDetails:{subject:options.subject,publicKey:options.publicKey,privateKey:options.privateKey}});}
-   catch(e){const status=(e as {statusCode?:number}).statusCode;if(status===404||status===410)await this.service.store.atomic(()=>this.service.store.delete('push-subscription',target.id));}
-  }
+  for(const target of targets)await this.deliver(p,sessionId,displayId,target);
  }
  async close(){await Promise.allSettled(this.active);}
 }

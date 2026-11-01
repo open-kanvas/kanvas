@@ -1,4 +1,4 @@
-# Venue displays, media and private templates (v0.27)
+# Venue displays, media and private templates
 
 Use kanvas_discover for exact schemas and kanvas_call for the returned operation
 IDs. Reconnect cached development connectors after upgrading. Examples describe

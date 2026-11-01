@@ -14,6 +14,7 @@ Read the current catalog through `kanvas_discover` with `catalog:"templates"`: `
 - [Data displays](data-displays.md)
 - [Document excerpts](document-excerpts.md)
 - [Drafting](drafting.md)
+- [Flashcards](flashcards.md)
 - [Forms](forms.md)
 - [Html](html.md)
 - [Images](images.md)

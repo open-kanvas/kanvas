@@ -8,7 +8,7 @@ A glanceable, day-grouped plan with time, place, activity, description and outbo
 
 Supply up to 31 days and 50 items per day. Times and places are source labels; there is no booking, routing, availability lookup or geocoding. Empty/omitted optional details are not invented.
 
-Read `kanvas_call` with `operationId:"kanvas.template.get"` and nested `arguments` for `itinerary` before constructing a prepared view. It returns the exact same schema used by `kanvas_call` with `operationId:"kanvas.view.validate"` and nested `arguments` and publishing.
+Read `kanvas_discover` with `catalog:"templates", action:"get", id:"kanvas.template.itinerary"` for `itinerary` before constructing a prepared view. It returns the exact same schema used by `kanvas_call` with `operationId:"kanvas.view.validate"` and nested `arguments` and publishing.
 
 ## Illustrative example
 

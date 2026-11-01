@@ -14,6 +14,6 @@ Required fields are `sourceText`, `targetText`, `sourceLanguage` and `targetLang
 
 ## Boundary
 
-The deterministic renderer displays the supplied original and translation; it does not independently verify translation quality or infer missing source text. Both sections are always visible in this dedicated template,. The same strict view validation applies before publication.
+The deterministic renderer displays the supplied original and translation; it does not independently verify translation quality or infer missing source text. Both sections are always visible in this dedicated template. The same strict view validation applies before publication.
 
 See the [template index](README.md) and [authoritative schemas](../../src/shared/view-schemas.ts).

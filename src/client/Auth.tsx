@@ -27,6 +27,13 @@ export function AuthScreen({ viewer, authorizationRequestId }: { viewer?: Viewer
     </div><span className="auth-footnote"><Icon name="lock" size={13}/>Private by default. Public only when the owner chooses.</span></div></main>;
 }
 
+export function ConnectorSignin({requestId}:{requestId:string}){
+ const auth=useAuth(),[request,setRequest]=useState<{clientName:string;scopes:string[];userCode?:string}>(),[error,setError]=useState('');
+ useEffect(()=>{const c=new AbortController();void api<NonNullable<typeof request>>(`/api/oauth/requests/${encodeURIComponent(requestId)}`,{signal:c.signal}).then(setRequest).catch(e=>{if(!c.signal.aborted)setError(errorMessage(e));});return()=>c.abort();},[requestId]);
+ if(request?.userCode)return auth.user&&!auth.viewOnly?<ConsentScreen requestId={requestId}/>:<AuthScreen authorizationRequestId={requestId}/>;
+ return <main className="consent-layout"><Wordmark/><section className="consent-card"><h1>Connect {request?.clientName??'your agent'}</h1>{error?<ErrorNotice message={error}/>:!request?<Loading label="Checking connection"/>:<><p>Give this client {request.scopes.includes('publish')?'reading and publishing':'reading'} access to your Kanvas account. Only continue for a connection you started.</p><EmailRequest authorizationRequestId={requestId} accountEmail={auth.user?.username}/></>}</section></main>;
+}
+
 interface PairingRecord { closeReason?:'label-collision'|'too-many-attempts';selfName?:string;id: string; label: string; status: 'pending' | 'approved' | 'denied' | 'expired' | 'revoked' | 'cancelled'; expiresAt: string; sessionId?: string; displayId?: string }
 function PairingScreen({ viewer, onBack }: { viewer: ViewerRoute; onBack: () => void }) {
   const { refresh } = useAuth();

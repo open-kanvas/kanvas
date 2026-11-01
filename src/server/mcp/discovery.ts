@@ -138,7 +138,7 @@ const HELP_SECTION_SUMMARIES: Record<string, string> = {
   'feedback.offer': 'Offer feedback once after confusion or errors, and file only with user request or consent.',
   'feedback.tools': 'Find feedback filing, error reporting, report reading, review and author follow-up capabilities.',
   'feedback.limits': 'Check exact title, description, reproduction and UTF-8 report-size limits before filing.',
-  'feedback.instructions': 'File scoped private reports, read complete pages, follow up with revisions, and protect credentials.',
+  'feedback.instructions': 'File private contextual reports, read complete pages, follow up with revisions, and protect credentials.',
 };
 function helpSectionSummary(topic: string, section: string, value: unknown): string {
   const description = HELP_SECTION_SUMMARIES[`${topic}.${section}`];

@@ -1,6 +1,6 @@
 # Account-only device authorization implementation
 
-Status: development implementation, not a production release. Baseline PR10 is preserved.
+Current RFC8628 device-flow contract. Standard browser OAuth now requires fresh email confirmation; see integration/oauth-lifecycle.md. Deployment-specific evidence is maintained separately.
 
 ## Contract
 
@@ -24,7 +24,7 @@ Additive generic-store record kinds only (`oauth-device` and optional consent fi
 
 ## Verification
 
-Exact-commit gates and client compatibility results will be recorded after tests. Standards coverage is not proof of named-host support; untested interactive host acceptance remains pending. References: RFC 8628 §§3–5, RFC 7591 registration, RFC 8707 resource indicators; MCP authorization discovery preserves the existing public OAuth and protected-resource metadata.
+Release gates and client compatibility results are recorded separately for each exact commit. Standards coverage is not proof of named-host support; untested interactive host acceptance remains pending. References: RFC 8628 §§3–5, RFC 7591 registration, RFC 8707 resource indicators; MCP authorization discovery preserves the existing public OAuth and protected-resource metadata.
 
 ## Version-pinned compatibility and recipes
 

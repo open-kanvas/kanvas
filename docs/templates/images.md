@@ -4,7 +4,7 @@
 
 The `image` template displays one to four supplied images. A single image uses the entire available frame, with no title bar, caption footer, source widget or utility bar by default. It scales proportionally to **contain the complete image**. Empty space caused by a different screen/image aspect ratio is intentional; filling it must not crop or stretch the source unexpectedly.
 
-`title`, every image's exact `alt` and `caption`, and all `source` metadata remain in the validated/stored view. Hiding decorative metadata does not delete it or change the source image. Alt text remains available to assistive technology, including an explicitly empty alt. Metadata is also available through the display's deliberate information menu.
+`title`, every image's exact `alt` and `caption`, and all `source` metadata remain in the validated/stored view. Hiding decorative metadata does not delete it or change the source image. Alt text remains available to assistive technology, including an explicitly empty alt. An agent can read stored metadata; explicitly setting showSource displays the in-view source/info affordance. The corner menu no longer contains About this view.
 
 ## Explicit presentation options
 

@@ -1,13 +1,5 @@
-# Quick fact / emphasis
+# Quick facts and emphasis
 
-**Status:** Accepted category; individual layouts and implementation details remain exploratory. Planning only, not a committed feature list.
+Implemented templates: `fact`, `number`, `quote` and `kpi`. Use one clear idea or measured value, its unit/meaning and necessary source context. Fact supports exact text, optional subtitle and supplied short items. Number accepts a numeric or exact-text value with label, unit and comparison; never invent a value for an empty source. Quote preserves attribution and source wording. KPI displays supplied metrics, not a backend metric calculation.
 
-## Candidate layouts
-
-Big number, short phrase, one-sentence fact, definition, attributed quotation.
-
-## Core information
-
-Value or text, meaning/unit, optional source/context.
-
-See the [template index](README.md) for shared planning boundaries and related categories.
+Get the selected template's current schema through `kanvas_discover` before publishing. Titles and source fields belong beside data, not inside it. [Template index](README.md).

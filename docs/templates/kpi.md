@@ -8,7 +8,7 @@ A small cluster of exact values, changes and trend indicators.
 
 Designed primarily for three to five values; accepts one to eight. Values and deltas are strings, not floating-point conversions. Trend directions are supplied, not interpreted as inherently good or bad. Longer values receive more width; detail remains scrollable on small displays.
 
-Read `kanvas_call` with `operationId:"kanvas.template.get"` and nested `arguments` for `kpi` before constructing a prepared view. It returns the exact same schema used by `kanvas_call` with `operationId:"kanvas.view.validate"` and nested `arguments` and publishing.
+Read `kanvas_discover` with `catalog:"templates", action:"get", id:"kanvas.template.kpi"` for `kpi` before constructing a prepared view. It returns the exact same schema used by `kanvas_call` with `operationId:"kanvas.view.validate"` and nested `arguments` and publishing.
 
 ## Illustrative example
 

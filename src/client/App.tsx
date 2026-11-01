@@ -3,7 +3,7 @@ import { SessionEntry } from './PublicSession';
 import { DeviceReceiver, LiveEntry } from './DeviceReceiver';
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from './hooks';
-import { AuthScreen, ConsentScreen, DeviceConnectScreen, type ViewerRoute } from './Auth';
+import { AuthScreen, ConsentScreen, ConnectorSignin, DeviceConnectScreen, type ViewerRoute } from './Auth';
 import { Wordmark } from './icons';
 import { viewerPath } from './api';
 import { ShareScreen, parseShareRoute } from './Share';
@@ -30,8 +30,7 @@ function Router({ emailToken }: { emailToken?: string }) {
   if (window.location.pathname === '/connect') return <DeviceConnectScreen/>;
   if (authorize !== null) {
     if (!/^[A-Za-z0-9_-]{1,128}$/.test(authorize)) return <main className="consent-layout"><Wordmark/><h1>This connection request is invalid.</h1><p>Return to your agent and choose Connect again.</p><a href="/">Return to KANVAS</a></main>;
-    if (!auth.user || auth.viewOnly || auth.captureOnly) return <AuthScreen authorizationRequestId={authorize}/>;
-    return <ConsentScreen key={authorize} requestId={authorize}/>;
+    return <ConnectorSignin key={authorize} requestId={authorize}/>;
   }
   const shareId = parseShareRoute(window.location.pathname);
   if (shareId) return <ShareScreen key={shareId} shareId={shareId} />;
@@ -48,6 +47,7 @@ function Router({ emailToken }: { emailToken?: string }) {
 
   // The root URL is the account home (sessions, new session, account). Screens
   // and installed apps use the live start page, /start.
+  if(auth.viewOnly&&auth.sessionId&&!auth.displayId){window.location.replace(`/session/${encodeURIComponent(auth.sessionId)}`);return <main className="app-loading">Opening approved session…</main>;}
   if(window.location.pathname==='/console')return <Workspace/>;
   if(window.location.pathname==='/')return <Overview/>;
   if(window.location.pathname==='/start')return <LiveEntry/>;
@@ -56,6 +56,8 @@ function Router({ emailToken }: { emailToken?: string }) {
 }
 function AccountBoundary({emailToken}:{emailToken?:string}) {
   const auth=useAuth();
+  // Confirmation is one-shot: another tab completing it must not remount and inspect the consumed link.
+  if(emailToken)return <EmailConfirmation key={emailToken} token={emailToken}/>;
   // An account switch in another tab must discard cached workspace/device data.
   return <DeviceReceiver key={`${auth.user?.id??'signed-out'}:${auth.sessionId??''}:${auth.displayId??''}`} suspended={Boolean(emailToken)}><Router emailToken={emailToken}/></DeviceReceiver>;
 }

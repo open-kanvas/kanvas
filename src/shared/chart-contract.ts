@@ -182,7 +182,7 @@ export const chartDataSchema = z.object({
 
   referenceLines:z.array(z.object({value:finite,label:short.optional(),color:z.string().regex(/^#[0-9a-fA-F]{6}$/).optional()}).strict()).max(8).optional().describe('Supplied y-axis targets for Cartesian line/bar/scatter/histogram/box charts.'),
   kind: z.enum(CHART_KINDS).default('line'),
-  series: z.array(z.object({ name: label,color:z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),kind:z.enum(['bar','line','area']).optional(),axis:z.enum(['primary','secondary']).optional(),lineWidth:z.number().min(1).max(8).optional(),dashed:z.boolean().optional(), points: z.array(chartPointSchema).max(pointLimit) }).strict()).max(16).default([]),
+  series: z.array(z.object({ name: label,stackGroup:identifier.optional().describe('Independent stack identifier within this axis and chart kind. Bar stack groups occupy side-by-side slots; lines remain independent.'),color:z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),kind:z.enum(['bar','line','area']).optional(),axis:z.enum(['primary','secondary']).optional(),lineWidth:z.number().min(1).max(8).optional(),dashed:z.boolean().optional(), points: z.array(chartPointSchema).max(pointLimit) }).strict()).max(16).default([]),
   nodes: z.array(chartNodeSchema).max(200).optional(), links: z.array(chartLinkSchema).max(500).optional(), directed: z.boolean().optional(),
   regions: z.array(chartRegionSchema).max(250).optional(), radarAxes: z.array(radarAxisSchema).min(3).max(16).optional(), gauge: gaugeSchema.optional(),
   xLabel: short.optional(), yLabel: short.optional(), unit: z.string().max(80).optional(), binding: datasetBindingSchema.optional(), summary: summarySchema.optional(),
@@ -191,11 +191,11 @@ export const chartDataSchema = z.object({
   if(data.referenceLines?.length&&!['line','bar','scatter','histogram','box'].includes(data.kind))issue('Reference lines require a Cartesian line/bar/scatter/histogram/box chart');
   if(data.emphasis?.length&&!['line','bar','scatter','histogram','box','heatmap'].includes(data.kind))issue('Point emphasis supports Cartesian and heatmap charts');
   for(const e of data.emphasis??[])if(e.row!==undefined||e.column!==undefined||e.point===undefined||((!data.binding||data.series.length>0)&&!data.series.some(s=>(e.series===undefined||s.name===e.series)&&e.point!<s.points.length)))issue('Chart emphasis targets an existing series and zero-based point index',['emphasis']);
-  if((data.stacking||data.orientation||data.showValues!==undefined||data.showTotals!==undefined||data.numberFormat||data.yMin!==undefined||data.yMax!==undefined||data.series.some(s=>s.kind||s.axis||s.color||s.lineWidth||s.dashed))&&!['bar','line','area'].includes(data.kind))issue('Composable axes/stacking/options apply to bar, line and area charts');
-  if(data.stacking&&data.stacking!=='grouped'&&data.series.some(s=>s.axis==='secondary'||s.kind&&s.kind!==data.kind))issue('Stacked series must use one axis and one chart kind');
-  if(data.stacking==='percent'&&data.series.some(s=>s.points.some(p=>typeof p.y==='number'&&p.y<0)))issue('Percent stacks require non-negative values');
+  if((data.stacking||data.orientation||data.showValues!==undefined||data.showTotals!==undefined||data.numberFormat||data.yMin!==undefined||data.yMax!==undefined||data.series.some(s=>s.stackGroup||s.kind||s.axis||s.color||s.lineWidth||s.dashed))&&!['bar','line','area'].includes(data.kind))issue('Composable axes/stacking/options apply to bar, line and area charts');
+  if(data.series.some(s=>s.stackGroup&&(s.kind??data.kind)==='line'))issue('Line series cannot stack; omit stackGroup on lines');
+  if(data.stacking==='percent'&&data.series.some(s=>(s.kind??data.kind)!=='line'&&s.points.some(p=>typeof p.y==='number'&&p.y<0)))issue('Percent stacks require non-negative values');
   if(data.yMin!==undefined&&data.yMax!==undefined&&data.yMin>=data.yMax)issue('yMax must exceed yMin');
-  if((data.stacking==='stacked'||data.stacking==='percent')&&data.series.some(s=>new Set(s.points.map(p=>p.x)).size!==s.points.length))issue('Stacked series require unique x categories');
+  if((data.stacking==='stacked'||data.stacking==='percent'||data.series.some(s=>s.stackGroup))&&data.series.some(s=>new Set(s.points.map(p=>p.x)).size!==s.points.length))issue('Stacked series require unique x categories');
   const points = data.series.flatMap(series => series.points);
   const graphKind = ['network', 'sankey', 'treemap'].includes(data.kind);
   if (!data.binding && !points.length && !(graphKind && data.nodes?.length) && !(data.kind === 'choropleth' && data.regions?.length)) issue('Chart requires points, source geometry/structure, or a dataset binding');

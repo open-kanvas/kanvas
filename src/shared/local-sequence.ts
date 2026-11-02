@@ -43,7 +43,7 @@ export function changeCaptionSequence(data:CaptionData,op:SequenceOperation,nowM
   if(op.action==='append'||op.action==='replace-future') {
     chunks=[...(op.action==='append'?chunks:chunks.slice(0,status.index+1)),...op.chunks!];
     // Appending after completion starts the added material now, not in the elapsed past.
-    if(status.phase==='complete'&&playback.state==='playing') playback={state:'playing',positionMs:status.durationMs,startedAt:new Date(nowMs).toISOString()};
+    if((status.phase==='complete'||status.phase==='empty')&&playback.state==='playing') playback={state:'playing',positionMs:status.durationMs,startedAt:new Date(nowMs).toISOString()};
   }
   if(op.action==='replace'||op.action==='clear') {chunks=op.chunks??[];playback={state:'paused',positionMs:0};}
   if(op.action==='pause') playback={state:'paused',positionMs:status.positionMs};

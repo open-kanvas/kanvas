@@ -147,6 +147,20 @@ describe('authorization expiry and paired-screen exchange boundaries', () => {
     denied(await screen.request('GET', b.url));
   });
 
+  it('authorizes timeline card images and only the active supplied visual, never inactive states',async()=>{
+    const owner=await h.account(),session=await owner.session(),display=await owner.display(session.id);
+    const asset=async(name:string)=>success(await owner.request<AssetRecord>('POST',`/api/sessions/${session.id}/assets`,{name,mimeType:'image/png',base64:PNG}));
+    const a=await asset('prototype.png'),b=await asset('testing.png'),card=await asset('card.png');
+    const events=[{id:'prototype',title:'Prototype',start:'2026-02-01',image:{url:card.url,alt:'Card'},visual:{kind:'image',url:a.url,alt:'Prototype'}},{id:'testing',title:'Testing',start:'2026-03-01',visual:{kind:'image',url:b.url,alt:'Testing'}}];
+    const submit=async(activeEventId?:string)=>owner.submit(session.id,[display.id],{version:1,template:'timeline',data:{events,...(activeEventId?{activeEventId}:{})}});
+    await submit('prototype');const {screen,record}=await pair(h,owner,session.id,display.id);success(await screen.request('GET',`/api/pairings/${record.id}/status`));
+    for(const url of [a.url,card.url]){const r=await screen.raw(url);expect(r.status).toBe(200);await r.arrayBuffer();}
+    denied(await screen.request('GET',b.url));await submit('testing');denied(await screen.request('GET',a.url));
+    const r=await screen.raw(b.url);expect(r.status).toBe(200);await r.arrayBuffer();
+    await submit();denied(await screen.request('GET',a.url));denied(await screen.request('GET',b.url));
+    const stillCard=await screen.raw(card.url);expect(stillCard.status).toBe(200);await stillCard.arrayBuffer();
+  });
+
   it('ends an already-connected paired viewer stream when the owner revokes the grant', async () => {
     const owner = await h.account(), session = await owner.session(), display = await owner.display(session.id);
     const { screen, record } = await pair(h, owner, session.id, display.id);

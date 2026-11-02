@@ -93,6 +93,26 @@ describe('revision-bound partial view patches', () => {
   beforeEach(async () => { f = new Fixture(); (await f.seed()); });
   afterEach(async () => { (await f.store.close()); });
 
+  it('progresses timeline stable IDs atomically with retained visuals, retries, history and CAS',async()=>{
+    const events=[{id:'testing',title:'User testing',start:'2026-03-01',visual:{kind:'image',url:'https://example.com/testing.png',alt:'Testing'}},{id:'prototype',title:'Prototype',start:'2026-02-01',visual:{kind:'image',url:'https://example.com/prototype.png',alt:'Prototype'}}];
+    await f.seed({version:1,template:'timeline',data:{events}});
+    const request=await f.request([{op:'timeline',action:'select',eventId:'prototype'}]);
+    const first=await f.engine.patch(owner,request);expect(await f.engine.patch(owner,request)).toEqual(first);
+    expect((await f.read()).view!.data.activeEventId).toBe('prototype');
+    await f.patch([{op:'timeline',action:'next'}]);const after=await f.read();expect(after.view!.data.activeEventId).toBe('testing');expect(after.view!.data.events).toEqual(events);
+    expect((await f.history.list(after)).entries.map(e=>e.reason)).toEqual(['initial','patch','patch']);
+    await errorCode(()=>f.engine.patch(owner,{...request,requestId:'timeline-stale'}),'REVISION_CONFLICT');
+    await errorCode(()=>f.patch([{op:'timeline',action:'previous'},{op:'timeline',action:'select',eventId:'missing'}]),'PATCH_PATH_CONFLICT');expect(await f.read()).toEqual(after);
+    await errorCode(async()=>f.engine.patch({userId:'stranger'},await f.request([{op:'timeline',action:'next'}])),'FORBIDDEN');
+    await f.patch([{op:'timeline',action:'next'}]);expect((await f.read()).view!.data.activeEventId).toBe('testing');
+    await f.patch([{op:'timeline',action:'clear'},{op:'timeline',action:'previous'}]);expect((await f.read()).view!.data.activeEventId).toBe('testing');
+    await f.patch([{op:'timeline',action:'previous'},{op:'timeline',action:'previous'}]);expect((await f.read()).view!.data.activeEventId).toBe('prototype');
+    await f.patch([{op:'timeline',action:'clear'}]);expect((await f.read()).view!.data.activeEventId).toBeUndefined();
+    await f.patch([{op:'timeline',action:'next'}]);expect((await f.read()).view!.data.activeEventId).toBe('prototype');
+    await errorCode(()=>f.patch([{op:'timeline',action:'next',eventId:'prototype'}]),'PATCH_UNSUPPORTED');
+    await expect(f.patch([{op:'set',path:'/data/activeEventId',value:'missing'}])).rejects.toThrow();
+  });
+
   it('patches roster assignments atomically by semantic identity and preserves unrelated data',async()=>{
     await f.seed({version:1,template:'roster',data:{start:'2026-10-01',end:'2026-10-02',people:[{id:'a',name:'A'},{id:'b',name:'B'}],shifts:[{id:'d',label:'Day'},{id:'v',label:'Vacation'}],assignments:[{date:'2026-10-01',person:'a',shift:'d'},{date:'2026-10-01',person:'b',shift:'d',note:'Untouched'}]}});
     const request=await f.request([{op:'roster',action:'remove',date:'2026-10-01',person:'a',shift:'d'},{op:'roster',action:'add',date:'2026-10-01',person:'a',shift:'v',value:{note:'Leave'}}]);

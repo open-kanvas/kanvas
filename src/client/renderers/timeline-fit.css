@@ -34,3 +34,15 @@
 .temporal-vertical .temporal-ticks{position:absolute;left:12px;top:100px;height:360px;flex-direction:column;font-size:11px;justify-content:space-between}
 .temporal-vertical .temporal-ticks time:first-child{transform:none}
 }
+
+.temporal-stage{border:1px solid #8885;border-radius:16px;padding:20px;margin-bottom:24px;min-height:220px;max-height:55vh;overflow:auto}
+.temporal-stage h2{margin:0 0 12px}.temporal-stage figure{margin:0;text-align:center}.temporal-stage img{max-width:100%;max-height:36vh;object-fit:contain}.temporal-stage .diagram-scroll{height:320px;min-height:220px}.temporal-stage .chart-container{min-height:260px}
+.temporal-event.is-active{background:color-mix(in srgb,var(--source-accent,#60a5fa) 12%,transparent);box-shadow:inset 3px 0 var(--source-accent,#60a5fa);border-radius:8px}
+.temporal-plot{position:relative}
+@media(min-width:651px){.temporal-vertical .temporal-ticks{left:-118px;top:0}}
+@media(prefers-reduced-motion:reduce){.temporal-stage,.temporal-event{transition:none;animation:none}}
+
+@media(min-width:651px){.temporal-timeline[data-progressive=true] .temporal-event{padding-block:8px}.temporal-timeline[data-progressive=true] .temporal-card p{font-size:14px}.temporal-horizontal[data-progressive=true] .temporal-lane{height:40px}}
+.temporal-ticks:has(time:only-child){justify-content:center}
+
+.temporal-event.is-active .temporal-card{padding-left:12px;box-sizing:border-box}

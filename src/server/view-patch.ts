@@ -1,3 +1,5 @@
+import { timelineScale } from '../shared/timeline.js';
+import type { ExtendedData } from '../shared/extended-templates.js';
 import {assertExpectedRevision} from './revisions.js';
 import { isDeepStrictEqual } from 'node:util';
 import { z } from 'zod';
@@ -38,7 +40,7 @@ export interface ViewPatchHost {
 }
 
 const unsafeKeys = new Set(['__proto__', 'prototype', 'constructor']);
-const inputFields = new Set(['sessionId', 'displayId', 'requestId', 'expectedRevision', 'operations', 'op', 'path', 'value', 'itemId', 'action', 'beforeId', 'text', 'detail', 'checked']);
+const inputFields = new Set(['sessionId', 'displayId', 'requestId', 'expectedRevision', 'operations', 'op', 'path', 'value', 'itemId', 'action', 'beforeId', 'eventId', 'text', 'detail', 'checked']);
 const participationTemplates = new Set(['poll', 'form', 'qa']);
 const responseFields = new Set(['responseState', 'responses', 'participants', 'totalVotes', 'totalResponses', 'counts', 'count', 'votes', 'voteCount', 'responseCount', 'selectedOptionIds', 'entries', 'submitted']);
 const arrayIndex = /^(?:0|[1-9]\d*)$/;
@@ -113,6 +115,20 @@ function assertPatchTarget(view: ViewSpec, parts: string[]): void {
 }
 
 function applyOperation(view: ViewSpec, operation: ViewPatchOperation): void {
+  if(operation.op==='timeline'){
+    if(view.template!=='timeline')unsupported('Timeline progression requires a timeline view.');
+    if((operation.action==='select')!==Boolean(operation.eventId))unsupported('Supply eventId only for select.');
+    const data=view.data as ExtendedData<'timeline'>;
+    const events=timelineScale(data.events).events;
+    if(operation.action==='clear'){delete data.activeEventId;return;}
+    if(operation.action==='select'){
+      if(!events.some(event=>event.id===operation.eventId))pathConflict();
+      data.activeEventId=operation.eventId;return;
+    }
+    const at=events.findIndex(event=>event.id===data.activeEventId);
+    const next=at<0?(operation.action==='next'?0:events.length-1):Math.max(0,Math.min(events.length-1,at+(operation.action==='next'?1:-1)));
+    data.activeEventId=events[next].id;return;
+  }
   if(operation.op==='roster') {
     if(view.template!=='roster'||view.data.mode==='coverage')unsupported('Roster assignment operations require individual mode.');
     const assignments=view.data.assignments as {date:string;shift:string;person?:string;code?:string;note?:string}[];

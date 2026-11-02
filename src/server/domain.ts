@@ -558,6 +558,7 @@ export class KanvasService implements McpService {
     });
   }
   async verifyView(principal: AuthPrincipal, sessionId: string, value: ViewSpec): Promise<Awaited<ViewSpec>> {
+    if(value.template==='live-captions'&&process.env.KANVAS_CAPTIONS_ENABLED==='false')throw new AppError('FEATURE_DISABLED','Live Captions publication is disabled on this installation.',403);
     try{assertJsonBudget(value);}catch{throw new InputError([{path:'view',problem:'Exceeds the supported content size or complexity.'}]);}
     if(value.template==='presentation'&&Array.isArray(value.data.slides)){const slides:ViewSpec[]=[];for(const slide of value.data.slides as ViewSpec[])slides.push(await this.verifyView(principal,sessionId,slide));value={...value,data:{...value.data,slides}};}
     if(value.template==='account-template')value=await this.customTemplates.resolve(principal,value);

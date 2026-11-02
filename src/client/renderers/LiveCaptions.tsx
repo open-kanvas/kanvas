@@ -6,7 +6,7 @@ export function useSequence(items:TimedItem[],playback:Playback,serverNow?:strin
   const anchor=useRef<{source?:string;server:number;mono:number}|null>(null);
   if(!anchor.current||anchor.current.source!==serverNow) anchor.current={source:serverNow,server:serverNow&&Number.isFinite(Date.parse(serverNow))?Date.parse(serverNow):Date.now(),mono:performance.now()};
   const [,tick]=useState(0);
-  useEffect(()=>{if(preview)return;const update=()=>tick(v=>v+1);const timer=window.setInterval(update,100);document.addEventListener('visibilitychange',update);return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',update);};},[preview]);
+  useEffect(()=>{if(preview||playback.state!=='playing')return;const update=()=>tick(v=>v+1);const timer=window.setInterval(update,100);document.addEventListener('visibilitychange',update);return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',update);};},[preview,playback.state]);
   return sequenceStatus(items,preview?{state:'paused',positionMs:0}:playback,anchor.current.server+performance.now()-anchor.current.mono);
 }
 export function LiveCaptions({data,serverNow,preview}:{data:CaptionData;serverNow?:string;preview?:boolean}) {

@@ -390,3 +390,21 @@ describe('revision-bound partial view patches', () => {
     expect((await f.requestCount())).toBe(0); expect(f.publish).not.toHaveBeenCalled(); expect((await f.read()).revision).toBe(before.revision);
   });
 });
+
+describe('math workspace stable-ID patch integration',()=>{
+ it('atomically replaces an annotated term, appends a line, preserves untouched content and rejects dangling order',async()=>{
+  const f=new Fixture();
+  try {
+   await f.seed({version:1,template:'math',data:{expressions:{first:{latex:'\\frac{1}{\\term{den}}',terms:{den:{latex:'x'}}}},order:['first']}});
+   await f.patch([{op:'set',path:'/data/expressions/first/terms/den/latex',value:'x+1'},{op:'set',path:'/data/expressions/first/terms/den/emphasis',value:'box'},{op:'set',path:'/data/expressions/second',value:{latex:'y=2'}},{op:'set',path:'/data/order',value:['first','second']}]);
+   const current=await f.read();
+   expect((current.view!.data.expressions as any).first.latex).toBe('\\frac{1}{\\term{den}}');
+   expect((current.view!.data.expressions as any).first.terms.den.latex).toBe('x+1');
+   expect((await f.history.list(current)).entries.length).toBe(2);
+   const previous=await f.history.target(current,'back');
+   expect((previous.entry.view!.data.expressions as any).first.terms.den.latex).toBe('x');
+   await expect(f.patch([{op:'remove',path:'/data/expressions/first'}])).rejects.toBeTruthy();
+   expect((await f.read()).revision).toBe(current.revision);
+  } finally {await f.store.close();}
+ });
+});

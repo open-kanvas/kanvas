@@ -9,3 +9,14 @@ describe('timeline temporal semantics',()=>{
  it('handles one instant and short UTC times',()=>{const s=timelineScale([{id:'a',title:'A',start:'2026-01-01'}]);expect(s.position('2026-01-01')).toBe(.5);expect(timelineDate('2026-01-01T12:30:01Z',1000)).toBe('12:30:01.000 UTC');});
  it('rejects reversed duration and unsafe images',()=>{expect(extendedSchemas.timeline.safeParse({events:[{id:'a',title:'A',start:'2026-01-02',end:'2026-01-01'}]}).success).toBe(false);expect(extendedSchemas.timeline.safeParse({events:[{id:'a',title:'A',start:'2026-01-01',image:{url:'javascript:alert(1)',alt:'bad'}}]}).success).toBe(false);});
 });
+
+it('requires supplied active IDs and valid reusable visual contracts',()=>{
+ const event={id:'prototype',title:'Prototype',start:'2026-02-01'};
+ expect(extendedSchemas.timeline.safeParse({events:[event],activeEventId:'missing'}).success).toBe(false);
+ expect(extendedSchemas.timeline.safeParse({events:[{...event,visual:{kind:'image',url:'javascript:alert(1)',alt:'bad'}}]}).success).toBe(false);
+ expect(extendedSchemas.timeline.safeParse({events:[{...event,visual:{kind:'chart',data:{kind:'bar',series:[{name:'Supplied',points:[{x:'A',y:3}]}]}}}],activeEventId:'prototype'}).success).toBe(true);
+});
+
+it('does not accept session-wide library grants as progression-scoped image states',()=>{
+ expect(extendedSchemas.timeline.safeParse({events:[{id:'a',title:'A',start:'2026-01-01',visual:{kind:'image',url:'/api/media/library',alt:'Library'}}]}).success).toBe(false);
+});

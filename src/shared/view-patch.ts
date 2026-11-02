@@ -1,3 +1,4 @@
+import { instrumentOperationSchema, instrumentSequenceOperationSchema } from './instrument.js';
 import { sequenceOperationSchema } from './local-sequence.js';
 import { z } from 'zod';
 
@@ -18,6 +19,8 @@ const itemId = z.string().min(1).max(128);
 const itemFields = { text:z.string().min(1).max(1000).optional(), detail:z.string().max(1000).nullable().optional(), checked:z.boolean().optional() };
 
 export const viewPatchOperationSchema = z.discriminatedUnion('op', [
+  instrumentOperationSchema,
+  instrumentSequenceOperationSchema,
   sequenceOperationSchema,
   z.object({op:z.literal('roster'),action:z.enum(['add','remove','update']),date:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),shift:itemId,person:itemId.optional(),value:z.object({code:z.string().min(1).max(8).nullable().optional(),note:z.string().max(200).nullable().optional()}).strict().optional()}).strict().describe('Target one roster assignment by date+shift+optional person. add/remove/update; value code/note, null clears. Atomic and revision-bound.'),
   z.object({op:z.literal('checklist'),itemId,action:z.enum(['add','remove','update','move']),value:z.object(itemFields).strict().optional(),beforeId:itemId.optional()}).strict().describe('Checklist ID: add/update value; detail:null clears. add/move beforeId or append.'),

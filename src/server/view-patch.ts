@@ -1,3 +1,4 @@
+import { instrumentDataSchema, changeInstrument, changeInstrumentSequence } from '../shared/instrument.js';
 import { captionDataSchema, changeCaptionSequence } from '../shared/local-sequence.js';
 import {assertExpectedRevision} from './revisions.js';
 import { isDeepStrictEqual } from 'node:util';
@@ -114,6 +115,18 @@ function assertPatchTarget(view: ViewSpec, parts: string[]): void {
 }
 
 function applyOperation(view: ViewSpec, operation: ViewPatchOperation): void {
+  if(operation.op==='instrument-sequence') {
+    if(view.template!=='instrument') unsupported('Timed instrument frames require instrument view.');
+    try {view.data=changeInstrumentSequence(instrumentDataSchema.parse(view.data),operation,Date.now());}
+    catch {unsupported('Invalid instrument sequence transition, target IDs or duration.');}
+    return;
+  }
+  if(operation.op==='instrument') {
+    if(view.template!=='instrument') unsupported('Instrument updates require instrument view.');
+    try {view.data=changeInstrument(instrumentDataSchema.parse(view.data),operation);}
+    catch {unsupported('Invalid instrument targets or supplied element data. Read the current configuration.');}
+    return;
+  }
   if(operation.op==='sequence') {
     if(view.template!=='live-captions') unsupported('Sequence captions require live-captions.');
     try {view.data=changeCaptionSequence(captionDataSchema.parse(view.data),operation,Date.now());}

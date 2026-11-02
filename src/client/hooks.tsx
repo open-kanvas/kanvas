@@ -17,6 +17,7 @@ function returningScreen() {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [signingOut, setSigningOut] = useState(false);
   const [previouslyAuthenticated, setPreviouslyAuthenticated] = useState(returningScreen);
   const [scope, setScope] = useState<{ receiverDeviceId?:string; viewOnly?: boolean; captureOnly?: boolean; interactive?: boolean; sessionId?: string; displayId?: string }>({});
   const [signoutReason,setSignoutReason]=useState<string>();
@@ -55,11 +56,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return()=>{for(const event of events)window.removeEventListener(event,active);};
   },[user?.id,scope.viewOnly,scope.captureOnly]);
   const logout = async () => {
-    await api('/api/auth/logout', { method: 'POST', body: {} });
+    // Once auth clears, keep the old route behind a neutral boundary until root loads.
+    // Keep the signed-in caller mounted while pending so failures retain its error UI.
+    setSigningOut(true);
+    try { await api('/api/auth/logout', { method: 'POST', body: {} }); }
+    catch (error) { setSigningOut(false); throw error; }
     setCsrfToken(''); setUser(null); setScope({}); setAuthError(null);
     window.location.replace('/');
   };
-  return <AuthContext.Provider value={{ user, loading, previouslyAuthenticated, signoutReason, error: authError, ...scope, refresh, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, loading: loading || (signingOut && !user), previouslyAuthenticated, signoutReason, error: authError, ...scope, refresh, logout }}>{children}</AuthContext.Provider>;
 }
 
 export type ConnectionState = 'connecting' | 'live' | 'offline' | 'closed';

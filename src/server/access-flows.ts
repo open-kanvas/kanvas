@@ -233,6 +233,7 @@ export async function pairedDisplayAllowsAsset(store: Store, principal: AuthPrin
     if (!view || !view.data || depth > 1) return false;
     const data = view.data;
     if (view.template === 'image' || view.template === 'document') return images(data.images);
+    if (view.template === 'timeline' && Array.isArray(data.events)) return data.events.some(event=>event && typeof event==='object' && (event as {image?:{url?:unknown}}).image && matches((event as {image:{url?:unknown}}).image.url));
     if (view.template === 'video') return matches(data.url) || matches(data.poster);
     if (view.template === 'web') return matches(data.snapshotUrl);
     if (['product','profile','quote','recipe'].includes(view.template)) return Boolean(data.image && typeof data.image === 'object' && matches((data.image as {url?:unknown}).url));

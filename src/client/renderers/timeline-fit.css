@@ -6,3 +6,31 @@
 .timeline-natural-rows .timeline-event p{max-height:none;overflow:visible;line-height:1.6}
 .timeline-natural-rows .timeline-event h3{line-height:1.4}
 .web-trust-label{font-size:.78rem;line-height:1.35;opacity:.7;margin:0 0 10px}
+/* Temporal lanes keep exact elapsed-time geometry independent of card widths. */
+.temporal-timeline{width:100%;min-width:0;overflow:auto;padding:clamp(12px,2.5vw,40px);box-sizing:border-box;align-self:stretch}
+.temporal-key{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px;font-size:.85rem;opacity:.8}
+.temporal-ticks{margin-left:34%;display:flex;justify-content:space-between;gap:4px;font-size:clamp(10px,.85vw,15px);font-variant-numeric:tabular-nums;margin-bottom:16px}
+.temporal-ticks time:first-child{transform:translateX(-10%)}.temporal-ticks time:last-child{text-align:right}
+.temporal-event{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:24px;border-top:1px solid #8883;padding:clamp(10px,1.4vh,22px) 0;align-items:center}
+.temporal-card{min-width:0;overflow-wrap:anywhere}.temporal-card time,.temporal-card small{display:block;font-size:.8rem;opacity:.75}.temporal-card h3{font-size:clamp(16px,1.4vw,24px);margin:6px 0}.temporal-card p{line-height:1.45;margin:4px 0;font-size:clamp(14px,1vw,18px)}.temporal-card img{display:block;max-width:100%;max-height:110px;object-fit:contain;margin-top:10px}
+.temporal-lane{position:relative;height:56px;margin-inline:8px;min-width:0;border-top:1px solid #8885;margin-top:24px}.temporal-grid{position:absolute;inset:-24px 0 0;background:repeating-linear-gradient(to right,#8882 0 1px,transparent 1px 25%);pointer-events:none}.temporal-point,.temporal-duration{position:absolute;top:-5px;left:var(--start);background:var(--source-accent,#60a5fa);height:10px;border-radius:5px}.temporal-point{width:10px;transform:translateX(-50%)}.temporal-duration{width:var(--duration);min-width:3px}.temporal-label{position:absolute;top:14px;left:clamp(0%,var(--start),calc(100% - 115px));font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.temporal-vertical .temporal-event{grid-template-columns:1fr}.temporal-vertical .temporal-ticks{margin-left:0}.temporal-vertical .temporal-lane{height:42px}.temporal-vertical .temporal-card{max-width:60em}
+@media(max-width:650px){.temporal-event{grid-template-columns:1fr;gap:6px}.temporal-ticks{margin-left:0}.temporal-ticks time:nth-child(even){display:none}.temporal-card p{font-size:14px}.temporal-lane{height:36px;margin-top:14px}.temporal-key{font-size:12px}.temporal-timeline{padding:14px}}
+
+/* Explicit vertical orientation rotates the same metric scale, with one lane
+   per event. Narrow screens retain the legible chronological stacked fallback. */
+@media(min-width:651px){
+.temporal-vertical{position:relative;padding-left:130px}
+.temporal-vertical .temporal-key{min-height:40px}
+.temporal-vertical .temporal-events{display:grid;grid-template-columns:repeat(var(--event-count),minmax(155px,1fr));gap:16px}
+.temporal-vertical .temporal-event{display:flex;flex-direction:column;align-items:stretch;gap:20px;position:relative}
+.temporal-vertical .temporal-card{order:2}
+.temporal-vertical .temporal-lane{order:1;height:360px;flex:none;margin:0 16px;border-top:0;border-left:1px solid #8885}
+.temporal-vertical .temporal-grid{inset:0;background:repeating-linear-gradient(to bottom,#8882 0 1px,transparent 1px 25%)}
+.temporal-vertical .temporal-point,.temporal-vertical .temporal-duration{left:-5px;top:var(--start);width:10px}
+.temporal-vertical .temporal-point{transform:translateY(-50%);height:10px}
+.temporal-vertical .temporal-duration{height:var(--duration);min-height:3px}
+.temporal-vertical .temporal-label{left:14px;top:clamp(0px,var(--start),calc(100% - 20px));font-size:11px}
+.temporal-vertical .temporal-ticks{position:absolute;left:12px;top:100px;height:360px;flex-direction:column;font-size:11px;justify-content:space-between}
+.temporal-vertical .temporal-ticks time:first-child{transform:none}
+}

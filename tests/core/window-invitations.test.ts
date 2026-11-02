@@ -12,6 +12,25 @@ const group=async(a:Browser)=>success(await a.request<any>('POST','/api/groups',
 const invite=async(a:Browser,groupId:string)=>success(await a.request<any>('POST','/api/invitations',{groupId,requestId:randomUUID()}));
 
 describe('independent browser-window delivery',()=>{
+  it('targets only an owned overview viewport with online, revision, replay and paint boundaries',async()=>{
+    h=await startHarness();const a=await h.account(),b=await h.account(),p=await receiver(a),outsider=await receiver(b),svc=h.runtime.service;
+    const device=await svc.devices.register(p,{installationId:'viewport'},'Chrome/140'),w=await svc.devices.windows.register(p,device.id,'one'),other=await svc.devices.windows.register(p,device.id,'two');
+    const input={deviceId:device.id,windowId:w.id,expectedVersion:0,requestId:randomUUID(),navigation:{action:'zoom',scale:2}};
+    await expect(svc.devices.windows.viewport(p,input)).rejects.toMatchObject({code:'WINDOW_OFFLINE'});
+    const stream=await svc.devices.windows.stream(p,device.id,w.id,()=>{});
+    try{
+      await expect(svc.devices.windows.viewport(outsider,input)).rejects.toMatchObject({code:'NOT_FOUND'});
+      await expect(svc.devices.windows.viewport(p,input)).rejects.toMatchObject({code:'VIEWPORT_UNAVAILABLE'});
+      await svc.devices.windows.report(p,device.id,w.id,{destination:'overview'});
+      const result=await svc.devices.windows.viewport(p,input);expect(result.window.overviewScale).toBe(2);expect(result.window.command?.status).toBe('pending');
+      expect((await svc.devices.windows.viewport(p,input)).commandId).toBe(result.commandId);
+      await expect(svc.devices.windows.viewport(p,{...input,navigation:{action:'zoom',scale:1}})).rejects.toMatchObject({code:'REQUEST_ID_CONFLICT'});
+      await expect(svc.devices.windows.report(p,device.id,other.id,{destination:'viewport',commandId:result.commandId})).rejects.toMatchObject({code:'STALE_COMMAND'});
+      await svc.devices.windows.report(p,device.id,w.id,{destination:'viewport',commandId:result.commandId});
+      const windows=(await svc.devices.list(p)).devices[0].windows;expect(windows.find(x=>x.id===other.id)?.overviewScale).toBe(1);expect(windows.find(x=>x.id===w.id)?.command?.status).toBe('applied');
+      await expect(svc.devices.windows.viewport(p,{...input,requestId:randomUUID()})).rejects.toMatchObject({code:'REVISION_CONFLICT'});
+    }finally{stream.close();}
+  });
   it('does not leak a sibling window or pending private target through another session participant list',async()=>{
     h=await startHarness();const owner=await h.account(),member=await h.account(),shared=await owner.session('Shared'),privateSession=await owner.session('Private'),publicDisplay=await owner.display(shared.id),privateDisplay=await owner.display(privateSession.id);
     success(await owner.request('POST',`/api/sessions/${shared.id}/members`,{username:member.user!.username,role:'viewer'}));

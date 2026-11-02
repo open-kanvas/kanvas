@@ -20,21 +20,19 @@ const browserInput=z.object({tabId:tab,requestId:tab,expectedRevision:z.number()
 export class Navigation {
   constructor(readonly service:KanvasService){}
   private key(displayId:string,viewerId?:string){return hash(`${displayId}:${viewerId??'shared'}`);}
-  private zoomKey(sessionId:string,view:ViewSpec|null,displayId:string,root:number,target?:string){
-    const leaf=navigationLeaf(view);const checklistId=leaf?.template==='checklist'?leaf.data.checklistId:undefined;
-    return view?hash(`${sessionId}:${typeof checklistId==='string'?'checklist:'+checklistId:'view:'+displayId+':'+root}:${target??'shared'}`):undefined;
-  }
-  private async position(sessionId:string,displayId:string,viewerId?:string){
-    const d=required((await this.service.store.get<{revision:number;navigationRoot?:number;zoomRoot?:number;view:ViewSpec|null}>('display',displayId)));
-    const global=(await this.service.store.get<Position>('navigation',this.key(displayId)));
-    const local=viewerId?(await this.service.store.get<Position>('navigation',this.key(displayId,viewerId))):undefined;
+  private async position(sessionId:string,displayId:string,viewerId?:string,shared=false){
+    const d=required(await this.service.store.get<{revision:number;navigationRoot?:number;view:ViewSpec|null}>('display',displayId));
+    const global=await this.service.store.get<Position>('navigation',this.key(displayId));
+    const local=viewerId?await this.service.store.get<Position>('navigation',this.key(displayId,viewerId)):undefined;
     const root=d.navigationRoot??d.revision;
-    const found=local&&local.revision>=root&&(!global||global.revision<root||local.version>global.version)?local:global;
-    if(found&&found.revision>=root&&found.revision<d.revision){const state=structuredClone(found.state);state.page=Math.min(state.page,Math.max(0,navigationCapabilities(d.view,state).pageCount-1));if(state.reading)state.reading.playing=false;return {...found,revision:d.revision,version:0,state,commandId:'',action:undefined};}
-    const zoomId=this.zoomKey(sessionId,d.view,displayId,d.zoomRoot??root,viewerId),globalZoomId=this.zoomKey(sessionId,d.view,displayId,d.zoomRoot??root);
-    const zoom=zoomId?await this.service.store.get<{scale:number;updatedAt:string}>('view-zoom',zoomId):undefined,globalZoom=globalZoomId?await this.service.store.get<{scale:number;updatedAt:string}>('view-zoom',globalZoomId):undefined;
-    const savedZoom=zoom&&(!globalZoom||zoom.updatedAt>globalZoom.updatedAt)?zoom:globalZoom;
-    return found?.revision===d.revision?found:{id:this.key(displayId,viewerId),sessionId,displayId,revision:d.revision,version:0,state:{...initialNavigation(navigationLeaf(d.view)),...(savedZoom?{scale:savedZoom.scale}:{}),...(found?.state.reading?{reading:{...found.state.reading,playing:false}}:{})},commandId:'',updatedAt:now()};
+    const found=local&&(!shared||local.action==='zoom')&&local.revision>=root&&(!global||global.revision<root||local.version>global.version)?local:global;
+    const zoom=viewerId?await this.service.store.get<{scale:number}>('window-zoom',viewerId):undefined;
+    const state=found&&found.revision>=root?structuredClone(found.state):initialNavigation(navigationLeaf(d.view));
+    // Legacy display/content zoom is deliberately not migrated into new windows.
+    state.scale=zoom?.scale??1;
+    state.page=Math.min(state.page,Math.max(0,navigationCapabilities(d.view,state).pageCount-1));
+    if(found?.revision!==d.revision&&state.reading)state.reading.playing=false;
+    return found&&found.revision>=root?{...found,revision:d.revision,state,...(found.revision!==d.revision?{version:0,commandId:'',action:undefined}:{})}:{id:this.key(displayId,viewerId),sessionId,displayId,revision:d.revision,version:0,state,commandId:'',updatedAt:now()};
   }
   /** Anonymous publication includes broadcast position only, never a tab target. */
   async publicPosition(sessionId:string,displayId:string){
@@ -53,23 +51,31 @@ export class Navigation {
     if(!viewer)throw new AppError('VIEWER_UNAVAILABLE','Select a currently connected viewer using viewers.read.',409);
   }
   async read(p:AuthPrincipal,raw:unknown){
-    const a=navigationReadSchema.parse(raw),d=(await this.service.display(p,a.sessionId,a.displayId)),s=(await this.service.access(p,a.sessionId)),position=(await this.position(a.sessionId,d.id,(s.config.syncMode??'independent')==='independent'?a.viewerId:undefined));
+    const a=navigationReadSchema.parse(raw),d=(await this.service.display(p,a.sessionId,a.displayId)),s=(await this.service.access(p,a.sessionId)),position=(await this.position(a.sessionId,d.id,a.viewerId,(s.config.syncMode??'independent')!=='independent'));
     (await this.service.fullAccount(p));
-    const acks=(await this.service.store.list<Ack>('navigation-ack',a.sessionId)).filter(x=>x.displayId===d.id&&x.revision===d.revision&&x.commandId===position.commandId);
+    const acks=(await this.service.store.list<Ack>('navigation-ack',a.sessionId)).filter(x=>x.displayId===d.id&&x.revision===d.revision);
     const measured=(await this.service.store.list<Viewport>('navigation-viewport',a.sessionId)).filter(x=>x.displayId===d.id&&x.revision===d.revision&&Date.now()-Date.parse(x.at)<15000);
-    const viewers=await Promise.all((await this.service.experience.viewers(p,a.sessionId,d.id)).filter(v=>!a.viewerId||v.id===a.viewerId).map(async v=>{const current=await this.position(a.sessionId,d.id,(s.config.syncMode??'independent')==='independent'?v.id:undefined);const viewport=measured.find(x=>x.viewerId===v.id&&x.version===current.version);return {viewerId:v.id,viewport:viewport?{width:viewport.width,height:viewport.height,maxX:viewport.maxX,maxY:viewport.maxY,contentOverflowsViewport:viewport.maxX>1||viewport.maxY>1,measuredAt:viewport.at}:null,status:acks.find(x=>x.viewerId===v.id)?.status??'unconfirmed',matches:acks.find(x=>x.viewerId===v.id)?.matches,scroll:acks.find(x=>x.viewerId===v.id)?.scroll};}));
+    const viewers=await Promise.all((await this.service.experience.viewers(p,a.sessionId,d.id)).filter(v=>!a.viewerId||v.id===a.viewerId).map(async v=>{const current=await this.position(a.sessionId,d.id,v.id,(s.config.syncMode??'independent')!=='independent');const viewport=measured.find(x=>x.viewerId===v.id&&x.version===current.version);return {viewerId:v.id,scale:current.state.scale??1,commandId:current.commandId||undefined,viewport:viewport?{width:viewport.width,height:viewport.height,maxX:viewport.maxX,maxY:viewport.maxY,contentOverflowsViewport:viewport.maxX>1||viewport.maxY>1,measuredAt:viewport.at}:null,status:acks.find(x=>x.viewerId===v.id&&x.commandId===current.commandId)?.status??'unconfirmed',matches:acks.find(x=>x.viewerId===v.id&&x.commandId===current.commandId)?.matches,scroll:acks.find(x=>x.viewerId===v.id&&x.commandId===current.commandId)?.scroll};}));
     return {...(await this.withReading(p,a.sessionId,position)),capabilities:navigationCapabilities(d.view,position.state),mode:s.config.syncMode??'independent',presenterViewerId:s.config.presenterViewerId||undefined,viewers,note:'pageCount/matchingItems are logical pagination, NOT visible rows. viewport is measured per receiving browser; null means unknown or stale. Execute explicit scroll/navigation requests even on one logical page. Per-viewer receipts only. Offline or unconfirmed viewers are not assumed to have applied this position. Source revision/history are unchanged.'};
   }
   async browserRead(p:AuthPrincipal,sessionId:string,displayId:string,tabId:string):Promise<Awaited<NavigationSnapshot>>{
     tab.parse(tabId);const d=(await this.service.display(p,sessionId,displayId)),s=(await this.service.access(p,sessionId)),viewerId=this.service.experience.viewerId(p,tabId),mode=s.config.syncMode??'independent';
-    const position=(await this.withReading(p,sessionId,(await this.position(sessionId,displayId,mode==='independent'?viewerId:undefined))));
+    const position=(await this.withReading(p,sessionId,(await this.position(sessionId,displayId,viewerId,mode!=='independent'))));
     return {canSaveReadingDefaults:!p.scopedDisplayId&&!p.tokenId,...(!p.scopedDisplayId&&!p.tokenId?{readingDefaults:readingDefaults((await this.service.experience.defaults(p.userId)).config)}:{}),action:position.action,revision:d.revision,version:position.version,commandId:position.commandId||undefined,state:position.state,mode,viewerId,canNavigate:mode!=='presenter'||s.config.presenterViewerId===viewerId,capabilities:navigationCapabilities(d.view,position.state)};
   }
-  async control(p:AuthPrincipal,raw:unknown){const a=navigationInputSchema.parse(raw);(await this.service.display(p,a.sessionId,a.displayId,'editor'));if(a.viewerId){if(((await this.service.access(p,a.sessionId)).config.syncMode??'independent')!=='independent')throw new AppError('NAVIGATION_UNAVAILABLE','A single viewer target requires independent mode.',409);(await this.liveViewer(p,a.sessionId,a.displayId,a.viewerId));}return (await this.write(p,a,a.viewerId));}
+  async control(p:AuthPrincipal,raw:unknown){
+    const a=navigationInputSchema.parse(raw);await this.service.display(p,a.sessionId,a.displayId,'editor');
+    const replay=await this.service.store.get<Receipt>('navigation-receipt',hash(`${p.tokenId??p.browserId??p.userId}:${a.sessionId}:${a.requestId}`));
+    if(replay){const target=a.viewerId??(a.navigation.action==='zoom'?replay.result.target:undefined);return this.write(p,{...a,...(target?{viewerId:target}:{})},target);}
+
+    if(a.navigation.action==='zoom'&&!a.viewerId){const viewers=await this.service.experience.viewers(p,a.sessionId,a.displayId);if(viewers.length!==1)throw new AppError('VIEWER_REQUIRED','Zoom belongs to one device window. Select viewerId from viewers.read (exactly one connected viewer may be inferred).',409);a.viewerId=viewers[0].id;}
+    if(a.viewerId){if(a.navigation.action!=='zoom'&&((await this.service.access(p,a.sessionId)).config.syncMode??'independent')!=='independent')throw new AppError('NAVIGATION_UNAVAILABLE','A single viewer navigation target requires independent mode.',409);await this.liveViewer(p,a.sessionId,a.displayId,a.viewerId);}
+    return this.write(p,a,a.viewerId);
+  }
   async browserControl(p:AuthPrincipal,sessionId:string,displayId:string,raw:unknown){
     const a=browserInput.parse(raw),snapshot=(await this.browserRead(p,sessionId,displayId,a.tabId));
-    if(!snapshot.canNavigate)throw new AppError('PRESENTER_ONLY','This session follows its selected presenter. Ask the owner to change navigation mode.',403);
-    (await this.write(p,{...a,sessionId,displayId},snapshot.mode==='independent'?snapshot.viewerId:undefined));
+    if(!snapshot.canNavigate&&a.navigation.action!=='zoom')throw new AppError('PRESENTER_ONLY','This session follows its selected presenter. Ask the owner to change navigation mode.',403);
+    (await this.write(p,{...a,sessionId,displayId},snapshot.mode==='independent'||a.navigation.action==='zoom'?snapshot.viewerId:undefined));
     return (await this.browserRead(p,sessionId,displayId,a.tabId));
   }
   private async write(p:AuthPrincipal,a:z.infer<typeof navigationInputSchema>,target?:string){
@@ -78,7 +84,8 @@ export class Navigation {
     const prior=(await s.store.get<Receipt>('navigation-receipt',key));
     if(prior){if(prior.digest!==digest)throw new AppError('REQUEST_ID_CONFLICT','This navigation request ID was already used with different arguments.',409);return {...prior.result,replayed:true,superseded:prior.result.revision!==d.revision||(await this.position(a.sessionId,d.id,target)).commandId!==prior.result.commandId};}
     s.assertRevision(a.expectedRevision,d.revision);
-    const before=(await this.withReading(p,a.sessionId,(await this.position(a.sessionId,d.id,target))));let state:NavigationState;
+    const shared=((await s.access(p,a.sessionId)).config.syncMode??'independent')!=='independent';
+    const before=(await this.withReading(p,a.sessionId,(await this.position(a.sessionId,d.id,target,shared))));let state:NavigationState;
     try{state=navigate(d.view,before.state,a.navigation);}catch(error){throw new AppError('NAVIGATION_UNAVAILABLE',error instanceof Error?error.message:'This navigation is unavailable.',409);}
     const all=(await s.store.list<Position>('navigation',a.sessionId)).filter(x=>x.displayId===d.id);
     // Bound inactive per-browser positions without preventing a new screen from joining.
@@ -86,7 +93,7 @@ export class Navigation {
     const result:Position={action:a.navigation.action,id:this.key(d.id,target),sessionId:a.sessionId,displayId:d.id,revision:d.revision,version:Math.max(0,...all.map(x=>x.version))+1,state,commandId:id(),target,updatedAt:now()};
     (await s.store.transaction(async ()=>{
       if(a.navigation.action==='reading'&&a.navigation.saveDefaults){const current=(await s.experience.preferences(p)),r=state.reading!,patch:Record<string,number>={};if(a.navigation.fontSize!==undefined)patch.readingFontSize=r.fontSize;if(a.navigation.zoom!==undefined)patch.readingZoom=r.zoom;if(a.navigation.wpm!==undefined||['slower','faster'].includes(a.navigation.command))patch.readingWpm=r.wpm;if(!Object.keys(patch).length)Object.assign(patch,{readingFontSize:r.fontSize,readingWpm:r.wpm,readingZoom:r.zoom});(await s.experience.preferences(p,{expectedRevision:current.revision,config:patch}));}
-      const zoomId=this.zoomKey(a.sessionId,d.view,d.id,d.zoomRoot??d.navigationRoot??d.revision,target);if(zoomId&&['zoom','reset'].includes(a.navigation.action))await s.store.put('view-zoom',{id:zoomId,sessionId:a.sessionId,scale:state.scale??1,updatedAt:now()});
+      if(target&&a.navigation.action==='zoom')await s.store.put('window-zoom',{id:target,scale:state.scale??1,updatedAt:now()});
       if(evict)(await s.store.delete('navigation',evict.id));(await s.store.put('navigation',result));(await s.store.put('navigation-receipt',{id:key,sessionId:a.sessionId,digest,result,createdAt:now()}));for(const old of (await s.store.list<Receipt>('navigation-receipt',a.sessionId)).slice(0,-1000))(await s.store.delete('navigation-receipt',old.id));}));
     s.emit({type:'display',sessionId:a.sessionId,displayId:d.id,revision:d.revision});
     return {...result,note:'Accepted navigation; read navigation.read for per-viewer application. No source data or history changed.'};

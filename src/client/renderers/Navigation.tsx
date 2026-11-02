@@ -54,7 +54,10 @@ export function BrowsingProvider({view,sessionId,displayId,revision,config,enabl
     const el=root.current,saved=anchor.current;if(!el||!saved||previousIdentity.current!==identity)return;
     const scroller=scrollElement(el);if(scroller.dataset.readingAuto==='true'||scroller.closest('.drafting-content[data-following="true"]'))return;
     const matches=saved.text?[...scroller.querySelectorAll<HTMLElement>('p,li,h1,h2,h3,h4,pre,tr,[data-code-line]')].filter(node=>node.textContent?.trim()===saved.text):[];
-    scroller.scrollTop=matches.length===1?scroller.scrollTop+matches[0].getBoundingClientRect().top-scroller.getBoundingClientRect().top-saved.offset:saved.top;
+    // Bounding rectangles are visual pixels; scrollTop is unzoomed layout
+    // pixels. Same-content media remounts must not multiply position by zoom.
+    const box=scroller.getBoundingClientRect(),scale=scroller.offsetHeight?box.height/scroller.offsetHeight:1;
+    scroller.scrollTop=matches.length===1?scroller.scrollTop+(matches[0].getBoundingClientRect().top-box.top-saved.offset)/Math.max(.01,scale):saved.top;
     scroller.scrollLeft=saved.left;
   },[revision]);
   const version=useRef(-1),busy=useRef(false),pendingRevision=useRef<number|null>(null),suppress=useRef(0),lastCommand=useRef(''),inputEpoch=useRef(0),nativeScrollPending=useRef(false);

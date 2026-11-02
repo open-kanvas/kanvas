@@ -9,9 +9,9 @@ import { TEMPLATE_IDS, type ViewSpec, type SessionConfig } from '../../src/share
 import { samples } from '../../src/shared/template-examples';
 import { createDisplay, createSession, expect, openViewer, publishPrepared, register, sessionApi, sessionDetail, tab, test, waitForDisplay } from './support';
 
-async function setup(page:Page,info:TestInfo,baseURL:string){
+async function setup(page:Page,info:TestInfo,baseURL:string,accountWide=false){
   await register(page);const sessionId=await createSession(page,'Navigation and Help acceptance'),display=await createDisplay(page,sessionId,'Shared source'),viewer=await openViewer(page,sessionId,display.id);
-  const issued=await sessionApi<{token:string}>(page,'/api/tokens','POST',{name:'Disposable navigation checks',scopes:['read','publish'],sessionIds:[sessionId]});expect(issued.status).toBe(201);
+  const issued=await sessionApi<{token:string}>(page,'/api/tokens','POST',{name:'Disposable navigation checks',scopes:['read','publish'],...(accountWide?{}:{sessionIds:[sessionId]})});expect(issued.status).toBe(201);
   const headers={Authorization:`Bearer ${issued.data!.token}`};
   const client=info.project.name.startsWith('phone')?new LegacyClient({name:'navigation-legacy',version:'1'}):new Client({name:'navigation-current',version:'1'});
   if(client instanceof LegacyClient)await client.connect(new LegacyTransport(new URL('/mcp',baseURL),{requestInit:{headers}}));else await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',baseURL),{requestInit:{headers}}));
@@ -149,5 +149,49 @@ test('regional settings format display values and focused Help stays public and 
     expect(help.entry.content.steps.length).toBeGreaterThan(0);expect(help.entry.note).toContain('reading help never publishes');
     const docs=await context.newPage();await docs.goto(`${baseURL}/docs/navigation`);await expect(docs.getByRole('heading',{name:'Navigate, restore history and autoplay prepared views'})).toBeVisible();await docs.getByRole('link',{name:'Recover from a failed call',exact:true}).click();await expect(docs.getByRole('heading',{name:'Recover from a failed call'})).toBeVisible();
     const md=await docs.request.get(`${baseURL}/docs/navigation.md`);expect(md.ok()).toBe(true);expect(await md.text()).toContain('navigation.control');const index=await (await docs.request.get(`${baseURL}/docs/index.json`)).json();expect(index.templates.map((entry:any)=>entry.template).sort()).toEqual([...TEMPLATE_IDS].sort());expect(index.templates.some((x:any)=>x.template==='web')).toBe(false);expect((await s.current()).revision).toBe(before.revision);await docs.close();
+  }finally{await s.client.close();}
+});
+
+
+test('device-window zoom isolation and same-content native scroll survive revision updates',async({page,baseURL},info)=>{
+  const s=await setup(page,info,baseURL!),other=await openViewer(page,s.sessionId,s.display.id);
+  try{
+    await s.show({version:1,template:'document',data:{layout:'reading',text:Array.from({length:70},(_,i)=>`Paragraph ${i+1}. Long original supplied text stays in place after an update. `.repeat(2)).join('\n\n')}});
+    await expect(s.viewer.locator('.browsing-root')).toHaveAttribute('data-navigation-viewer',/.+/);
+    const viewerId=(await s.viewer.locator('.browsing-root').getAttribute('data-navigation-viewer'))!;
+    await s.nav({action:'zoom',scale:2},viewerId);
+    await expect.poll(()=>s.viewer.locator('.render-surface').first().evaluate(el=>getComputedStyle(el).zoom)).toBe('2');
+    await expect.poll(()=>other.locator('.render-surface').first().evaluate(el=>getComputedStyle(el).zoom)).toBe('1');
+    const scroller=s.viewer.locator('.document-content');await scroller.evaluate(el=>{el.scrollTop=1200;});await s.viewer.waitForTimeout(1200);
+    const top=await scroller.evaluate(el=>el.scrollTop);expect(top).toBeGreaterThan(500);
+    const d=await s.current();await s.call('kanvas_publish','patch',{sessionId:s.sessionId,displayId:s.display.id,requestId:randomUUID(),expectedRevision:d.revision,operations:[{op:'appendText',path:'/data/text',value:'\n\nUpdated in place.'}]});
+    await s.current();await s.viewer.waitForTimeout(1500);const retained=await scroller.evaluate(el=>el.scrollTop);expect(Math.abs(retained-top),`scroll before ${top}, after ${retained}`).toBeLessThan(6);
+    expect(await other.locator('.document-content').evaluate(el=>el.scrollTop)).toBe(0);
+    await s.show({version:1,template:'document',data:{layout:'reading',text:'New document\n\n'+Array.from({length:80},()=> 'New supplied text. '.repeat(6)).join('\n\n')}});
+    expect(await s.viewer.locator('.document-content').evaluate(el=>el.scrollTop)).toBe(0);
+    await expect.poll(()=>s.viewer.locator('.render-surface').first().evaluate(el=>getComputedStyle(el).zoom)).toBe('2');
+  }finally{await s.client.close();await other.close();}
+});
+
+test('owned root overview viewport receives zoom and scroll without affecting sibling windows',async({page,baseURL},info)=>{
+  const s=await setup(page,info,baseURL!,true);
+  try{
+    await s.show({version:1,template:'fact',data:{text:'Window receipt target'}});
+    await s.nav({action:'zoom',scale:1.5});
+    let devices:any;
+    await expect.poll(async()=>{devices=await s.call('kanvas_devices','list');return devices.devices.flatMap((d:any)=>d.windows).filter((w:any)=>w.current?.displayId===s.display.id).length;}).toBe(1);
+    const device=devices.devices.find((d:any)=>d.windows.some((w:any)=>w.current?.displayId===s.display.id)),w=device.windows.find((w:any)=>w.current?.displayId===s.display.id);
+    await s.call('kanvas_control','window.overview',{deviceId:device.id,windowId:w.id,expectedVersion:w.version,requestId:randomUUID()});
+    await expect(s.viewer).toHaveURL(baseURL!+'/');await expect(s.viewer.locator('.account-overview')).toBeVisible();await expect.poll(()=>s.viewer.locator('.account-overview').evaluate(el=>getComputedStyle(el).zoom)).toBe('1.5');
+    const current=async()=>{const all=await s.call('kanvas_devices','list');return all.devices.find((d:any)=>d.id===device.id).windows.find((x:any)=>x.id===w.id);};
+    await expect.poll(async()=>(await current()).command?.status).toBe('applied');
+    const input={deviceId:device.id,windowId:w.id,expectedVersion:(await current()).version,requestId:randomUUID(),navigation:{action:'zoom',scale:2}};
+    const result=await s.call('kanvas_control','window.viewport',input);expect((await s.call('kanvas_control','window.viewport',input)).commandId).toBe(result.commandId);
+    await expect.poll(()=>s.viewer.locator('.account-overview').evaluate(el=>getComputedStyle(el).zoom)).toBe('2');
+    await expect.poll(async()=>(await current()).command?.status).toBe('applied');
+    await s.call('kanvas_control','window.viewport',{deviceId:device.id,windowId:w.id,expectedVersion:(await current()).version,requestId:randomUUID(),navigation:{action:'scroll',y:1}});
+    await expect.poll(async()=>(await current()).command?.status).toBe('applied');
+    const scroll=await s.viewer.evaluate(()=>({top:document.scrollingElement!.scrollTop,max:document.scrollingElement!.scrollHeight-window.innerHeight}));expect(scroll.max).toBeGreaterThan(0);expect(Math.abs(scroll.top-scroll.max)).toBeLessThan(3);
+    await s.viewer.reload();await expect.poll(()=>s.viewer.locator('.account-overview').evaluate(el=>getComputedStyle(el).zoom)).toBe('2');
   }finally{await s.client.close();}
 });

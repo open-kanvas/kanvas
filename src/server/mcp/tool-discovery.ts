@@ -47,6 +47,10 @@ const monitor = { mode: 'uptime', url: 'https://example.com/status', intervalSec
  * Tests bind every example back to the exact current runtime input schema.
  */
 export const TOOL_DISCOVERY: Readonly<Record<string, ToolDiscoveryEntry>> = {
+ kanvas_guidance_suggestions_list:{group:'guidance',hint:'Browse optional global suggestions, separate from my personal prompts.',examples:[{}]},
+ kanvas_guidance_suggestions_save:{group:'guidance',hint:'Service admin curates global suggestions; never extracts private prompts.',examples:[{suggestionId:'concise',name:'Concise',text:'Keep commentary brief.',expectedRevision:0,requestId:'suggestion-save'}]},
+ kanvas_guidance_suggestions_delete:{group:'guidance',hint:'Service admin removes a suggestion; personal copies remain.',examples:[{suggestionId:'concise',expectedRevision:1,requestId:'suggestion-delete'}]},
+ kanvas_guidance_suggestions_import:{group:'guidance',hint:'Explicitly copy a suggestion to a new personal prompt, without activation.',examples:[{suggestionId:'passive',expectedRevision:1,promptId:'my-passive',requestId:'suggestion-import'}]},
  kanvas_guidance_library_list: {"group": "guidance", "hint": "List your own named saved prompts.", "examples": [{}]},
  kanvas_guidance_library_save: {"group": "guidance", "hint": "Save a personal prompt without activating it.", "examples": [{"promptId": "passive", "name": "Passive", "text": "Publish only when I ask.", "expectedRevision": 0, "requestId": "prompt-save"}]},
  kanvas_guidance_library_delete: {"group": "guidance", "hint": "Delete a saved prompt; session copies remain.", "examples": [{"promptId": "passive", "expectedRevision": 1, "requestId": "prompt-delete"}]},

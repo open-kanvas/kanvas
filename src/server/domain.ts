@@ -1,3 +1,4 @@
+import {SuggestedGuidance} from './suggested-guidance.js';
 import {visualHelp,showHelp} from './visual-help.js';
 import {loginRead,loginDecide} from './device-login.js';
 import {currentToolContext} from './mcp/call-context.js';
@@ -1183,6 +1184,10 @@ export class KanvasService implements McpService {
       case 'kanvas_diagnostics_read':return this.diagnostics.read(principal,a);
       case 'kanvas_window_viewport':return this.devices.windows.viewport(principal,a);
       case 'kanvas_window_overview':return this.devices.windows.overview(principal,a);
+      case 'kanvas_guidance_suggestions_list':return new SuggestedGuidance(this).run(principal,a,'list');
+      case 'kanvas_guidance_suggestions_save':return new SuggestedGuidance(this).run(principal,a,'save');
+      case 'kanvas_guidance_suggestions_delete':return new SuggestedGuidance(this).run(principal,a,'delete');
+      case 'kanvas_guidance_suggestions_import':return new SuggestedGuidance(this).run(principal,a,'import');
       case 'kanvas_guidance_library_list':return this.guidance.library(principal,a,'list');
       case 'kanvas_guidance_library_save':return this.guidance.library(principal,a,'save');
       case 'kanvas_guidance_library_delete':return this.guidance.library(principal,a,'delete');

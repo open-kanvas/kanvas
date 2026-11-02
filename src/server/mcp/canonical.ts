@@ -1,3 +1,4 @@
+import {suggestedGuidanceTools} from '../suggested-guidance.js';
 import {visualHelpSchema,showHelpSchema} from '../visual-help.js';
 import {clientDetailsSchema} from '../../shared/agent-context.js';
 import {venueTools} from '../venue.js';
@@ -89,7 +90,7 @@ const exactlyOne = (left: string, right: string) => ({
 const definitions: readonly Definition[] = [...venueTools,...customTools,...mediaTools,
  {name:'kanvas_archive_list',description:'List your recoverable archived sessions, displays and retained views. Hidden from normal lists; retained indefinitely. Session grant restrictions still apply.',schema:archiveListSchema,readOnly:true},
  {name:'kanvas_archive_manage',description:'Owner-only archive (default) or restore of a session, display or retained view ID from display history. Archive is reversible. Permanent removal requires request-delete: show a warning and three random phonetic words on the current confirmationSessionId/confirmationDisplayId for 120 seconds. Batch views use targetIds (1–100 distinct IDs in one session), with one exact-target-bound confirmation. Then confirm-delete with challengeId and words explicitly supplied by the human. Never read/guess the words or infer approval. Shared items are deleted for everyone.',schema:archiveSchema,destructive:true},
-  ...browserAuthTools,...inviteEmailTools,...guidanceTools,...diagnosticTools,...flashcardTools,...checklistTools,...eventTools, ...experienceTools, ...invitationTools, ...workTools, ...accountTools, ...documentTools, ...plannerTools, ...syncTools, ...homeTools,
+  ...browserAuthTools,...inviteEmailTools,...guidanceTools,...suggestedGuidanceTools,...diagnosticTools,...flashcardTools,...checklistTools,...eventTools, ...experienceTools, ...invitationTools, ...workTools, ...accountTools, ...documentTools, ...plannerTools, ...syncTools, ...homeTools,
   {name:'kanvas_help_visual',description:'Retrieve a reusable single-screen documentation view from a maintained help topic. Read-only. Includes pageCount; choose successive zero-based pages. Keyboard shortcuts share native definitions.',schema:visualHelpSchema,readOnly:true},
   {name:'kanvas_help_show',description:'Show a predefined focused help view on authorized displays, using normal publication guards and receipts. Discover visual-help and keyboard-shortcuts topics; traditional docs remain available.',schema:showHelpSchema,idempotent:true},
   {name:'kanvas_help',description:'Kanvas Help: focused task guidance and canonical public documentation. Read-only; never publishes or changes a display. General orientation offers a few choices; pass a topic and optional question for a specific how-to.',schema:helpInputSchema,readOnly:true},

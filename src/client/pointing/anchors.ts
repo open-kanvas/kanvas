@@ -10,11 +10,20 @@ function charOffset(el:Element,node:Node,offset:number){try{const r=document.cre
 function wordRange(text:string,offset:number){offset=Math.min(Math.max(0,offset),Math.max(0,text.length-1));const segmenter=new Intl.Segmenter(undefined,{granularity:'word'});for(const s of segmenter.segment(text)){if(offset>=s.index&&offset<s.index+s.segment.length)return{start:s.index,end:s.index+s.segment.length};}return{start:offset,end:offset+1};}
 function imageRect(image:HTMLImageElement){const r=image.getBoundingClientRect();if(!image.naturalWidth||!image.naturalHeight)return;const style=getComputedStyle(image),scale=style.objectFit==='cover'?Math.max(r.width/image.naturalWidth,r.height/image.naturalHeight):Math.min(r.width/image.naturalWidth,r.height/image.naturalHeight),width=image.naturalWidth*scale,height=image.naturalHeight*scale;return{left:r.left+(r.width-width)/2,top:r.top+(r.height-height)/2,width,height};}
 /** Adapter reads existing semantic renderer output; it does not insert wrappers or mutate templates. */
-export function anchorAt(root:HTMLElement,view:ViewSpec,x:number,y:number):PointingAnchor|undefined{
+export function anchorAt(root:HTMLElement,view:ViewSpec,x:number,y:number,tolerance=0):PointingAnchor|undefined{
   const leaf=navigationLeaf(view),target=document.elementFromPoint(x,y);if(!target||!root.contains(target)||!leaf)return;
   if(['website','iframe','html','web','video'].includes(leaf.template))return;
   if(leaf.template==='table'){const td=target.closest('td'),row=td?.closest<HTMLTableRowElement>('tr[data-source-row]');if(td&&row){const column=(leaf.data.columns as string[])[(td as HTMLTableCellElement).cellIndex];if(column)return{kind:'cell',row:Number(row.dataset.sourceRow),column};}}
-  if(leaf.template==='chart'){const mark=target.closest<HTMLElement>('[data-chart-series][data-chart-x][data-chart-y]');if(mark)return{kind:'chart',series:mark.dataset.chartSeries!,x:mark.dataset.chartX!,y:mark.dataset.chartY!};}
+  if(leaf.template==='chart'){
+    let mark=target.closest<HTMLElement>('[data-chart-series][data-chart-x][data-chart-y]');
+    // Touch contact is imprecise; select only a nearby supplied mark, never a
+    // series path or an invented interpolated point. Screen pixels respect zoom.
+    if(!mark&&tolerance>0){
+      const ranked=[...root.querySelectorAll<HTMLElement>('[data-chart-series][data-chart-x][data-chart-y]')].filter(visible).map(el=>{const r=el.getBoundingClientRect();return {el,distance:Math.hypot(Math.max(r.left-x,0,x-r.right),Math.max(r.top-y,0,y-r.bottom))};}).filter(v=>v.distance<=tolerance).sort((a,b)=>a.distance-b.distance);
+      if(ranked.length&&(ranked.length===1||ranked[1].distance-ranked[0].distance>1))mark=ranked[0].el;
+    }
+    if(mark)return{kind:'chart',series:mark.dataset.chartSeries!,x:mark.dataset.chartX!,y:mark.dataset.chartY!};return;
+  }
   if(['image','image-gallery'].includes(leaf.template)){const img=target.closest('img');if(img){const r=imageRect(img),index=Number(img.closest<HTMLElement>('[data-image-index]')?.dataset.imageIndex??0);if(r&&x>=r.left&&x<=r.left+r.width&&y>=r.top&&y<=r.top+r.height)return{kind:'image',index,x:(x-r.left)/r.width,y:(y-r.top)/r.height};}return;}
   const caret=caretAt(x,y);if(!caret||!root.contains(caret.node))return;
   const el=(caret.node.nodeType===Node.ELEMENT_NODE?caret.node as Element:caret.node.parentElement)?.closest(units);if(!el||!root.contains(el)||!textUnits(root).includes(el as HTMLElement))return;

@@ -69,6 +69,7 @@ export const TOOL_DISCOVERY: Readonly<Record<string, ToolDiscoveryEntry>> = {
 "kanvas_media_list":{group:'content',hint:'Use the discovered schema for this account-scoped or live state operation.',examples:[{"query": "lunch"}]},
 "kanvas_media_get":{group:'content',hint:'Use the discovered schema for this account-scoped or live state operation.',examples:[{"mediaId": "media-id"}]},
 "kanvas_account_templates_list":{group:'content',hint:'Use the discovered schema for this account-scoped or live state operation.',examples:[{"query": "headline"}]},
+ kanvas_window_viewport:{group:'controls',hint:'Zoom/scroll one owned online root overview window; session content uses navigation.control viewerId.',examples:[{deviceId:'device-id',windowId:'window-id',requestId:'zoom-overview-1',navigation:{action:'zoom',scale:1.5}}]},
  kanvas_window_overview:{group:'controls',hint:'Return one owned online window to the root overview.',examples:[{deviceId:'device-id',windowId:'window-id',expectedVersion:0,requestId:'overview-1'}]},
  kanvas_guidance_read:{group:'guidance',hint:'Read active scoped agent guidance and your private draft.',examples:[{scope:'user'}]},
  kanvas_guidance_set:{group:'guidance',hint:'Explicitly save bounded natural-language guidance with revision guards.',examples:[{scope:'user',text:'Use helpful visuals within my authorized scope.',expectedRevision:0,requestId:'guidance-save'}]},

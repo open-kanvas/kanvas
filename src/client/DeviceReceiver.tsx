@@ -5,9 +5,9 @@ import { api, errorMessage, viewerPath } from './api';
 import { useAuth } from './hooks';
 import { viewerTabId } from './window-identity';
 
-type Device={id:string;name:string;context?:{device:string;browser:string};home?:{sessionId:string;displayId:string};window?:{id:string;name:string;version:number}};
-type Command={id:string;sessionId?:string;displayId?:string;destination?:'overview';overviewUrl?:string};
-type Paint={sessionId:string;displayId:string;renderedRevision:number}|{destination:'overview'};
+type Device={id:string;name:string;context?:{device:string;browser:string};home?:{sessionId:string;displayId:string};window?:{id:string;name:string;version:number;overviewScale?:number}};
+type Command={id:string;sessionId?:string;displayId?:string;destination?:'overview'|'viewport';overviewUrl?:string;viewport?:{scale:number;x?:number;y?:number;deltaX?:number;deltaY?:number}};
+type Paint={sessionId:string;displayId:string;renderedRevision:number}|{destination:'overview'|'viewport'};
 const Context=createContext<{device?:Device;error?:string}>({});
 export const useDevice=()=>useContext(Context);
 function installationId(){try{const saved=localStorage.getItem('kanvas-device-installation');if(saved&&/^[A-Za-z0-9_-]{1,128}$/.test(saved))return saved;const id=crypto.randomUUID();localStorage.setItem('kanvas-device-installation',id);return id;}catch{return crypto.randomUUID();}}
@@ -16,14 +16,28 @@ export function DeviceReceiver({children,suspended=false}:{children:ReactNode;su
   useEffect(()=>{
     if(suspended||!auth.user||auth.viewOnly&&!auth.receiverDeviceId||auth.captureOnly||new URLSearchParams(location.search).has('authorize'))return;
     if('serviceWorker' in navigator)void navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(()=>{});
+    const viewportApplied=new Set<string>();
     let stopped=false,stream:EventSource|undefined,timer:ReturnType<typeof setTimeout>|undefined,registered:Device|undefined;
-    const report=()=>{const p=painted.current;if(!registered||!p)return;const c=command.current,match=c&&('destination' in p?c.destination==='overview':c.sessionId===p.sessionId&&c.displayId===p.displayId);
+    const report=()=>{const p=painted.current;if(!registered||!p)return;const c=command.current,match=c&&('destination' in p?c.destination===p.destination:c.sessionId===p.sessionId&&c.displayId===p.displayId);
       void api<{recorded:boolean;reason?:string}>(`/api/devices/${registered.id}${registered.window?`/windows/${registered.window.id}`:''}/report`,{method:'POST',body:{...p,...(match?{commandId:c.id}:{})}}).then(result=>{if(match&&command.current?.id===c.id&&(result.recorded||result.reason==='STALE_COMMAND'))command.current=undefined;}).catch(()=>{});
     };
     const browsing=()=>{painted.current=undefined;};window.addEventListener('kanvas:browsing',browsing);
     const ready=(event:Event)=>{painted.current=(event as CustomEvent).detail;const p=painted.current;if(p&&!('destination' in p))diagnostic({event:'render-applied',sessionId:p.sessionId,displayId:p.displayId,revision:p.renderedRevision});report();};window.addEventListener('kanvas:painted',ready);
-    const receive=(data:{unavailable?:boolean;command?:Command})=>{
+    const receive=(data:{unavailable?:boolean;command?:Command;overviewScale?:number})=>{
       if(data.unavailable){stream?.close();setError('This device connection is unavailable. Sign in again to reconnect.');return;}
+      const overview=document.querySelector<HTMLElement>('.account-overview');
+      if(overview&&data.overviewScale!==undefined)overview.style.zoom=String(data.overviewScale);
+      if(data.command?.destination==='viewport'){
+        const c=data.command;if(!overview||location.pathname!=='/')return;
+        command.current=c;if(viewportApplied.has(c.id)){painted.current={destination:'viewport'};report();return;}viewportApplied.add(c.id);overview.style.zoom=String(c.viewport?.scale??1);
+        requestAnimationFrame(()=>requestAnimationFrame(()=>{
+          const scroll=document.scrollingElement as HTMLElement|null,v=c.viewport;if(!scroll||!v)return;
+          const maxX=Math.max(0,scroll.scrollWidth-window.innerWidth),maxY=Math.max(0,scroll.scrollHeight-window.innerHeight);
+          scroll.scrollLeft=v.x!==undefined?v.x*maxX:scroll.scrollLeft+(v.deltaX??0)*maxX;
+          scroll.scrollTop=v.y!==undefined?v.y*maxY:scroll.scrollTop+(v.deltaY??0)*maxY;
+          painted.current={destination:'viewport'};report();
+        }));return;
+      }
       if(data.command){const c=data.command;diagnostic({event:'command',sessionId:c.sessionId,displayId:c.displayId});command.current=c;const path=c.destination==='overview'?'/':c.sessionId&&c.displayId?viewerPath(c.sessionId,c.displayId):undefined;if(!path)return;const target=new URL(path,location.href);if(location.pathname!==target.pathname||location.origin!==target.origin||location.search!==target.search){diagnostic({event:'navigation',sessionId:c.sessionId,displayId:c.displayId});location.assign(path);return;}window.dispatchEvent(new Event('kanvas:return-live'));report();}else command.current=undefined;
     };
     const commandEvent=(event:Event)=>receive((event as CustomEvent).detail);window.addEventListener('kanvas:window-command',commandEvent);

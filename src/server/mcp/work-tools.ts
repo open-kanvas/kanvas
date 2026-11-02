@@ -1,7 +1,7 @@
 import {clientDetailsSchema} from '../../shared/agent-context.js';
 import { z } from 'zod';
 import {devicePresentSchema,deviceRenameSchema} from '../entry-devices.js';
-import {windowPresentSchema,windowOverviewSchema} from '../window-receivers.js';
+import {windowPresentSchema,windowOverviewSchema,windowViewportSchema} from '../window-receivers.js';
 import {invitationAcceptSchema,invitationRevokeSchema} from '../invitations.js';
 import { chatMessageSchema } from '../../shared/work-views.js';
 import { selectionSchema } from '../../shared/selection.js';
@@ -12,6 +12,7 @@ export const selectionInputSchema=z.object({...target,selection:selectionSchema.
 export const workTools=[
   {name:"kanvas_client_context_update",description:'Optional unverified client hints for this connection. Separate observed User-Agent/MCP identity; conflicts flagged. Private account history. Sharing helps adaptation, diagnosis and session recognition; omit unknowns.',schema:z.object({sessionId:id,clientDetails:clientDetailsSchema}).strict()},
   {name:"kanvas_catalog_show",description:'Show a static alphabetical auto-fit catalog. Templates scope: all (default), system or account; private templates use their names with an account marker. Operations remain complete. Reissue to refresh.',schema:z.object({sessionId:id,displayIds:z.array(id).min(1).max(64),requestId:id,catalog:z.enum(["operations","templates"]),scope:z.enum(["all","system","account"]).default("all").describe("Templates only; operations always includes all operations.")}).strict(),idempotent:true},
+  {name:'kanvas_window_viewport',description:'Zoom or scroll one owned online window on the root sessions overview. Supply deviceId/windowId from devices.read and await command status applied. Zoom is per window (0.25–3); scroll uses normalized position or delta. For session content use navigation.control with viewerId. Does not navigate or edit content.',schema:windowViewportSchema,idempotent:true},
   {name:'kanvas_window_overview',description:'Return one owned online browser window to the root sessions overview, detaching its displayed session without changing session content or other windows. Read devices.read for deviceId, windowId and expectedVersion. Stable requestId retries are safe. Account-wide publish permission required. Check the command receipt for browser acknowledgement.',schema:windowOverviewSchema,idempotent:true},
   {name:'kanvas_invite_accept',description:'Explicitly accept a single-use organization/team invitation as the current verified/signed-in account. Requires confirm:true after the user chooses to join. Adds member role only; preserves any existing higher role. Rechecks inviter authority and never joins linked groups or grants OAuth access.',schema:invitationAcceptSchema,idempotent:true},
   {name:'kanvas_invite_revoke',description:'Revoke an invitation issued by this account or administered group. Does not remove an existing membership. Account-wide authority required; group members cannot revoke other invitations.',schema:invitationRevokeSchema,idempotent:true},

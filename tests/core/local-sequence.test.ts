@@ -17,6 +17,10 @@ describe('local declarative sequence',()=>{
   d=changeCaptionSequence(d,{op:'sequence',action:'replace',chunks:[next]},now);expect(d.playback).toEqual({state:'paused',positionMs:0});
   expect(changeCaptionSequence(d,{op:'sequence',action:'clear'},now).chunks).toEqual([]);
  });
+ it('starts an append to an empty running queue at arrival, not at its old anchor',()=>{
+  const empty=captionDataSchema.parse({chunks:[],playback:{state:'playing',positionMs:0,startedAt:new Date(now).toISOString()}});
+  const d=changeCaptionSequence(empty,{op:'sequence',action:'append',chunks:[{id:'new',text:'New',durationMs:1000}]},now+60000);expect(sequenceStatus(d.chunks,d.playback,now+60000)).toMatchObject({phase:'playing',positionMs:0,activeId:'new'});
+ });
  it('rejects duplicate IDs, overlong chunks, invalid actions and out-of-range seeks',()=>{
   expect(()=>changeCaptionSequence(source(),{op:'sequence',action:'append',chunks:[source().chunks[0]]},now)).toThrow();expect(()=>changeCaptionSequence(source(),{op:'sequence',action:'seek',positionMs:3001},now)).toThrow();expect(()=>changeCaptionSequence(source(),{op:'sequence',action:'pause',chunks:[]},now)).toThrow();expect(captionDataSchema.safeParse({chunks:[{id:'a',text:'x'.repeat(401),durationMs:1000}]}).success).toBe(false);
  });

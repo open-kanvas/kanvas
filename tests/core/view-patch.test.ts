@@ -113,6 +113,14 @@ describe('revision-bound partial view patches', () => {
     await expect(f.patch([{op:'set',path:'/data/activeEventId',value:'missing'}])).rejects.toThrow();
   });
 
+  it('instrument batches and schedules use ordinary authorization, retries and atomic revision checks',async()=>{
+    await f.seed({version:1,template:'instrument',data:{config:{family:'keyboard',firstMidi:60,lastMidi:83}}});
+    const request=await f.request([{op:'instrument',changes:[{id:'key:60',value:{highlight:true}}]}]);
+    const result=await f.engine.patch(owner,request);expect(await f.engine.patch(owner,request)).toEqual(result);
+    const before=await f.read();await errorCode(()=>f.patch([{op:'instrument',changes:[{id:'key:61',value:{highlight:true}},{id:'key:59',value:{highlight:true}}]}]),'PATCH_UNSUPPORTED');expect(await f.read()).toEqual(before);
+    await f.patch([{op:'instrument-sequence',action:'replace',frames:[{id:'one',durationMs:1000,elements:{'key:64':{highlight:true}}}]},{op:'instrument-sequence',action:'resume'}]);expect((await f.read()).view!.data.playback).toMatchObject({state:'playing'});
+  });
+
   it('caption sequences retain CAS, durable retry, and atomic validation',async()=>{
     await f.seed({version:1,template:'live-captions',data:{chunks:[{id:'a',text:'First',durationMs:1000}]}});
     const input=await f.request([{op:'sequence',action:'append',chunks:[{id:'b',text:'Second',durationMs:1000}]}]);

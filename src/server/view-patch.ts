@@ -1,5 +1,6 @@
 import { timelineScale } from '../shared/timeline.js';
 import type { ExtendedData } from '../shared/extended-templates.js';
+import { instrumentDataSchema, changeInstrument, changeInstrumentSequence } from '../shared/instrument.js';
 import { captionDataSchema, changeCaptionSequence } from '../shared/local-sequence.js';
 import {assertExpectedRevision} from './revisions.js';
 import { isDeepStrictEqual } from 'node:util';
@@ -129,6 +130,18 @@ function applyOperation(view: ViewSpec, operation: ViewPatchOperation): void {
     const at=events.findIndex(event=>event.id===data.activeEventId);
     const next=at<0?(operation.action==='next'?0:events.length-1):Math.max(0,Math.min(events.length-1,at+(operation.action==='next'?1:-1)));
     data.activeEventId=events[next].id;return;
+  }
+  if(operation.op==='instrument-sequence') {
+    if(view.template!=='instrument') unsupported('Timed instrument frames require instrument view.');
+    try {view.data=changeInstrumentSequence(instrumentDataSchema.parse(view.data),operation,Date.now());}
+    catch {unsupported('Invalid instrument sequence transition, target IDs or duration.');}
+    return;
+  }
+  if(operation.op==='instrument') {
+    if(view.template!=='instrument') unsupported('Instrument updates require instrument view.');
+    try {view.data=changeInstrument(instrumentDataSchema.parse(view.data),operation);}
+    catch {unsupported('Invalid instrument targets or supplied element data. Read the current configuration.');}
+    return;
   }
   if(operation.op==='sequence') {
     if(view.template!=='live-captions') unsupported('Sequence captions require live-captions.');

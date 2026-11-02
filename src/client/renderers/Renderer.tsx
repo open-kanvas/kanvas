@@ -1,3 +1,5 @@
+import { Instrument } from './Instrument';
+import { instrumentDataSchema } from '../../shared/instrument';
 import { LiveCaptions } from './LiveCaptions';
 import { captionDataSchema } from '../../shared/local-sequence';
 import {CatalogList} from './CatalogList';
@@ -169,6 +171,7 @@ function ContentInner(props: RendererProps) {
     case 'document': return <DocumentRenderer preview={props.preview} {...surface} data={data as unknown as DocumentData} />;
     case 'video': return <VideoRenderer {...surface} data={data as unknown as VideoData} revision={props.revision} command={props.preview ? undefined : props.videoCommand} serverNow={props.serverNow} preview={props.preview} onCommandResult={props.onVideoCommandResult} />;
     case 'notifications': return <NotificationsRenderer {...surface} data={data as unknown as NotificationsData} editable={editable} revision={props.revision} onEdit={onEdit} />;
+    case 'instrument': return <Instrument data={instrumentDataSchema.parse(data)} serverNow={props.serverNow} preview={props.preview} />;
     case 'live-captions': return <LiveCaptions data={captionDataSchema.parse(data)} serverNow={props.serverNow} preview={props.preview} />;
     case 'transcription': return <TranscriptionRenderer {...surface} data={data as unknown as TranscriptionData} />;
     case 'translation': return <TranslationRenderer {...surface} data={data as unknown as TranslationData} />;

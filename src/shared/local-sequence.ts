@@ -35,22 +35,26 @@ export const sequenceOperationSchema=z.object({
   positionMs:z.number().finite().nonnegative().max(120000000).optional(),
 }).strict().describe('Live captions only. append retains clock; replace-future retains current/past; replace resets paused at zero. pause/resume/seek use server time. clear empties and pauses. Read display.current.sequenceStatus. All mutations use the ordinary patch revision/requestId.');
 export type SequenceOperation=z.infer<typeof sequenceOperationSchema>;
-export function changeCaptionSequence(data:CaptionData,op:SequenceOperation,nowMs:number):CaptionData {
-  const status=sequenceStatus(data.chunks,data.playback,nowMs);
-  const queueAction=['append','replace-future','replace'].includes(op.action);
-  if(queueAction!==!!op.chunks || (op.action==='seek')!==(op.positionMs!==undefined)) throw new Error('Only queue actions require chunks; only seek requires positionMs');
-  let chunks=data.chunks,playback={...data.playback};
-  if(op.action==='append'||op.action==='replace-future') {
-    chunks=[...(op.action==='append'?chunks:chunks.slice(0,status.index+1)),...op.chunks!];
-    // Appending after completion starts the added material now, not in the elapsed past.
+/** Shared only by captions and supplied instrument frames; no server slide timer. */
+export function changeTimedSequence<T extends TimedItem>(items:T[],current:Playback,action:SequenceOperation['action'],supplied:T[]|undefined,position:number|undefined,nowMs:number):{items:T[];playback:Playback} {
+  const status=sequenceStatus(items,current,nowMs);
+  const queueAction=['append','replace-future','replace'].includes(action);
+  if(queueAction!==!!supplied || (action==='seek')!==(position!==undefined)) throw new Error('Only queue actions require items; only seek requires positionMs');
+  let playback={...current};
+  if(action==='append'||action==='replace-future') {
+    items=[...(action==='append'?items:items.slice(0,status.index+1)),...supplied!];
     if((status.phase==='complete'||status.phase==='empty')&&playback.state==='playing') playback={state:'playing',positionMs:status.durationMs,startedAt:new Date(nowMs).toISOString()};
   }
-  if(op.action==='replace'||op.action==='clear') {chunks=op.chunks??[];playback={state:'paused',positionMs:0};}
-  if(op.action==='pause') playback={state:'paused',positionMs:status.positionMs};
-  if(op.action==='resume'&&playback.state!=='playing') playback={state:'playing',positionMs:status.positionMs,startedAt:new Date(nowMs).toISOString()};
-  if(op.action==='seek') {
-    if(op.positionMs!>status.durationMs) throw new Error('Seek exceeds sequence duration');
-    playback={state:playback.state,positionMs:op.positionMs!,...(playback.state==='playing'?{startedAt:new Date(nowMs).toISOString()}:{})};
+  if(action==='replace'||action==='clear') {items=supplied??[];playback={state:'paused',positionMs:0};}
+  if(action==='pause') playback={state:'paused',positionMs:status.positionMs};
+  if(action==='resume'&&playback.state!=='playing') playback={state:'playing',positionMs:status.positionMs,startedAt:new Date(nowMs).toISOString()};
+  if(action==='seek') {
+    if(position!>status.durationMs) throw new Error('Seek exceeds sequence duration');
+    playback={state:playback.state,positionMs:position!,...(playback.state==='playing'?{startedAt:new Date(nowMs).toISOString()}:{})};
   }
-  return captionDataSchema.parse({...data,chunks,playback});
+  return {items,playback};
+}
+export function changeCaptionSequence(data:CaptionData,op:SequenceOperation,nowMs:number):CaptionData {
+ const next=changeTimedSequence(data.chunks,data.playback,op.action,op.chunks,op.positionMs,nowMs);
+ return captionDataSchema.parse({...data,chunks:next.items,playback:next.playback});
 }

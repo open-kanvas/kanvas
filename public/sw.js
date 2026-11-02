@@ -7,23 +7,58 @@ self.addEventListener('fetch',event=>{const url=new URL(event.request.url);if(ur
   if(url.pathname==='/brand/kanvas-logo-white.svg'){event.respondWith(fetch(event.request).catch(()=>caches.match('/brand/kanvas-logo-white.svg')));return;}
   if(event.request.mode!=='navigate')return;event.respondWith(fetch(event.request).catch(()=>caches.match('/offline.html')));});
 
+
+// Local, bounded, content-free evidence survives a closed app. Two records only;
+// no account IDs, destination URLs, notification payloads or exception messages.
+// Diagnostic storage is best effort and never gates the user-activation launch.
+function pushTrace(kind) {
+ const record={version:1,startedAt:Date.now(),steps:[]};let pending=Promise.resolve();
+ return {step(stage,error) {
+  const item={stage,at:Date.now()};
+  if(error)item.error=['InvalidAccessError','SecurityError','NotAllowedError','AbortError','TypeError'].includes(error.name)?error.name:'OtherError';
+  record.steps.push(item);
+  const body=JSON.stringify(record);
+  pending=pending.then(async()=>{const cache=await caches.open('kanvas-push-diagnostics-v1');await cache.put('/__kanvas_push_diagnostics__/'+kind,new Response(body,{headers:{'Content-Type':'application/json'}}));}).catch(()=>{});
+ },flush(){return pending;}};
+}
+const notificationPath=path=>typeof path==='string'&&/^\/view\/[A-Za-z0-9_-]{1,128}\/[A-Za-z0-9_-]{1,128}$/.test(path);
 // Push payloads are fixed preview-free messages. Never use a supplied external URL.
 self.addEventListener('push',event=>{event.waitUntil((async()=>{
- let data;try{data=event.data?.json();}catch{return;}
- if(!data||!/^\/view\/[A-Za-z0-9_-]{1,128}\/[A-Za-z0-9_-]{1,128}$/.test(data.url))return;
- await self.registration.showNotification('Kanvas is ready',{body:'Open your new session.',icon:'/icons/kanvas-192.png',badge:'/icons/kanvas-192.png',tag:'kanvas-'+data.url,data:{url:data.url}});
+ const trace=pushTrace('push');trace.step('push-received');
+ try {
+  let data;try{data=event.data?.json();}catch{trace.step('payload-invalid');return;}
+  if(!data||!notificationPath(data.url)){trace.step('payload-invalid');return;}
+  await self.registration.showNotification('Kanvas is ready',{body:'Open your new session.',icon:'/icons/kanvas-192.png',badge:'/icons/kanvas-192.png',tag:'kanvas-'+data.url,data:{url:data.url}});
+  trace.step('notification-shown');
+ }catch(error){trace.step('notification-failed',error);}finally{await trace.flush();}
 })());});
-self.addEventListener('notificationclick',event=>{event.notification.close();const path=event.notification.data?.url;
- if(typeof path!=='string'||!/^\/view\/[A-Za-z0-9_-]{1,128}\/[A-Za-z0-9_-]{1,128}$/.test(path))return;
+self.addEventListener('notificationclick',event=>{
+ event.notification.close();const path=event.notification.data?.url;
+ if(!notificationPath(path))return;
+ const url=new URL(path,self.location.origin).href;
+ // Invoke the launch API in the click task, BEFORE storage or matchAll awaits.
+ // Chrome may return a reused app window; always check its destination below.
+ let opening;
+ try{opening=Promise.resolve(self.clients.openWindow(url)).then(client=>({client}),error=>({error}));}
+ catch(error){opening=Promise.resolve({error});}
+ const trace=pushTrace('click');trace.step('click-received');trace.step('open-requested');
  event.waitUntil((async()=>{
-  const url=new URL(path,self.location.origin).href;
-  // Installed apps may reuse an existing root window for openWindow(). Navigate
-  // the returned WindowClient explicitly; focusing alone preserves its old URL.
-  const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
-  const existing=windows.find(client=>client.url===url);
-  const opened=existing??await self.clients.openWindow(url);
-  if(!opened)return;
-  const target=opened.url===url?opened:await opened.navigate(url);
-  await target?.focus();
+  try {
+   const result=await opening;let target=result.client;
+   trace.step(result.error?'open-failed':target?'open-returned-client':'open-no-client',result.error);
+   if(!target){
+    // Recovery only: enumeration failure must never prevent the primary launch.
+    trace.step('fallback-search');
+    const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+    target=windows.find(client=>client.url===url)??windows.find(client=>{
+     try{const candidate=new URL(client.url);return candidate.origin===self.location.origin&&!candidate.search&&!candidate.hash&&(candidate.pathname==='/'||candidate.pathname==='/start'||notificationPath(candidate.pathname));}catch{return false;}
+    });
+    trace.step(target?'fallback-client':'no-window-client');
+   }
+   if(!target)return;
+   if(target.url!==url){trace.step('navigate-requested');target=await target.navigate(url);trace.step(target?'navigated':'navigate-no-client');}
+   if(!target)return;
+   trace.step('focus-requested');await target.focus();trace.step('focused');
+  }catch(error){trace.step('activation-failed',error);}finally{await trace.flush();}
  })());
 });

@@ -59,6 +59,7 @@ const domainDescriptions: Record<Exclude<DomainToolName, 'kanvas_feedback'>, str
   kanvas_scoreboard: 'Change a scoreboard: increase, decrease or set a side\'s score at expectedRevision.',
   kanvas_procedure: 'Step through a procedure or recipe: next, previous, goto, complete, overview.',
   kanvas_diagnostics: 'Account-scoped, metadata-only frontend timeline by support reference; cross-account reads require service administrator.',
+  kanvas_guidance_suggestions: 'Separate global optional guidance suggestions: browse, admin curate, explicitly import a new private copy without activation.',
   kanvas_guidance: 'Editable scoped user/workspace guidance, private drafts and explicit saves. Not privileged system instructions.',
   kanvas_flashcards: 'Persistent self-test decks: read current card, control reveal/next/previous/answer/restart and show saved progress. Voice answers use explicit card and revision guards; exact grading is not semantic grading.',
   kanvas_checklist: 'Persistent session checklists: read lists saved IDs or exact items/checked state; update changes the document independently; show brings it back on any display in the same session. Auto-saved when publishing the checklist template; keep checklistId/revision to update it. Replacing a display never erases it.',

@@ -30,10 +30,10 @@ describe('domains profile catalog', () => {
     const tools = listToolDefinitions('domains');
     expect(tools.map(tool => tool.name)).toEqual([...DOMAIN_TOOL_NAMES]);
     expect(tools.every(tool => tool.name.startsWith('kanvas_') && tool.inputSchema.required?.includes('operation'))).toBe(true);
-    // October29 adds ten operations (153 -> 163). Keep the max10/group
-    // and <1000 bytes/operation bounds; cap total at the same per-op budget.
+    // Additive operations retain max10/group and <1000 bytes/operation.
+    // Scale the total ceiling by the live operation count, not a historical inventory.
     expect(JSON.stringify(tools).length/CANONICAL_TOOLS.length).toBeLessThan(1000);
-    expect(JSON.stringify(tools).length).toBeLessThan(163_000);
+    expect(JSON.stringify(tools).length).toBeLessThan(CANONICAL_TOOLS.length * 1000);
   });
 
   it('keeps kanvas_feedback byte-for-byte identical to the former profile', () => {

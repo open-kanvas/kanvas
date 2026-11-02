@@ -67,6 +67,7 @@ export const TEMPLATE_DISPLAY_GUIDANCE = {
   document: focus('One excerpt, or an explicitly requested readable document.', 'Reading layouts preserve headings, exact text and natural scrolling.', true, true),
   video: focus('The supplied video.', 'Keep playback controls and blocked-playback explanations usable.'),
   notifications: focus('The important notice and required action.', 'Keep source/time detail readable and older notices accessible.'),
+  'live-captions': focus('Large rolling supplied captions.', 'Send short chunks (about 15–30 words) and durationMs in one schedule. Use publish patch op sequence for append/replace-future/replace/pause/resume/seek/clear; read display.current for computed status. Playing requires a supplied startedAt UTC anchor; resume uses server time. No audio recognition. Transcription remains the full-history view.'),
   transcription: focus('The relevant live words.', 'Transcript reading is explicit; keep speaker identity and supplied text, not recording claims.', true),
   translation: focus('The translated thought with a clear language direction.', 'Preserve the complete original and translation; long text remains readable.', true),
   form: focus('The current question and useful input controls.', 'Long forms are deliberate interactions, not miniature websites; retain required fields.', true),

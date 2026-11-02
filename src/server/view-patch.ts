@@ -1,5 +1,6 @@
 import { timelineScale } from '../shared/timeline.js';
 import type { ExtendedData } from '../shared/extended-templates.js';
+import { captionDataSchema, changeCaptionSequence } from '../shared/local-sequence.js';
 import {assertExpectedRevision} from './revisions.js';
 import { isDeepStrictEqual } from 'node:util';
 import { z } from 'zod';
@@ -128,6 +129,12 @@ function applyOperation(view: ViewSpec, operation: ViewPatchOperation): void {
     const at=events.findIndex(event=>event.id===data.activeEventId);
     const next=at<0?(operation.action==='next'?0:events.length-1):Math.max(0,Math.min(events.length-1,at+(operation.action==='next'?1:-1)));
     data.activeEventId=events[next].id;return;
+  }
+  if(operation.op==='sequence') {
+    if(view.template!=='live-captions') unsupported('Sequence captions require live-captions.');
+    try {view.data=changeCaptionSequence(captionDataSchema.parse(view.data),operation,Date.now());}
+    catch {unsupported('Invalid sequence transition. Check unique IDs, duration limits and action fields; seek must be within the queue.');}
+    return;
   }
   if(operation.op==='roster') {
     if(view.template!=='roster'||view.data.mode==='coverage')unsupported('Roster assignment operations require individual mode.');

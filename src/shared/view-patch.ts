@@ -1,3 +1,4 @@
+import { sequenceOperationSchema } from './local-sequence.js';
 import { z } from 'zod';
 
 /** A patch is bounded independently of the (larger) final view budget. */
@@ -18,6 +19,7 @@ const itemFields = { text:z.string().min(1).max(1000).optional(), detail:z.strin
 
 export const viewPatchOperationSchema = z.discriminatedUnion('op', [
   z.object({op:z.literal('timeline'),action:z.enum(['select','next','previous','clear']),eventId:itemId.optional()}).strict().describe('Select a stable timeline event ID, move next/previous in chronological order, or clear back to static. eventId only with select. Equal dates keep input order; ends clamp. Without selection next starts first, previous starts last. Reuses atomic publication/history and revision checks.'),
+  sequenceOperationSchema,
   z.object({op:z.literal('roster'),action:z.enum(['add','remove','update']),date:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),shift:itemId,person:itemId.optional(),value:z.object({code:z.string().min(1).max(8).nullable().optional(),note:z.string().max(200).nullable().optional()}).strict().optional()}).strict().describe('Target one roster assignment by date+shift+optional person. add/remove/update; value code/note, null clears. Atomic and revision-bound.'),
   z.object({op:z.literal('checklist'),itemId,action:z.enum(['add','remove','update','move']),value:z.object(itemFields).strict().optional(),beforeId:itemId.optional()}).strict().describe('Checklist ID: add/update value; detail:null clears. add/move beforeId or append.'),
   z.object({

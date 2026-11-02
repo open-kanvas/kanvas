@@ -113,6 +113,16 @@ describe('revision-bound partial view patches', () => {
     await expect(f.patch([{op:'set',path:'/data/activeEventId',value:'missing'}])).rejects.toThrow();
   });
 
+  it('caption sequences retain CAS, durable retry, and atomic validation',async()=>{
+    await f.seed({version:1,template:'live-captions',data:{chunks:[{id:'a',text:'First',durationMs:1000}]}});
+    const input=await f.request([{op:'sequence',action:'append',chunks:[{id:'b',text:'Second',durationMs:1000}]}]);
+    const result=await f.engine.patch(owner,input);expect(await f.engine.patch(owner,input)).toEqual(result);
+    expect((await f.read()).view!.data.chunks).toHaveLength(2);
+    await errorCode(()=>f.engine.patch(owner,{...input,requestId:randomUUID()}),'REVISION_CONFLICT');
+    const before=await f.read();await errorCode(()=>f.patch([{op:'sequence',action:'clear'},{op:'sequence',action:'seek',positionMs:5}]),'PATCH_UNSUPPORTED');expect(await f.read()).toEqual(before);
+    await errorCode(()=>f.engine.patch({userId:'outsider'},input),'FORBIDDEN');
+  });
+
   it('patches roster assignments atomically by semantic identity and preserves unrelated data',async()=>{
     await f.seed({version:1,template:'roster',data:{start:'2026-10-01',end:'2026-10-02',people:[{id:'a',name:'A'},{id:'b',name:'B'}],shifts:[{id:'d',label:'Day'},{id:'v',label:'Vacation'}],assignments:[{date:'2026-10-01',person:'a',shift:'d'},{date:'2026-10-01',person:'b',shift:'d',note:'Untouched'}]}});
     const request=await f.request([{op:'roster',action:'remove',date:'2026-10-01',person:'a',shift:'d'},{op:'roster',action:'add',date:'2026-10-01',person:'a',shift:'v',value:{note:'Leave'}}]);

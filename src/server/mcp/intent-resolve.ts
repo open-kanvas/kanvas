@@ -34,6 +34,9 @@ export async function resolveIntent(service:KanvasService,p:AuthPrincipal,raw:un
  }
  const set=(field:string,value:unknown,source:string)=>{args[field]=value;sources[field]=source;};
  const base={operationId,family:choice.family,inputSchema:detail.inputSchema,annotations:detail.annotations,rationale:choice.family+' using an existing operation',boundary};
+ // Malformed explicit IDs must not be replaced by contextual or sole-display guesses.
+ const invalidTargets=['sessionId','displayId'].filter(field=>!(field==='sessionId'?input.sessionId:input.displayId)&&Object.hasOwn(parameters,field)&&(typeof parameters[field]!=='string'||!/^[A-Za-z0-9_-]{1,128}$/.test(parameters[field] as string)));
+ if(invalidTargets.length)return {...base,status:'needs_input',arguments:args,fieldSources:sources,missingFields:invalidTargets,uncertainty:['Correct explicit target IDs; invalid supplied targets never fall back to contextual targets.'],next:'Supply valid explicit IDs and resolve again.'};
  if(!sessionId){
   const available=(await service.sessions(p)).filter(s=>!s.endedAt),targets=available.slice(0,12).map(s=>({sessionId:s.id,name:s.name}));
   return {...base,status:'needs_context',arguments:args,fieldSources:sources,missingFields:['sessionId'],possibleTargets:targets,possibleTargetsTruncated:available.length>12,uncertainty:['No explicit session context. Choose a target; even one available session is not selected implicitly.'],next:'Supply an authorized sessionId or activeContext and resolve again.'};
@@ -45,6 +48,7 @@ export async function resolveIntent(service:KanvasService,p:AuthPrincipal,raw:un
   const candidates=(await service.store.list<{id:string;name:string}>('display',sessionId)).filter(d=>(!p.scopedDisplayId||d.id===p.scopedDisplayId)&&(!targetDisplays||targetDisplays.includes(d.id)));
   if(!displayId&&candidates.length===1){displayId=candidates[0].id;sources.displayId='sole display in explicit authorized session';}
   if(!displayId){missing.add('displayId');return {...base,status:'needs_context',arguments:args,fieldSources:sources,missingFields:[...missing],possibleTargets:candidates.map(d=>({sessionId,displayId:d.id,name:d.name})),uncertainty:['Select an explicit display.'],next:'Resolve again with displayId.'};}
+  if(targetDisplays&&!targetDisplays.includes(displayId))return {...base,status:'needs_input',arguments:args,fieldSources:sources,missingFields:['displayId'],uncertainty:['Explicit display does not belong to targetRef. Choose a bound display or remove the reference and resolve with an explicit session.'],next:'Resolve again with consistent targets.'};
   display=await service.display(p,sessionId,displayId,definition.readOnly?'viewer':'editor');
   set('displayId',displayId,sources.displayId??'explicit');
  }

@@ -38,6 +38,16 @@ it('resolves five families against live schema, executes valid calls and never g
  const fresh=await resolve('edit current view',{operations:[{op:'appendText',path:'/data/text',value:' fresh'}]});expect(fresh.arguments.expectedRevision).toBeGreaterThan(stale.arguments.expectedRevision);
  const explicitStale=await resolve('edit current view',{expectedRevision:stale.arguments.expectedRevision,operations:[{op:'appendText',path:'/data/text',value:' outdated edit'}]});expect(explicitStale.status).toBe('needs_input');expect(explicitStale.call).toBeUndefined();
  const conflictingTargets=await resolve('publish supplied view',{view:fact('Supplied'),displayIds:[d.id,'not-the-selected-display']});expect(conflictingTargets.status).toBe('needs_input');expect(conflictingTargets.call).toBeUndefined();expect(conflictingTargets.arguments.displayIds).toEqual([d.id,'not-the-selected-display']);
+ for(const badId of [null,42,'']){
+  const invalidSession=await resolve('inspect current screen',{sessionId:badId},{activeContext:{sessionId:s.id},displayId:d.id});
+  expect(invalidSession.status).toBe('needs_input');expect(invalidSession.call).toBeUndefined();expect(invalidSession.arguments.sessionId).toBe(badId);
+  const invalidDisplay=await resolve('inspect current screen',{displayId:badId},{sessionId:s.id});
+  expect(invalidDisplay.status).toBe('needs_input');expect(invalidDisplay.call).toBeUndefined();expect(invalidDisplay.arguments.displayId).toBe(badId);
+ }
+ const outside=await owner.display(s.id);
+ await h.runtime.store.put('publish-target',{id:'review-bound-target',owner:p.userId+':grant:'+token.token.id,sessionId:s.id,displayIds:[d.id],createdAt:new Date().toISOString()});
+ const bound=await resolve('inspect current screen',{}, {targetRef:'review-bound-target'});expect(bound.status).toBe('ready');expect(bound.arguments.displayId).toBe(d.id);
+ const escaped=await resolve('inspect current screen',{}, {targetRef:'review-bound-target',displayId:outside.id});expect(escaped.status).toBe('needs_input');expect(escaped.call).toBeUndefined();
  const denied=await client.callTool({name:'kanvas_discover',arguments:{catalog:'tools',action:'resolve',query:'inspect current screen',sessionId:foreign.id,activeContext:{sessionId:s.id}}});expect(denied.isError).toBe(true);
  const override=await resolve('inspect current screen',{}, {sessionId:s.id,displayId:d.id,activeContext:{sessionId:s2.id}});expect(override.arguments.sessionId).toBe(s.id);
  console.log(JSON.stringify({measurement:'supported-five-families',discoveryCalls:5,executionCalls:5,invalidArgumentRetries:invalid}));

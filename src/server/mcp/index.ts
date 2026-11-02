@@ -1,3 +1,4 @@
+import { guidanceContext } from './active-context.js';
 import { discoveryToolDefinitions, discoveryResult, isDiscoveryTool } from './discovery.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
@@ -125,7 +126,7 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
     server.setRequestHandler('tools/list', async () => ({ tools: toolDefinitions }));
     server.setRequestHandler('tools/call', async (request, extra) => {
       const outer=request.params.arguments??{};
-      const guidanceArgs=request.params.name==='kanvas_call'?outer.arguments:undefined;
+      const guidanceArgs=guidanceContext(request.params.name,outer);
       const decorate=async<T extends {content:unknown[];structuredContent?:unknown}>(result:T):Promise<T>=>{
         let guidance:unknown;
         try{guidance=await service.agentGuidance?.(current().principal,guidanceArgs);}catch{/* Never replace the primary result. */}

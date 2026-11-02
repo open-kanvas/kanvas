@@ -1,3 +1,4 @@
+import { activeContextSchema, ACTIVE_CONTEXT_HELP } from './active-context.js';
 import { workflowIds, WORKFLOW_NOTE, PLANNER_BOUNDARY, SUBMIT_SHAPE } from './workflow-guidance.js';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
@@ -39,11 +40,11 @@ const catalogSchema = z.enum(['tools', 'templates', 'help']);
 const cursorSchema = z.string().max(512).optional();
 /** Each action accepts only its own fields: no type facet or accidental narrowing. */
 export const discoverSchema = z.discriminatedUnion('action', [
-  z.strictObject({ catalog: catalogSchema, action: z.literal('list'), cursor: cursorSchema }),
-  z.strictObject({ catalog: catalogSchema, action: z.literal('search'), query: z.string().trim().min(1).max(500), limit: z.number().int().min(1).max(20).default(5), cursor: cursorSchema }),
-  z.strictObject({ catalog: catalogSchema, action: z.literal('get'), id: idSchema }),
+  z.strictObject({ activeContext: activeContextSchema, catalog: catalogSchema, action: z.literal('list'), cursor: cursorSchema }),
+  z.strictObject({ activeContext: activeContextSchema, catalog: catalogSchema, action: z.literal('search'), query: z.string().trim().min(1).max(500), limit: z.number().int().min(1).max(20).default(5), cursor: cursorSchema }),
+  z.strictObject({ activeContext: activeContextSchema, catalog: catalogSchema, action: z.literal('get'), id: idSchema }),
 ]);
-export const useSchema = z.strictObject({ operationId: idSchema, arguments: z.record(z.string(), z.unknown()) });
+export const useSchema = z.strictObject({ activeContext: activeContextSchema, operationId: idSchema, arguments: z.record(z.string(), z.unknown()) });
 /** Safety budget, not ordinary pagination. Whole entries only; explicit continuation. */
 export const SEARCH_RESULT_BYTES = 384 * 1024;
 const discoverySchemas = { kanvas_discover: discoverSchema, kanvas_call: useSchema };
@@ -62,7 +63,7 @@ export function discoveryToolDefinitions(): Tool[] {
   return DISCOVERY_TOOL_NAMES.map(name => {
     const { $schema: _schema, ...schema } = z.toJSONSchema(discoverySchemas[name], { io: 'input' });
     const read = name !== 'kanvas_call';
-    return { name, description: descriptions[name], inputSchema: { ...schema, type: 'object' } as Tool['inputSchema'], annotations: { readOnlyHint: read, destructiveHint: !read, idempotentHint: read, openWorldHint: !read } };
+    return { name, description: descriptions[name] + ' ' + ACTIVE_CONTEXT_HELP, inputSchema: { ...schema, type: 'object' } as Tool['inputSchema'], annotations: { readOnlyHint: read, destructiveHint: !read, idempotentHint: read, openWorldHint: !read } };
   });
 }
 function schemaTerms(value: unknown): string {

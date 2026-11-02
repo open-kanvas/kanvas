@@ -100,6 +100,6 @@ export class AgentGuidance{
     const value=await this.active(`session:${a.sessionId}`);if(value.text)levels.push({scope:'session',...value});
    }catch{/* An unauthorized ID contributes no scope data. */}
   }else if(typeof a.groupId==='string'&&id.safeParse(a.groupId).success){try{const group=await this.service.accounts.group(p,a.groupId),value=await this.active(`${group.kind}:${group.id}`);if(value.text)levels.push({scope:group.kind,...value});}catch{/* No membership disclosure. */}}
-  return {boundary:GUIDANCE_BOUNDARY,contextRule:'Only explicit authorized sessionId (and its member-visible organization/team), or groupId. Without a unique explicit context, user scope only.',levels:levels.sort((a,b)=>['organization','team','user','session'].indexOf(a.scope)-['organization','team','user','session'].indexOf(b.scope))};
+  return {boundary:GUIDANCE_BOUNDARY,contextRule:'Only explicit authorized sessionId (and its member-visible organization/team), or groupId. Per-call activeContext is used only without an explicit operation target. Omission/null clears it; no connection/account/browser state is inferred. Without explicit context, user scope only.',levels:levels.sort((a,b)=>['organization','team','user','session'].indexOf(a.scope)-['organization','team','user','session'].indexOf(b.scope))};
  }
 }

@@ -33,7 +33,7 @@ export function ProgressRenderer({data}:{data:ProgressData}){
   const alternating=data.layout==='alternating'||data.layout!=='single'&&data.events.length>=6&&(data.orientation!=='vertical'||width>=600);
   return <div ref={root} className="progress-surface" data-progress-layout={alternating?'alternating':'single'}><header><h2>{data.task}</h2><span role="status">{data.status}</span></header>{data.events.length?<Spine events={data.events} orientation={data.orientation} label="Task progress" discrete alternating={alternating}/>:<p>Waiting for the first update.</p>}</div>;
 }
-export function TimelineRenderer({data}:{data:ExtendedData<'timeline'>}){return <Spine events={[...data.events].sort((a,b)=>Date.parse(a.start)-Date.parse(b.start)).map(e=>({...e,timestamp:e.start}))} orientation={data.orientation} label="Timeline"/>;}
+export { TimelineRenderer } from './Timeline';
 export function LogRenderer(props:RendererProps){
   const selection=useSelection();
   const data=props.view.data as LogData,navigation=useNavigation(),[localPage,setPage]=useState(0),[selected,setSelected]=useState<number>(),[error,setError]=useState('');

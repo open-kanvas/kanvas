@@ -1,4 +1,5 @@
 import {SuggestedGuidance} from './suggested-guidance.js';
+import {resolveIntent} from './mcp/intent-resolve.js';
 import {visualHelp,showHelp} from './visual-help.js';
 import {loginRead,loginDecide} from './device-login.js';
 import {currentToolContext} from './mcp/call-context.js';
@@ -1145,6 +1146,7 @@ export class KanvasService implements McpService {
   async listResources(principal: AuthPrincipal): Promise<McpResourceDescriptor[]> {
     return [{uri:'kanvas://start',name:'Account start page · recent sessions',mimeType:'application/json'}, {uri:'kanvas://help',name:'Kanvas Help and public documentation',mimeType:'application/json'}, { uri: 'kanvas://sessions', name: 'Accessible KANVAS sessions', mimeType: 'application/json' }, ...(await this.sessions(principal)).flatMap(s => ['state', 'config', 'interactions', 'reports'].map(kind => ({ uri: `kanvas://sessions/${s.id}/${kind}`, name: `${s.name}: ${kind}`, mimeType: 'application/json' })))];
   }
+  async resolveIntent(principal:AuthPrincipal,args:unknown){return this.store.snapshot(()=>resolveIntent(this,principal,args));}
   async agentGuidance(principal:AuthPrincipal,args?:unknown){return this.guidance.exposure(principal,args);}
   async argumentError(name:string,raw:Record<string,unknown>,principal:AuthPrincipal,error:unknown):Promise<unknown>{
     const definition=MCP_TOOLS.find(t=>t.name===name),parsed=definition?.schema.safeParse(raw);

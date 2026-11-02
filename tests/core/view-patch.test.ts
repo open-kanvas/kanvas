@@ -352,3 +352,24 @@ describe('revision-bound partial view patches', () => {
     expect((await f.requestCount())).toBe(0); expect(f.publish).not.toHaveBeenCalled(); expect((await f.read()).revision).toBe(before.revision);
   });
 });
+
+describe('statistical visual patch integration',()=>{
+ it('updates only supplied region emphasis and rejects invalid set references atomically',async()=>{
+  const f=new Fixture();try{
+   await f.seed({version:1,template:'venn',data:{sets:[{label:'A'},{label:'B'}],regions:{AB:{value:5}},emphasis:[]}});
+   await f.patch([{op:'set',path:'/data/emphasis',value:['A','B','AB']}]);
+   const current=await f.read();
+   expect(current.view!.data.regions).toEqual({AB:{value:5}});
+   await expect(f.patch([{op:'set',path:'/data/emphasis',value:['ABC']}])).rejects.toBeTruthy();
+   expect((await f.read()).revision).toBe(current.revision);
+  }finally{await f.store.close();}
+ });
+ it('changes one distribution range without modifying supplied observations',async()=>{
+  const f=new Fixture();try{
+   const series=[{name:'Supplied',points:[{x:0,y:0},{x:1,y:1},{x:3,y:0}]}];
+   await f.seed({version:1,template:'chart',data:{kind:'line',series,distribution:{ranges:[{id:'r',series:'Supplied',from:0,to:1}]}}});
+   await f.patch([{op:'set',path:'/data/distribution/ranges/0/from',value:.5},{op:'set',path:'/data/distribution/ranges/0/to',value:2}]);
+   expect((await f.read()).view!.data.series).toEqual(series);
+  }finally{await f.store.close();}
+ });
+});

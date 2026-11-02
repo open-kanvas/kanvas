@@ -7,6 +7,7 @@ export const DISPLAY_PRINCIPLE = 'KANVAS is a real-time visual companion to a co
 const focus = (primary: string, detail: string, reference = false, heading = false) => ({ primary, detail, reference, heading });
 /** The shared renderer, template schema response and agent guide use this audit. */
 export const TEMPLATE_DISPLAY_GUIDANCE = {
+venn:focus('Two or three explicitly supplied sets.','A/B/C correspond to set array order. Disjoint regions A,B,AB,C,AC,BC,ABC,outside; supply exact region values and emphasis IDs. A union B in a two-set view means emphasis A,B,AB. No membership inference or proportional areas. Update with view.patch and read current.',true),
 "catalog-list":focus("Static alphabetical catalog","Use catalog.show to populate from the live server operation/template registries, including your private account templates. Shared auto-fit columns, no controls.",true),
 'keyboard-shortcuts':focus('All Kanvas keyboard shortcuts in one responsive reference.', 'Publish data:{} or use help.show topic keyboard-shortcuts page 0. All 13 shortcuts share the maintained source; large displays use grouped columns and small displays retain readable scrolling when needed.',true),
 "vocabulary":focus("Vocabulary","Friendly session \u2192 displays \u2192 devices relationships; shared authoritative vocabulary source.",true),

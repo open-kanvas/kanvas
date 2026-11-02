@@ -1,3 +1,4 @@
+import {vennExample} from './statistical-visuals.js';
 import {venueNames,venueSchemas} from './venue.js';
 import { eventViewExamples } from './event-views.js';
 import { workNames, workExamples } from './work-examples.js';
@@ -9,7 +10,7 @@ export const templateNames: Record<TemplateId, string> = {'catalog-list':'Alphab
   'now-playing': 'Now playing',
   roster: 'Shift roster & coverage',
   progress: 'Task progress', log: 'Log', fact: 'Quick Fact', number: 'Big number', chart: 'Chart', table: 'Data table', image: 'Images', website: 'Website', iframe: 'Website (legacy alias)', 'story-cards':'Story cards', list: 'List', web: 'Web source', comparison: 'Comparison', checklist: 'Checklist', map: 'Map', code: 'Code & activity', whiteboard: 'Whiteboard', presentation: 'Presentation', document: 'Document excerpt', video: 'Video segment', notifications: 'Notifications',
-  'keyboard-shortcuts':'Keyboard shortcuts', drafting: 'Drafting & dictation', procedure: 'Step-by-step guide', join: 'Join this display', overview: 'Session content gallery', 'display-grid': 'Live display grid', devices: 'Devices & windows', calendar: 'Calendar (read-only)', planner: 'Schedule planner', settings: 'Session settings', html: 'Custom visual', timeline: 'Timeline', itinerary: 'Itinerary', product: 'Product', weather: 'Weather', profile: 'Profile', kpi: 'Key metrics', quote: 'Quote', recipe: 'Recipe', menu: 'Menu', leaderboard: 'Leaderboard', status: 'Status',
+  venn:'Venn diagram', 'keyboard-shortcuts':'Keyboard shortcuts', drafting: 'Drafting & dictation', procedure: 'Step-by-step guide', join: 'Join this display', overview: 'Session content gallery', 'display-grid': 'Live display grid', devices: 'Devices & windows', calendar: 'Calendar (read-only)', planner: 'Schedule planner', settings: 'Session settings', html: 'Custom visual', timeline: 'Timeline', itinerary: 'Itinerary', product: 'Product', weather: 'Weather', profile: 'Profile', kpi: 'Key metrics', quote: 'Quote', recipe: 'Recipe', menu: 'Menu', leaderboard: 'Leaderboard', status: 'Status',
   transcription: 'Transcription', translation: 'Translation', form: 'Survey & form', schedule: 'Calendar & schedule', poll: 'Live poll', countdown: 'Countdown', qa: 'Audience Q&A',
 };
 const illustrative = { title: 'KANVAS example (sample data)' };
@@ -50,6 +51,7 @@ export const samples: Record<TemplateId, ViewSpec> = {'keyboard-shortcuts':{vers
   }, source: illustrative },
   settings: { version: 1, template: 'settings', data: extendedExamples.settings, source: illustrative },
   html: { version: 1, template: 'html', data: extendedExamples.html, source: illustrative },
+  venn:{version:1,template:'venn',data:vennExample,source:illustrative},
   timeline: { version: 1, template: 'timeline', data: extendedExamples.timeline, source: illustrative },
   itinerary: { version: 1, template: 'itinerary', data: extendedExamples.itinerary, source: illustrative },
   product: { version: 1, template: 'product', data: extendedExamples.product, source: illustrative },

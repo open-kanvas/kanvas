@@ -1,6 +1,7 @@
 import { instrumentDataSchema } from './instrument.js';
 import { captionDataSchema } from './local-sequence.js';
 import {mathWorkspaceSchema} from './math-workspace.js';
+import {vennSchema} from './statistical-visuals.js';
 import {venueSchemas} from './venue.js';
 import {customViewSchema} from './custom-templates.js';
 import { flashcardDataSchema } from './flashcards.js';
@@ -276,6 +277,7 @@ export const leafViewSchema = z.discriminatedUnion('template', [
   z.object({ ...base, template: z.literal('fact'), data: factDataSchema }).strict(),
   z.object({ ...base, template: z.literal('number'), data: numberDataSchema }).strict(),
   z.object({...base,template:z.literal('math'),data:mathWorkspaceSchema}).strict(),
+  z.object({...base,template:z.literal('venn'),data:vennSchema}).strict(),
   z.object({ ...base, template: z.literal('chart'), data: chartDataSchema }).strict(),
   z.object({ ...base, template: z.literal('table'), data: tableDataSchema }).strict(),
   z.object({ ...base, template: z.literal('image'), data: imageDataSchema }).strict(),

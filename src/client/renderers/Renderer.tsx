@@ -3,6 +3,8 @@ import { instrumentDataSchema } from '../../shared/instrument';
 import { LiveCaptions } from './LiveCaptions';
 import { captionDataSchema } from '../../shared/local-sequence';
 import type {MathWorkspace} from '../../shared/math-workspace';
+import {VennRenderer} from './Venn';
+import type {VennData} from '../../shared/statistical-visuals';
 import {CatalogList} from './CatalogList';
 import {useDevice} from '../DeviceReceiver';
 import {FitToDisplay} from './FitToDisplay';
@@ -156,6 +158,7 @@ function ContentInner(props: RendererProps) {
     case 'fact': return <FactRenderer {...surface} data={data as unknown as { text: string }}  />;
     case 'number': return <NumberRenderer {...surface} data={data as unknown as { value: string | number }} />;
     case 'math': return <MathWorkspaceRenderer data={data as unknown as MathWorkspace}/>;
+    case 'venn': return <VennRenderer data={data as unknown as VennData}/>;
     case 'chart': return <ChartRenderer {...surface} data={data as unknown as ChartData} />;
     case 'table': return <TableRenderer {...surface} data={data as unknown as TableData} />;
     case 'image-gallery':return <ImageGallery data={data as GalleryData}/>;

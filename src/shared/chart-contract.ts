@@ -1,3 +1,4 @@
+import {distributionSchema} from './statistical-visuals.js';
 import { geographyCodes } from './geography/codes.js';
 import { emphasisSchema } from './emphasis.js';
 import { z } from 'zod';
@@ -177,6 +178,7 @@ function validatePolygon(rings: Position[][]): string | undefined {
 }
 
 export const chartDataSchema = z.object({
+  distribution:distributionSchema.optional().describe('Supplied numeric line curves with shaded x-ranges and supplied low/high bands; no probability calculation. Ranges reference a series by name.'),
   emphasis:emphasisSchema.optional(),
   stacking:z.enum(['grouped','stacked','percent']).optional(),orientation:z.enum(['vertical','horizontal']).optional(),showValues:z.boolean().optional(),showTotals:z.boolean().optional(),legend:z.boolean().optional(),numberFormat:z.object({notation:z.enum(['standard','compact']).default('compact'),maximumFractionDigits:z.number().int().min(0).max(8).default(2),prefix:z.string().max(20).optional(),suffix:z.string().max(20).optional()}).strict().optional(),yMin:finite.optional(),yMax:finite.optional(),secondaryLabel:short.optional(),
 
@@ -188,6 +190,15 @@ export const chartDataSchema = z.object({
   xLabel: short.optional(), yLabel: short.optional(), unit: z.string().max(80).optional(), binding: datasetBindingSchema.optional(), summary: summarySchema.optional(),
 }).strict().superRefine((data, ctx) => {
   const issue = (message: string, path: (string | number)[] = []) => ctx.addIssue({ code: 'custom', message, path });
+  if(data.distribution){
+   if(data.kind!=='line'||data.binding||data.stacking||data.orientation||data.yMin!==undefined||data.yMax!==undefined||data.referenceLines?.length||data.emphasis?.length||data.showValues||data.showTotals||data.numberFormat||data.secondaryLabel||data.series.some(s=>s.axis||s.kind||s.stackGroup))issue('Distribution overlays require supplied numeric unstacked line series without secondary axes or composable options');
+   if(!data.series.length||data.series.some(s=>s.points.length<2||s.points.some((p,i)=>typeof p.x!=='number'||typeof p.y!=='number'||!Number.isFinite(p.y)||i>0&&Number(p.x)<=Number(s.points[i-1].x))))issue('Distribution curves require at least two finite numeric points, strictly increasing x');
+   const overlays=[...data.distribution.ranges,...data.distribution.bands];
+   if(new Set(overlays.map(x=>x.id)).size!==overlays.length)issue('Overlay IDs must be unique');
+   for(const range of data.distribution.ranges){const s=data.series.find(s=>s.name===range.series);if(!s||range.from<Number(s.points[0]?.x)||range.to>Number(s.points.at(-1)?.x))issue('Ranges must name a supplied series and stay within its x extent');}
+   for(const band of data.distribution.bands){const s=data.series.find(s=>s.name===band.series);if(!s||band.points.some((p,i)=>i>0&&p.x<=band.points[i-1].x)||band.points[0].x<Number(s?.points[0]?.x)||band.points.at(-1)!.x>Number(s?.points.at(-1)?.x))issue('Bands require a supplied series, increasing x within its extent');}
+   if(data.distribution.bands.reduce((n,b)=>n+b.points.length,0)>5000)issue('At most 5000 total band points');
+  }
   if(data.referenceLines?.length&&!['line','bar','scatter','histogram','box'].includes(data.kind))issue('Reference lines require a Cartesian line/bar/scatter/histogram/box chart');
   if(data.emphasis?.length&&!['line','bar','scatter','histogram','box','heatmap'].includes(data.kind))issue('Point emphasis supports Cartesian and heatmap charts');
   for(const e of data.emphasis??[])if(e.row!==undefined||e.column!==undefined||e.point===undefined||((!data.binding||data.series.length>0)&&!data.series.some(s=>(e.series===undefined||s.name===e.series)&&e.point!<s.points.length)))issue('Chart emphasis targets an existing series and zero-based point index',['emphasis']);

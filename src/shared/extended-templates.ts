@@ -20,6 +20,7 @@ export const STATIC_HTML_RULE = 'Return a body fragment in html and optional sep
 /** Display-only contracts. Source retrieval is separate: a publisher supplies it,
  * or an explicitly started bounded monitor refreshes it. No checkout is implied. */
 export const extendedSchemas = {
+  'keyboard-shortcuts': z.object({}).strict().describe('Complete maintained Kanvas hotkey reference, grouped responsively in one view. No supplied rows needed.'),
   overview: z.object({ layout:z.enum(['grid','list']).default('grid'), scope:z.enum(['session','account']).default('session').describe('Session: retained content thumbnails, oldest first. Account: live recent-session choices for an authenticated account, as used by the Home display; never selects a recent session automatically.'), displayIds: z.array(id).max(20).optional(), order: z.enum(['oldest', 'newest']).default('oldest').describe('Chronological oldest-first by default. Set newest explicitly only when requested.'), showPreviews: z.boolean().default(true), showMetadata: z.boolean().default(true) }).strict(),
   settings: z.object({ description: text.optional(), dimension: z.enum(['all','style','theme','accent','numberLocale','unitSystem','dateFormat','timeFormat','timeZone','readingFontSize','readingWpm','readingZoom']).default('all').describe('Show just one setting for focused voice interaction, or all. Ask whether to apply to session, account, team or organization; scope never changes implicitly. Apply requested live setting changes immediately with kanvas_session settings.update {sessionId,expectedRevision:configRevision,config}; read session state for the revision. Account defaults use kanvas_profile preferences.update.'), allowAccountDefaults: z.boolean().default(true) }).strict(),
   html: z.object({ html: z.string().min(1).max(150_000).refine(value => !/<\s*\/?\s*(?:script|iframe|object|embed|base|meta|form)\b/i.test(value), STATIC_HTML_RULE).describe(STATIC_HTML_RULE), css: z.string().max(50_000).optional(), description: text }).strict(),
@@ -42,6 +43,7 @@ export type ExtendedTemplate = keyof typeof extendedSchemas;
 export type ExtendedData<K extends ExtendedTemplate> = z.infer<(typeof extendedSchemas)[K]>;
 
 export const extendedExamples: Record<ExtendedTemplate, Record<string, unknown>> = {
+  'keyboard-shortcuts': {},
   overview: { order: 'oldest', showPreviews: true }, settings: { description: 'Tune this session or save your defaults.', allowAccountDefaults: true },
   html: { description: 'An illustrative custom visual', html: '<article><h1>Space to think.</h1><p>A custom visual, safely contained.</p></article>', css: 'article{padding:8vw;font:24px system-ui}h1{font-size:clamp(36px,7vw,100px)}' },
   timeline: { events: [{ id: 'launch', title: 'Launch', start: '2026-09-01', lane: 'Milestones' }, { id: 'review', title: 'Review', start: '2026-09-12', end: '2026-09-14', lane: 'Milestones' }] },

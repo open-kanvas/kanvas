@@ -73,8 +73,8 @@ test('unchecked consent gives actionable feedback and never submits',async({page
  await page.getByRole('checkbox').first().check();await page.getByRole('button',{name:'Approve requesting device'}).click();await expect(page.getByRole('alert')).toContainText('code matches');expect(consumed).toBe(0);
  await page.getByRole('checkbox').nth(1).check();await page.getByRole('button',{name:'Approve requesting device'}).click();await expect(page.getByRole('status')).toContainText('requesting device is approved');expect(consumed).toBe(1);
 });
-test('manifest and standalone cold-launch fallback open environment root',async({page})=>{
+test('manifest launches root while standalone cold deep links retain their destination',async({page})=>{
  await page.addInitScript(()=>{const original=window.matchMedia.bind(window);window.matchMedia=(query:string)=>query==='(display-mode: standalone)'?{...original(query),matches:true} as MediaQueryList:original(query);});
- await page.goto('/start');await expect.poll(()=>new URL(page.url()).pathname).toBe('/');
- const manifest=await page.evaluate(async()=>fetch('/manifest.webmanifest').then(r=>r.json()));expect(manifest.start_url).toBe('/');expect(manifest.launch_handler.client_mode).toBe('navigate-existing');
+ await page.goto('/start');await expect.poll(()=>new URL(page.url()).pathname).toBe('/start');
+ const manifest=await page.evaluate(async()=>fetch('/manifest.webmanifest').then(r=>r.json()));expect(manifest.start_url).toBe('/');expect(manifest.launch_handler.client_mode).toBe('navigate-existing');await page.goto(manifest.start_url);await expect(page.getByRole('heading',{name:'Sign in on this screen',exact:true})).toBeVisible();await expect.poll(()=>new URL(page.url()).pathname).toBe('/');
 });

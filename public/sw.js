@@ -15,5 +15,15 @@ self.addEventListener('push',event=>{event.waitUntil((async()=>{
 })());});
 self.addEventListener('notificationclick',event=>{event.notification.close();const path=event.notification.data?.url;
  if(typeof path!=='string'||!/^\/view\/[A-Za-z0-9_-]{1,128}\/[A-Za-z0-9_-]{1,128}$/.test(path))return;
- event.waitUntil(self.clients.openWindow(new URL(path,self.location.origin).href));
+ event.waitUntil((async()=>{
+  const url=new URL(path,self.location.origin).href;
+  // Installed apps may reuse an existing root window for openWindow(). Navigate
+  // the returned WindowClient explicitly; focusing alone preserves its old URL.
+  const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+  const existing=windows.find(client=>client.url===url);
+  const opened=existing??await self.clients.openWindow(url);
+  if(!opened)return;
+  const target=opened.url===url?opened:await opened.navigate(url);
+  await target?.focus();
+ })());
 });

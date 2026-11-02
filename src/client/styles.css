@@ -208,3 +208,5 @@
 .render-surface:not(.is-preview){font-size:clamp(16px,1.2cqw,28px)}.render-surface[data-device-kind="TV"]{font-size:clamp(24px,1.6cqw,40px)}.render-surface[data-device-kind="TV"] .devices-content{font-size:clamp(24px,calc(1cqw + 1.2cqh),40px)}
 
 .auth-logo-panel .wordmark.kanvas-brand>svg.kanvas-brand-art{width:100%;max-width:640px}
+
+.viewer-menu{max-height:calc(100dvh - 80px - env(safe-area-inset-top,0px));overflow-y:auto;overscroll-behavior:contain}

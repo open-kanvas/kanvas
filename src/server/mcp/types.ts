@@ -16,6 +16,7 @@ export interface ToolInvocation {id:string;tool:string;operation?:string;session
 export interface McpService {
   argumentError?(name:string,args:Record<string,unknown>,principal:Principal,error:unknown):Promise<unknown>;
   customTemplateCatalog?(principal:Principal):Promise<import('./discovery.js').CatalogItem[]>;
+  resolveIntent?(principal:Principal,args:unknown):Promise<unknown>;
   agentGuidance?(principal:Principal,args?:unknown):Promise<unknown>;
   authorize(request: Request): Promise<Principal>;
   execute(name: string, args: Record<string, unknown>, principal: Principal, context?: { signal?: AbortSignal }): Promise<unknown>;

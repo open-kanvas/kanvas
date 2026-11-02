@@ -1,3 +1,4 @@
+import { parseDiscoveryInput } from './discovery.js';
 import { guidanceContext } from './active-context.js';
 import { discoveryToolDefinitions, discoveryResult, isDiscoveryTool } from './discovery.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -148,7 +149,14 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
 
       if (isDiscoveryTool(request.params.name) && request.params.name !== 'kanvas_call') {
         return profileScope.run('discovery', async () => {
-          try { return decorate(discoveryResult(request.params.name, request.params.arguments, { principal: current().principal, signal: extra.mcpReq.signal, privateTemplates:await service.customTemplateCatalog?.(current().principal) })); }
+          try {
+            if(outer.action==='resolve'){
+              const input=parseDiscoveryInput('kanvas_discover',outer);
+              if(!service.resolveIntent)throw new Error('Intent resolution unavailable.');
+              const data=await service.resolveIntent(current().principal,input),result={data};
+              return decorate({content:[{type:'text' as const,text:JSON.stringify(result)}],structuredContent:result});
+            }
+            return decorate(discoveryResult(request.params.name, request.params.arguments, { principal: current().principal, signal: extra.mcpReq.signal, privateTemplates:await service.customTemplateCatalog?.(current().principal) })); }
           catch (error) { return decorate(toolFailure(error, undefined, 'discovery')); }
         });
       }

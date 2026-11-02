@@ -31,6 +31,8 @@ export class PublishSetup {
     for (const displayId of b.displayIds) (await this.service.display(p, b.sessionId, displayId, 'editor'));
     return b;
   }
+  /** Read-only authorized binding lookup for intent discovery; no target is created. */
+  async resolveTarget(p:AuthPrincipal,ref:string){const b=await this.binding(p,ref);return {sessionId:b.sessionId,displayIds:b.displayIds};}
   private async candidates(p: AuthPrincipal, sessionId?: string) {
     return (await asyncFlatMap((sessionId ? [(await this.service.access(p, sessionId, 'editor'))] : (await asyncFilter((await this.service.sessions(p)), async s=>!(await this.service.devices.isEntrySession(s.id))))), async session => {
       try { (await this.service.access(p, session.id, 'editor')); }

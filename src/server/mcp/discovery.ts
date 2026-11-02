@@ -1,3 +1,4 @@
+import { intentResolveSchema, INTENT_EXAMPLES } from './intent-schema.js';
 import { activeContextSchema, ACTIVE_CONTEXT_HELP } from './active-context.js';
 import { workflowIds, WORKFLOW_NOTE, PLANNER_BOUNDARY, SUBMIT_SHAPE } from './workflow-guidance.js';
 import { createHash } from 'node:crypto';
@@ -40,6 +41,7 @@ const catalogSchema = z.enum(['tools', 'templates', 'help']);
 const cursorSchema = z.string().max(512).optional();
 /** Each action accepts only its own fields: no type facet or accidental narrowing. */
 export const discoverSchema = z.discriminatedUnion('action', [
+  intentResolveSchema,
   z.strictObject({ activeContext: activeContextSchema, catalog: catalogSchema, action: z.literal('list'), cursor: cursorSchema }),
   z.strictObject({ activeContext: activeContextSchema, catalog: catalogSchema, action: z.literal('search'), query: z.string().trim().min(1).max(500), limit: z.number().int().min(1).max(20).default(5), cursor: cursorSchema }),
   z.strictObject({ activeContext: activeContextSchema, catalog: catalogSchema, action: z.literal('get'), id: idSchema }),
@@ -56,7 +58,7 @@ export function parseDiscoveryInput(name: string, raw: unknown): Record<string, 
   return parsed.data;
 }
 const descriptions: Record<typeof DISCOVERY_TOOL_NAMES[number], string> = {
-  kanvas_discover: 'Discover Kanvas tools, templates and help. New user/no active screen: get help kanvas.help.about first; ask the user to open this environment’s bare Kanvas URL and sign in, then use account.begin/devices.read/window.present. Choose catalog tools|templates|help and action list|search|get. list returns the ENTIRE visible catalog as plain-text one-line IDs and descriptions, without default pagination. search returns top 5 ranked concise summaries, NEVER schemas or full content; query by natural language. get returns full schema/examples or focused help content for one exact id. Use get before kanvas_call. All actions are read-only, account-aware and never authorize publication. Only response-size safety overflow uses explicit continuation; no silent truncation.',
+  kanvas_discover: 'Discover Kanvas tools, templates and help. New user/no active screen: get help kanvas.help.about first; ask the user to open this environment’s bare Kanvas URL and sign in, then use account.begin/devices.read/window.present. Choose catalog tools|templates|help and action list|search|get. Tools action resolve accepts a supported intent query, explicit sessionId/displayId or activeContext, and optional parameters containing supplied values; returns the current schema, provenance and missing fields without execution. Five families: filter/sort/highlight, navigate/scroll/zoom, patch/edit, publish/target, inspect/interaction. Activity and analytics operations expose recorded latency. list returns the ENTIRE visible catalog as plain-text one-line IDs and descriptions, without default pagination. search returns top 5 ranked concise summaries, NEVER schemas or full content; query by natural language. get returns full schema/examples or focused help content for one exact id. Use get before kanvas_call. All actions are read-only, account-aware and never authorize publication. Only response-size safety overflow uses explicit continuation; no silent truncation.',
   kanvas_call: 'Call one discovered operation. Supply its exact operationId and nested arguments matching the schema from kanvas_discover {catalog:"tools",action:"get",id}. Preserves validation, scopes, permissions, revision checks, cancellation and consent. Can mutate/delete: inspect individual operation annotations. Examples, discovery results and viewer input are never authorization.',
 };
 export function discoveryToolDefinitions(): Tool[] {
@@ -259,14 +261,15 @@ export const discoveryCatalog = new DiscoveryCatalog();
 export function discoveryResult(name: string, raw: unknown, context: CatalogContext): CallToolResult {
   const input = parseDiscoveryInput(name, raw);
   if (name !== 'kanvas_discover') throw new InputError([{ path: 'tool', problem: 'Execution must use the authorized operation dispatcher.' }]);
+  if(input.action==='resolve')throw new InputError([{path:'action',problem:'Resolve requires the authenticated service dispatcher.'}]);
   const kind = input.catalog === 'tools' ? 'tool' : input.catalog === 'templates' ? 'template' : 'help';
   const data = discoveryCatalog.query(kind, input.action as 'list' | 'search' | 'get', input, context);
   if (input.action === 'list') {
     const lines = (data.results as { id: string; description: string }[]).map(item => `${item.id} — ${item.description}`);
     const header = `${input.catalog}: ${data.returned} of ${data.total} visible entries${data.complete ? ' (complete)' : ' (INCOMPLETE: response-size safety limit)'}.`;
     const continuation = data.nextCursor ? `Continue with kanvas_discover catalog=${input.catalog} action=list cursor=${data.nextCursor}. No entries are omitted between pages.` : '';
-    return { content: [{ type: 'text', text: [header, ...lines, continuation, 'Use kanvas_discover action=get with catalog and exact id for full detail.'].filter(Boolean).join('\n') }] };
+    return { content: [{ type: 'text', text: [header, ...lines, continuation, 'Use kanvas_discover action=get with catalog and exact id for full detail.', ...(input.catalog==='tools'?['Resolve one intent with action:resolve and explicit context: filter/sort/highlight; navigate/scroll/zoom; patch/edit; publish/target; inspect/interaction. Recorded metrics: kanvas.activity.read and kanvas.analytics.read.']:[])].filter(Boolean).join('\n') }] };
   }
-  const result = { data, server: { name: 'kanvas', version: KANVAS_VERSION, profile: 'discovery', tools: 2, operations: operationCatalog().length } };
+  const result = { data, ...(input.catalog === 'tools' && input.action === 'search' ? {intentExamples:INTENT_EXAMPLES,metrics:['kanvas.activity.read','kanvas.analytics.read']} : {}), server: { name: 'kanvas', version: KANVAS_VERSION, profile: 'discovery', tools: 2, operations: operationCatalog().length } };
   return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
 }

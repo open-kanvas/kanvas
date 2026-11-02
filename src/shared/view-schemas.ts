@@ -1,3 +1,4 @@
+import { captionDataSchema } from './local-sequence.js';
 import {venueSchemas} from './venue.js';
 import {customViewSchema} from './custom-templates.js';
 import { flashcardDataSchema } from './flashcards.js';
@@ -289,6 +290,7 @@ export const leafViewSchema = z.discriminatedUnion('template', [
   z.object({ ...base, template: z.literal('document'), data: documentDataSchema }).strict(),
   z.object({ ...base, template: z.literal('video'), data: videoDataSchema }).strict(),
   z.object({ ...base, template: z.literal('notifications'), data: notificationsDataSchema }).strict(),
+  z.object({...base,template:z.literal('live-captions'),data:captionDataSchema}).strict(),
   z.object({ ...base, template: z.literal('transcription'), data: transcriptionDataSchema }).strict(),
   z.object({ ...base, template: z.literal('translation'), data: translationDataSchema }).strict(),
   z.object({ ...base, template: z.literal('form'), data: formDataSchema }).strict(),

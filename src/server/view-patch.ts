@@ -1,3 +1,4 @@
+import { captionDataSchema, changeCaptionSequence } from '../shared/local-sequence.js';
 import {assertExpectedRevision} from './revisions.js';
 import { isDeepStrictEqual } from 'node:util';
 import { z } from 'zod';
@@ -113,6 +114,12 @@ function assertPatchTarget(view: ViewSpec, parts: string[]): void {
 }
 
 function applyOperation(view: ViewSpec, operation: ViewPatchOperation): void {
+  if(operation.op==='sequence') {
+    if(view.template!=='live-captions') unsupported('Sequence captions require live-captions.');
+    try {view.data=changeCaptionSequence(captionDataSchema.parse(view.data),operation,Date.now());}
+    catch {unsupported('Invalid sequence transition. Check unique IDs, duration limits and action fields; seek must be within the queue.');}
+    return;
+  }
   if(operation.op==='roster') {
     if(view.template!=='roster'||view.data.mode==='coverage')unsupported('Roster assignment operations require individual mode.');
     const assignments=view.data.assignments as {date:string;shift:string;person?:string;code?:string;note?:string}[];

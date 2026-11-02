@@ -1,3 +1,4 @@
+import { captionDataSchema, sequenceStatus } from '../shared/local-sequence.js';
 import {inspectionOptionsSchema,type InspectionOptions} from '../shared/dom-inspection.js';
 import { asyncFlatMap, asyncMap } from './async-collections.js';
 import { ShortAddresses, type ShortAddress } from './short-addresses.js';
@@ -260,7 +261,7 @@ export class Experience {
     });
     return {tiles,config,total:all.length};
   }
-  async current(p:AuthPrincipal,sessionId:string,displayId:string){const d=(await this.service.display(p,sessionId,displayId));const updates=(await this.store.list<{displayIds:string[];createdAt:string;status:string;error?:string;errorCode?:string}>('update',sessionId)).filter(x=>x.displayIds.includes(displayId)).slice(-1);return {...(await this.service.publicDisplay(d,p)),latestUpdate:updates[0]??null,note:!d.view?'No view has been prepared. Sign-in does not turn a retained/failed update into content. Inspect latestUpdate, then publish explicit content.':'Stored current view, not proof of what every browser has painted.'};}
+  async current(p:AuthPrincipal,sessionId:string,displayId:string){const d=(await this.service.display(p,sessionId,displayId));const updates=(await this.store.list<{displayIds:string[];createdAt:string;status:string;error?:string;errorCode?:string}>('update',sessionId)).filter(x=>x.displayIds.includes(displayId)).slice(-1);return {...(await this.service.publicDisplay(d,p)),latestUpdate:updates[0]??null,...(d.view?.template==='live-captions'?{sequenceStatus:sequenceStatus(captionDataSchema.parse(d.view.data).chunks,captionDataSchema.parse(d.view.data).playback,Date.now())}:{}),note:!d.view?'No view has been prepared. Sign-in does not turn a retained/failed update into content. Inspect latestUpdate, then publish explicit content.':'Stored current view, not proof of what every browser has painted.'};}
 }
 
 export function mountExperience(app:Express,experience:Experience,browser:(req:Request)=>Promise<Awaited<AuthPrincipal>>){

@@ -1,3 +1,4 @@
+import {scene3dSchema} from './scene3d.js';
 import {venueSchemas} from './venue.js';
 import {customViewSchema} from './custom-templates.js';
 import { flashcardDataSchema } from './flashcards.js';
@@ -297,6 +298,7 @@ export const leafViewSchema = z.discriminatedUnion('template', [
   z.object({ ...base, template: z.literal('poll'), data: pollDataSchema }).strict(),
   z.object({ ...base, template: z.literal('countdown'), data: countdownDataSchema }).strict(),
   z.object({ ...base, template: z.literal('qa'), data: qaDataSchema }).strict(),
+  z.object({ ...base, template: z.literal('scene3d'), data: scene3dSchema }).strict(),
   z.object({ ...base, template: z.literal('drafting'), data: draftingDataSchema }).strict(),
   z.object({ ...base, template: z.literal('clock'), data: clockDataSchema }).strict(),
   z.object({ ...base, template: z.literal('now-playing'), data: nowPlayingDataSchema }).strict(),

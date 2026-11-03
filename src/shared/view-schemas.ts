@@ -7,6 +7,7 @@ import {scene3dSchema} from './scene3d.js';
 import {signageDataSchema} from './signage.js';
 import { gameDataSchema } from './game.js';
 import {satisfactionDataSchema} from './satisfaction.js';
+import {trafficDemoSchema} from './traffic-demo.js';
 import {venueSchemas} from './venue.js';
 import {customViewSchema} from './custom-templates.js';
 import { flashcardDataSchema } from './flashcards.js';
@@ -277,6 +278,7 @@ export const leafViewSchema = z.discriminatedUnion('template', [
   z.object({...base,template:z.literal('developer'),data:workSchemas['developer']}).strict(),
   z.object({...base,template:z.literal('operations'),data:workSchemas['operations']}).strict(),
   z.object({...base,template:z.literal('code-workspace'),data:codeWorkspaceDataSchema}).strict(),
+  z.object({...base,template:z.literal('traffic-demo'),data:trafficDemoSchema}).strict(),
   z.object({ ...base, template: z.literal('progress'), data: progressDataSchema }).strict(),
   z.object({ ...base, template: z.literal('log'), data: logDataSchema }).strict(),
   z.object({ ...base, template: z.literal('fact'), data: factDataSchema }).strict(),

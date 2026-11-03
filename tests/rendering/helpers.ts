@@ -11,6 +11,7 @@ export const cases: {template:TemplateId;data:Record<string, unknown>}[] = [
   {template:'signage',data:{items:[{id:'exit',type:'exit'}]}},
   {template:'game-board',data:{preset:'chess',pieces:{knight:{cell:'r8c7',symbol:'knight',color:'white'}}}},
   {template:'satisfaction',data:{surveyId:'test-survey'}},
+  {template:'traffic-demo',data:{pairId:'demo',epoch:'2026-01-01T00:00:00Z'}},
   {template:'catalog-list',data:{kind:'operations',items:['submit']}},
   {template:'sing-along',data:{pages:[{lines:[{lyrics:'Exact lyric'}]}]}},
   {template:'seat-map',data:{layout:'round-tables',people:[]}},

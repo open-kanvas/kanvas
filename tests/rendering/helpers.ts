@@ -9,6 +9,7 @@ export const source = { title: 'Source ledger', url: 'https://example.com/source
 export const cases: {template:TemplateId;data:Record<string, unknown>}[] = [
   {template:'molecule',data:{libraryId:'ethanol-v1'}},
   {template:'signage',data:{items:[{id:'exit',type:'exit'}]}},
+  {template:'game-board',data:{preset:'chess',pieces:{knight:{cell:'r8c7',symbol:'knight',color:'white'}}}},
   {template:'catalog-list',data:{kind:'operations',items:['submit']}},
   {template:'sing-along',data:{pages:[{lines:[{lyrics:'Exact lyric'}]}]}},
   {template:'seat-map',data:{layout:'round-tables',people:[]}},

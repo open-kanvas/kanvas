@@ -1,3 +1,5 @@
+import { GameRenderer } from './Game';
+import type { GameData } from '../../shared/game';
 import {CatalogList} from './CatalogList';
 import {useDevice} from '../DeviceReceiver';
 import {FitToDisplay} from './FitToDisplay';
@@ -121,6 +123,7 @@ function ContentInner(props: RendererProps) {
   const { view, config, editable, onEdit } = props;
   if(view.selection){const projected=projectSelection(view);return <SelectionContext.Provider value={projected}><Content {...props} view={projected.view}/></SelectionContext.Provider>;}
   const data = view.data;
+  if(view.template==='game-board')return <GameRenderer data={data as GameData}/>;
   if((VENUE_IDS as readonly string[]).includes(view.template))return <VenueRenderer {...props}/>;
   if(view.template==='account-template')return <iframe title={view.title??'Custom template'} sandbox="" referrerPolicy="no-referrer" className="venue-poster-frame" onLoad={()=>props.onReady?.()} srcDoc={staticPreviewDocument(String(data.html??''),String(data.css??''))}/>;
   if((WORK_TEMPLATE_IDS as readonly string[]).includes(view.template))return <WorkRenderer {...props}/>;

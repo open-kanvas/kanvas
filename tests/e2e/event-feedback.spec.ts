@@ -83,10 +83,12 @@ test('owner opt-in opens all current displays read-only and revocation clears an
   }finally{await anonymous.close();await a.client.close();}
 });
 
-test('anonymous short-key entry makes account and pairing explicit, then grants only the approved display',async({page,baseURL,browser,diagnostics},info)=>{
+test('anonymous short-key link makes account and pairing explicit, then grants only the approved display',async({page,baseURL,browser,diagnostics},info)=>{
   const a=await setup(page,info,baseURL!,true),anonymous=await isolatedContext(browser,info,baseURL!);try{
     await a.show(fact('Approved screen only'));const address=await a.call('kanvas_session','address.get',{sessionId:a.s}),short=new URL(address.url).pathname.split('/').pop()!;
-    const guest=await anonymous.newPage();diagnostics.watch(guest);await guest.goto('/');await expect(guest.getByLabel('Password',{exact:true})).toHaveCount(0);await guest.getByLabel('Session key',{exact:true}).fill(short);await guest.getByRole('button',{name:'Open session',exact:true}).click();
+    const guest=await anonymous.newPage();diagnostics.watch(guest);await guest.goto('/');await expect(guest.getByLabel('Password',{exact:true})).toHaveCount(0);await expect(guest.getByRole('heading',{name:'Sign in on this screen',exact:true})).toBeVisible();await expect(guest.locator('.login-letters')).toBeVisible();
+    // Root is account-code sign-in; the published short link is the session entry point.
+    await guest.goto('/s/'+short);
     await expect(guest.getByRole('group',{name:'Choose display access'})).toBeVisible();await expect(guest.getByRole('button',{name:'Sign in to my account'})).toBeVisible();
     let pending=await a.call('kanvas_inspect','pairings.read',{sessionId:a.s});expect(pending.requests??pending).toHaveLength(0);
     await guest.getByRole('button',{name:'Pair this screen'}).click();await expect(guest.getByRole('heading',{name:'Waiting for the owner.'})).toBeVisible();
@@ -94,7 +96,7 @@ test('anonymous short-key entry makes account and pairing explicit, then grants 
     const request=(pending.requests??pending)[0];await a.call('kanvas_access','pairing.decide',{sessionId:a.s,pairingId:request.id,approve:true,confirm:true});await expect(guest.locator('.fact-text')).toHaveText('Approved screen only',{timeout:15000});
     expect((await guest.request.get('/api/start')).status()).toBe(403);await guest.reload();await expect(guest.locator('.fact-text')).toHaveText('Approved screen only');await photo(guest,info,'approved-screen');
     diagnostics.allowHttp(guest,`/api/sessions/${a.s}`,401);await a.call('kanvas_access','pairing.revoke',{sessionId:a.s,pairingId:request.id});await expect(guest.locator('.fact-text')).toHaveCount(0);await expect(guest.getByRole('group',{name:'Choose display access'})).toBeVisible();await expect(a.v.locator('.fact-text')).toHaveText('Approved screen only');expect((await guest.request.get(`/api/sessions/${a.s}?displayId=${a.d.id}`)).status()).toBe(401);
-    await a.v.getByRole('button',{name:'Display controls',exact:true}).click();await a.v.getByRole('button',{name:/^Session overview/}).click();await expect(a.v.locator('.filmstrip-overview .filmstrip-list')).toBeVisible();await expect(a.v.getByRole('button',{name:'Sign out of this browser',exact:true})).toBeVisible();
+    await a.v.getByRole('button',{name:'Display controls',exact:true}).click();await a.v.getByRole('button',{name:/^Session overview/}).click();await expect(a.v.locator('.filmstrip-overview .filmstrip-grid')).toBeVisible();await expect(a.v.getByRole('button',{name:'Sign out of this browser',exact:true})).toBeVisible();
   }finally{await anonymous.close();await a.client.close();}
 });
 
@@ -107,7 +109,7 @@ test('account Home offers a compact recent-session list without auto-opening a s
   // Revoking this browser can reject its last in-flight Home poll. That exact
   // 401 is expected; no application exceptions or other HTTP failures are.
   diagnostics.allowHttp(page,`/api/sessions/${homeRoute![1]}`,401);
-  await expect(page.getByRole('button',{name:'Sign out of this browser',exact:true})).toBeVisible();await page.getByRole('button',{name:'Sign out of this browser',exact:true}).click();await expect(page.getByRole('group',{name:'Choose display access'})).toBeVisible();await expect(page.getByRole('region',{name:'Your sessions'})).toHaveCount(0);expect((await page.request.get('/api/start')).status()).toBe(401);
+  await expect(page.getByRole('button',{name:'Sign out of this browser',exact:true})).toBeVisible();await page.getByRole('button',{name:'Sign out of this browser',exact:true}).click();await expect(page).toHaveURL(new URL('/',page.url()).href);await expect(page.getByRole('heading',{name:'Sign in on this screen',exact:true})).toBeVisible();await expect(page.getByRole('region',{name:'Your sessions'})).toHaveCount(0);expect((await page.request.get('/api/start')).status()).toBe(401);
 });
 
 test('discovered table scroll and back/forward history move the receiving view without changing source',async({page,baseURL},info)=>{

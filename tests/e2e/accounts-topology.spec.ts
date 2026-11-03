@@ -109,7 +109,8 @@ test('approved guests have a separate silhouette, cannot read account history, a
     await tab(page,'People & access');await page.getByRole('button',{name:'Approve screen',exact:true}).click();await expect(guest.locator('.viewer-shell')).toBeVisible();
     await expect.poll(()=>v.locator('.topology-person>header').count()).toBe(2);await expect(v.locator('.topology-avatar.is-guest')).toHaveCount(1);await expect(v.locator('.topology-avatar:not(.is-guest) img')).toHaveCount(1);
     await expect(v.locator('.topology-person').filter({hasText:'Registered host'})).toHaveCount(1);await expect(v.locator('.topology-person').filter({hasText:'Visitor Ada'})).toHaveCount(1);await expect(guest.locator('.topology-avatar:not(.is-guest) img')).toBeVisible();
-    expect(await guest.locator('.topology-avatar img').evaluate((img:HTMLImageElement)=>img.naturalWidth)).toBeGreaterThan(0);await photo(v,info,'guest-and-account');
+    // A visible avatar can still be decoding; require the actual guest image to finish loading.
+    await expect.poll(()=>guest.locator('.topology-avatar img').evaluate((img:HTMLImageElement)=>img.complete&&img.naturalWidth>0)).toBe(true);await photo(v,info,'guest-and-account');
     diagnostics.allowHttp(guest,'/api/activity',403);const denied=await guest.evaluate(async()=>{const r=await fetch('/api/activity',{credentials:'same-origin'});return r.status;});expect(denied).toBe(403);
     await publishPrepared(page,s,[d.id],{version:1,template:'fact',data:{text:'The shared connection view is closed.'}});
     await expect(guest.locator('.viewer-candidate')).toContainText('The shared connection view is closed.');

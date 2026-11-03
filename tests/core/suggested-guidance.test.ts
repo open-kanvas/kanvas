@@ -33,3 +33,23 @@ it('keeps catalog, copies and active guidance distinct, guards revisions and adm
  await expect(g.run({userId:p.userId,tokenId:token.token.id},{},'list')).rejects.toMatchObject({code:'FORBIDDEN'});
 });
 
+
+it('supports omitted current-state guards while preserving explicit CAS, retries and administration',async()=>{
+ h=await startHarness();const admin=await h.account(),reader=await h.account(),ap={userId:admin.user!.id},p={userId:reader.user!.id},service=h.runtime.service;service.accounts.serviceAdmins.add(ap.userId);
+ const call=(who:typeof p,name:string,args:Record<string,unknown>)=>service.execute('kanvas_guidance_suggestions_'+name,args,who);
+ const create={suggestionId:'optional',name:'Optional',text:'Original',requestId:'create'};
+ await expect(call(p,'save',create)).rejects.toMatchObject({code:'FORBIDDEN'});
+ const created:any=await call(ap,'save',create);expect(created.revision).toBe(1);expect(await call(ap,'save',create)).toEqual(created);
+ await expect(call(ap,'save',{...create,requestId:'create-only',expectedRevision:0})).rejects.toMatchObject({code:'REVISION_CONFLICT'});
+ const updated:any=await call(ap,'save',{...create,text:'Current content',requestId:'update'});expect(updated.revision).toBe(2);
+ await expect(call(ap,'save',{...create,expectedRevision:1,requestId:'stale-edit'})).rejects.toMatchObject({code:'REVISION_CONFLICT'});
+ const copy={suggestionId:'optional',promptId:'copied',requestId:'copy-current'};
+ const imported:any=await call(p,'import',copy);expect(imported.prompt.text).toBe('Current content');expect(imported.source.revision).toBe(2);expect(imported.activated).toBe(false);
+ expect(await call(p,'import',copy)).toEqual(imported);
+ await expect(call(p,'import',{...copy,requestId:'no-overwrite'})).rejects.toMatchObject({code:'REVISION_CONFLICT'});
+ await expect(call(p,'import',{...copy,promptId:'other',expectedRevision:1,requestId:'stale-import'})).rejects.toMatchObject({code:'REVISION_CONFLICT'});
+ await expect(call(p,'delete',{suggestionId:'optional',requestId:'unauthorized-delete'})).rejects.toMatchObject({code:'FORBIDDEN'});
+ await expect(call(ap,'delete',{suggestionId:'optional',expectedRevision:1,requestId:'stale-delete'})).rejects.toMatchObject({code:'REVISION_CONFLICT'});
+ const removed:any=await call(ap,'delete',{suggestionId:'optional',requestId:'delete-current'});expect(removed).toMatchObject({revision:3,deleted:true});
+ expect((await service.guidance.library(p,{},'list') as any).prompts[0].text).toBe('Current content');
+});

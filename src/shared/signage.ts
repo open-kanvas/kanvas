@@ -21,7 +21,7 @@ export const signageItemSchema=z.object({
  value:z.union([z.string().max(80),z.number().finite()]).optional(),
  status:z.enum(['open','closed','available','occupied','full']).optional(),
  details:z.array(z.object({label:z.string().max(40).optional(),value:z.string().max(120)}).strict()).max(4).optional(),
- image:z.string().max(2048).refine(isSafeUrl,'Use a safe public/protected image URL').optional(),
+ image:z.string().max(2048).refine(value=>{if(!isSafeUrl(value)||!/^https?:\/\//i.test(value))return false;try{return !/^\/api\/(assets|media)(?:\/|$)/.test(new URL(value).pathname);}catch{return false;}},'Use an absolute public HTTP(S) image URL; protected assets/media are not supported here').optional(),
  endsAt:z.iso.datetime({offset:true}).optional(),
  directory:signDirectorySchema.optional(),map:mapSchema.optional(),wifi:wifiSignSchema.optional(),
  destinations:z.array(z.object({id,label:short,minutes:z.number().finite().min(0).max(1440),direction:z.enum(SIGN_DIRECTIONS)}).strict()).min(1).max(8).optional(),

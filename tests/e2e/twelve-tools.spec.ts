@@ -107,7 +107,7 @@ test('an agent can repair pairing and feedback inputs while the intended browser
     expect(badDecision.isError).toBe(true);
     expect((badDecision.structuredContent as { error: unknown }).error).toMatchObject({
       code: 'INVALID_ARGUMENT', schemaTool: 'kanvas_discover', schemaArguments: { catalog: 'tools', action: 'get', id: 'kanvas.pairing.decide' }, topic: 'tools',
-      issues: [{ path: 'approve', problem: 'Required boolean (true or false).' }, { path: 'confirm', problem: expect.stringContaining('owner confirms') }],
+      issues: [{ path: 'approve', problem: 'Required boolean (true or false); received missing.' }, { path: 'confirm', problem: expect.stringContaining('owner confirms') }],
     });
     const repair = (badDecision.structuredContent as { error: { schemaTool: string; schemaArguments: Record<string, unknown> } }).error;
     const repaired = await client.callTool({ name: repair.schemaTool, arguments: repair.schemaArguments });

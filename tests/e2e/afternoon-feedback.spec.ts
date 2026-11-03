@@ -21,25 +21,27 @@ async function setup(page:Page,info:TestInfo,baseURL:string){
 }
 async function photo(page:Page,info:TestInfo,name:string){const directory=info.outputPath('visuals');await mkdir(directory,{recursive:true});await page.screenshot({path:`${directory}/${info.project.name}-${name}.png`,animations:'disabled'});}
 
-test('reading controls change actual typography and pacing, pause in place, and carry independent defaults to a new session',async({page,baseURL},info)=>{
+test('reading navigation commands change actual typography and pacing, pause in place, and carry independent defaults to a new session',async({page,baseURL},info)=>{
   const s=await setup(page,info,baseURL!);
   try{
     const text=Array.from({length:70},(_,i)=>`Paragraph ${i+1}. Keep these exact source words and the decimal 9007199254740993.001 intact. This paragraph has enough readable context to check real scroll geometry.`).join('\n\n');
-    const original=await s.show({version:1,template:'document',title:'A readable source',data:{layout:'reading',text}}),reader=s.viewer.getByRole('region',{name:'Document reader'}),controls=s.viewer.getByRole('navigation',{name:'Reading controls'});
-    await expect(reader).toHaveAttribute('data-reading-playing','false');await expect(controls.getByLabel('Reading speed',{exact:true})).toHaveText('220 wpm');
+    const original=await s.show({version:1,template:'document',title:'A readable source',data:{layout:'reading',text}}),reader=s.viewer.getByRole('region',{name:'Document reader'});
+    // October 27 intentionally removed the in-view toolbar; drive the supported MCP controls.
+    await expect(s.viewer.getByRole('navigation',{name:'Reading controls'})).toHaveCount(0);
+    await expect(reader).toHaveAttribute('data-reading-playing','false');await expect(reader).toHaveAttribute('data-reading-wpm','220');
     const font=()=>s.viewer.locator('.document-article').evaluate(el=>parseFloat(getComputedStyle(el).fontSize));const initialFont=await font();
-    await controls.getByRole('button',{name:'Larger reading text'}).click();await expect(controls.getByLabel('Reading font size')).toHaveText('24px');await expect.poll(font).toBeGreaterThan(initialFont);await expect(controls.getByLabel('Reading zoom')).toHaveText('100%');
-    await controls.getByRole('button',{name:'Zoom reading in'}).click();await expect(controls.getByLabel('Reading zoom')).toHaveText('110%');await expect(controls.getByLabel('Reading font size')).toHaveText('24px');
-    await controls.getByRole('button',{name:'Read slower'}).click();await expect(controls.getByLabel('Reading speed',{exact:true})).toHaveText('190 wpm');
-    await s.viewer.bringToFront();await controls.getByRole('button',{name:'Start reading'}).click();await expect(reader).toHaveAttribute('data-reading-playing','true');await expect.poll(()=>reader.evaluate(el=>el.scrollTop)).toBeGreaterThan(20);
+    await s.nav({action:'reading',command:'configure',fontSize:32,saveDefaults:false});await expect(reader).toHaveCSS('--reading-font-size','32px');await expect.poll(font).toBeGreaterThan(initialFont);await expect(reader).toHaveCSS('--reading-zoom','1');
+    await s.nav({action:'reading',command:'configure',zoom:1.1,saveDefaults:false});await expect(reader).toHaveCSS('--reading-zoom','1.1');await expect(reader).toHaveCSS('--reading-font-size','32px');
+    await s.nav({action:'reading',command:'slower',saveDefaults:false});await expect(reader).toHaveAttribute('data-reading-wpm','190');
+    await s.viewer.bringToFront();await s.nav({action:'reading',command:'start',saveDefaults:false});await expect(reader).toHaveAttribute('data-reading-playing','true');await expect.poll(()=>reader.evaluate(el=>el.scrollTop)).toBeGreaterThan(20);
     const observed=await s.call('kanvas_inspect','viewers.read',{sessionId:s.sessionId,displayId:s.display.id});expect(observed.some((v:any)=>v.connected)).toBe(true);
-    await controls.getByRole('button',{name:'Pause reading'}).click();await expect(reader).toHaveAttribute('data-reading-playing','false');
+    await s.nav({action:'reading',command:'pause',saveDefaults:false});await expect(reader).toHaveAttribute('data-reading-playing','false');
     const held=await reader.evaluate(el=>el.scrollTop);await expect.poll(async()=>Math.abs(await reader.evaluate(el=>new Promise<number>(resolve=>setTimeout(()=>resolve(el.scrollTop),400)))-held)).toBeLessThan(3);
-    await controls.getByRole('button',{name:'Save personal reading defaults'}).click();await expect(controls).toContainText('Reading defaults saved.');
-    const pref=await s.call('kanvas_inspect','preferences.get');expect(pref.config).toMatchObject({readingFontSize:24,readingWpm:190,readingZoom:1.1});expect((await s.current()).view).toEqual(original.view);expect((await s.current()).revision).toBe(original.revision);
+    await s.nav({action:'reading',command:'configure',fontSize:32,wpm:190,zoom:1.1,saveDefaults:true});
+    const pref=await s.call('kanvas_inspect','preferences.get');expect(pref.config).toMatchObject({readingFontSize:32,readingWpm:190,readingZoom:1.1});expect((await s.current()).view).toEqual(original.view);expect((await s.current()).revision).toBe(original.revision);
     await s.nav({action:'reading',command:'start',wpm:320,saveDefaults:false});await expect(reader).toHaveAttribute('data-reading-wpm','320');await s.nav({action:'reading',command:'pause'});
-    await s.show({version:1,template:'document',title:'Next reading',data:{layout:'reading',text}});await expect(reader).toHaveAttribute('data-reading-playing','false');await expect(controls.getByLabel('Reading speed',{exact:true})).toHaveText('190 wpm');await expect.poll(()=>reader.evaluate(el=>el.scrollTop)).toBeLessThan(2);
-    const next=await createSession(page,'Independent new reading defaults');expect((await sessionDetail(page,next)).session.config).toMatchObject({readingFontSize:24,readingWpm:190,readingZoom:1.1});await photo(s.viewer,info,'reading');
+    await s.show({version:1,template:'document',title:'Next reading',data:{layout:'reading',text}});await expect(reader).toHaveAttribute('data-reading-playing','false');await expect(reader).toHaveAttribute('data-reading-wpm','190');await expect.poll(()=>reader.evaluate(el=>el.scrollTop)).toBeLessThan(2);
+    const next=await createSession(page,'Independent new reading defaults');expect((await sessionDetail(page,next)).session.config).toMatchObject({readingFontSize:32,readingWpm:190,readingZoom:1.1});await photo(s.viewer,info,'reading');
   }finally{await s.client.close();}
 });
 
@@ -51,7 +53,21 @@ test('progress appends preserve events and proportional spines; log inspection r
     await expect(s.viewer.locator('.spine-card')).toHaveCount(3);await expect(s.viewer.locator('.spine-line')).toHaveCount(1);
     expect(await s.viewer.locator('[data-time-position]').evaluateAll(els=>els.map(el=>Number(el.getAttribute('data-time-position'))))).toEqual([0,.25,1]);
     const cards=await s.viewer.locator('.spine-card').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right};}));expect(cards[1].left).toBeGreaterThan(cards[0].right);expect(cards[2].left).toBeGreaterThan(cards[1].right);await photo(s.viewer,info,'progress');
-    await s.show({version:1,template:'timeline',data:{orientation:'vertical',events:[{id:'start',title:'Start',start:'2026-09-01'},{id:'span',title:'A real duration',start:'2026-09-02',end:'2026-09-04'},{id:'last',title:'Finish',start:'2026-09-05'}]}});await expect(s.viewer.locator('.spine-vertical .spine-line')).toHaveCount(1);await expect(s.viewer.locator('.spine-duration')).toHaveCount(1);await photo(s.viewer,info,'timeline');
+    await s.show({version:1,template:'timeline',data:{orientation:'vertical',events:[{id:'start',title:'Start',start:'2026-09-01'},{id:'span',title:'A real duration',start:'2026-09-02',end:'2026-09-04'},{id:'last',title:'Finish',start:'2026-09-05'}]}});const timeline=s.viewer.getByRole('region',{name:'Timeline',exact:true});
+    await expect(timeline.locator('.temporal-ticks')).toHaveCount(1);
+    await expect(timeline.locator('.temporal-card')).toHaveCount(3);
+    await expect(timeline.locator('.temporal-duration')).toHaveCount(1);
+    await expect(timeline.locator('.temporal-point')).toHaveCount(2);
+    expect(await timeline.locator('[data-time-position]').evaluateAll(els=>els.map(el=>Number(el.getAttribute('data-time-position'))))).toEqual([0,.25,1]);
+    const geometry=await timeline.locator('[data-event-id="span"] .temporal-lane').evaluate(el=>{
+      const lane=el.getBoundingClientRect(),bar=el.querySelector('.temporal-duration')!.getBoundingClientRect(),vertical=innerWidth>650;
+      return {offset:vertical?(bar.top-lane.top)/lane.height:(bar.left-lane.left)/lane.width,
+        duration:vertical?bar.height/lane.height:bar.width/lane.width,length:vertical?lane.height:lane.width};
+    });
+    expect(geometry.length).toBeGreaterThan(100);
+    expect(geometry.offset).toBeCloseTo(.25,2);
+    expect(geometry.duration).toBeCloseTo(.5,2);
+    await photo(s.viewer,info,'timeline');
     const raw='  opening line\n\tERROR original 9007199254740993.001\n  after the error\nnext page\n';
     const original=await s.show({version:1,template:'log',data:{source:'Exact application log',raw,startLine:101,pageSize:3}});await expect(s.viewer.locator('.log-line pre')).toHaveText(['  opening line','\tERROR original 9007199254740993.001','  after the error'],{useInnerText:false});
     await s.nav({action:'search',query:'ERROR'});await expect(s.viewer.locator('.log-line')).toHaveCount(3);await s.viewer.getByRole('button',{name:'Inspect log line 102'}).click();

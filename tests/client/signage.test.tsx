@@ -57,3 +57,8 @@ describe('dynamic signage data',()=>{
   expect(silent).not.toContain('14:30');expect(silent).not.toContain('Room A');
  });
 });
+it('accepts public logos but rejects unsupported protected media and unsafe URLs',()=>{
+ const data=(image:string)=>({items:[{id:'x',type:'for-sale',image}]});
+ expect(signageDataSchema.safeParse(data('https://example.com/logo.png')).success).toBe(true);
+ for(const url of ['/api/assets/secret','/api/media/secret','https://example.com/api/assets/secret','https://example.com/api/media/secret','javascript:alert(1)','//example.com/logo.png'])expect(signageDataSchema.safeParse(data(url)).success,url).toBe(false);
+});

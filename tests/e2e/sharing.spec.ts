@@ -166,3 +166,75 @@ test('owners may deny a requested response grant and pending requests expire wit
     await expect(guest.locator('.viewer-shell, .workspace')).toHaveCount(0);
   } finally { await context.close(); }
 });
+
+test('a real pending status completing in the expiry turn cannot restart expired sharing', async ({ page, browser, baseURL, diagnostics }, testInfo) => {
+  const { joinUrl } = await invitation(page, true), context = await isolatedContext(browser, testInfo, baseURL!);
+  try {
+    const guest = await context.newPage(); diagnostics.watch(guest); await guest.clock.install();
+    await requestAccess(guest, joinUrl, 'Denied guest', true);
+    const card = page.locator('.sharing-requests article').filter({ has: page.getByRole('heading', { name: 'Denied guest', exact: true }) });
+    await expect(card).toBeVisible();
+    await card.getByRole('button', { name: 'Deny guest', exact: true }).click();
+    await expect(guest.getByText('denied', { exact: true })).toBeVisible();
+    await expect(guest.locator('.viewer-shell, .workspace')).toHaveCount(0);
+    await expect(guest.getByText('Private workshop question', { exact: true })).toHaveCount(0);
+    await expect(guest.getByRole('button', { name: 'Request again', exact: true })).toBeVisible();
+    await guest.getByRole('button', { name: 'Request again', exact: true }).click();
+    // Hold only the real pending HTTP response, then complete it in the same
+    // browser task as the expiry callback, before React commits either update.
+    // No status, proof cookie, permission, or expiry value is manufactured.
+    await guest.evaluate(() => {
+      const events: Array<{ event: string; now: number; status?: string }> = [];
+      (window as any).__expiryEvents = events;
+      let release: (() => void) | undefined;
+      const fetchOriginal = window.fetch.bind(window), timeoutOriginal = window.setTimeout.bind(window);
+      window.fetch = async (...args) => {
+        const response = await fetchOriginal(...args);
+        const path = new URL(typeof args[0] === 'string' ? args[0] : args[0] instanceof URL ? args[0].href : args[0].url, location.href).pathname;
+        if (/\/api\/pairings\/[^/]+\/status$/.test(path) && response.ok && !release) {
+          const payload = await response.json();
+          response.json = () => new Promise(resolve => {
+            events.push({ event: 'status-held', status: payload.data.status, now: Date.now() });
+            release = () => {
+              events.push({ event: 'status-released', status: payload.data.status, now: Date.now() });
+              resolve(payload);
+            };
+          });
+        }
+        return response;
+      };
+      window.setTimeout = ((callback: TimerHandler, delay?: number, ...args: any[]) => {
+        if (typeof callback === 'function' && delay! > 30 * 60_000 && delay! < 2 * 60 * 60_000) {
+          events.push({ event: 'expiry-scheduled', now: Date.now() });
+          return timeoutOriginal(() => {
+            events.push({ event: 'expiry-fired', now: Date.now() });
+            callback(...args);
+            release?.();
+          }, delay);
+        }
+        return timeoutOriginal(callback, delay, ...args);
+      }) as typeof window.setTimeout;
+    });
+    const nextRequest = guest.waitForResponse(response => new URL(response.url()).pathname === '/api/pairings' && response.request().method() === 'POST');
+    await guest.getByRole('button', { name: 'Request display access', exact: true }).click();
+    const expiry = Date.parse((await (await nextRequest).json() as { data: { expiresAt: string } }).data.expiresAt);
+    await expect(guest.getByText('Waiting for the owner.', { exact: false })).toBeVisible();
+    // The server expiry is covered over real HTTP. Advance the browser clock
+    // here to verify its UI does not poll forever after the proof-cookie TTL.
+    await expect.poll(() => guest.evaluate(() => (window as any).__expiryEvents.some((item: any) => item.event === 'status-held' && item.status === 'pending'))).toBe(true);
+    const browserNow = await guest.evaluate(() => Date.now());
+    await guest.clock.fastForward(Math.max(0, expiry - browserNow) + 5_000);
+    const events = await guest.evaluate(() => (window as any).__expiryEvents as Array<{ event: string; now: number; status?: string }>);
+    expect(events.map(item => item.event)).toEqual(['expiry-scheduled', 'status-held', 'expiry-fired', 'status-released']);
+    expect(events[2].now).toBe(events[3].now);
+    await testInfo.attach('content-free expiry ordering', { body: JSON.stringify(events), contentType: 'application/json' });
+    await expect(guest.getByText('expired', { exact: true })).toBeVisible();
+    await expect(guest.getByRole('button', { name: 'Request again', exact: true })).toBeVisible();
+    let additionalPolls = 0;
+    guest.on('request', request => { if (/\/api\/pairings\/[^/]+\/status$/.test(new URL(request.url()).pathname)) additionalPolls++; });
+    await guest.clock.fastForward(10_000);
+    expect(additionalPolls).toBe(0);
+    await expect(guest.locator('.viewer-shell, .workspace')).toHaveCount(0);
+    await expect(guest.getByText('Private workshop question', { exact: true })).toHaveCount(0);
+  } finally { await context.close(); }
+});

@@ -107,7 +107,7 @@ describe('revision-bound partial view patches', () => {
     expect(clear.revisions.display).toBe(6);
     expect((await f.read()).view!.data.viewport).toEqual({zoom:1});
     const previous=await f.history.target(await f.read(),'back');
-    expect(previous.entry.view.data).toMatchObject({libraryId:'ethanol-v1',highlightAtoms:['a2','a3'],highlightBonds:['b2']});
+    expect(previous.entry.view!.data).toMatchObject({libraryId:'ethanol-v1',highlightAtoms:['a2','a3'],highlightBonds:['b2']});
   });
 
   it('patches roster assignments atomically by semantic identity and preserves unrelated data',async()=>{

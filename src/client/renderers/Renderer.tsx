@@ -150,7 +150,7 @@ function ContentInner(props: RendererProps) {
     case 'scene3d': return <Scene3DRenderer {...props} />;
     case 'drafting': return <DraftingRenderer {...props} />;
     case 'molecule': return <MoleculeRenderer view={view} />;
-    case 'signage': return <SignageRenderer view={view} />;
+    case 'signage': return <SignageRenderer view={view} serverNow={props.serverNow} />;
     case 'clock': return <ClockRenderer {...props} />;
     case 'now-playing': return <NowPlayingRenderer {...props} />;
     case 'roster': return <RosterRenderer {...props} />;

@@ -1,3 +1,4 @@
+import {MoleculeRenderer} from './Molecule';
 import {CatalogList} from './CatalogList';
 import {useDevice} from '../DeviceReceiver';
 import {FitToDisplay} from './FitToDisplay';
@@ -134,6 +135,7 @@ function ContentInner(props: RendererProps) {
     case 'progress': return <ProgressRenderer data={data as ProgressData}/>;
     case 'log': return <LogRenderer {...props}/>;
     case 'drafting': return <DraftingRenderer {...props} />;
+    case 'molecule': return <MoleculeRenderer view={view} />;
     case 'clock': return <ClockRenderer {...props} />;
     case 'now-playing': return <NowPlayingRenderer {...props} />;
     case 'roster': return <RosterRenderer {...props} />;

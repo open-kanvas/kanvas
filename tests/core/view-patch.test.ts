@@ -93,6 +93,23 @@ describe('revision-bound partial view patches', () => {
   beforeEach(async () => { f = new Fixture(); (await f.seed()); });
   afterEach(async () => { (await f.store.close()); });
 
+  it('patches molecule emphasis and fit atomically with stable identity, retry and conflict rejection',async()=>{
+    await f.seed({version:1,template:'molecule',data:{libraryId:'ethanol-v1'}});
+    const request=await f.request([{op:'set',path:'/data/highlightAtoms',value:['a2','a3']},{op:'set',path:'/data/highlightBonds',value:['b2']},{op:'set',path:'/data/viewport',value:{zoom:1,focusAtoms:['a2','a3']}}]);
+    const first=await f.engine.patch(owner,request);
+    expect(await f.engine.patch(owner,request)).toEqual(first);
+    const saved=await f.read();
+    expect(saved.revision).toBe(5);expect(saved.view!.data).toMatchObject({libraryId:'ethanol-v1',highlightAtoms:['a2','a3'],highlightBonds:['b2']});
+    await expect(f.patch([{op:'set',path:'/data/highlightAtoms',value:['missing']}])).rejects.toThrow();
+    expect((await f.read()).revision).toBe(5);
+    await expect(f.engine.patch(owner,{...request,requestId:randomUUID()})).rejects.toThrow();
+    const clear=await f.patch([{op:'set',path:'/data/highlightAtoms',value:[]},{op:'set',path:'/data/highlightBonds',value:[]},{op:'set',path:'/data/viewport',value:{zoom:1}}]);
+    expect(clear.revisions.display).toBe(6);
+    expect((await f.read()).view!.data.viewport).toEqual({zoom:1});
+    const previous=await f.history.target(await f.read(),'back');
+    expect(previous.entry.view.data).toMatchObject({libraryId:'ethanol-v1',highlightAtoms:['a2','a3'],highlightBonds:['b2']});
+  });
+
   it('patches roster assignments atomically by semantic identity and preserves unrelated data',async()=>{
     await f.seed({version:1,template:'roster',data:{start:'2026-10-01',end:'2026-10-02',people:[{id:'a',name:'A'},{id:'b',name:'B'}],shifts:[{id:'d',label:'Day'},{id:'v',label:'Vacation'}],assignments:[{date:'2026-10-01',person:'a',shift:'d'},{date:'2026-10-01',person:'b',shift:'d',note:'Untouched'}]}});
     const request=await f.request([{op:'roster',action:'remove',date:'2026-10-01',person:'a',shift:'d'},{op:'roster',action:'add',date:'2026-10-01',person:'a',shift:'v',value:{note:'Leave'}}]);

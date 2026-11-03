@@ -177,7 +177,7 @@ describe('revision-bound partial view patches', () => {
     expect((await f.read()).view!.data.items).toMatchObject([{id:'parking',value:3},{id:'directory',directory:{entries:[{id:'tenant',floor:'3'}]}}]);
     await expect(f.patch([{op:'set',path:'/data/items/0/value',value:-1}])).rejects.toThrow();
     expect((await f.read()).revision).toBe(5);
-    const before=await f.history.target(await f.read(),'back');expect(before.entry.view.data.items).toMatchObject([{id:'parking',value:12},{id:'directory',directory:{entries:[{floor:'2'}]}}]);
+    const before=await f.history.target(await f.read(),'back');expect(before.entry.view!.data.items).toMatchObject([{id:'parking',value:12},{id:'directory',directory:{entries:[{floor:'2'}]}}]);
   });
 
   it('patches roster assignments atomically by semantic identity and preserves unrelated data',async()=>{

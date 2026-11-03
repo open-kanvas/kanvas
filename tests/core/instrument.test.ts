@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {instrumentDataSchema,changeInstrument,changeInstrumentSequence,instrumentTarget,isBlackKey} from '../../src/shared/instrument.js';
+import {instrumentDataSchema,instrumentFrameSchema,changeInstrument,changeInstrumentSequence,instrumentTarget,isBlackKey} from '../../src/shared/instrument.js';
 import {sequenceStatus} from '../../src/shared/local-sequence.js';
 const keyboard=()=>instrumentDataSchema.parse({config:{family:'keyboard',firstMidi:60,lastMidi:83},elements:{'key:60':{pitch:{midi:60,label:'C4'}},'key:63':{pitch:{midi:63,label:'Eb4'}},'key:67':{},'key:70':{}}});
 describe('supplied instrument visual state',()=>{
@@ -18,7 +18,7 @@ describe('supplied instrument visual state',()=>{
   }
  });
  it('plays explicit frames, seeks, freezes on clear, then permits static narrow changes',()=>{
-  let d=keyboard();const frames=[{id:'c',durationMs:1000,elements:{'key:60':{highlight:true}}},{id:'d',durationMs:1000,elements:{'key:62':{highlight:true}}}];
+  let d=keyboard();const frames=instrumentFrameSchema.array().parse([{id:'c',durationMs:1000,elements:{'key:60':{highlight:true}}},{id:'d',durationMs:1000,elements:{'key:62':{highlight:true}}}]);
   d=changeInstrumentSequence(d,{op:'instrument-sequence',action:'replace',frames},10000);d=changeInstrumentSequence(d,{op:'instrument-sequence',action:'resume'},10000);expect(sequenceStatus(d.frames,d.playback,11500).activeId).toBe('d');expect(()=>changeInstrument(d,{op:'instrument',changes:[{id:'key:60',value:null}]})).toThrow();
   d=changeInstrumentSequence(d,{op:'instrument-sequence',action:'clear'},11500);expect(d.frames).toEqual([]);expect(d.elements).toEqual({'key:62':{highlight:true}});expect(changeInstrument(d,{op:'instrument',changes:[{id:'key:62',value:null}]}).elements).toEqual({});
  });

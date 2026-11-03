@@ -9,14 +9,14 @@ try{
   await page.setViewportSize({width,height:900});await page.goto(base+'/tests/client/scene3d-browser.html');await page.locator('[data-scene-object]').first().waitFor();
   for(const asset of catalog){
    const start=Date.now();await page.evaluate(id=>window.showScene({objects:{model:{label:id,assetId:id,size:[3,2,5]}},camera:{position:[6,4,7],target:[0,0,0]}}),asset.id);
-   await page.locator('[data-asset-status="Ready"]').waitFor();await page.waitForTimeout(100);
-   assert(await page.locator('canvas').count()===1);console.log(JSON.stringify({asset:asset.id,width,loadAndRenderMs:Date.now()-start,bytes:asset.bytes}));
+   await page.locator('[data-asset-status="Ready"]').waitFor();await page.waitForTimeout(100);assert(await page.evaluate(()=>window.sceneReady&&!window.sceneFailed),'Delivery readiness follows actual rendered frame');
+   assert(await page.locator('canvas').count()===1);assert(Number(await page.locator('canvas').getAttribute('data-rendered-triangles'))>20,'Actual model triangles must be drawn, not just loaded');console.log(JSON.stringify({asset:asset.id,width,loadAndRenderMs:Date.now()-start,bytes:asset.bytes}));
    await page.screenshot({path:`${out}/${asset.id}-${width}.png`});
   }
   await page.evaluate(()=>window.showScene({objects:{car:{label:'Sedan',assetId:'kenney-sedan',size:[1.8,1.5,4.2],parts:{'wheel-front-left':{highlight:true},body:{visible:false}}}},camera:{focus:{objectId:'car',part:'wheel-front-left'},position:[6,4,7],target:[0,0,0]}}));
-  await page.locator('[data-asset-status="Ready"]').waitFor();await page.waitForTimeout(100);await page.screenshot({path:`${out}/parts-focused-${width}.png`});
+  await page.locator('[data-asset-status="Ready"]').waitFor();await page.waitForTimeout(100);assert(await page.evaluate(()=>window.sceneReady&&!window.sceneFailed),'Delivery readiness follows actual rendered frame');await page.screenshot({path:`${out}/parts-focused-${width}.png`});
   await page.evaluate(()=>{window.previousCanvas=document.querySelector('canvas');window.showScene({objects:{car:{label:'Sedan',assetId:'kenney-sedan',size:[1.8,1.5,4.2],parts:{'wheel-front-left':{highlight:true}}}},camera:{mode:'overhead',span:7,target:[0,0,0]}});});
-  await page.locator('[data-asset-status="Ready"]').waitFor();await page.waitForTimeout(100);assert(await page.evaluate(()=>window.previousCanvas===document.querySelector('canvas')));await page.screenshot({path:`${out}/asset-overhead-${width}.png`});
+  await page.locator('[data-asset-status="Ready"]').waitFor();await page.waitForTimeout(100);assert(await page.evaluate(()=>window.sceneReady&&!window.sceneFailed),'Delivery readiness follows actual rendered frame');assert(await page.evaluate(()=>window.previousCanvas===document.querySelector('canvas')));await page.screenshot({path:`${out}/asset-overhead-${width}.png`});
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  }
  assert.deepEqual(errors,[]);assert(requests.filter(u=>/^https?:/.test(u)).every(u=>u.startsWith(base)),'No live third-party asset requests');console.log('PASS: eight real models, two sizes, verified parts/focus, overhead, stable canvas, local-only requests.');

@@ -13,7 +13,8 @@ test('settings save clicks and agent updates live without changing existing sess
  await expect(form.getByText('Applies to document and reading views only, not other templates.',{exact:true})).toBeVisible();
  await expect(form.getByRole('combobox',{name:'Apply to'})).toHaveCount(0);
  await expect(form.getByText('Current settings.',{exact:true})).toHaveCount(0);
- await expect(form.getByRole('radio',{name:'22 px (default)',exact:true})).toBeChecked();
+ // Current reading default is 30px; explicit 22px selection below remains covered.
+ await expect(form.getByRole('radio',{name:'30 px',exact:true})).toBeChecked();
  await form.getByRole('radio',{name:'28 px',exact:true}).check();
  await expect.poll(async()=>(await sessionDetail(page,s)).session.config.readingFontSize).toBe(28);
  await expect(form.getByRole('radio',{name:'22 px (default)',exact:true})).toBeVisible();
@@ -49,14 +50,18 @@ test('sign-in approval code, checkbox and text occupy separate readable regions'
  const server=createServer();await new Promise<void>(r=>server.listen(0,'127.0.0.1',r));const addr=server.address();if(!addr||typeof addr==='string')throw Error('Listener');
  const base='http://127.0.0.1:'+addr.port,mail:string[]=[],runtime=await createApp({database:testDatabase(),publicUrl:base,allowRegistration:true,signinMailer:async(_email,link)=>{mail.push(link);}});server.on('request',runtime.app);
  try{
-  await page.goto(base+'/start');await page.getByLabel('Email address',{exact:true}).fill('synthetic-'+randomUUID()+'@example.com');await page.getByRole('button',{name:'Email a sign-in link',exact:true}).click();await expect.poll(()=>mail.length).toBe(1);
+  await page.goto(base+'/start');await page.getByRole('button',{name:'Have a keyboard? Sign in with email instead',exact:true}).click();await page.getByLabel('Email address',{exact:true}).fill('synthetic-'+randomUUID()+'@example.com');await page.getByRole('button',{name:'Email a sign-in link',exact:true}).click();await expect.poll(()=>mail.length).toBe(1);
   await page.goto(mail[0]);const code=page.locator('.email-match-code'),label=page.locator('.email-code-confirm').filter({hasText:'I started this request'}),checkbox=label.locator('input'),text=label.locator('span');
-  await expect(code).toBeVisible();await expect(text).toBeVisible();await expect(page.getByRole('button',{name:'Approve requesting device',exact:true})).toBeDisabled();
+  await expect(code).toBeVisible();await expect(text).toBeVisible();await expect(page.getByRole('button',{name:'Approve requesting device',exact:true})).toBeEnabled();
   const c=await code.boundingBox(),l=await label.boundingBox(),b=await checkbox.boundingBox(),t=await text.boundingBox();
   expect(l!.y).toBeGreaterThan(c!.y+c!.height+5);expect(t!.x).toBeGreaterThan(b!.x+b!.width+5);expect(b!.width).toBeGreaterThanOrEqual(18);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
-  await checkbox.check();await expect(page.getByRole('button',{name:'Approve requesting device',exact:true})).toBeDisabled();
-  await page.getByRole('checkbox',{name:/I accept/}).check();await expect(page.getByRole('button',{name:'Approve requesting device',exact:true})).toBeEnabled();
+  let consumeRequests=0;page.on('request',request=>{if(new URL(request.url()).pathname==='/api/auth/email/consume')consumeRequests++;});
+  const approve=page.getByRole('button',{name:'Approve requesting device',exact:true});
+  await approve.click();await expect(page.getByRole('alert')).toContainText('Accept the Terms of Use');expect(consumeRequests).toBe(0);
+  await page.getByRole('checkbox',{name:/I accept/}).check();
+  await approve.click();await expect(page.getByRole('alert')).toContainText('Confirm that you started this request');expect(consumeRequests).toBe(0);
+  await checkbox.check();await expect(approve).toBeEnabled();await expect(page.getByRole('alert')).toHaveCount(0);expect(consumeRequests).toBe(0);
  }finally{await page.close();server.closeAllConnections();await new Promise<void>(r=>server.close(()=>r()));await runtime.close();}
 });
 

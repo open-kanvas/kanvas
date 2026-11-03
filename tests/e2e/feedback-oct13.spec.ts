@@ -30,7 +30,7 @@ test('email form has centered primary action, sender guidance and centered devic
  await page.route('**/api/auth/options',route=>route.fulfill({json:{data:{emailSignin:true,allowRegistration:true}}}));
  await page.route('**/api/auth/email/request',route=>route.fulfill({json:{data:{code:'123456',device:'Test browser',expiresAt:Date.now()+600000}}}));
  await page.route('**/api/auth/email/status',route=>route.fulfill({json:{data:{status:'pending'}}}));
- await page.goto('/start');await page.getByLabel('Email address').fill('test@example.invalid');
+ await page.goto('/start');await expect(page.locator('.login-letters')).toHaveAttribute('aria-label',/^Sign-in code [A-Z]{6}$/);await page.getByRole('button',{name:'Have a keyboard? Sign in with email instead',exact:true}).click();await page.getByLabel('Email address').fill('test@example.invalid');
  const button=page.getByRole('button',{name:'Email a sign-in link'});await expect(button).toBeVisible();
  expect(await button.evaluate(e=>getComputedStyle(e).textAlign)).toBe('center');
  expect(await button.evaluate(e=>getComputedStyle(e).justifyContent)).toBe('center');

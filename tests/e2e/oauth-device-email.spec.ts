@@ -36,7 +36,8 @@ for (const target of ['current', 'origin'] as const) test(`device flow replaces 
     await expect(page.getByRole('button',{name:'Open session',exact:true})).toHaveCount(0);
     await expect(page.getByRole('button',{name:'Allow account access',exact:true})).toHaveCount(0);
     await page.getByLabel('Email address',{exact:true}).fill(`reconnect-${randomUUID()}@example.com`);
-    await page.getByRole('button',{name:'Email a sign-in link',exact:true}).click();await expect.poll(()=>mail.length).toBe(1);
+    await page.getByRole('button',{name:'Continue with email',exact:true}).click();await expect.poll(()=>mail.length).toBe(1);
+    let approvalRequests=0;page.on('request',request=>{if(request.method()==='POST'&&new URL(request.url()).pathname==='/api/oauth/approve')approvalRequests++;});
     if(target==='origin') {
       const confirmation=await owner.newPage();let deviceRegistrations=0;confirmation.on('request',request=>{if(new URL(request.url()).pathname==='/api/devices/register')deviceRegistrations++;});await confirmation.goto(mail[0]);
       await confirmation.getByRole('checkbox',{name:/I accept/}).check();await confirmation.getByRole('checkbox',{name:/I started/}).check();await confirmation.getByRole('button',{name:'Approve requesting device',exact:true}).click();
@@ -45,6 +46,8 @@ for (const target of ['current', 'origin'] as const) test(`device flow replaces 
       await page.goto(mail[0]);await expect(page.getByRole('button',{name:'Sign in here and connect',exact:true})).toHaveCount(0);await page.getByRole('checkbox',{name:/I accept/}).check();await page.getByRole('button',{name:'Sign in and review connection code',exact:true}).click();
     }
     await expect(page.getByRole('heading',{name:'Device reconnect client',exact:true})).toBeVisible();
+    expect(approvalRequests).toBe(0);
+    expect((await (await page.request.get(`${base}/api/tokens`)).json()).data).toHaveLength(0);
     expect(new URL(page.url()).pathname).toBe('/');
     expect(new URL(page.url()).search).toBe(new URL(intent).search);
     const signed=(await (await page.request.get(`${base}/api/auth/me`)).json()).data;
@@ -54,6 +57,7 @@ for (const target of ['current', 'origin'] as const) test(`device flow replaces 
     await expect(page.getByRole('button',{name:'Allow account access',exact:true})).toBeDisabled();
     await page.getByRole('checkbox',{name:/I started this connection/}).check();
     await page.getByRole('button',{name:'Allow account access',exact:true}).click();await expect(page.getByRole('heading',{name:'Connection approved.',exact:true})).toBeVisible();
+    expect(approvalRequests).toBe(1);
     const exchange=await page.request.post(`${base}/oauth/token`,{form:{grant_type:grant,client_id:client,device_code:device.device_code}});expect(exchange.status()).toBe(200);
     expect((await (await page.request.get(`${base}/api/tokens`)).json()).data).toMatchObject([{accessMode:'account'}]);
     expect((await (await owner.request.get(`${base}/api/tokens`)).json()).data).toHaveLength(0);

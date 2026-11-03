@@ -397,7 +397,8 @@ export function mountAccessFlows(app: Express, options: AccessFlowOptions): () =
   };
   const requireProof = async (request: Request): Promise<Awaited<PairingRecord>> => {
     const proof:unknown=request.cookies?.[proofCookie],pair=(await store.get<PairingRecord>('pairing',identifier(request.params.id)));
-    if(!pair)throw new AppError('NOT_FOUND','This screen request is unavailable.',404);
+    // Enrolled receivers share storage but are not public proof-bearing requests.
+    if(!pair||typeof pair.proofHash!=='string')throw new AppError('NOT_FOUND','This screen request is unavailable.',404);
     const current=(await expirePair(pair));
     if(typeof proof!=='string'||!COOKIE_VALUE.test(proof)||!equal(current.proofHash,hash(proof))){
       if(current.status==='pending'||current.status==='approved'&&!current.claimedAt){
@@ -739,7 +740,7 @@ export function mountAccessFlows(app: Express, options: AccessFlowOptions): () =
       const oldProof: unknown = request.cookies?.[proofCookie];
       if (typeof oldProof === 'string' && COOKIE_VALUE.test(oldProof)) {
         for (const prior of (await store.list<PairingRecord>('pairing'))) {
-          if (equal(prior.proofHash, hash(oldProof)) && (prior.status === 'pending' || prior.status === 'approved' && !prior.claimedAt)) {
+          if (typeof prior.proofHash === 'string' && equal(prior.proofHash, hash(oldProof)) && (prior.status === 'pending' || prior.status === 'approved' && !prior.claimedAt)) {
             prior.status = 'cancelled'; prior.decidedAt = now(); (await store.put('pairing', prior)); replaced.push(prior);
           }
         }

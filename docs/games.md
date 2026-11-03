@@ -1,6 +1,6 @@
 # Supplied game and puzzle positions
 
-`game-board` is a visual template (distinct from the retired historical `game` format), not a rules/game/network service. Publish a complete explicitly supplied position through ordinary `kanvas_publish` show; read `display.current`; mutate through `kanvas_publish` patch. First reference catalog: chess, poker, sudoku, tic-tac-toe, connect-four. Presets initialize empty unless the agent supplies objects; the schema/sample catalog exposes an illustrative chess position, not a generated legal game.
+`game-board` is a visual template (distinct from the retired historical `game` format), not a rules/game/network service. Publish a complete explicitly supplied position through ordinary `kanvas_publish` show; read `display.current`; mutate through `kanvas_publish` patch. Complete 15-preset catalog: chess, checkers, backgammon, go, reversi, poker, blackjack, solitaire, tic-tac-toe, connect-four, battleship, sudoku, crossword, word-search, sliding-tile. Presets initialize empty unless the agent supplies objects; the schema/sample catalog exposes an illustrative chess position, not a generated legal game.
 
 ## Stable state and patch
 
@@ -39,3 +39,16 @@ No intra-shared-session secrecy is provided. Two full-account windows signed int
 Automated evidence tests real paired-cookie API reads/denials, selected-session tokens, full-account owner access, cross-session history/snapshot/receipt denial, content-free events and revocation. Actual hardware/PWA receiving acceptance and live MCP connection remain separate manual checks. Native MCP was unavailable during implementation because Kanvas OAuth needs reconnection.
 
 Narrow agent patch payloads and keyed DOM updates reuse existing delivery: receiving clients still fetch an authorized complete view after invalidation. This increment does not add a delta-only delivery protocol.
+
+## Preset layouts and supplied data
+
+- Chess/checkers: 8×8 squares; recognizable Unicode chess pieces or contrasting discs.
+- Backgammon: two rows of 12 points plus bar/off columns. c7=bar and c14=off, c1–6 and c8–13 are points; top labels24–13, bottom1–12. Piece `stack` is an explicit count badge; dice/counters supplied, never rolled or calculated.
+- Go: 19×19 intersections; Reversi:8×8 green board.
+- Poker/blackjack/solitaire: agent-labelled zones, ordered cards, unknown backs. Solitaire uses a stock/waste/foundation plus seven columns in its example; zone cardinality is configurable, not a gameplay rule.
+- Tic-tac-toe:3×3; Connect Four:6×7 disc slots.
+- Battleship:10×20 cells split after c10: left own board, right known shots. **Only authorized supplied visible information**; opponent ships are omitted, not hidden in DOM. For recipient-private boards use separate sessions.
+- Sudoku:9×9 with3×3 boundaries, supplied givens/notes. Crossword and word search:10×10, numbered/blocked/letter cells and annotations for supplied clues/ranges.
+- Sliding tile:4×4, stable tile objects; blank is an unoccupied cell.
+
+Dimensions are deliberately fixed reference presets in this increment; configurable board dimensions, animation, automatic layout of overlapping stacks, rule validation and game engines are not implemented. Overlapping pieces are allowed as visual state, not validated as legal moves. Custom text/symbols are bounded. All examples are illustrative agent-supplied positions, not full playable games.

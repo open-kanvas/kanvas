@@ -1,8 +1,18 @@
 import { z } from 'zod';
 
-export const GAME_PRESETS = ['chess', 'poker', 'sudoku', 'tic-tac-toe', 'connect-four'] as const;
+export const GAME_PRESETS = ['chess', 'poker', 'sudoku', 'tic-tac-toe', 'connect-four', 'checkers', 'backgammon', 'go', 'reversi', 'blackjack', 'solitaire', 'battleship', 'crossword', 'word-search', 'sliding-tile'] as const;
 export type GamePreset = typeof GAME_PRESETS[number];
-export const gamePresets: Record<GamePreset, { label: string; rows: number; columns: number; family: 'squares'|'cards'|'discs' }> = {
+export const gamePresets: Record<GamePreset, { label: string; rows: number; columns: number; family: 'squares'|'cards'|'discs'|'intersections'|'points' }> = {
+  checkers:{label:'Checkers',rows:8,columns:8,family:'squares'},
+  backgammon:{label:'Backgammon',rows:2,columns:14,family:'points'},
+  go:{label:'Go',rows:19,columns:19,family:'intersections'},
+  reversi:{label:'Reversi / Othello',rows:8,columns:8,family:'squares'},
+  blackjack:{label:'Blackjack',rows:0,columns:0,family:'cards'},
+  solitaire:{label:'Solitaire',rows:0,columns:0,family:'cards'},
+  battleship:{label:'Battleship',rows:10,columns:20,family:'squares'},
+  crossword:{label:'Crossword',rows:10,columns:10,family:'squares'},
+  'word-search':{label:'Word search',rows:10,columns:10,family:'squares'},
+  'sliding-tile':{label:'Sliding-tile puzzle',rows:4,columns:4,family:'squares'},
   chess: { label: 'Chess', rows: 8, columns: 8, family: 'squares' },
   poker: { label: 'Texas Hold’em', rows: 0, columns: 0, family: 'cards' },
   sudoku: { label: 'Sudoku', rows: 9, columns: 9, family: 'squares' },
@@ -14,7 +24,7 @@ const text = z.string().max(200);
 const emphasis = z.enum(['none','selected','last-move','warning']).default('none');
 const color = z.enum(['white','black','red','yellow','blue','green']).default('white');
 const cell = z.object({ value:text.optional(), notes:z.array(z.string().max(8)).max(12).optional(), given:z.boolean().optional(), blocked:z.boolean().optional(), number:z.number().int().min(1).max(999).optional(), emphasis }).strict();
-const piece = z.object({ cell: id, symbol:z.enum(['king','queen','rook','bishop','knight','pawn','disc','X','O','tile']), color, label:z.string().max(12).optional(), emphasis }).strict();
+const piece = z.object({ cell: id, symbol:z.enum(['king','queen','rook','bishop','knight','pawn','disc','X','O','tile']), color, stack:z.number().int().min(1).max(30).optional(), label:z.string().max(12).optional(), emphasis }).strict();
 const card = z.discriminatedUnion('face',[
   z.object({ face:z.literal('up'), zone:id, order:z.number().int().min(0).max(100), rank:z.enum(['A','2','3','4','5','6','7','8','9','10','J','Q','K']), suit:z.enum(['clubs','diamonds','hearts','spades']), emphasis }).strict(),
   // An unknown back has NO retained identity. It is not a private card hidden by CSS.
@@ -46,5 +56,15 @@ export function gameExample(preset:GamePreset): GameData {
   if(preset==='tic-tac-toe')data.pieces={cross:{cell:'r1c1',symbol:'X',color:'blue'},circle:{cell:'r2c2',symbol:'O',color:'red'}};
   if(preset==='connect-four')data.pieces={red1:{cell:'r6c3',symbol:'disc',color:'red'},yellow1:{cell:'r6c4',symbol:'disc',color:'yellow'}};
   if(preset==='poker'){data.zones={community:{label:'Community'},seat1:{label:'Alex',badge:'Dealer',counter:'Chips 240'},seat2:{label:'Sam',counter:'Chips 180'}};data.cards={flop1:{face:'up',zone:'community',order:0,rank:'A',suit:'hearts'},flop2:{face:'up',zone:'community',order:1,rank:'10',suit:'spades'},unknown1:{face:'back',zone:'seat1',order:0},unknown2:{face:'back',zone:'seat2',order:0}};data.counters={pot:{label:'Pot',value:'80'}};}
+  if(preset==='checkers')data.pieces={light:{cell:'r6c1',symbol:'disc',color:'white'},dark:{cell:'r3c2',symbol:'disc',color:'black'}};
+  if(preset==='go')data.pieces={stone1:{cell:'r4c4',symbol:'disc',color:'black'},stone2:{cell:'r4c16',symbol:'disc',color:'white'}};
+  if(preset==='reversi')data.pieces={a:{cell:'r4c4',symbol:'disc',color:'white'},b:{cell:'r5c5',symbol:'disc',color:'white'},c:{cell:'r4c5',symbol:'disc',color:'black'},d:{cell:'r5c4',symbol:'disc',color:'black'}};
+  if(preset==='backgammon'){data.pieces={a:{cell:'r1c1',symbol:'disc',color:'white',stack:2},b:{cell:'r2c6',symbol:'disc',color:'black',stack:5},bar:{cell:'r1c7',symbol:'disc',color:'white',stack:1}};data.counters={dice:{label:'Dice',value:'3 · 5'},borneOff:{label:'White borne off',value:'2'}};}
+  if(preset==='blackjack'){data.zones={dealer:{label:'Dealer'},player:{label:'Player',counter:'Bet 20'}};data.cards={a:{face:'up',zone:'dealer',order:0,rank:'9',suit:'hearts'},b:{face:'back',zone:'dealer',order:1},c:{face:'up',zone:'player',order:0,rank:'K',suit:'clubs'},d:{face:'up',zone:'player',order:1,rank:'7',suit:'diamonds'}};}
+  if(preset==='solitaire'){data.zones={stock:{label:'Stock'},waste:{label:'Waste'},foundation:{label:'Foundation'},column1:{label:'Column 1'},column2:{label:'Column 2'},column3:{label:'Column 3'},column4:{label:'Column 4'},column5:{label:'Column 5'},column6:{label:'Column 6'},column7:{label:'Column 7'}};data.cards={a:{face:'back',zone:'stock',order:0},b:{face:'up',zone:'foundation',order:0,rank:'A',suit:'spades'},c:{face:'up',zone:'column1',order:0,rank:'Q',suit:'hearts'},d:{face:'up',zone:'column2',order:0,rank:'K',suit:'clubs'}};}
+  if(preset==='battleship'){data.cells={r3c3:{value:'●',emphasis:'warning'},r3c4:{value:'■'},r3c5:{value:'■'},r6c16:{value:'×',emphasis:'last-move'}};data.annotations={grids:{text:'Left: supplied own board · Right: supplied known shots only'}};}
+  if(preset==='crossword'){data.cells={r1c1:{value:'C',number:1},r1c2:{value:'A'},r1c3:{value:'T'},r1c4:{blocked:true},r2c1:{value:'A'},r3c1:{value:'R'},r4c1:{blocked:true}};data.annotations={across1:{text:'1 Across: feline',cells:['r1c1','r1c2','r1c3']},down1:{text:'1 Down: road vehicle',cells:['r1c1','r2c1','r3c1']}};}
+  if(preset==='word-search'){data.cells=Object.fromEntries(Array.from({length:100},(_,i)=>[`r${Math.floor(i/10)+1}c${i%10+1}`,{value:'KANVASWORD'.charAt(i%10)||'S',emphasis:i<6?'selected':'none'}]));data.annotations={word:{text:'KANVAS',cells:['r1c1','r1c2','r1c3','r1c4','r1c5','r1c6']}};}
+  if(preset==='sliding-tile')data.pieces=Object.fromEntries(Array.from({length:15},(_,i)=>[`tile${i+1}`,{cell:`r${Math.floor(i/4)+1}c${i%4+1}`,symbol:'tile',label:String(i+1),color:'blue'}]));
   return gameDataSchema.parse(data);
 }

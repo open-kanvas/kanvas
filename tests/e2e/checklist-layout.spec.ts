@@ -73,7 +73,7 @@ test('forty short labels pack responsively in source order and persist pointer/k
   await expect(first).toHaveAttribute('aria-checked', 'true');
 });
 
-test('any long label or supplied detail uses full width without clipping or losing exact source text', async ({ page }, info) => {
+test('prose and details use readable responsive columns without clipping or losing exact source text', async ({ page }, info) => {
   const { sessionId, display, viewer } = await setup(page);
   const longLabel = 'Keep every word of this intentionally detailed checklist instruction: review the complete release notes and verify every acceptance criterion before approving the next step.';
   const detail = '  Exact supplied detail.\nSecond line with an_unbroken_identifier_' + 'x'.repeat(100) + '  ';
@@ -85,16 +85,31 @@ test('any long label or supplied detail uses full width without clipping or losi
   ];
   for (const [index, sample] of cases.entries()) {
     await show(page, viewer, sessionId, display.id, checklist(sample.content, sample.options));
-    await expect.poll(() => columns(viewer)).toBe(1);
+    // October 27 replaced the original blanket single-column fallback with
+    // wide prose columns: 28em for long text/detail, 20em for short multiline.
+    const phone = info.project.name.startsWith('phone');
+    const expectedColumns = phone ? 1 : 2;
+    await expect.poll(() => columns(viewer)).toBe(expectedColumns);
     expect(await list(viewer).locator(':scope > li > div > span').allTextContents()).toEqual(sample.content.map(item => item.text));
     const disclosure = list(viewer).locator('details');
     if (sample.options.showControls) await disclosure.locator('summary').click();
     if (index === 1 || index === 2) expect(await list(viewer).locator('li').first().locator('p').textContent()).toBe(detail);
     const metrics = await geometry(viewer);
     expect(metrics.overflow).toBe(false); expect(metrics.documentOverflow).toBe(false);
-    expect(metrics.rows[1].y).toBeGreaterThan(metrics.rows[0].y);
-    expect(metrics.rows[1].x).toBe(metrics.rows[0].x);
-    await viewer.screenshot({ path: info.outputPath(`full-width-${index}.png`), animations: 'disabled' });
+    for (const row of metrics.rows) {
+      expect(row.font).toBeGreaterThanOrEqual(16);
+      if (!phone) expect(row.width).toBeGreaterThanOrEqual(row.font * (index === 3 ? 20 : 28));
+    }
+    expect(metrics.rows[expectedColumns].y).toBeGreaterThan(metrics.rows[0].y);
+    expect(metrics.rows[expectedColumns].x).toBe(metrics.rows[0].x);
+    if (!phone) {
+      expect(metrics.rows[1].y).toBe(metrics.rows[0].y);
+      expect(metrics.rows[1].x).toBeGreaterThan(metrics.rows[0].x);
+    }
+    const clipped = await list(viewer).locator('li > div').evaluateAll(elements =>
+      elements.some(element => element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1));
+    expect(clipped).toBe(false);
+    await viewer.screenshot({ path: info.outputPath(`prose-columns-${index}.png`), animations: 'disabled' });
   }
   // New content must recover its compact layout, not retain an old fallback.
   await show(page, viewer, sessionId, display.id, checklist());

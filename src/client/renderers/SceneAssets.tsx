@@ -51,7 +51,7 @@ export default function SceneAssets({scene,onReady,onError}:{scene:Scene3D;onRea
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setClearColor(0x152332,0);renderer.domElement.setAttribute('aria-label','Prepared 3D models');element.appendChild(renderer.domElement);
   const world=new THREE.Scene();world.add(new THREE.HemisphereLight(0xffffff,0x607080,2));const light=new THREE.DirectionalLight(0xffffff,2.5);light.position.set(5,10,7);world.add(light);
   let camera:THREE.Camera=new THREE.PerspectiveCamera(),disposed=false,generation=0,loaded=false,acknowledged=-1;const entries=new Map<string,Entry>();
-  const draw=()=>{if(disposed)return;const width=element.clientWidth,height=element.clientHeight;if(!width||!height)return;renderer.setSize(width,height,false);renderer.render(world,camera);renderer.domElement.dataset.renderedTriangles=String(renderer.info.render.triangles);if(loaded&&acknowledged!==generation){acknowledged=generation;callbacks.current.onReady?.();}};
+  const draw=()=>{if(disposed)return;const width=element.clientWidth,height=element.clientHeight;if(!width||!height)return;renderer.setSize(width,height,false);const fit=Math.min(width/1000,height/700);renderer.setViewport((width-1000*fit)/2,(height-700*fit)/2,1000*fit,700*fit);renderer.render(world,camera);renderer.domElement.dataset.renderedTriangles=String(renderer.info.render.triangles);if(loaded&&acknowledged!==generation){acknowledged=generation;callbacks.current.onReady?.();}};
   const observer=new ResizeObserver(draw);observer.observe(element);
   const update=(s:Scene3D)=>{
    const ticket=++generation;loaded=false;setStatus('Loading prepared models…');

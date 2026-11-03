@@ -94,6 +94,14 @@ describe('revision-bound partial view patches', () => {
   beforeEach(async () => { f = new Fixture(); (await f.seed()); });
   afterEach(async () => { (await f.store.close()); });
 
+  it('patches only verified asset parts and rolls back an invented part without altering geometry',async()=>{
+    await f.seed({version:1,template:'scene3d',data:{objects:{car:{label:'Sedan',assetId:'kenney-sedan',size:[1.8,1.5,4.2]}}}});
+    await f.patch([{op:'set',path:'/data/objects/car/parts/wheel-front-left',value:{highlight:true}},{op:'set',path:'/data/camera/focus',value:{objectId:'car',part:'wheel-front-left'}}]);
+    const before=await f.read();await expect(f.patch([{op:'set',path:'/data/objects/car/position',value:[2,0,0]},{op:'set',path:'/data/objects/car/parts/turbocharger',value:{highlight:true}}])).rejects.toThrow();expect(await f.read()).toEqual(before);
+    await f.patch([{op:'set',path:'/data/objects/car/assetId',value:'kenney-boat-sail-a'},{op:'set',path:'/data/objects/car/parts',value:{sail:{visible:false}}},{op:'remove',path:'/data/camera/focus'}]);
+    const scene=scene3dSchema.parse((await f.read()).view!.data);expect(scene.objects.car.size).toEqual([1.8,1.5,4.2]);expect(scene.objects.car.parts.sail.visible).toBe(false);
+  });
+
   it('updates stable spatial IDs atomically with retry, CAS, history and failed-batch rollback',async()=>{
     await f.seed({version:1,template:'scene3d',data:sceneReferences.room});
     const initial=await f.read(),objects=structuredClone(initial.view!.data.objects) as Record<string,unknown>;

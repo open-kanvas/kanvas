@@ -45,7 +45,7 @@ test('windowed charts fit the measured viewport, use full funnel height and omit
   }await photo(a.v,info,'funnel');
   const waterfall:ViewSpec={version:1,template:'chart',data:{kind:'waterfall',series:[{name:'Balance',points:Array.from({length:13},(_,i)=>({x:`Monthly financial period ${i+1}`,y:i===0?180:i%2?-12:24,...(i===0?{total:true}:{})}))}]}};
   await a.show(waterfall);await stable(a.v,'.advanced-chart-body');if(!phone)await contained(a.v,'.advanced-chart-body');await photo(a.v,info,'waterfall');
-  for(const view of [samples.chart,{...samples.chart,data:{...samples.chart.data,kind:'bar'}},samples.timeline]){await a.show(view);const selector=view.template==='timeline'?'.spine-scroll':'.legacy-chart-plot';await stable(a.v,selector);}
+  for(const view of [samples.chart,{...samples.chart,data:{...samples.chart.data,kind:'bar'}},samples.timeline]){await a.show(view);const selector=view.template==='timeline'?'.temporal-timeline':'.legacy-chart-plot';await stable(a.v,selector);}
   await photo(a.v,info,'timeline');
   if(!phone){await a.v.setViewportSize({width:1920,height:1080});await a.show(advancedChartExamples.gauge);await contained(a.v,'.advanced-chart-body');await stable(a.v,'.advanced-chart-body');await photo(a.v,info,'gauge-tv');}
   await a.show({...tree,showControls:true});await expect(a.v.locator('.advanced-chart-key')).toBeVisible();

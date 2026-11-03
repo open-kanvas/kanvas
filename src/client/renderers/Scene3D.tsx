@@ -1,13 +1,15 @@
-import {lazy,Suspense} from 'react';
+import {lazy,Suspense,useEffect,useRef} from 'react';
 const SceneAssets=lazy(()=>import('./SceneAssets'));
 import type {RendererProps} from './Renderer';
 import {scene3dSchema,focusedScene,projectedFaces,cameraCoordinates,project,SCENE_NEAR,sceneFaces,type Vec3} from '../../shared/scene3d';
 import './scene3d.css';
 
-export function Scene3DRenderer({view}:RendererProps){
+export function Scene3DRenderer({view,onReady,onError,renderIdentity}:RendererProps){
  // Rendering kill switch leaves authoritative saved scenes/history untouched.
- if(import.meta.env.VITE_KANVAS_SCENE3D==='false')return <p role="status">Spatial scene rendering is disabled on this installation. Saved scene data is retained.</p>;
+ const disabled=import.meta.env.VITE_KANVAS_SCENE3D==='false',callbacks=useRef({onReady,onError});callbacks.current={onReady,onError};
  const scene=focusedScene(scene3dSchema.parse(view.data)),hasAssets=Object.values(scene.objects).some(o=>o.assetId),assetsEnabled=import.meta.env.VITE_KANVAS_SCENE_ASSETS!=='false',faces=projectedFaces(scene),vertices=sceneFaces(scene).flatMap(f=>f.points);
+ useEffect(()=>{if(disabled||hasAssets&&!assetsEnabled)callbacks.current.onError?.();else if(!hasAssets)callbacks.current.onReady?.();},[view,renderIdentity,disabled,hasAssets,assetsEnabled]);
+ if(disabled)return <p role="status">Spatial scene rendering is disabled on this installation. Saved scene data is retained.</p>;
  const fmt=(n:number)=>Number(n.toFixed(3)).toString();
  const point=(p:Vec3)=>project(scene,cameraCoordinates(scene,p));
  const minX=Math.min(...vertices.map(p=>p[0])),maxX=Math.max(...vertices.map(p=>p[0])),minZ=Math.min(...vertices.map(p=>p[2])),maxZ=Math.max(...vertices.map(p=>p[2]));
@@ -15,7 +17,7 @@ export function Scene3DRenderer({view}:RendererProps){
  return <section className="scene3d" aria-label="Metric spatial scene">
   <div className="scene3d-caption">{scene.camera.mode==='overhead'?'Dimensioned overhead · X/Z plan':'Perspective · schematic 3D'} · metres</div>
   <div className="scene3d-stage">
-  {hasAssets&&(assetsEnabled?<Suspense fallback={<p role="status">Loading prepared model renderer…</p>}><SceneAssets scene={scene}/></Suspense>:<p role="status">Prepared model rendering is disabled. Saved scene data is retained.</p>)}
+  {hasAssets&&(assetsEnabled?<Suspense fallback={<p role="status">Loading prepared model renderer…</p>}><SceneAssets scene={scene} onReady={()=>callbacks.current.onReady?.()} onError={()=>callbacks.current.onError?.()}/></Suspense>:<p role="status">Prepared model rendering is disabled. Saved scene data is retained.</p>)}
   <svg className={hasAssets?'scene3d-overlay':undefined} viewBox="0 0 1000 700" role="img" aria-label={`${view.title??'Spatial scene'} — ${scene.camera.mode}; ${Object.values(scene.objects).filter(o=>o.visible).length} visible objects`}>
    {!hasAssets&&faces.map(f=><polygon key={`${f.id}:${f.index}`} data-scene-object={f.id} points={f.screen.map(p=>p.join(',')).join(' ')} fill={f.color} stroke={f.highlight?'#ffcc33':'#203344'} strokeWidth={f.highlight?3:.7} fillOpacity={1}/>)}
    {scene.labels&&Object.entries(scene.objects).filter(([,o])=>o.visible).map(([id,o])=>{const camera=cameraCoordinates(scene,o.position);if(camera[2]<SCENE_NEAR)return null;const [x,y]=project(scene,camera);return <text key={id} className="scene-label" x={x} y={y}><tspan className="scene-label-short">{id}</tspan><tspan className="scene-label-full">{o.label}</tspan>{scene.dimensions&&scene.camera.mode==='overhead'?<tspan className="scene-label-full">{` · ${o.size.map((n,i)=>fmt(n*o.scale[i])).join(' × ')} m`}</tspan>:''}</text>;})}

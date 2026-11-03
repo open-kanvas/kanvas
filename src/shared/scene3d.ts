@@ -7,7 +7,7 @@ const vec=z.tuple([scalar,scalar,scalar]);
 const positive=z.tuple([z.number().min(.001).max(1000),z.number().min(.001).max(1000),z.number().min(.001).max(1000)]);
 const key=z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,63}$/).refine(v=>!['constructor','prototype','__proto__'].includes(v));
 export const sceneObjectSchema=z.object({
- assetId:z.enum(SCENE_ASSETS.map(a=>a.id) as [SceneAssetId,...SceneAssetId[]]).optional(),
+ assetId:z.enum(SCENE_ASSETS.map(a=>a.id) as [SceneAssetId,...SceneAssetId[]]).optional().describe('Prepared public CC0 model; no URL or private uploads. Verified parts: '+SCENE_ASSETS.map(a=>a.id+' = '+a.parts.join(', ')).join('; ')),
  parts:z.record(z.string().min(1).max(64),z.object({visible:z.boolean().optional(),highlight:z.boolean().optional()}).strict()).default({}),
  label:z.string().min(1).max(100),shape:z.enum(['box','cylinder','sphere']).default('box'),
  position:vec.default([0,0,0]),rotation:vec.default([0,0,0]),size:positive,

@@ -10,6 +10,7 @@ import {Scene3DRenderer} from './Scene3D';
 import {SignageRenderer} from './Signage';
 import { GameRenderer } from './Game';
 import type { GameData } from '../../shared/game';
+import {SatisfactionRenderer} from './Satisfaction';
 import {CatalogList} from './CatalogList';
 import {useDevice} from '../DeviceReceiver';
 import {FitToDisplay} from './FitToDisplay';
@@ -151,6 +152,7 @@ function ContentInner(props: RendererProps) {
     case 'drafting': return <DraftingRenderer {...props} />;
     case 'molecule': return <MoleculeRenderer view={view} />;
     case 'signage': return <SignageRenderer view={view} serverNow={props.serverNow} />;
+    case 'satisfaction': return <SatisfactionRenderer {...props} />;
     case 'clock': return <ClockRenderer {...props} />;
     case 'now-playing': return <NowPlayingRenderer {...props} />;
     case 'roster': return <RosterRenderer {...props} />;

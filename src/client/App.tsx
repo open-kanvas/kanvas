@@ -1,3 +1,5 @@
+import {parseKioskRoute} from '../shared/satisfaction';
+import {SatisfactionKiosk,KioskUnavailable} from './SatisfactionKiosk';
 import {ReauthenticationPrompt} from './BrowserSessions';
 import { SessionEntry } from './PublicSession';
 import { DeviceReceiver, LiveEntry } from './DeviceReceiver';
@@ -21,9 +23,11 @@ export function parseViewerRoute(pathname: string): ViewerRoute | undefined {
 }
 function Router({ emailToken }: { emailToken?: string }) {
   const auth = useAuth();
-  if(emailToken)return <EmailConfirmation token={emailToken}/>;
+  if(emailToken&&!parseKioskRoute(window.location.pathname))return <EmailConfirmation token={emailToken}/>;
   const viewer = parseViewerRoute(window.location.pathname), authorize = new URLSearchParams(window.location.search).get('authorize');
   if (auth.loading) return <main className="app-loading"><Wordmark /><span className="spinner" /><span>Opening your space…</span></main>;
+  const kiosk=parseKioskRoute(window.location.pathname);
+  if(kiosk)return auth.user&&auth.viewOnly&&auth.interactive&&!auth.captureOnly&&auth.sessionId===kiosk.sessionId&&auth.displayId===kiosk.displayId?<SatisfactionKiosk {...kiosk}/>:<KioskUnavailable/>;
   if (!auth.user && auth.error) return <main className="app-loading"><Wordmark /><h1>Couldn’t open your workspace.</h1><p role="alert">{auth.error}</p><button className="button button-primary" onClick={() => void auth.refresh().catch(() => {})}>Try connecting again</button></main>;
   // OAuth intent takes precedence over all display/home entry routes. A paired
   // screen represents its owner for viewing only, never account consent.
@@ -56,6 +60,7 @@ function Router({ emailToken }: { emailToken?: string }) {
 }
 function AccountBoundary({emailToken}:{emailToken?:string}) {
   const auth=useAuth();
+  if(parseKioskRoute(window.location.pathname))return <Router/>;
   // Confirmation is one-shot: another tab completing it must not remount and inspect the consumed link.
   if(emailToken)return <EmailConfirmation key={emailToken} token={emailToken}/>;
   // An account switch in another tab must discard cached workspace/device data.
@@ -64,4 +69,4 @@ function AccountBoundary({emailToken}:{emailToken?:string}) {
 export default function App() {
   const [emailToken,setEmailToken]=useState(initialEmailToken);
   useEffect(()=>{const changed=()=>{const token=takeEmailFragment();if(token)setEmailToken(token);};window.addEventListener('hashchange',changed);return()=>window.removeEventListener('hashchange',changed);},[]);
-  return <AuthProvider><ReauthenticationPrompt/><Suspense fallback={<main className="app-loading"><Wordmark /><span className="spinner" /></main>}><AccountBoundary emailToken={emailToken}/></Suspense></AuthProvider>; }
+  return <AuthProvider>{!parseKioskRoute(window.location.pathname)&&<ReauthenticationPrompt/>}<Suspense fallback={<main className="app-loading"><Wordmark /><span className="spinner" /></main>}><AccountBoundary emailToken={emailToken}/></Suspense></AuthProvider>; }

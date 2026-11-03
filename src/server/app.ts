@@ -390,7 +390,7 @@ export async function createApp(options: AppOptions = {}) {
     // Path bookmarks stay on the canonical application origin.
     app.get('/admin',(req,res)=>res.redirect(302,`/console${req.originalUrl.slice('/admin'.length)}`));
     app.get('/',(req,res,next)=>{if(typeof req.query.session==='string'&&/^[A-Za-z0-9_-]+$/.test(req.query.session))return res.redirect(302,`/console?session=${req.query.session}`);next();});
-    app.get(['/', '/connect', '/console', '/start', '/session/:sessionId', '/view/:sessionId/:displayId', '/join/:shareId','/welcome/:invitationId'], (_req, res) => res.sendFile('index.html', { root: staticDirectory, dotfiles: 'deny' }));
+    app.get(['/', '/connect', '/console', '/start', '/session/:sessionId', '/view/:sessionId/:displayId', '/kiosk/:sessionId/:displayId', '/join/:shareId','/welcome/:invitationId'], (_req, res) => res.sendFile('index.html', { root: staticDirectory, dotfiles: 'deny' }));
   }
   app.use((_req, _res, next) => next(new AppError('NOT_FOUND', 'This endpoint is unavailable.', 404)));
   app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {

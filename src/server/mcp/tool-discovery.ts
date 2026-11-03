@@ -211,6 +211,7 @@ export const TOOL_DISCOVERY: Readonly<Record<string, ToolDiscoveryEntry>> = {
   kanvas_member_add: { group: 'access', hint: 'Grant an existing account the owner-requested role. This example is NOT authorization and does not identify a real recipient.', examples: [{ ...session, username: 'example_viewer', role: 'viewer' }] },
   kanvas_member_remove: { group: 'access', hint: 'Revoke only the owner-selected member. This example is NOT authorization to remove an account.', examples: [{ ...session, userId: 'user-id' }] },
 
+  kanvas_satisfaction_read:{group:'feedback',hint:'Editor-only time-range satisfaction counts. No personal identities or unique-person claim.',examples:[{sessionId:'session-id',from:'2026-11-01T00:00:00Z',to:'2026-11-02T00:00:00Z'}]},
   kanvas_interactions_read: { group: 'feedback', hint: 'Read the viewer-action inbox, separate from product reports. Reading does not acknowledge or authorize external actions.', examples: [{ ...session, status: 'pending' }] },
   kanvas_interaction_ack: { group: 'feedback', hint: 'Acknowledge a handled interaction’s unique record ID, not its reusable actionId.', examples: [{ ...session, interactionId: 'interaction-id' }] },
   kanvas_feedback_submit: { group: 'feedback', hint: 'File an observed product suggestion, not a viewer interaction or an instruction to change code.', examples: [{ ...session, requestId: 'feedback-1', title: 'Example usability observation', description: 'Example only: describe the observed friction and a proposed improvement.', category: 'usability' }] },

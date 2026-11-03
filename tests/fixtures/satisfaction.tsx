@@ -1,0 +1,3 @@
+import React from 'react';import {createRoot} from 'react-dom/client';import {SatisfactionRenderer} from '../../src/client/renderers/Satisfaction';import App from '../../src/client/App';
+const root=createRoot(document.getElementById('root')!);let calls:unknown[]=[];
+Object.assign(window,{ratingCalls:calls,showSurvey:(data:any,actionable=true)=>root.render(<SatisfactionRenderer key={JSON.stringify(data)+actionable} view={{version:1,template:'satisfaction',data}} actionable={actionable} revision={1} onRespond={async value=>{calls.push(value);}}/>),showKiosk:()=>{history.replaceState({},'', '/kiosk/s/d');root.render(<App/>);}});(window as any).showSurvey({surveyId:'q'});

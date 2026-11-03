@@ -1,3 +1,4 @@
+import {acceptSatisfaction,readSatisfaction} from './satisfaction.js';
 import {visualHelp,showHelp} from './visual-help.js';
 import {loginRead,loginDecide} from './device-login.js';
 import {currentToolContext} from './mcp/call-context.js';
@@ -933,10 +934,12 @@ export class KanvasService implements McpService {
     try { assertJsonBudget(input.value, 32_000); } catch { throw new AppError('INVALID_RESPONSE', 'The response exceeds its supported size.'); }
     const payload = { displayId, ...input }, duplicate = (await this.retry<InteractionRecord>(principal, sessionId, input.requestId, 'interaction', payload)); if (duplicate) return duplicate;
     const display = (await this.display(principal, sessionId, displayId)); this.assertRevision(input.revision, display.revision);
-    if ((await this.store.list<InteractionRecord>('interaction', sessionId)).filter(record => record.status === 'pending').length >= 1000) throw new AppError('INBOX_FULL', 'This session has too many pending actions.', 429);
+    if (input.value.kind!=='satisfaction.rate'&&(await this.store.list<InteractionRecord>('interaction', sessionId)).filter(record => record.status === 'pending').length >= 1000) throw new AppError('INBOX_FULL', 'This session has too many pending actions.', 429);
     const leaf = required(displayedLeaf(display.view)), value = input.value;
     let actionId = String(value.kind), response: unknown, nextView: ViewSpec | undefined;
-    if (value.kind === 'scoreboard.adjust' && leaf.template === 'scoreboard') {
+    if(value.kind==='satisfaction.rate'&&leaf.template==='satisfaction'){
+      response=await acceptSatisfaction(this.store,sessionId,displayId,principal.participantId??principal.userId,leaf,value);
+    } else if (value.kind === 'scoreboard.adjust' && leaf.template === 'scoreboard') {
       const command=z.object({kind:z.literal('scoreboard.adjust'),sideId:z.string().max(128),action:z.enum(['increase','decrease','set']),score:z.union([z.number().finite(),z.string().max(120)]).optional()}).strict().parse(value);
       const data=scoreboardDataSchema.parse(leaf.data),side=required(data.sides.find(x=>x.id===command.sideId),'That scoreboard side is unavailable.');
       if(!data.interactive||command.action==='set')(await this.access(principal,sessionId,'editor'));
@@ -982,11 +985,15 @@ export class KanvasService implements McpService {
       response={config:request.config,baseConfigRevision:session.configRevision,applied:false,note:'Viewer proposal. An authorized editor or owner must apply it.'};
     } else if (!['form.submit', 'poll.vote', 'qa.submit'].includes(actionId) || leaf.template !== actionId.split('.')[0]) throw new AppError('INVALID_RESPONSE', 'This response does not match the displayed control.');
     if (nextView) nextView = (await this.verifyView(principal, sessionId, nextView));
-    const interaction: InteractionRecord = { id: id(), sessionId, displayId, revision: input.revision, actionId, value: null, userId: principal.participantId ?? principal.userId, targetAgentId: display.targetAgentId, status: 'pending', createdAt: now() };
+    const interaction: InteractionRecord = { id: id(), sessionId, displayId, revision: input.revision, actionId, value: null, userId: principal.participantId ?? principal.userId, targetAgentId: display.targetAgentId, status: actionId==='satisfaction.rate'?'acknowledged':'pending', createdAt: now() };
     (await this.store.transaction(async () => {
       if (!nextView && response === undefined) { const accepted = (await this.engagement.submit(display, principal.participantId ?? principal.userId, value)); actionId = accepted.actionId; response = accepted.value; }
       if (nextView) {
         (await this.history.ensure(display)); display.zoomRoot ??= display.navigationRoot ?? display.revision; display.navigationRoot ??= display.revision; display.view = await this.checklists.capture(display.sessionId,nextView); display.revision++; display.generation++; display.updatedAt = now(); (await this.store.put('display', display)); (await this.history.record(display, actionId));
+      }
+      if(leaf.template==='satisfaction'&&actionId==='satisfaction.rate'){
+        const accepted=response as {surveyId:string;rating:number;levels:number};
+        await this.store.put('satisfaction-response',{id:interaction.id,sessionId,displayId,...accepted,createdAt:interaction.createdAt});
       }
       interaction.actionId = actionId; interaction.value = response; (await this.store.put('interaction', interaction)); (await this.saveRequest(principal, sessionId, input.requestId, 'interaction', payload, interaction.id));
     }));
@@ -1368,6 +1375,11 @@ export class KanvasService implements McpService {
       case 'kanvas_presentation_create': return (await this.createDeck(principal, a.sessionId, a.name, a.slides,{instructions:a.instructions,cardInstructions:a.cardInstructions,mirrored:a.mirrored}));
       case 'kanvas_presentations_list': return (await this.decks(principal, a.sessionId));
       case 'kanvas_presentation_cue': return (await this.cue(principal, a.sessionId, a.deckId, a.index, a.displayIds, a.requestId));
+      case 'kanvas_satisfaction_read':
+        if(principal.captureOnly||principal.scopedSessionId)throw new AppError('FORBIDDEN','Only session editors can read survey totals.',403);
+        await this.access(principal,a.sessionId,'editor');
+        if(a.displayId)await this.display(principal,a.sessionId,a.displayId,'editor');
+        return readSatisfaction(this.store,a);
       case 'kanvas_interactions_read': return (await this.interactions(principal, a.sessionId, a.status, a.limit, a.afterId));
       case 'kanvas_interaction_ack': return (await this.acknowledge(principal, a.sessionId, a.interactionId));
       case 'kanvas_member_add': return (await this.addMember(principal, a.sessionId, a.username, a.role));

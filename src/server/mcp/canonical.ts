@@ -1,3 +1,4 @@
+import {satisfactionReadSchema} from '../../shared/satisfaction.js';
 import {visualHelpSchema,showHelpSchema} from '../visual-help.js';
 import {clientDetailsSchema} from '../../shared/agent-context.js';
 import {venueTools} from '../venue.js';
@@ -86,7 +87,7 @@ const exactlyOne = (left: string, right: string) => ({
   ],
 });
 
-const definitions: readonly Definition[] = [...venueTools,...customTools,...mediaTools,
+const definitions: readonly Definition[] = [{name:'kanvas_satisfaction_read',description:'Editor-only aggregate satisfaction face taps by session, optional display/survey and explicit ISO time range [from,to), at most366days. Returns counts1–5 and total, no personal identities. Three-face mode uses1/3/5; repeat taps are not unique visitors. No mutation.',schema:satisfactionReadSchema,readOnly:true},...venueTools,...customTools,...mediaTools,
  {name:'kanvas_archive_list',description:'List your recoverable archived sessions, displays and retained views. Hidden from normal lists; retained indefinitely. Session grant restrictions still apply.',schema:archiveListSchema,readOnly:true},
  {name:'kanvas_archive_manage',description:'Owner-only archive (default) or restore of a session, display or retained view ID from display history. Archive is reversible. Permanent removal requires request-delete: show a warning and three random phonetic words on the current confirmationSessionId/confirmationDisplayId for 120 seconds. Batch views use targetIds (1–100 distinct IDs in one session), with one exact-target-bound confirmation. Then confirm-delete with challengeId and words explicitly supplied by the human. Never read/guess the words or infer approval. Shared items are deleted for everyone.',schema:archiveSchema,destructive:true},
   ...browserAuthTools,...inviteEmailTools,...guidanceTools,...diagnosticTools,...flashcardTools,...checklistTools,...eventTools, ...experienceTools, ...invitationTools, ...workTools, ...accountTools, ...documentTools, ...plannerTools, ...syncTools, ...homeTools,

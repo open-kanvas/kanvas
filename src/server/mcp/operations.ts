@@ -13,7 +13,7 @@ export const isGrouped = (profile: McpProfile): boolean => profile !== 'legacy';
 
 /** Reviewed, exhaustive registry. Do not synthesize handler names from input. */
 export const OPERATION_REGISTRY = {
-  kanvas_inspect: {'help.visual':'kanvas_help_visual','notifications.targets':'kanvas_notifications_targets','guidance.library.list':'kanvas_guidance_library_list','login.read':'kanvas_login_read','screen.read':'kanvas_screen_read',"media.list":"kanvas_media_list","media.get":"kanvas_media_get","account.templates.list":"kanvas_account_templates_list", 'browser.list':'kanvas_browser_auth_list', 'guidance.read':'kanvas_guidance_read', 'diagnostics.read':'kanvas_diagnostics_read', 'flashcards.read':'kanvas_flashcards_read', 'checklist.read':'kanvas_checklist_read','archive.list':'kanvas_archive_list',
+  kanvas_inspect: {'satisfaction.read':'kanvas_satisfaction_read','help.visual':'kanvas_help_visual','notifications.targets':'kanvas_notifications_targets','guidance.library.list':'kanvas_guidance_library_list','login.read':'kanvas_login_read','screen.read':'kanvas_screen_read',"media.list":"kanvas_media_list","media.get":"kanvas_media_get","account.templates.list":"kanvas_account_templates_list", 'browser.list':'kanvas_browser_auth_list', 'guidance.read':'kanvas_guidance_read', 'diagnostics.read':'kanvas_diagnostics_read', 'flashcards.read':'kanvas_flashcards_read', 'checklist.read':'kanvas_checklist_read','archive.list':'kanvas_archive_list',
     'pointing.read':'kanvas_pointing_read','autoplay.read':'kanvas_autoplay_read','tool-log.read':'kanvas_tool_log_read',
     'profile.read':'kanvas_profile_read','groups.list':'kanvas_groups_list','group.read':'kanvas_group_read',
     'group-access.read':'kanvas_group_access_read','session-context.read':'kanvas_session_context_read',
@@ -110,7 +110,7 @@ export const DOMAIN_REGISTRY = {
   kanvas_connections: { read: 'kanvas_topology_read', redirect: 'kanvas_connection_redirect' },
   kanvas_pairing: { list: 'kanvas_pairings_read', decide: 'kanvas_pairing_decide', revoke: 'kanvas_pairing_revoke' },
   kanvas_viewers: { list: 'kanvas_viewers_read', 'pointing.read': 'kanvas_pointing_read', 'pointing.configure': 'kanvas_pointing_configure' },
-  kanvas_interactions: { read: 'kanvas_interactions_read', acknowledge: 'kanvas_interaction_ack' },
+  kanvas_interactions: { 'satisfaction.read':'kanvas_satisfaction_read',read: 'kanvas_interactions_read', acknowledge: 'kanvas_interaction_ack' },
   kanvas_groups: { list: 'kanvas_groups_list', read: 'kanvas_group_read', create: 'kanvas_group_create', update: 'kanvas_group_update', 'member.set': 'kanvas_group_member_set', 'access.read': 'kanvas_group_access_read', 'access.set': 'kanvas_group_access_set' },
   kanvas_members: { 'invite.send':'kanvas_invite_send',add: 'kanvas_member_add', remove: 'kanvas_member_remove', 'invite.create': 'kanvas_invite_create', 'invite.accept': 'kanvas_invite_accept', 'invite.revoke': 'kanvas_invite_revoke' },
   kanvas_import: { 'media.import':'kanvas_media_import', dataset: 'kanvas_dataset_import', asset: 'kanvas_asset_import', 'asset.export':'kanvas_asset_export' },

@@ -81,7 +81,7 @@ test('all current templates retain a settled full-screen visual without default 
   const audit:unknown[]=[];
   for(const template of TEMPLATE_IDS){
     // Cover every real template without bypassing the trial's 50-view quota.
-    if(audit.length===40){await viewer.close();s=await createSession(page,'Remaining template acceptance');d=await createDisplay(page,s,'Remaining source templates');viewer=await openViewer(page,s,d.id);await prepareViewer();({landscape,video,qr}=await loadAssets());}
+    if(audit.length>0&&audit.length%40===0){await viewer.close();s=await createSession(page,'Remaining template acceptance');d=await createDisplay(page,s,'Remaining source templates');viewer=await openViewer(page,s,d.id);await prepareViewer();({landscape,video,qr}=await loadAssets());}
     const input=structuredClone(samples[template]);
     if(template==='image')input.data={images:[{url:landscape.url,alt:'Synthetic landscape',caption:'A supplied image, given the surface.'}]};
     if(template==='image-gallery')input.data={mode:'grid',images:[{url:landscape.url,alt:'Synthetic landscape one'},{url:landscape.url,alt:'Synthetic landscape two'}]};

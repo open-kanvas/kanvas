@@ -564,6 +564,7 @@ export class KanvasService implements McpService {
     if(value.template==='live-captions'&&process.env.KANVAS_CAPTIONS_ENABLED==='false')throw new AppError('FEATURE_DISABLED','Live Captions publication is disabled on this installation.',403);
     try{assertJsonBudget(value);}catch{throw new InputError([{path:'view',problem:'Exceeds the supported content size or complexity.'}]);}
     if(value.template==='presentation'&&Array.isArray(value.data.slides)){const slides:ViewSpec[]=[];for(const slide of value.data.slides as ViewSpec[])slides.push(await this.verifyView(principal,sessionId,slide));value={...value,data:{...value.data,slides}};}
+    if(value.template==='game-board'&&process.env.KANVAS_GAMES_ENABLED==='false')throw new AppError('FEATURE_DISABLED','Game publication is disabled; retained positions are preserved.',409);
     if(value.template==='account-template')value=await this.customTemplates.resolve(principal,value);
     if(value.template==='sale-poster'&&(value.data.html||value.data.css))validateStatic(String(value.data.html??''),String(value.data.css??''));
     await this.mediaLibrary.authorizeReferences(principal,sessionId,value);

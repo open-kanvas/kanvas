@@ -5,6 +5,7 @@ import {vennSchema} from './statistical-visuals.js';
 import {moleculeDataSchema} from './molecules.js';
 import {scene3dSchema} from './scene3d.js';
 import {signageDataSchema} from './signage.js';
+import { gameDataSchema } from './game.js';
 import {venueSchemas} from './venue.js';
 import {customViewSchema} from './custom-templates.js';
 import { flashcardDataSchema } from './flashcards.js';
@@ -333,6 +334,7 @@ export const leafViewSchema = z.discriminatedUnion('template', [
   z.object({ ...base, template: z.literal('html'), data: extendedSchemas.html }).strict(),
   z.object({ ...base, template: z.literal('molecule'), data: moleculeDataSchema }).strict(),
   z.object({ ...base, template: z.literal('signage'), data: signageDataSchema }).strict(),
+  z.object({ ...base, template: z.literal('game-board'), data: gameDataSchema }).strict(),
   z.object({ ...base, template: z.literal('timeline'), data: extendedSchemas.timeline }).strict(),
   z.object({ ...base, template: z.literal('itinerary'), data: extendedSchemas.itinerary }).strict(),
   z.object({ ...base, template: z.literal('product'), data: extendedSchemas.product }).strict(),

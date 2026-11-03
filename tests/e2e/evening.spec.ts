@@ -72,8 +72,8 @@ test('the overview shows actual retained template miniatures and complete long t
     const title='An intentionally long retained view title that remains fully readable on the portrait display';
     await publishPrepared(page,s,[source.id],{version:1,template:'fact',title,data:{text:'The actual retained idea.'}});await waitForDisplay(page,s,source.id,x=>x.revision===1);
     await publishPrepared(page,s,[source.id],{version:1,template:'number',title:'An exact retained number',data:{value:'123456789.0001'}});await waitForDisplay(page,s,source.id,x=>x.revision===2);
-    await publishPrepared(page,s,[d.id],{version:1,template:'overview',data:{displayIds:[source.id]}});await ready(page,s,d.id,'overview');await expect(viewer.locator('.retained-preview .fact-text')).toHaveText('The actual retained idea.');await expect(viewer.locator('.overview-card-caption h3').filter({hasText:title})).toHaveText(title);
-    const h=viewer.locator('.overview-card-caption h3').filter({hasText:title});expect(await h.evaluate(el=>el.scrollHeight<=el.clientHeight+1&&el.scrollWidth<=el.clientWidth+1)).toBe(true);await photo(viewer,info,'overview');
+    await publishPrepared(page,s,[d.id],{version:1,template:'overview',data:{displayIds:[source.id]}});await ready(page,s,d.id,'overview');await expect(viewer.locator('.retained-preview .fact-text')).toHaveText('The actual retained idea.');await expect(viewer.locator('.overview-card-caption h3').filter({hasText:title})).toHaveText(`1. ${title}`);
+    const h=viewer.locator('.overview-card-caption h3').filter({hasText:title});await expect(h.getByLabel('View number',{exact:true})).toHaveText('1.');expect(await h.evaluate(el=>el.scrollHeight<=el.clientHeight+1&&el.scrollWidth<=el.clientWidth+1)).toBe(true);await photo(viewer,info,'overview');
     await viewer.getByRole('button',{name:new RegExp('Show An intentionally long retained')}).click();await waitForDisplay(page,s,source.id,x=>x.revision>2&&x.view?.data.text==='The actual retained idea.');
   }finally{await client.close();}
 });

@@ -51,7 +51,10 @@ export function ShareScreen({ shareId }: { shareId: string }) {
       try {
         const next = await api<Admission>(`/api/pairings/${encodeURIComponent(admission.id)}/status`);
         if (disposed) return;
-        setPollError(null); setAdmission(next);
+        setPollError(null);
+        // Expiry/cancellation and a late pending response may share a React
+        // batch. Pending must not resurrect a closed or superseded request.
+        setAdmission(current => next.status === 'pending' && (current?.id !== next.id || current.status !== 'pending') ? current : next);
         if (next.status === 'approved') {
           await auth.refresh();
           window.location.assign(viewerPath(next.sessionId, next.displayId));

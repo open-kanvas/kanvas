@@ -1,3 +1,4 @@
+import {NOVEMBER_MAPPING} from './november-mapping.js';
 import { operationRequest } from './requests.js';
 import { DISCOVERY_TOOL_NAMES } from '../../src/server/mcp/operations.js';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -122,16 +123,15 @@ describe('twelve-tool strict published and runtime contract', () => {
   it('reduces actual description/schema bytes, without using tool-count as a token claim', () => {
     const bytes = (profile: 'legacy' | 'twelve') => Buffer.byteLength(JSON.stringify(listToolDefinitions(profile).map(({ name, description, inputSchema }) => ({ name, description, inputSchema }))));
     expect(bytes('twelve')).toBeLessThan(bytes('legacy'));
-    // The expanded catalog adds account and group operations; retain a bounded current catalog and
-    // compare like-for-like with all 110 flat operations, not the old 57-op snapshot.
-    // New operations are feature growth: bound the average bytes per operation and the absolute size.
+    // Keep unchanged like-for-like reduction and per-operation efficiency.
     expect(bytes('twelve') / OPERATION_ENTRIES.length).toBeLessThan(960);
-    // The ceiling covers this round's drafting, planner, display-sync and account operations; the
-    // per-operation average above is the primary guard against unbounded growth.
-    // October29 adds ten real operations (153 to163). Preserve the unchanged
-    // 960-byte per-operation ceiling and flat-vs-grouped reduction; scale only
-    // the absolute inventory ceiling from144KiB to153KiB for that feature growth.
-    expect(bytes('twelve')).toBeLessThan(153 * 1024);
+    // Measured 490b8f9:166ops,152313grouped/289387legacy bytes.
+    // Frozen56edb8a:172ops,161413grouped/304254legacy bytes; template/schema
+    // growth is included, not mistaken for token usage. Preserve153KiB baseline
+    // allowance and allocate at most960bytes for each of six independently
+    // inventoried, real-SDK-tested new operations:162432bytes absolute cap.
+    expect(NOVEMBER_MAPPING).toHaveLength(6);
+    expect(bytes('twelve')).toBeLessThan(153 * 1024 + 6 * 960);
     // Returned schemas/examples are detached; callers cannot poison later catalogs.
     const changed = listToolDefinitions('twelve');
     (changed[0].inputSchema.examples as unknown[]).push({ poison: true });

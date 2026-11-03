@@ -15,6 +15,7 @@ try {
   for(const preset of presets){await page.evaluate(p=>window.showGame(p),preset);await page.locator(`.game-${preset}`).waitFor();
    if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1))throw Error(`${preset} horizontal overflow at ${name}`);
    if(preset==='chess'){await page.evaluate(()=>window.originalKnight=document.querySelector('[data-game-piece=knight]'));await page.evaluate(()=>window.moveKnight());await page.waitForFunction(()=>document.querySelector('[data-game-piece=knight]').getAttribute('aria-label').endsWith('r6c6'));if(!await page.evaluate(()=>window.originalKnight===document.querySelector('[data-game-piece=knight]')))throw Error('Knight DOM replaced');}
+   if(preset==='solitaire'){const cards=await page.locator('[data-game-zone=column1] [data-game-card]').all();if(cards.length<2)throw Error('Solitaire stack fixture missing');const first=await cards[0].boundingBox(),second=await cards[1].boundingBox();if(!first||!second||second.y<first.y+first.height)throw Error('Solitaire card identity is obscured by overlap');}
    await page.screenshot({path:`${output}/${name}-${preset}.png`});console.log(`${name} ${preset}: rendered, no horizontal overflow${preset==='chess'?', stable knight DOM':''}`);
   }
   if(errors.length)throw Error(errors.join('\n'));await page.close();

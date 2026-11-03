@@ -52,3 +52,5 @@ Narrow agent patch payloads and keyed DOM updates reuse existing delivery: recei
 - Sliding tile:4×4, stable tile objects; blank is an unoccupied cell.
 
 Dimensions are deliberately fixed reference presets in this increment; configurable board dimensions, animation, automatic layout of overlapping stacks, rule validation and game engines are not implemented. Overlapping pieces are allowed as visual state, not validated as legal moves. Custom text/symbols are bounded. All examples are illustrative agent-supplied positions, not full playable games.
+
+The shared400-piece bound accommodates all361 intersections of a fully supplied19×19 Go position. Solitaire cards are laid out without overlapping their identities; long columns scroll. Reverting J2 preserves later-preset JSON, but J1-only clients cannot render the ten added presets; roll forward to restore them.

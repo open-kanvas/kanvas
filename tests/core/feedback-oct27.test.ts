@@ -4,6 +4,7 @@ import {normalizeLoginCode,loginRead,loginDecide} from '../../src/server/device-
 import {validateView} from '../../src/shared/view-schemas.js';
 import {validationIssues} from '../../src/server/input-errors.js';
 import {z} from 'zod';
+import type {NavigationSnapshot} from '../../src/shared/navigation.js';
 let h:Harness;afterEach(async()=>{await h?.close();});
 it('reports exact misplaced envelope fields and allowed checklist keys without values',()=>{const view={version:1,template:'checklist',data:{title:'private title',items:[{id:'a',text:'b'}]}};try{validateView(view);throw Error('expected failure');}catch(e){expect(e).toBeInstanceOf(z.ZodError);const issues=validationIssues(e as z.ZodError,'view',view);expect(issues).toContainEqual(expect.objectContaining({path:'view.data.title',received:'string',allowedFields:expect.arrayContaining(['items','checklistId','checklistRevision']),hint:expect.stringContaining('beside template/data')}));expect(JSON.stringify(issues)).not.toContain('private title');}});
 it('normalizes the same six letters and NATO words, rejecting malformed codes',()=>{for(const value of ['aBcDeF','a b c d e f','Alpha Bravo Charlie Delta Echo Foxtrot'])expect(normalizeLoginCode(value)).toBe('ABCDEF');expect(()=>normalizeLoginCode('Alpha Bravo Secret Delta Echo Foxtrot')).toThrow();expect(normalizeLoginCode('Alpha Bravo X ray Delta Echo Foxtrot,')).toBe('ABXDEF');});
@@ -22,12 +23,21 @@ it('issues a real account browser only after scoped owner readback consent, bind
 it('rotates codes at five minutes with a thirty-second grace and caps unsuccessful lookups',async()=>{
  h=await startHarness();const a=await h.account(),screen=h.browser(),s=h.runtime.service,p={userId:a.user!.id};const req=success(await screen.request<any>('POST','/api/login/request',{}));const record=(await s.store.list<any>('device-login'))[0];record.expiresAt=Date.now()-1000;await s.store.put('device-login',record);const rotated=success(await screen.request<any>('GET','/api/login/status'));expect(rotated.code).not.toBe(req.code);const review=await loginRead(s,p,{code:req.code});expect(review.code).toBe(rotated.code);const after=(await s.store.list<any>('device-login'))[0];after.previousUntil=Date.now()-1;await s.store.put('device-login',after);await expect(loginRead(s,p,{code:req.code})).rejects.toThrow(/unavailable/);for(let i=0;i<48;i++)await expect(loginRead(s,p,{code:'ZZZZZZ'})).rejects.toThrow();await expect(loginRead(s,p,{code:rotated.code})).rejects.toThrow(/Too many attempts/);const extra=await s.auth.issueToken(p.userId,'Another credential');await expect(loginRead(s,{...p,tokenId:extra.token.id,agentId:extra.token.agentId},{code:rotated.code})).rejects.toThrow(/Too many attempts/);
 });
-it('keeps checklist zoom through updates/show and isolates other views and sessions',async()=>{
- h=await startHarness();const a=await h.account(),session=await a.session('Zoom'),d=await a.display(session.id),s=h.runtime.service,p={userId:a.user!.id};await a.submit(session.id,[d.id],{version:1,template:'checklist',data:{items:[{id:'a',text:'Original'}]}});let current=await s.display(p,session.id,d.id);const checklistId=current.view!.data.checklistId as string;
- await s.navigation.control(p,{sessionId:session.id,displayId:d.id,requestId:'zoom-checklist',navigation:{action:'zoom',scale:.6}});
- await s.checklists.update(p,{sessionId:session.id,checklistId,requestId:'check',items:[{id:'a',text:'Original',checked:true}]});await s.checklists.show(p,{sessionId:session.id,displayId:d.id,checklistId,requestId:'reshow'});expect((await s.navigation.read(p,{sessionId:session.id,displayId:d.id})).state.scale).toBe(.6);
- await a.submit(session.id,[d.id],{version:1,template:'fact',data:{text:'Different view'}});expect((await s.navigation.read(p,{sessionId:session.id,displayId:d.id})).state.scale??1).toBe(1);await s.checklists.show(p,{sessionId:session.id,displayId:d.id,checklistId,requestId:'back'});expect((await s.navigation.read(p,{sessionId:session.id,displayId:d.id})).state.scale).toBe(.6);
- await s.navigation.control(p,{sessionId:session.id,displayId:d.id,requestId:'reset',navigation:{action:'reset'}});await s.checklists.show(p,{sessionId:session.id,displayId:d.id,checklistId,requestId:'reset-show'});expect((await s.navigation.read(p,{sessionId:session.id,displayId:d.id})).state.scale??1).toBe(1);
+it('keeps checklist zoom in its browser window through updates/show without leaking to other windows',async()=>{
+ h=await startHarness();const a=await h.account(),session=await a.session('Zoom'),d=await a.display(session.id),s=h.runtime.service,p={userId:a.user!.id};await a.submit(session.id,[d.id],{version:1,template:'checklist',data:{items:[{id:'a',text:'Original'}]}});const current=await s.display(p,session.id,d.id),checklistId=current.view!.data.checklistId as string;
+ const path=`/api/sessions/${session.id}/displays/${d.id}/navigation`;
+ const scale=async(tabId:string)=>success(await a.request<NavigationSnapshot>('GET',`${path}?tabId=${tabId}`)).state.scale;
+ success(await a.request('POST',path,{tabId:'checklist-window',requestId:'zoom-checklist',expectedRevision:current.revision,navigation:{action:'zoom',scale:.6}}));
+ expect(await scale('other-window')).toBe(1);
+ await s.checklists.update(p,{sessionId:session.id,checklistId,requestId:'check',items:[{id:'a',text:'Original',checked:true}]});await s.checklists.show(p,{sessionId:session.id,displayId:d.id,checklistId,requestId:'reshow'});expect(await scale('checklist-window')).toBe(.6);
+ await a.submit(session.id,[d.id],{version:1,template:'fact',data:{text:'Different view'}});expect(await scale('checklist-window')).toBe(.6);await s.checklists.show(p,{sessionId:session.id,displayId:d.id,checklistId,requestId:'back'});expect(await scale('checklist-window')).toBe(.6);
+ expect(await scale('new-window')).toBe(1);expect((await s.navigation.read(p,{sessionId:session.id,displayId:d.id})).state.scale).toBe(1);
+ const otherSession=await a.session('Other session'),otherDisplay=await a.display(otherSession.id);await a.submit(otherSession.id,[otherDisplay.id],{version:1,template:'fact',data:{text:'Other session'}});
+ const otherPath=`/api/sessions/${otherSession.id}/displays/${otherDisplay.id}/navigation`;
+ expect(success(await a.request<NavigationSnapshot>('GET',`${otherPath}?tabId=checklist-window`)).state.scale).toBe(.6);
+ expect(success(await a.request<NavigationSnapshot>('GET',`${otherPath}?tabId=other-window`)).state.scale).toBe(1);
+ const latest=await s.display(p,session.id,d.id);success(await a.request('POST',path,{tabId:'checklist-window',requestId:'reset',expectedRevision:latest.revision,navigation:{action:'zoom',direction:'reset'}}));
+ await s.checklists.show(p,{sessionId:session.id,displayId:d.id,checklistId,requestId:'reset-show'});expect(await scale('checklist-window')).toBe(1);expect(await scale('other-window')).toBe(1);
 });
 it('rejects selected-session/read-only agents and revoked approving grants, and locks a request after fifty bad confirmations',async()=>{
  h=await startHarness();const a=await h.account(),screen=h.browser(),s=h.runtime.service,p={userId:a.user!.id};const req=success(await screen.request<any>('POST','/api/login/request',{}));const scoped=await s.auth.issueToken(p.userId,'Scoped',['read','publish'],['one-session']);await expect(loginRead(s,{...p,tokenId:scoped.token.id,agentId:scoped.token.agentId},{code:req.code})).rejects.toThrow();const readOnly=await s.auth.issueToken(p.userId,'Read only',['read']);await expect(loginRead(s,{...p,tokenId:readOnly.token.id,agentId:readOnly.token.agentId},{code:req.code})).rejects.toThrow();
@@ -43,20 +53,25 @@ it('expires review tokens and approved claims and never claims a denied request'
  const fresh=await loginRead(s,p,{code:req.code});await loginDecide(s,p,{code:req.code,approvalToken:fresh.approvalToken,approve:true,confirm:true});const request=(await s.store.list<any>('device-login'))[0];request.approvedUntil=Date.now()-1;await s.store.put('device-login',request);expect((await screen.request('POST','/api/login/claim',{})).status).toBe(403);const restarted=success(await screen.request<any>('GET','/api/login/status'));expect(restarted.status).toBe('pending');expect(restarted.code).not.toBe(req.code);expect((await screen.request('POST','/api/login/claim',{})).status).toBe(403);
  const second=h.browser(),next=success(await second.request<any>('POST','/api/login/request',{})),deny=await loginRead(s,p,{code:next.code});await loginDecide(s,p,{code:next.code,approvalToken:deny.approvalToken,approve:false,confirm:true});expect((await second.request('POST','/api/login/claim',{})).status).toBe(403);expect(success(await second.request<any>('GET','/api/login/status')).status).toBe('denied');
 });
-it('retains static-view zoom through edits and history without leaking into fresh publications',async()=>{
+it('retains browser-window zoom through static edits/history/fresh publications without leaking to new windows',async()=>{
  h=await startHarness();const a=await h.account(),session=await a.session('Static zoom'),d=await a.display(session.id),other=await a.display(session.id),s=h.runtime.service,p={userId:a.user!.id};
  const view={version:1 as const,template:'fact' as const,data:{text:'Original'}};
  await a.submit(session.id,[d.id],view);
- await s.navigation.control(p,{sessionId:session.id,displayId:d.id,requestId:'static-zoom',navigation:{action:'zoom',scale:1.6}});
+ const path=`/api/sessions/${session.id}/displays/${d.id}/navigation`;
+ const scale=async(tabId:string)=>success(await a.request<NavigationSnapshot>('GET',`${path}?tabId=${tabId}`)).state.scale;
+ const initial=await s.display(p,session.id,d.id);success(await a.request('POST',path,{tabId:'static-window',requestId:'static-zoom',expectedRevision:initial.revision,navigation:{action:'zoom',scale:1.6}}));
  const edited=await s.edit(p,session.id,d.id,undefined,{text:'Edited'});
- expect((await s.navigation.read(p,{sessionId:session.id,displayId:d.id})).state.scale).toBe(1.6);
+ expect(await scale('static-window')).toBe(1.6);expect(await scale('phone-window')).toBe(1);
  await a.submit(session.id,[d.id],{...view,data:{text:'Another'}});
  const current=await s.display(p,session.id,d.id);
- expect((await s.navigation.read(p,{sessionId:session.id,displayId:d.id})).state.scale??1).toBe(1);
+ expect(await scale('static-window')).toBe(1.6);expect(await scale('phone-window')).toBe(1);
  await s.navigate(p,{sessionId:session.id,displayIds:[d.id],requestId:'history-zoom',expectedRevisions:{[d.id]:current.revision},revision:edited.revision});
- expect((await s.navigation.read(p,{sessionId:session.id,displayId:d.id})).state.scale).toBe(1.6);
+ expect(await scale('static-window')).toBe(1.6);expect(await scale('new-window')).toBe(1);
  await a.submit(session.id,[other.id],view);
- expect((await s.navigation.read(p,{sessionId:session.id,displayId:other.id})).state.scale??1).toBe(1);
+ const otherPath=`/api/sessions/${session.id}/displays/${other.id}/navigation`;
+ expect(success(await a.request<NavigationSnapshot>('GET',`${otherPath}?tabId=static-window`)).state.scale).toBe(1.6);
+ expect(success(await a.request<NavigationSnapshot>('GET',`${otherPath}?tabId=phone-window`)).state.scale).toBe(1);
  await a.submit(session.id,[d.id],view);
- expect((await s.navigation.read(p,{sessionId:session.id,displayId:d.id})).state.scale??1).toBe(1);
+ expect(await scale('static-window')).toBe(1.6);expect(await scale('new-window')).toBe(1);
+ expect((await s.navigation.read(p,{sessionId:session.id,displayId:d.id})).state.scale).toBe(1);
 });

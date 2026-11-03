@@ -6,6 +6,7 @@ import type {MathWorkspace} from '../../shared/math-workspace';
 import {VennRenderer} from './Venn';
 import type {VennData} from '../../shared/statistical-visuals';
 import {MoleculeRenderer} from './Molecule';
+import {Scene3DRenderer} from './Scene3D';
 import {CatalogList} from './CatalogList';
 import {useDevice} from '../DeviceReceiver';
 import {FitToDisplay} from './FitToDisplay';
@@ -142,6 +143,7 @@ function ContentInner(props: RendererProps) {
     case 'session-topology': return <SessionTopologyRenderer publicSnapshot={props.publicTopology} sessionId={props.sessionId} displayId={props.displayId} data={data as TopologyData} preview={props.preview} onReady={props.onReady} onError={props.onError} renderIdentity={props.renderIdentity}/>;
     case 'progress': return <ProgressRenderer data={data as ProgressData}/>;
     case 'log': return <LogRenderer {...props}/>;
+    case 'scene3d': return <Scene3DRenderer {...props} />;
     case 'drafting': return <DraftingRenderer {...props} />;
     case 'molecule': return <MoleculeRenderer view={view} />;
     case 'clock': return <ClockRenderer {...props} />;

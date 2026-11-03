@@ -1,3 +1,4 @@
+import {sceneReferences,scene3dSchema} from '../../src/shared/scene3d.js';
 import { testDatabase } from '../postgres.js';
 import { randomUUID, createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -146,6 +147,19 @@ describe('revision-bound partial view patches', () => {
     expect((await f.read()).view!.data.viewport).toEqual({zoom:1});
     const previous=await f.history.target(await f.read(),'back');
     expect(previous.entry.view.data).toMatchObject({libraryId:'ethanol-v1',highlightAtoms:['a2','a3'],highlightBonds:['b2']});
+  });
+
+  it('updates stable spatial IDs atomically with retry, CAS, history and failed-batch rollback',async()=>{
+    await f.seed({version:1,template:'scene3d',data:sceneReferences.room});
+    const initial=await f.read(),objects=structuredClone(initial.view!.data.objects) as Record<string,unknown>;
+    const req=await f.request([{op:'set',path:'/data/objects/C1/position',value:[2,.4,1]},{op:'set',path:'/data/objects/C1/rotation',value:[0,90,0]},{op:'set',path:'/data/camera/mode',value:'overhead'}]);
+    const first=await f.engine.patch(owner,req);expect(await f.engine.patch(owner,req)).toEqual(first);
+    const after=await f.read(),scene=scene3dSchema.parse(after.view!.data);expect(scene.objects.C1.position).toEqual([2,.4,1]);expect(scene.objects.C2).toEqual(objects.C2);
+    await expect(f.engine.patch(owner,{...req,requestId:'stale-scene'})).rejects.toThrow();
+    await expect(f.patch([{op:'set',path:'/data/objects/C2/position',value:[0,0,0]},{op:'set',path:'/data/objects/C1/size',value:[0,1,1]}])).rejects.toThrow();expect(await f.read()).toEqual(after);
+    const frames=await f.history.frames(after);expect(frames.some(frame=>frame.view?.data.objects&&JSON.stringify(frame.view.data.objects)===JSON.stringify(objects))).toBe(true);
+    await f.patch([{op:'set',path:'/data/objects/C3',value:{label:'Added chair',size:[.7,.8,.7]}},{op:'remove',path:'/data/objects/C2'}]);
+    expect(Object.keys((await f.read()).view!.data.objects as object)).toContain('C3');
   });
 
   it('patches roster assignments atomically by semantic identity and preserves unrelated data',async()=>{

@@ -93,6 +93,16 @@ describe('revision-bound partial view patches', () => {
   beforeEach(async () => { f = new Fixture(); (await f.seed()); });
   afterEach(async () => { (await f.store.close()); });
 
+  it('patches live signage values and tenant moves atomically with CAS and history',async()=>{
+    await f.seed({version:1,template:'signage',data:{items:[{id:'parking',type:'parking-free',value:12},{id:'directory',type:'building-directory',directory:{entries:[{id:'tenant',name:'Dentist',floor:'2',room:'204'}]}}]}});
+    const request=await f.request([{op:'set',path:'/data/items/0/value',value:3},{op:'set',path:'/data/items/1/directory/entries/0/floor',value:'3'}]);
+    const first=await f.engine.patch(owner,request);expect(await f.engine.patch(owner,request)).toEqual(first);
+    expect((await f.read()).view!.data.items).toMatchObject([{id:'parking',value:3},{id:'directory',directory:{entries:[{id:'tenant',floor:'3'}]}}]);
+    await expect(f.patch([{op:'set',path:'/data/items/0/value',value:-1}])).rejects.toThrow();
+    expect((await f.read()).revision).toBe(5);
+    const before=await f.history.target(await f.read(),'back');expect(before.entry.view.data.items).toMatchObject([{id:'parking',value:12},{id:'directory',directory:{entries:[{floor:'2'}]}}]);
+  });
+
   it('patches roster assignments atomically by semantic identity and preserves unrelated data',async()=>{
     await f.seed({version:1,template:'roster',data:{start:'2026-10-01',end:'2026-10-02',people:[{id:'a',name:'A'},{id:'b',name:'B'}],shifts:[{id:'d',label:'Day'},{id:'v',label:'Vacation'}],assignments:[{date:'2026-10-01',person:'a',shift:'d'},{date:'2026-10-01',person:'b',shift:'d',note:'Untouched'}]}});
     const request=await f.request([{op:'roster',action:'remove',date:'2026-10-01',person:'a',shift:'d'},{op:'roster',action:'add',date:'2026-10-01',person:'a',shift:'v',value:{note:'Leave'}}]);

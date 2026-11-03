@@ -11,7 +11,7 @@ const id = z.string().min(1).max(128);
 const date = z.string().max(60).refine(value => /^\d{4}-\d{2}-\d{2}(?:T.*(?:Z|[+-]\d{2}:\d{2}))?$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value.slice(0,10)+'T00:00:00Z').toISOString().slice(0,10)===value.slice(0,10), 'Expected a real YYYY-MM-DD date or timezone-qualified ISO timestamp');
 const links = z.array(z.object({ label, url }).strict()).max(12).optional();
 const timelineVisual = z.discriminatedUnion('kind', [
-  z.object({kind:z.literal('image'),url:url.refine(value=>!value.startsWith('/api/media/'),'Progressive visuals use session assets or public images; account-library URLs have session-wide grants.'),alt:label,caption:text.optional()}).strict(),
+  z.object({kind:z.literal('image'),url:url.refine(value=>{try{return !/^\/api\/media(?:\/|$)/i.test(decodeURIComponent(new URL(value,'https://kanvas.invalid').pathname));}catch{return false;}},'Progressive visuals use session assets or public images; relative and absolute account-library paths have session-wide grants.'),alt:label,caption:text.optional()}).strict(),
   z.object({kind:z.literal('chart'),data:chartDataSchema.refine(value=>!value.binding,'Timeline visual charts require supplied data, not dataset bindings.')}).strict(),
   z.object({kind:z.literal('flowchart'),data:flowchartDataSchema}).strict(),
 ]);

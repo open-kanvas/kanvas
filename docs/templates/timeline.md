@@ -77,3 +77,5 @@ Layout uses one elapsed-time scale across all event lanes. Duration bars and
 point milestones remain distinct. Wide vertical orientation rotates that scale;
 narrow screens stack cards with compact horizontal scales for readability.
 Dense/long content scrolls instead of reducing text to unreadable sizes.
+
+Progressive image URLs reject reserved `/api/media` paths in relative and absolute URL forms, including URL-normalized dot segments, case variants and encoded path characters. Always-rendered event-card library images are unchanged. This input rule does not replace server asset authorization.

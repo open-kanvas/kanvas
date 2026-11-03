@@ -1,3 +1,4 @@
+import {SCENE_ASSETS,sceneAsset,type SceneAssetId} from './scene-assets.js';
 import {z} from 'zod';
 
 // Deliberately bounded geometry: metres, right handed, +Y up, Euler XYZ degrees.
@@ -6,17 +7,21 @@ const vec=z.tuple([scalar,scalar,scalar]);
 const positive=z.tuple([z.number().min(.001).max(1000),z.number().min(.001).max(1000),z.number().min(.001).max(1000)]);
 const key=z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,63}$/).refine(v=>!['constructor','prototype','__proto__'].includes(v));
 export const sceneObjectSchema=z.object({
+ assetId:z.enum(SCENE_ASSETS.map(a=>a.id) as [SceneAssetId,...SceneAssetId[]]).optional(),
+ parts:z.record(z.string().min(1).max(64),z.object({visible:z.boolean().optional(),highlight:z.boolean().optional()}).strict()).default({}),
  label:z.string().min(1).max(100),shape:z.enum(['box','cylinder','sphere']).default('box'),
  position:vec.default([0,0,0]),rotation:vec.default([0,0,0]),size:positive,
  scale:z.tuple([z.number().min(.01).max(10),z.number().min(.01).max(10),z.number().min(.01).max(10)]).default([1,1,1]),
  color:z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#6f9ac4'),visible:z.boolean().default(true),highlight:z.boolean().default(false),
-}).strict();
+}).strict().superRefine((o,c)=>{for(const part of Object.keys(o.parts))if(!o.assetId||!(sceneAsset(o.assetId)!.parts as readonly string[]).includes(part))c.addIssue({code:'custom',path:['parts',part],message:'Only catalog-verified named parts of this asset may be addressed'});});
 export const scene3dSchema=z.object({
  units:z.literal('m').default('m'),
  objects:z.record(key,sceneObjectSchema).refine(v=>Object.keys(v).length<=80,'At most 80 objects'),
- camera:z.object({mode:z.enum(['perspective','overhead']).default('perspective'),position:vec.default([8,7,9]),target:vec.default([0,0,0]),fov:z.number().min(15).max(100).default(50),span:z.number().min(.1).max(20000).default(12)}).strict().default({mode:'perspective',position:[8,7,9],target:[0,0,0],fov:50,span:12}),
+ camera:z.object({focus:z.object({objectId:key,part:z.string().min(1).max(64).optional()}).strict().optional(),mode:z.enum(['perspective','overhead']).default('perspective'),position:vec.default([8,7,9]),target:vec.default([0,0,0]),fov:z.number().min(15).max(100).default(50),span:z.number().min(.1).max(20000).default(12)}).strict().default({mode:'perspective',position:[8,7,9],target:[0,0,0],fov:50,span:12}),
  dimensions:z.boolean().default(true),labels:z.boolean().default(true),
 }).strict().superRefine((v,c)=>{
+ if(Object.values(v.objects).filter(o=>o.assetId).length>8)c.addIssue({code:'custom',path:['objects'],message:'At most 8 prepared asset instances'});
+ const focus=v.camera.focus;if(focus){const o=v.objects[focus.objectId];if(!o||!o.visible||focus.part&&(!o.assetId||!(sceneAsset(o.assetId)!.parts as readonly string[]).includes(focus.part)))c.addIssue({code:'custom',path:['camera','focus'],message:'Focus must name a visible object and an optional catalog-verified part'});}
  const delta=v.camera.position.map((n,i)=>n-v.camera.target[i]);
  if(Math.hypot(...delta)<.01)c.addIssue({code:'custom',path:['camera','position'],message:'Camera position and target must differ by at least .01 m'});
 });
@@ -89,3 +94,13 @@ export const sceneReferences={
  soccer:{camera:{position:[60,70,85],target:[0,0,0],span:130},objects:{field:object('105 × 68 m field',[105,.1,68],[0,-.05,0],'#47825c'),P1:object('Player 1',[1,1.8,1],[-10,.9,4],'#4d8bea','cylinder'),P2:object('Player 2',[1,1.8,1],[12,.9,-8],'#ed6960','cylinder'),ball:object('Ball',[.22,.22,.22],[0,.11,0],'#ffffff','sphere')}},
  harbor:{camera:{position:[30,30,40],target:[0,0,0],span:50},objects:{water:object('40 × 30 m water',[40,.1,30],[0,-.1,0],'#5398af'),dock:object('Dock',[3,.5,20],[-8,.25,0],'#a38562'),boat:object('Schematic boat',[3,1,8],[-3,.5,2],'#e8e2cf'),mast:object('Mast',[.15,6,.15],[-3,4,2],'#ced9e1','cylinder')}},
 } as const;
+
+/** Resolve a named focus using offline-verified part bounds, without changing stored camera or geometry. */
+export function focusedScene(scene:Scene3D):Scene3D{
+ const focus=scene.camera.focus;if(!focus)return scene;
+ const o=scene.objects[focus.objectId],asset=o.assetId?sceneAsset(o.assetId):undefined;
+ const bounds=focus.part&&asset?(asset.partBounds as Record<string,{center:readonly number[];size:readonly number[]}>)[focus.part]:undefined;
+ const target=transformPoint((bounds?.center??[0,0,0]) as Vec3,o),size=(bounds?.size??[1,1,1]).map((n,i)=>n*o.size[i]*o.scale[i]);
+ const radius=Math.max(.05,Math.hypot(...size)/2),direction=unit(subtract(scene.camera.position,scene.camera.target)),distance=radius/Math.sin(scene.camera.fov*Math.PI/360)*1.3;
+ return {...scene,camera:{...scene.camera,target,position:add(target,direction.map(n=>n*distance) as Vec3),span:radius*3.5}};
+}

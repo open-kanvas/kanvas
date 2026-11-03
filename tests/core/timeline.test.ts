@@ -18,5 +18,8 @@ it('requires supplied active IDs and valid reusable visual contracts',()=>{
 });
 
 it('does not accept session-wide library grants as progression-scoped image states',()=>{
- expect(extendedSchemas.timeline.safeParse({events:[{id:'a',title:'A',start:'2026-01-01',visual:{kind:'image',url:'/api/media/library',alt:'Library'}}]}).success).toBe(false);
+ const parse=(url:string)=>extendedSchemas.timeline.safeParse({events:[{id:'a',title:'A',start:'2026-01-01',visual:{kind:'image',url,alt:'Image'}}]}).success;
+ for(const url of ['/api/media/library','https://dev.example.com/api/media/library','https://dev.example.com/API/MEDIA/library?x=1','https://dev.example.com/unused/../api/media/library','https://dev.example.com/api/%6dedia/library'])expect(parse(url),url).toBe(false);
+ for(const url of ['/api/assets/current','https://images.example.com/diagram.png','https://images.example.com/public.png?caption=/api/media/library'])expect(parse(url),url).toBe(true);
+ expect(extendedSchemas.timeline.safeParse({events:[{id:'a',title:'A',start:'2026-01-01',image:{url:'/api/media/library',alt:'Always rendered'}}]}).success).toBe(true);
 });

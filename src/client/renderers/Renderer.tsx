@@ -1,3 +1,4 @@
+import {TrafficDemoRenderer} from './TrafficDemo';
 import {CatalogList} from './CatalogList';
 import {useDevice} from '../DeviceReceiver';
 import {FitToDisplay} from './FitToDisplay';
@@ -147,6 +148,7 @@ function ContentInner(props: RendererProps) {
     case 'calendar': return <CalendarRenderer {...props} />;
     case 'planner': return <PlannerRenderer {...props} actionable={props.actionable && !props.preview} />;
     case 'settings': return <SessionSettings {...props}/>;
+    case 'traffic-demo': return <TrafficDemoRenderer {...props}/>;
     case 'fact': return <FactRenderer {...surface} data={data as unknown as { text: string }}  />;
     case 'number': return <NumberRenderer {...surface} data={data as unknown as { value: string | number }} />;
     case 'chart': return <ChartRenderer {...surface} data={data as unknown as ChartData} />;

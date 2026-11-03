@@ -1,0 +1,10 @@
+# Traffic-light demonstration only
+This is deliberately NOT operational traffic coordination. No road equipment, hardware output, reliable clock synchronization, delivery acknowledgements, disconnected-screen fail-safe, fault detection, certified interlock, remote stop or physical/manual control is supplied. Do not use it on roads. Always-visible banner remains even when metadata is hidden.
+
+Native traffic-demo template. Data: pairId, perspective both(default)/a/b, mode manual(default)/timed, requested a/b/all-red(default), explicit ISO epoch, greenASeconds/greenBSeconds1–600(default15), allRedSeconds1–120(default3), paused(defaultfalse). Paused/future/invalid time shows all-red. Timed cycle: all-red→A green→all-red→B green. Both opposite sides derive from one phase; timers show seconds to next simulated phase, manual steady state shows dash. Browser suspension recomputes from absolute epoch, not queued ticks.
+
+Manual or agent/system control uses existing authorized revision-bound show/replace_data/view.patch. Change requested AND epoch atomically to start an all-red transition before the chosen green; setting paused:true stops the illustration at all-red. Schema does NOT enforce temporal history across ordinary edits: caller can supply a past epoch. This is an illustration contract, not a safety interlock.
+
+For two receiving displays publish identical pairId/mode/epoch/timing with perspective a and b. Configuration must be kept identical by the caller; pairId is a label, not a server coordination channel. Delivery may differ, and clock skew can produce contradictory physical screens. Single-display both view is the reliable visual demonstration. Paired physical acceptance is pending; no operational guarantee.
+
+VITE_KANVAS_TRAFFIC_DEMO=false disables renderer after rebuild; publication/history retained. No dependencies/migrations; ordinary ViewSpec history/revision/rollback. Independent of K1–K3. Real road control requires separate explicit operational/failure-safety specification, hardware assumptions and acceptance; deferred, not silently included.

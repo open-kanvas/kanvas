@@ -120,6 +120,15 @@ describe('authorization expiry and paired-screen exchange boundaries', () => {
   });
 
   it('does not activate pending or approved-but-unclaimed requests after their expiry', async () => {
+    // This case needs two live requests, not the independently tested random-label collision path.
+    // Keep expiry and approval checks real while making only recognition labels deterministic.
+    await h.close();
+    const labels = ['alpha alpha', 'alpha bravo'];
+    h = await startHarness({ pairingLabel: () => {
+      const label = labels.shift();
+      if (!label) throw new Error('Unexpected pairing request in expiry fixture');
+      return label;
+    } });
     const owner = await h.account(), session = await owner.session(), display = await owner.display(session.id), unapprovedScreen = h.browser();
     const unapproved = success(await unapprovedScreen.request<Pairing>('POST', '/api/pairings', { sessionId: session.id, displayId: display.id }));
     const approved = await pair(h, owner, session.id, display.id);

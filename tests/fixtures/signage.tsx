@@ -1,0 +1,2 @@
+import React from 'react';import {createRoot} from 'react-dom/client';import {SignageRenderer} from '../../src/client/renderers/Signage';import {signCatalog,SIGN_DIRECTIONS} from '../../src/shared/signage';
+const root=createRoot(document.getElementById('root')!);Object.assign(window,{signCatalog,signDirections:SIGN_DIRECTIONS,showSigns:(data:any)=>root.render(<SignageRenderer view={{version:1,template:'signage',data}}/>)});(window as any).showSigns({items:[{id:'one',type:'exit',direction:'right'}]});

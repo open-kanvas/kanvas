@@ -7,6 +7,7 @@ import {VennRenderer} from './Venn';
 import type {VennData} from '../../shared/statistical-visuals';
 import {MoleculeRenderer} from './Molecule';
 import {Scene3DRenderer} from './Scene3D';
+import {SignageRenderer} from './Signage';
 import {CatalogList} from './CatalogList';
 import {useDevice} from '../DeviceReceiver';
 import {FitToDisplay} from './FitToDisplay';
@@ -146,6 +147,7 @@ function ContentInner(props: RendererProps) {
     case 'scene3d': return <Scene3DRenderer {...props} />;
     case 'drafting': return <DraftingRenderer {...props} />;
     case 'molecule': return <MoleculeRenderer view={view} />;
+    case 'signage': return <SignageRenderer view={view} />;
     case 'clock': return <ClockRenderer {...props} />;
     case 'now-playing': return <NowPlayingRenderer {...props} />;
     case 'roster': return <RosterRenderer {...props} />;

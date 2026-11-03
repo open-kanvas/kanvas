@@ -101,6 +101,7 @@ describe('September 14 source-preserving integration', () => {
     // historical size estimate that predates the progress and log templates.
     expect(Buffer.byteLength(JSON.stringify(compact))).toBeLessThan(MAX_TOOL_RESULT_BYTES);
   });
+  // Expanded full catalog: both real AJV compiles measured 10.887s in isolation; retain all strictness cases.
   it('validates compact presentation unions with a real 2020-12 validator without admitting extra fields or reply actions', () => {
     const original = z.toJSONSchema(templateViewSchema('presentation'), { unrepresentable: 'any', io: 'input', reused: 'ref' });
     const ajv = new Ajv2020({ strict: false, validateFormats: false, allErrors: true });
@@ -121,7 +122,7 @@ describe('September 14 source-preserving integration', () => {
       expect(before(value)).toBe(valid); expect(after(value)).toBe(valid);
       expect(after({ ...value, unrelatedEnvelopeField: true })).toBe(false);
     }
-  });
+  }, 30_000);
   it('renders literal draft text without a content rewrite, including whitespace and empty initial drafts', async () => {
     const interpreter = createInterpreter();
     for (const text of ['  Dear reader,\r\n\r\nKeep the 1.2300 value and the final line.\r\n', '']) {

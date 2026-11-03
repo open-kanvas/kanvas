@@ -7,6 +7,8 @@ import {expect,it} from 'vitest';
 import {startHarness,success,fact} from '../core/harness.js';
 import {eventViewExamples} from '../../src/shared/event-views.js';
 
+// Cold modern SDK + complete presentation discovery measured 9.324s alone (10.395s in the two-worker suite).
+// Local budget only; both protocols and every operation/negative assertion remain exercised.
 for(const era of ['modern','legacy'] as const)it(`event workflows and navigation discovery are usable through the ${era} MCP client`,async()=>{
   const h=await startHarness({mcpProfile:'twelve'});let client:Client|LegacyClient|undefined;
   try{
@@ -37,4 +39,4 @@ for(const era of ['modern','legacy'] as const)it(`event workflows and navigation
     const accountLog=await call('kanvas_inspect','tool-log.read');expect(accountLog.events.some((e:any)=>e.operation==='kanvas.feedback.submit'&&e.source==='automatic')).toBe(true);expect(accountLog.events.every((e:any)=>e.sessionId===undefined)).toBe(true);
     const settings=await call('kanvas_inspect','pointing.read',{sessionId:s.id});expect(settings.enabled).toBe(false);await call('kanvas_access','pointing.configure',{sessionId:s.id,expectedRevision:settings.revision,enabled:true,confirm:true});expect((await call('kanvas_inspect','pointing.read',{sessionId:s.id})).enabled).toBe(true);
   }finally{await client?.close();await h.close();}
-});
+}, 30_000);

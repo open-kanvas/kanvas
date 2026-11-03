@@ -1,3 +1,4 @@
+import { samples } from '../../src/shared/template-examples.js';
 import { eventViewExamples } from '../../src/shared/event-views.js';
 import { extendedExamples } from '../../src/shared/extended-templates.js';
 import type { InterpretationInput, TemplateId, ViewSpec } from '../../src/shared/types.js';
@@ -7,6 +8,8 @@ export function input(overrides: Partial<InterpretationInput> = {}): Interpretat
 }
 export const source = { title: 'Source ledger', url: 'https://example.com/source', locator: 'Table 2', timestamp: '2026-09-08T12:00:00Z' };
 export const cases: {template:TemplateId;data:Record<string, unknown>}[] = [
+  // Real supplied examples for the five new families; completeness/provenance guards remain exhaustive.
+  ...(['scene3d','venn','math','instrument','live-captions'] as const).map(template=>({template,data:samples[template].data})),
   {template:'molecule',data:{libraryId:'ethanol-v1'}},
   {template:'signage',data:{items:[{id:'exit',type:'exit'}]}},
   {template:'game-board',data:{preset:'chess',pieces:{knight:{cell:'r8c7',symbol:'knight',color:'white'}}}},

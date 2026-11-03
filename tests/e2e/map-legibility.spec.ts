@@ -138,7 +138,8 @@ test('map truth labels and legal links stay uncovered across phone widths, safe 
     await expect(viewer.locator('.viewer-menu')).toBeVisible();
     const menu = await viewer.locator('.viewer-menu').boundingBox(), attribution = await viewer.locator('.leaflet-control-attribution').boundingBox();
     expect(menu!.y + menu!.height).toBeLessThanOrEqual(attribution!.y);
-    await viewer.keyboard.press('Escape');
+    await viewer.getByRole('button', { name: 'Display controls', exact: true }).click();
+    await expect(viewer.locator('.viewer-menu')).toHaveCount(0);
     await show(page, viewer, sessionId, displayId, { ...structuredClone(samples.map), showControls: true });
     await legible(viewer);
     const scale = await mapScale(viewer);

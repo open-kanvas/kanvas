@@ -89,18 +89,39 @@ test('shared pointers address original cells, chart data and uncropped image pix
 
 test('manual scrolling survives polls and overscroll without validation errors in tables, logs and compact overview',async({page,baseURL},info)=>{
   const a=await setup(page,info,baseURL!);try{
-    const settleScroll=async(selector:string,wait=1900)=>{const el=a.v.locator(selector);await expect.poll(()=>el.evaluate(e=>e.scrollHeight-e.clientHeight)).toBeGreaterThan(80);await el.evaluate(e=>{e.scrollTop=e.scrollHeight;});await expect.poll(()=>el.evaluate(e=>e.scrollTop)).toBeGreaterThan(70);const at=await el.evaluate(e=>e.scrollTop);await a.v.waitForTimeout(wait);expect(await el.evaluate(e=>e.scrollTop)).toBeGreaterThan(at-3);await expect(a.v.locator('.navigation-error')).toHaveCount(0);};
+    const settleScroll=async(selector:string,wait=1900)=>{const el=a.v.locator(selector);await expect.poll(()=>el.evaluate(e=>e.scrollHeight-e.clientHeight),{message:`Overflow in ${selector}`}).toBeGreaterThan(80);await el.evaluate(e=>{e.scrollTop=e.scrollHeight;});await expect.poll(()=>el.evaluate(e=>e.scrollTop)).toBeGreaterThan(70);const at=await el.evaluate(e=>e.scrollTop);await a.v.waitForTimeout(wait);expect(await el.evaluate(e=>e.scrollTop)).toBeGreaterThan(at-3);await expect(a.v.locator('.navigation-error')).toHaveCount(0);};
     const original=await a.show({version:1,template:'table',data:{columns:['Name','Value'],pageSize:100,rows:Array.from({length:70},(_,i)=>({Name:`Source row ${i}`,Value:'1.2300'}))}});await settleScroll('.table-scroll');expect((await a.current()).view).toEqual(original.view);
     await a.show({version:1,template:'log',data:{entries:Array.from({length:80},(_,i)=>({line:i+1,level:'info',message:`Exact source line ${i}`}))}});await settleScroll('[data-navigation-scroll]');
     for(let i=0;i<16;i++)await a.show({version:1,template:'fact',title:`Retained ${i}`,data:{text:`Frame ${i}`}});
-    await a.show({version:1,template:'overview',data:{order:'oldest',showMetadata:true,layout:'list',showPreviews:false}});await expect(a.v.locator('.overview-list')).toBeVisible();expect(await a.v.locator('.overview-list article').first().evaluate(el=>el.getBoundingClientRect().height)).toBeLessThan(130);await expect(a.v.locator('.retained-preview,.retained-overview-grid')).toHaveCount(0);await expect(a.v.getByRole('button',{name:/^(Gallery|List)$/})).toHaveCount(0);await settleScroll('.overview-list',8500);await photo(a.v,info,'compact-scrolled-overview');await a.v.evaluate(()=>{const shell=document.querySelector('.viewer-shell')!;shell.classList.remove('theme-dark');shell.classList.add('theme-light');});await photo(a.v,info,'compact-scrolled-overview-light');
+    await a.show({version:1,template:'overview',data:{order:'oldest',showMetadata:true,layout:'list',showPreviews:false}});await expect(a.v.locator('.overview-list')).toBeVisible();expect(await a.v.locator('.overview-list article').first().evaluate(el=>el.getBoundingClientRect().height)).toBeLessThan(130);await expect(a.v.locator('.retained-preview,.retained-overview-grid')).toHaveCount(0);await expect(a.v.getByRole('button',{name:/^(Gallery|List)$/})).toHaveCount(0);await settleScroll('.overview-content>[data-navigation-scroll]',8500);await photo(a.v,info,'compact-scrolled-overview');await a.v.evaluate(()=>{const shell=document.querySelector('.viewer-shell')!;shell.classList.remove('theme-dark');shell.classList.add('theme-light');});await photo(a.v,info,'compact-scrolled-overview-light');
   }finally{await a.client.close();}
 });
 
-test('account and service report scopes work through administration without an arbitrary session target',async({page,baseURL},info)=>{
+test('authored reports with optional session context appear in the account list without service-admin access',async({page,baseURL},info)=>{
   const a=await setup(page,info,baseURL!);try{
+    const me=await sessionApi<{user:{id:string}}>(page,'/api/auth/me');expect(me.status).toBe(200);
+    const sessionless=await a.call('kanvas_feedback','submit',{requestId:randomUUID(),title:'Account observation',description:'General observation without a session target.',client:'other'});
+    expect(sessionless.sessionId).toBeUndefined();expect(sessionless.authorId).toBe(me.data!.user.id);
     await tab(page,'Activity');await page.getByRole('button',{name:'Reports',exact:true}).click();
-    for(const scope of ['account','service']){await page.getByRole('button',{name:'Write a report',exact:true}).click();await page.getByLabel('Report scope',{exact:true}).selectOption(scope);await expect(page.getByLabel('Related display',{exact:true})).toBeDisabled();await page.getByLabel('Report title',{exact:true}).fill(`${scope} feedback`);await page.getByLabel('What happened or could be better?').fill('General observation outside a session.');await page.getByRole('button',{name:'Submit report',exact:true}).click();await expect(page.locator('.reports-panel').getByRole('status')).toContainText('Report saved');await page.getByLabel('Report list',{exact:true}).selectOption(scope);await expect(page.getByRole('article',{name:`Report: ${scope} feedback`,exact:true})).toBeVisible();const records=await a.call('kanvas_inspect','reports.read',{scope});expect(records.reports[0].sessionId).toBeUndefined();}
-    await expect(page.getByRole('option',{name:'All reports · service administration'})).toHaveCount(0);await photo(page,info,'scoped-reports');
+    await page.getByRole('button',{name:'Write a report',exact:true}).click();
+    await page.getByLabel('Related display',{exact:true}).selectOption(a.d.id);
+    await page.getByLabel('Report title',{exact:true}).fill('Contextual observation');
+    await page.getByLabel('What happened or could be better?').fill('An authored report with optional display context.');
+    await page.getByRole('button',{name:'Submit report',exact:true}).click();
+    await expect(page.locator('.reports-panel').getByRole('status')).toContainText('Report saved');
+    await expect(page.getByRole('article',{name:'Report: Contextual observation',exact:true})).toBeVisible();
+    await expect(page.getByRole('article',{name:'Report: Account observation',exact:true})).toHaveCount(0);
+    await page.getByLabel('Report list',{exact:true}).selectOption('account');
+    await expect(page.getByRole('article',{name:'Report: Account observation',exact:true})).toBeVisible();
+    await expect(page.getByRole('article',{name:'Report: Contextual observation',exact:true})).toBeVisible();
+    const records=await a.call('kanvas_inspect','reports.read',{});
+    const own=records.reports.filter((r:any)=>['Account observation','Contextual observation'].includes(r.title));
+    expect(own).toHaveLength(2);expect(own.every((r:any)=>r.authorId===me.data!.user.id)).toBe(true);
+    expect(own.find((r:any)=>r.title==='Contextual observation')).toMatchObject({sessionId:a.s,displayId:a.d.id});
+    expect(own.find((r:any)=>r.title==='Account observation').sessionId).toBeUndefined();
+    const forbidden=await a.client.callTool(operationRequest({name:'kanvas_inspect',arguments:{operation:'reports.read',allAccounts:true}}));
+    expect(forbidden.isError).toBe(true);
+    await expect(page.getByRole('option',{name:'All reports · service administration'})).toHaveCount(0);
+    await photo(page,info,'authored-reports');
   }finally{await a.client.close();}
 });

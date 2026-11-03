@@ -70,7 +70,8 @@ test('real account, two independently targeted displays, source-bound chart and 
   await expect(second.locator('.view-information>summary')).toHaveCount(0);
   await second.getByRole('button',{name:'Display controls',exact:true}).click();
   await expect(second.locator('.viewer-menu').getByLabel('About this view',{exact:true})).toHaveCount(0);
-  await second.keyboard.press('Escape');
+  await second.getByRole('button',{name:'Display controls',exact:true}).click();
+  await expect(second.locator('.viewer-menu')).toHaveCount(0);
   await expect(first.locator('.fact-text')).toHaveText('One useful idea deserves the entire screen.');
   const chart = await waitForDisplay(page, sessionId, secondary.id, display => display.view?.template === 'chart' && display.appliedRevision === display.revision);
   const points = (chart.view!.data.series as Array<{ points: Array<{ y: number | null; rawY?: unknown; sourceRows?: number[] }> }>)[0].points;
@@ -149,11 +150,11 @@ test('shared checklist conflicts are rejected, controls work, feedback stays pen
     expect(await outgoing).toBe(beforeRace.revision);
     await firstEvidence.click();
     await expect(firstEvidence).not.toBeChecked();
-    await waitForDisplay(page, sessionId, display.id, item => item.revision > beforeRace.revision);
+    const currentRace = await waitForDisplay(page, sessionId, display.id, item => item.revision > beforeRace.revision);
     const rejected = second.waitForResponse(response => response.url().endsWith(editPath) && response.request().method() === 'POST');
     release();
     expect((await rejected).status()).toBe(409);
-    await expect(second.getByRole('region', { name: 'Ready to build' }).getByRole('alert')).toHaveText('This view changed. Read the latest version before editing.');
+    await expect(second.getByRole('region', { name: 'Ready to build' }).getByRole('alert')).toHaveText(`Revision conflict: state changed; current revision is ${currentRace.revision}. Retry with this revision, or omit the guard to apply to current state. Another concurrent write may still conflict.`);
     await expect(secondSource).not.toBeChecked();
     await expect(second.getByRole('checkbox', { name: 'Prepare the evidence', exact: true })).not.toBeChecked();
   } finally {
@@ -304,10 +305,14 @@ test('member viewer responses, no editing authority, live revocation and logout 
 
     await guest.getByRole('button', { name: 'Display controls', exact: true }).click();
     await guest.getByRole('button', { name: 'Sign out of this screen', exact: true }).click();
-    await expect(guest.getByRole('heading', { name: 'Choose how to connect.', exact: true })).toBeVisible();
+    await expect(guest.getByRole('heading', { name: 'Sign in on this screen', exact: true })).toBeVisible();
+    await expect(guest).toHaveURL(new URL('/',baseURL!).href);
+    await expect(guest.getByText('Private acceptance content', { exact: true })).toHaveCount(0);
     await expect(guest.locator('.render-surface')).toHaveCount(0);
     await guest.reload();
-    await expect(guest.getByRole('heading', { name: 'Choose how to connect.', exact: true })).toBeVisible();
+    await expect(guest.getByRole('heading', { name: 'Sign in on this screen', exact: true })).toBeVisible();
+    await expect(guest).toHaveURL(new URL('/',baseURL!).href);
+    await expect(guest.getByText('Private acceptance content', { exact: true })).toHaveCount(0);
   } finally { await guestContext.close(); }
 });
 

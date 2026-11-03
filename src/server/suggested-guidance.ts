@@ -7,14 +7,14 @@ import type {Definition} from './mcp/canonical.js';
 import {GUIDANCE_BOUNDARY} from './agent-guidance.js';
 const id=z.string().regex(/^[A-Za-z0-9_-]{1,128}$/),revision=z.number().int().nonnegative();
 const list=z.strictObject({afterId:id.optional(),limit:z.number().int().min(1).max(20).default(5)});
-const save=z.strictObject({suggestionId:id,name:z.string().trim().min(1).max(100),text:z.string().trim().min(1).max(5000),expectedRevision:revision,requestId:id});
+const save=z.strictObject({suggestionId:id,name:z.string().trim().min(1).max(100),text:z.string().trim().min(1).max(5000),expectedRevision:revision.optional(),requestId:id});
 const remove=save.pick({suggestionId:true,expectedRevision:true,requestId:true});
 const copy=remove.extend({promptId:id,name:z.string().trim().min(1).max(100).optional()});
 export const suggestedGuidanceTools:Definition[]=[
  {name:'kanvas_guidance_suggestions_list',schema:list,readOnly:true,description:'Browse the separate global suggested guidance catalog, including exact text/revision. Not your private library. Browsing never saves or activates guidance; import explicitly, then activate separately.'},
- {name:'kanvas_guidance_suggestions_save',schema:save,idempotent:true,description:'Service administrators only: create (expectedRevision:0) or edit global suggested guidance. Editorial content only; never extract private prompts. Existing personal copies remain unchanged.'},
- {name:'kanvas_guidance_suggestions_delete',schema:remove,idempotent:true,description:'Service administrators only: remove a global suggestion at its current revision. Existing imported personal copies and active guidance remain unchanged.'},
- {name:'kanvas_guidance_suggestions_import',schema:copy,idempotent:true,description:'Explicitly copy a previewed global suggestion at expectedRevision into a NEW private promptId. Never overwrites a personal prompt or activates guidance. The copy is independently editable; activate separately with guidance.library.activate.'},
+ {name:'kanvas_guidance_suggestions_save',schema:save,idempotent:true,description:'Service administrators only: create or edit global suggested guidance. Omit expectedRevision to use current state; explicit0 requires a new suggestion, and explicit stale revisions fail. Editorial content only; never extract private prompts. Existing personal copies remain unchanged.'},
+ {name:'kanvas_guidance_suggestions_delete',schema:remove,idempotent:true,description:'Service administrators only: remove a global suggestion. Omit expectedRevision to use current state; an explicit revision guards the removal. Existing imported personal copies and active guidance remain unchanged.'},
+ {name:'kanvas_guidance_suggestions_import',schema:copy,idempotent:true,description:'Explicitly copy a selected global suggestion into a NEW private promptId. Omit expectedRevision to copy current content; provide the previewed revision to reject intervening edits. Never overwrites a personal prompt or activates guidance. The copy is independently editable; activate separately with guidance.library.activate.'},
 ];
 interface Suggestion {id:string;name:string;text:string;revision:number;updatedAt?:string;deleted?:boolean}
 /** Fresh editorial defaults. No account records are consulted or extracted. */

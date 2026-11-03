@@ -1,3 +1,4 @@
+import {SignageRenderer} from './Signage';
 import {CatalogList} from './CatalogList';
 import {useDevice} from '../DeviceReceiver';
 import {FitToDisplay} from './FitToDisplay';
@@ -134,6 +135,7 @@ function ContentInner(props: RendererProps) {
     case 'progress': return <ProgressRenderer data={data as ProgressData}/>;
     case 'log': return <LogRenderer {...props}/>;
     case 'drafting': return <DraftingRenderer {...props} />;
+    case 'signage': return <SignageRenderer view={view} />;
     case 'clock': return <ClockRenderer {...props} />;
     case 'now-playing': return <NowPlayingRenderer {...props} />;
     case 'roster': return <RosterRenderer {...props} />;

@@ -58,7 +58,7 @@ test('generic QR preserves arbitrary payload with plain supporting text and no t
  await expect(viewer.locator('.viewer-candidate .table-surface')).toContainText('Preserved');await expect(viewer.locator('.table-toolbar')).toHaveCount(0);
 });
 
-test('device lock covers existing windows and reloads, while kiosk preserves visible content without chrome',async({page,baseURL,diagnostics})=>{
+test('device lock covers existing windows and reloads, while kiosk preserves visible content without chrome',async({page,baseURL,diagnostics},info)=>{
  await register(page);const s=await createSession(page,'Private device'),d=await createDisplay(page,s,'Protected screen'),viewer=await openViewer(page,s,d.id);
  await publishPrepared(page,s,[d.id],validateView({template:'fact',data:{text:'PRIVATE RECEIVER CONTENT'}}));
  await expect(viewer.locator('.viewer-candidate')).toContainText('PRIVATE RECEIVER CONTENT');
@@ -76,7 +76,9 @@ test('device lock covers existing windows and reloads, while kiosk preserves vis
   await second.reload();await expect(second.getByText('Locked from your AI assistant',{exact:true})).toBeVisible();
   await call('kanvas_device_unlock',{deviceId});await expect(viewer.locator('.viewer-candidate')).toContainText('PRIVATE RECEIVER CONTENT');
   await call('kanvas_display_lockdown',{sessionId:s,displayId:d.id,locked:true});
-  await expect(viewer.locator('[data-kiosk=true]')).toContainText('PRIVATE RECEIVER CONTENT');await expect(viewer.locator('.viewer-menu-toggle,.filmstrip,.navigation-panel')).toHaveCount(0);
+  try{await expect(viewer.locator('[data-kiosk=true]')).toContainText('PRIVATE RECEIVER CONTENT');}
+  catch(error){console.log('lockdown diagnostic',JSON.stringify({body:await viewer.locator('body').innerText(),state:(await sessionDetail(page,s)).displays.map(d=>({id:d.id,lockdown:d.lockdown,revision:d.revision,appliedRevision:d.appliedRevision}))}));await viewer.screenshot({path:info.outputPath('lockdown-failure.png')});throw error;}
+  await expect(viewer.locator('.viewer-menu-toggle,.filmstrip,.navigation-panel')).toHaveCount(0);
   await call('kanvas_display_lockdown',{sessionId:s,displayId:d.id,locked:false});await expect(viewer.locator('.viewer-menu-toggle')).toBeVisible();
  }finally{await client.close();}
 });

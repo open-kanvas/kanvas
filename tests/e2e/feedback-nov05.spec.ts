@@ -79,6 +79,14 @@ test('device lock covers existing windows and reloads, while kiosk preserves vis
   try{await expect(viewer.locator('[data-kiosk=true]')).toContainText('PRIVATE RECEIVER CONTENT');}
   catch(error){console.log('lockdown diagnostic',JSON.stringify({body:await viewer.locator('body').innerText(),state:(await sessionDetail(page,s)).displays.map(d=>({id:d.id,lockdown:d.lockdown,revision:d.revision,appliedRevision:d.appliedRevision}))}));await viewer.screenshot({path:info.outputPath('lockdown-failure.png')});throw error;}
   await expect(viewer.locator('.viewer-menu-toggle,.filmstrip,.navigation-panel')).toHaveCount(0);
+  await viewer.evaluate(()=>window.addEventListener('kanvas:painted',e=>{(window as any).__kioskPaint=(e as CustomEvent).detail;}));
+  await publishPrepared(page,s,[d.id],validateView({template:'fact',data:{text:'Owner-updated kiosk content'},actions:[{id:'feedback',kind:'input',label:'Send feedback'}]}));
+  await expect(viewer.locator('[data-kiosk=true]')).toContainText('Owner-updated kiosk content');
+  const input=viewer.getByRole('textbox',{name:'Send feedback'});await input.pressSequentially('feedback');await expect(input).toHaveValue('feedback');await input.press('ArrowLeft');await input.press('ArrowRight');await input.press('Enter');
+  await expect.poll(async()=>(await sessionDetail(page,s)).interactions.some(i=>i.actionId==='feedback'&&i.value==='feedback')).toBe(true);
+  const revision=(await sessionDetail(page,s)).displays.find(v=>v.id===d.id)!.revision;
+  await expect.poll(()=>viewer.evaluate(()=>(window as any).__kioskPaint?.renderedRevision)).toBe(revision);
+
   await call('kanvas_display_lockdown',{sessionId:s,displayId:d.id,locked:false});await expect(viewer.locator('.viewer-menu-toggle')).toBeVisible();
  }finally{await client.close();}
 });

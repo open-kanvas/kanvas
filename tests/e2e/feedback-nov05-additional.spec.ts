@@ -8,12 +8,21 @@ test('a full poker table keeps ten seats, attached bets and community cards insi
  for(let i=0;i<10;i++){const zone='seat'+i;data.zones[zone]={label:'Seat '+(i+1),role:'seat',bet:'40',counter:'Chips 200'};for(let n=0;n<2;n++)data.cards[zone+'card'+n]={face:'back',zone,order:n,emphasis:'none'};}
  for(let i=0;i<5;i++)data.cards['board'+i]={face:'up',zone:'community',order:i,rank:(['A','K','Q','J','10'] as const)[i],suit:'hearts',emphasis:'none'};
  await publishPrepared(page,s,[d.id],{version:1,template:'game-board',data});await waitForDisplay(page,s,d.id,v=>v.appliedRevision===v.revision);
+ for(const close of await viewer.locator('.viewer-toast button').all())await close.click();
  for(const [width,height] of [[1440,900],[390,844],[844,390]]){
   await viewer.setViewportSize({width,height});await expect.poll(()=>viewer.locator('.viewer-shell').evaluate(e=>Math.round(e.getBoundingClientRect().height))).toBe(height);
   const root=viewer.locator('.viewer-candidate .game-table');await expect(root.locator('.zone-seat')).toHaveCount(10);
   const state=await root.evaluate(root=>{const box=(e:Element)=>{const r=e.getBoundingClientRect();return{x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};return{table:box(root),zones:[...root.querySelectorAll('.game-zone')].map(box),cards:[...root.querySelectorAll('.game-card')].map(box)};});
   for(const rect of [...state.zones,...state.cards]){expect(rect.x).toBeGreaterThanOrEqual(state.table.x);expect(rect.right).toBeLessThanOrEqual(state.table.right);expect(rect.y).toBeGreaterThanOrEqual(state.table.y);expect(rect.bottom).toBeLessThanOrEqual(state.table.bottom);}
   for(let i=0;i<state.zones.length;i++)for(let j=i+1;j<state.zones.length;j++){const a=state.zones[i],b=state.zones[j],overlap=Math.min(a.right,b.right)-Math.max(a.x,b.x)>2&&Math.min(a.bottom,b.bottom)-Math.max(a.y,b.y)>2;expect(overlap,`Seats ${i}/${j} overlap at ${width}x${height}`).toBe(false);}
+  // Rectangles alone miss clipping by the rounded felt. Check painted text
+  // at its actual text bounds against browser hit-testing too.
+  const clipped=await root.evaluate(root=>[...root.querySelectorAll('h3,p')].flatMap(el=>{
+   const range=document.createRange();range.selectNodeContents(el);const r=range.getBoundingClientRect();
+   if(!r.width||!r.height)return [];
+   const points=[[r.left+1,r.top+1],[r.right-1,r.top+1],[r.left+1,r.bottom-1],[r.right-1,r.bottom-1]];
+   return points.every(([x,y])=>root.contains(document.elementFromPoint(x,y)))?[]:[el.textContent];
+  }));expect(clipped,'Seat labels/counters must be painted inside rounded felt').toEqual([]);
   await viewer.screenshot({path:info.outputPath(`poker-ten-${width}x${height}.png`)});
  }
 });

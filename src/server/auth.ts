@@ -158,7 +158,7 @@ export class Auth {
       const cookie=opaque(),time=Date.now();
       const session:BrowserSession={id:hash(cookie),createdAt:now(),userId,csrf:opaque(),expiresAt:time+7*86400000,...scope};
       if(fullBrowser(session))Object.assign(session,{publicId:id(),lastActiveAt:now(),authenticatedAt:time,renewedAt:time,idleExpiresAt:time+this.policy.idleMs,absoluteExpiresAt:time+this.policy.absoluteMs,expiresAt:time+this.policy.idleMs,...this.metadata(request)});
-      await this.store.put('browser',session);await this.audit(session,'signed-in');
+      attribute({userId,browserId:session.id});await this.store.put('browser',session);await this.audit(session,'signed-in');
       if(fullBrowser(session))await this.store.db.prepare('UPDATE users SET last_login_at=now(),last_seen_at=now() WHERE id=?').run(userId);
       this.store.afterCommit(()=>this.setBrowserCookie(response,cookie,session.expiresAt));
       return session;

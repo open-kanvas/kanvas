@@ -106,6 +106,8 @@ describe('November 5 privacy, retention and raw event contracts',()=>{
   await vi.waitFor(async()=>{
    const rows=(await h.runtime.store.query("SELECT user_id FROM events WHERE event_type='http.request' AND operation='GET /api/device-privacy/status'")).rows;
    expect(rows).toHaveLength(2);expect(rows.map(r=>r.user_id)).toEqual(expect.arrayContaining([owner.user!.id,null]));
+   const signins=(await h.runtime.store.query("SELECT user_id FROM events WHERE event_type='http.request' AND operation='POST /api/auth/register'")).rows;
+   expect(signins).toContainEqual({user_id:owner.user!.id});
   });
  });
  it('keeps raw attributed events append-only without writing new hourly aggregates or content',async()=>{

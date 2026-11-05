@@ -100,6 +100,14 @@ describe('November 5 privacy, retention and raw event contracts',()=>{
   display.revision++;display.view=fact('Still full');await expect(h.runtime.service.history.record(display,'prepared')).rejects.toMatchObject({code:'LIMIT_REACHED'});
 
  });
+ it('attributes otherwise-public status requests only when their browser credential is valid',async()=>{
+  success(await owner.request('GET','/api/device-privacy/status'));
+  success(await h.browser().request('GET','/api/device-privacy/status'));
+  await vi.waitFor(async()=>{
+   const rows=(await h.runtime.store.query("SELECT user_id FROM events WHERE event_type='http.request' AND operation='GET /api/device-privacy/status'")).rows;
+   expect(rows).toHaveLength(2);expect(rows.map(r=>r.user_id)).toEqual(expect.arrayContaining([owner.user!.id,null]));
+  });
+ });
  it('keeps raw attributed events append-only without writing new hourly aggregates or content',async()=>{
   const marker='PRIVATE_CONTENT_NEVER_IN_EVENTS';await owner.submit(sessionId,[displayId],fact(marker));
   await eventContext.run({userId:owner.user!.id,client:{timeZone:'Europe/Oslo'}},()=>rawEvent(h.runtime.store,'test.event',{sessionId,properties:{status:'ok'}}));

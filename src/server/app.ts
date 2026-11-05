@@ -1,3 +1,4 @@
+import {eventContext} from './raw-events.js';
 import {eventIngress} from './event-ingress.js';
 import {mountDeviceLogin} from './device-login.js';
 import {deliveryIngress,mountDeliveryTelemetry} from './delivery-telemetry.js';
@@ -116,7 +117,12 @@ export async function createApp(options: AppOptions = {}) {
   service.accounts.serviceAdmins=new Set(options.serviceAdmins??[]);
   const app = express(); app.disable('x-powered-by'); app.set('trust proxy', 'loopback');
   app.use(eventIngress);
-  app.use((req,res,next)=>{const started=performance.now();res.on('finish',async ()=>{const category=req.path.startsWith('/mcp')?'agent':req.path.startsWith('/api/auth/')||req.path.startsWith('/oauth/')?'account':req.path.startsWith('/api/')?'api':'page';try{(await service.accounts.recordRequest(category,res.statusCode,performance.now()-started,typeof req.route?.path==='string'?req.method+' '+req.route.path:req.method+' unmatched'));}catch{/* Metrics must not affect a completed response or shutdown. */}});next();});
+  app.use((req,res,next)=>{const started=performance.now();res.on('finish',async ()=>{const category=req.path.startsWith('/mcp')?'agent':req.path.startsWith('/api/auth/')||req.path.startsWith('/oauth/')?'account':req.path.startsWith('/api/')?'api':'page';try{
+      // Public/static/status endpoints need no login to serve, but a valid
+      // browser credential can still attribute their completed raw request.
+      // Do not reinterpret failed agent bearer calls as browser authentication.
+      if(!eventContext.getStore()?.userId&&!req.path.startsWith('/mcp'))try{await auth.browser(req);}catch{/* Anonymous, expired and invalid cookies stay unattributed. */}
+      (await service.accounts.recordRequest(category,res.statusCode,performance.now()-started,typeof req.route?.path==='string'?req.method+' '+req.route.path:req.method+' unmatched'));}catch{/* Metrics must not affect a completed response or shutdown. */}});next();});
   app.use(deliveryIngress);
   const limiter = new Limiter();
   const streams = new Set<() => void | Promise<void>>();

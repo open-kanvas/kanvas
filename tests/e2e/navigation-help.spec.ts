@@ -145,8 +145,12 @@ test('regional settings format display values and focused Help stays public and 
     const response=await s.client.callTool({name:'kanvas_discover',arguments:{catalog:'help',action:'get',id:'kanvas.help.navigation'}});
     expect(response.isError).not.toBe(true);
     const help=(response.structuredContent as any).data;
-    expect(help).toMatchObject({catalog:'help',action:'get',entry:{id:'kanvas.help.navigation',title:'Navigate, restore history and autoplay prepared views'}});
+    expect(help).toMatchObject({catalog:'help',action:'get',entry:{id:'kanvas.help.navigation',title:'Navigate, restore history and autoplay prepared views — part 1'}});
     expect(help.entry.content.steps.length).toBeGreaterThan(0);expect(help.entry.note).toContain('reading help never publishes');
+    expect(help.entry.content.steps.join(' ')).toContain('1000');
+    const continuation=await s.client.callTool({name:'kanvas_discover',arguments:{catalog:'help',action:'get',id:'kanvas.help.navigation.2'}});
+    expect(continuation.isError).not.toBe(true);const next=(continuation.structuredContent as any).data;
+    expect(next.entry).toMatchObject({id:'kanvas.help.navigation.2',title:'Navigate, restore history and autoplay prepared views — part 2'});expect(next.entry.content.steps.length).toBeGreaterThan(0);expect(next.entry.note).toContain('reading help never publishes');
     const docs=await context.newPage();await docs.goto(`${baseURL}/docs/navigation`);await expect(docs.getByRole('heading',{name:'Navigate, restore history and autoplay prepared views'})).toBeVisible();await docs.getByRole('link',{name:'Recover from a failed call',exact:true}).click();await expect(docs.getByRole('heading',{name:'Recover from a failed call'})).toBeVisible();
     const md=await docs.request.get(`${baseURL}/docs/navigation.md`);expect(md.ok()).toBe(true);expect(await md.text()).toContain('navigation.control');const index=await (await docs.request.get(`${baseURL}/docs/index.json`)).json();expect(index.templates.map((entry:any)=>entry.template).sort()).toEqual([...TEMPLATE_IDS].sort());expect(index.templates.some((x:any)=>x.template==='web')).toBe(false);expect((await s.current()).revision).toBe(before.revision);await docs.close();
   }finally{await s.client.close();}

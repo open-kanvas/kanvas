@@ -13,7 +13,7 @@ async function setup(page:Page,info:TestInfo,baseURL:string){
   const issued=await sessionApi<{token:string}>(page,'/api/tokens','POST',{name:'Disposable evening checks',scopes:['read','publish']});expect(issued.status).toBe(201);
   const headers={Authorization:`Bearer ${issued.data!.token}`},client=info.project.name.startsWith('phone')?new LegacyClient({name:'evening-legacy',version:'1'}):new Client({name:'evening-current',version:'1'});
   if(client instanceof LegacyClient)await client.connect(new LegacyTransport(new URL('/mcp',baseURL),{requestInit:{headers}}));else await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',baseURL),{requestInit:{headers}}));
-  const call=async<T=any>(name:string,operation:string,args:Record<string,unknown>={})=>{const r=await client.callTool(operationRequest({name,arguments:{operation,...args}}));expect(r.isError,`${name} ${operation}`).not.toBe(true);return(r.structuredContent as {data:T}).data;};
+  const call=async<T=any>(name:string,operation:string,args:Record<string,unknown>={})=>{const r=await client.callTool(operationRequest({name,arguments:{operation,...args}}));expect(r.isError,`${name} ${operation}: ${JSON.stringify((r.structuredContent as any)?.error??{}).slice(0,600)}`).not.toBe(true);return(r.structuredContent as {data:T}).data;};
   const current=()=>waitForDisplay(page,s,d.id,x=>x.revision>0&&x.appliedRevision===x.revision),show=async(view:ViewSpec)=>{await publishPrepared(page,s,[d.id],view);return current();};
   const nav=async(navigation:unknown)=>{const before=await current();return call('kanvas_control','navigation.control',{sessionId:s,displayId:d.id,expectedRevision:before.revision,requestId:randomUUID(),navigation});};
   return {account,s,d,v,call,client,current,show,nav};
@@ -108,7 +108,13 @@ test('Home is live, registered PC and TV route independently, and system theme f
     await expect.poll(async()=>{const r=await a.call('kanvas_inspect','devices.read');return r.devices.filter((d:any)=>[pcHome,tvHome].includes(d.home.displayId)&&d.connected).length;}).toBe(2);
     const devices=(await a.call('kanvas_inspect','devices.read')).devices,pcDevice=devices.find((d:any)=>d.home.displayId===pcHome),tvDevice=devices.find((d:any)=>d.home.displayId===tvHome);
     const other=await sessionApi<{id:string}>(page,`/api/sessions/${a.s}/displays`,'POST',{name:'TV source',width:1200,height:800,pixelRatio:1});expect(other.status).toBe(200);await a.show({version:1,template:'fact',data:{text:'PC-specific content'}});await publishPrepared(page,a.s,[other.data!.id],{version:1,template:'fact',data:{text:'TV-specific content'}});
-    await a.call('kanvas_control','device.present',{deviceId:pcDevice.id,sessionId:a.s,displayId:a.d.id,expectedVersion:pcDevice.version,requestId:randomUUID()});await a.call('kanvas_control','device.present',{deviceId:tvDevice.id,sessionId:a.s,displayId:other.data!.id,expectedVersion:tvDevice.version,requestId:randomUUID()});
+    // Publications can outlive a receiver reconnect. Recheck actual readiness
+    // at each command boundary, rather than reuse the earlier discovery result.
+    for(const target of [{deviceId:pcDevice.id,displayId:a.d.id},{deviceId:tvDevice.id,displayId:other.data!.id}]){
+      await expect.poll(async()=>{const current=(await a.call('kanvas_inspect','devices.read')).devices.find((d:any)=>d.id===target.deviceId);return current?.connected;}).toBe(true);
+      const current=(await a.call('kanvas_inspect','devices.read')).devices.find((d:any)=>d.id===target.deviceId);
+      await a.call('kanvas_control','device.present',{...target,sessionId:a.s,expectedVersion:current.version,requestId:randomUUID()});
+    }
     await expect(pc.locator('.viewer-candidate')).toContainText('PC-specific content');await expect(tv.locator('.viewer-candidate')).toContainText('TV-specific content');await expect.poll(async()=>{const d=(await a.call('kanvas_inspect','devices.read')).devices;return d.filter((x:any)=>[pcDevice.id,tvDevice.id].includes(x.id)&&x.command?.status==='applied').length;}).toBe(2);
     const participants=await a.call('kanvas_inspect','participants.read',{sessionId:a.s});expect(participants.registeredDevices.map((d:any)=>d.id)).toEqual(expect.arrayContaining([pcDevice.id,tvDevice.id]));
     const preferences=await a.call('kanvas_inspect','preferences.get');await a.call('kanvas_configure','preferences.update',{expectedRevision:preferences.revision,config:{theme:'system'}});const detail=await sessionDetail(page,a.s);await a.call('kanvas_configure','session.update',{sessionId:a.s,expectedRevision:detail.session.configRevision,config:{theme:'system'}});

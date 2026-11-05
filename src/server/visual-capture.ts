@@ -40,7 +40,8 @@ export class VisualCapture {
         // This reads our own renderer only. Never let user-selected media URLs
         // turn the headless browser into an internal-network/credential proxy.
         if (url.origin !== this.origin) { blockedExternal++; return route.abort(); }
-        const allowed = url.pathname === `/view/${display.sessionId}/${display.id}` || url.pathname === '/api/auth/me' || url.pathname === '/api/map/config' || url.pathname === `${prefix}/displays/${display.id}/overview` || url.pathname === prefix || url.pathname === `${prefix}/events` || url.pathname.startsWith('/api/assets/') || url.pathname.startsWith('/assets/');
+        // The normal privacy boundary must obtain status; never bypass it for capture.
+        const allowed = url.pathname === `/view/${display.sessionId}/${display.id}` || url.pathname === '/api/auth/me' || url.pathname === '/api/device-privacy/status' || url.pathname === '/api/map/config' || url.pathname === `${prefix}/displays/${display.id}/overview` || url.pathname === prefix || url.pathname === `${prefix}/events` || url.pathname.startsWith('/api/assets/') || url.pathname.startsWith('/assets/');
         if (!allowed || !['GET', 'HEAD'].includes(request.method())) return route.abort();
         return route.continue();
       });

@@ -16,7 +16,7 @@ export const importTables = [
   { name:'requests', columns:['session_id','principal','request_id','digest','result_id','kind'], keys:['session_id','principal','request_id'] },
   { name:'request_metrics', columns:['rowid','hour','category','status','requests','duration_ms'], keys:['rowid'] },
 ] as const;
-export interface ImportReceipt { format:1; sourceSchemaVersion:1; targetSchemaVersion:1; tables: Record<string,{rows:number;verified:boolean}>; verified:boolean; importedAt:string }
+export interface ImportReceipt { format:1; sourceSchemaVersion:1; targetSchemaVersion:2; tables: Record<string,{rows:number;verified:boolean}>; verified:boolean; importedAt:string }
 
 function fingerprint(rows: Record<string,unknown>[], columns: readonly string[]): string {
   const digest=createHash('sha256');
@@ -45,7 +45,7 @@ export async function importSqlite(sourcePath:string, options:DatabaseOptions):P
     }
     store=new Store(options);await store.ready;
     const target=store,db=sqlite;
-    const receipt:ImportReceipt={format:1,sourceSchemaVersion:1,targetSchemaVersion:1,tables:{},verified:false,importedAt:new Date().toISOString()};
+    const receipt:ImportReceipt={format:1,sourceSchemaVersion:1,targetSchemaVersion:2,tables:{},verified:false,importedAt:new Date().toISOString()};
     await target.transaction(async()=>{
       const lock=await target.query<{locked:boolean}>('SELECT pg_try_advisory_xact_lock(hashtextextended($1,0)) AS locked',[`kanvas:runtime:${target.schema}`]);
       if(!lock.rows[0].locked)throw new Error('Stop the target application before importing.');
@@ -61,7 +61,10 @@ export async function importSqlite(sourcePath:string, options:DatabaseOptions):P
           while(offset<rows.length&&batch.length<100){const row=rows[offset++];batch.push(row);size+=table.columns.reduce((n,c)=>n+(row[c] instanceof Uint8Array?(row[c] as Uint8Array).byteLength:Buffer.byteLength(JSON.stringify(row[c]))),0);if(size>=4*1024*1024)break;}
           const values=batch.flatMap(row=>table.columns.map(c=>row[c] instanceof Uint8Array?Buffer.from(row[c] as Uint8Array):row[c]));
           const tuples=batch.map((_,i)=>`(${table.columns.map((_,j)=>`$${i*table.columns.length+j+1}`).join(',')})`).join(',');
-          await target.query(`INSERT INTO ${table.name}(${table.columns.join(',')}) VALUES ${tuples}`,values);
+          const timestamp=table.name==='members'?'joined_at':['documents','users','requests'].includes(table.name)?'created_at':undefined;
+          const columns=[...table.columns,...(timestamp?[timestamp]:[])];
+          const importedTuples=timestamp?tuples.replaceAll(')',',NULL)'):tuples;
+          await target.query(`INSERT INTO ${table.name}(${columns.join(',')}) VALUES ${importedTuples}`,values);
         }
         const pgOrder=table.keys.map(k=>k==='rowid'?'rowid':`${k} COLLATE "C"`).join(',');
         const restored=(await target.query(`SELECT ${table.columns.join(',')} FROM ${table.name} ORDER BY ${pgOrder}`)).rows;

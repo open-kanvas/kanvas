@@ -1,3 +1,4 @@
+import {rawEvent} from './raw-events.js';
 import { browserContext, type RequestContext } from '../shared/recognition.js';
 import type { ViewerPresence } from '../shared/viewer-experience.js';
 import { hash, type AuthPrincipal } from './auth.js';
@@ -31,12 +32,14 @@ export class ReceivingPresence {
     (await this.service.topology.connected(p,{id,sessionId,displayId,joinedAt:record.joinedAt,name,context},!sameTarget));
     if(prior&&!sameTarget)(await lifecycleNotice(this.service.store,prior.sessionId,prior.displayId,`viewer:${id}:${prior.joinedAt}:disconnected`,`${prior.name} left this display.`));
     if(!sameTarget)(await lifecycleNotice(this.service.store,sessionId,displayId,`viewer:${id}:${record.joinedAt}:connected`,`${name} connected · ${context.device}, ${context.browser}.`,'success'));
+    await rawEvent(this.service.store,'connection.connect',{userId:p.userId,sessionId,displayId,client:{...context,userAgent},properties:{connectionId:id}});
     let closed=false;
-    return {touch:()=>{if(!closed)record.lastActiveAt=now();},disconnect:()=>{if(closed||this.closed)return;closed=true;record.count=Math.max(0,record.count-1);record.lastActiveAt=now();if(record.count)return;
+    return {touch:()=>{if(!closed){record.lastActiveAt=now();const task=rawEvent(this.service.store,'connection.heartbeat',{userId:p.userId,sessionId,displayId,client:{...context,userAgent},properties:{connectionId:id}});this.pending.add(task);void task.catch(()=>{}).finally(()=>this.pending.delete(task));}},disconnect:()=>{if(closed||this.closed)return;closed=true;record.count=Math.max(0,record.count-1);record.lastActiveAt=now();if(record.count)return;
       record.timer = setTimeout(() => {
         if (this.closed || record.count || this.connections.get(id) !== record) return;
         this.connections.delete(id);
         const task = (async () => {
+          await rawEvent(this.service.store,'connection.disconnect',{userId:p.userId,sessionId,displayId,client:{...context,userAgent},properties:{connectionId:id}});
           await this.service.topology.disconnected(sessionId, id);
           await lifecycleNotice(this.service.store, sessionId, displayId, `viewer:${id}:${record.joinedAt}:disconnected`, `${name} disconnected from the display.`);
           const observation = await this.service.store.get<ViewerPresence>('viewer', id);

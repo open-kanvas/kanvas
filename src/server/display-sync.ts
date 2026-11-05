@@ -158,7 +158,7 @@ export class DisplaySync {
     });
   }
 
-  /** Moves one display like a navigation: new revision and history entry, no
+  /** Moves one display like a navigation: new revision and in-place history position, no
    * new publication, and in-flight renders for the display are not discarded. */
   private async write(display: SyncDisplay, position: number): Promise<void> {
     if (!display.view) return;

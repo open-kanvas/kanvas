@@ -1,3 +1,4 @@
+import {rawEvent} from './raw-events.js';
 import { asyncFilter, asyncFlatMap, asyncMap, asyncReduce, asyncSome } from './async-collections.js';
 import type { Express, Request } from 'express';
 import { z } from 'zod';
@@ -32,27 +33,17 @@ export class Accounts {
   async audit(type:string,input:Omit<AuditEvent,'id'|'at'|'type'|'details'> & {details?:AuditEvent['details']}={}){
     return this.store.atomic(async () => {
     const event:AuditEvent={id:id(),at:now(),type,...input,details:input.details??{}};(await this.store.put('audit-event',event));
-    if(Date.now()>this.pruneAt){this.pruneAt=Date.now()+3600000;(await this.store.db.prepare("DELETE FROM documents WHERE kind='audit-event' AND ((value::jsonb->>'at')<? OR rowid IN (SELECT rowid FROM documents WHERE kind='audit-event' ORDER BY rowid DESC OFFSET 100000))").run(new Date(Date.now()-365*86400000).toISOString()));}
     return event;
 
     });
   }
-  async recordRequest(category:'agent'|'account'|'api'|'page',status:number,durationMs:number){
-    return this.store.atomic(async () => {
-    // Fixed buckets, not URLs, query strings, cookies, IPs, or per-user trackers.
-    // Transport telemetry is separate from application documents and activity.
-    // Even malformed/read-only requests may be counted without changing any
-    // session, receipt, history, diagnostic, permission or audit-event record.
-    const at=now().slice(0,13)+':00:00.000Z',statusClass=Math.floor(status/100);
-    const count=(await this.store.db.prepare('INSERT INTO request_metrics(hour,category,status,requests,duration_ms) VALUES(?,?,?,1,?) ON CONFLICT(hour,category,status) DO UPDATE SET requests=request_metrics.requests+1,duration_ms=request_metrics.duration_ms+excluded.duration_ms RETURNING requests').get(at,category,statusClass,Math.max(0,Math.round(durationMs))))!;
-    if(count.requests===1)(await this.store.db.prepare('DELETE FROM request_metrics WHERE hour<? OR rowid IN (SELECT rowid FROM request_metrics ORDER BY hour DESC OFFSET 20000)').run(new Date(Date.now()-90*86400000).toISOString()));
-
-    });
+  async recordRequest(category:'agent'|'account'|'api'|'page',status:number,durationMs:number,operation?:string){
+    await rawEvent(this.store,'http.request',{operation,status:String(status),durationMs:Math.max(0,durationMs),properties:{category}});
   }
   private async traffic(since?:string,until?:string){
-    const rows=((await this.store.db.prepare('SELECT hour AS at,category,status,requests,duration_ms AS "durationMs" FROM request_metrics ORDER BY hour').all()) as unknown as RequestMetric[]).filter(r=>(!since||r.at>=since.slice(0,13)+':00:00.000Z')&&(!until||r.at<=until));
+    const rows=((await this.store.db.prepare(`SELECT hour AS at,category,status,requests,duration_ms AS "durationMs" FROM request_metrics UNION ALL SELECT to_char(occurred_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') AS at, properties->>'category' AS category, (status::integer/100) AS status,1 AS requests,round(duration_ms)::bigint AS "durationMs" FROM events WHERE event_type='http.request' ORDER BY at`).all()) as unknown as RequestMetric[]).filter(r=>(!since||r.at>=since.slice(0,13)+':00:00.000Z')&&(!until||r.at<=until));
     const requests=rows.reduce((n,r)=>n+r.requests,0),duration=rows.reduce((n,r)=>n+r.durationMs,0);
-    return {requests,averageDurationMs:requests?Math.round(duration/requests):null,errors:rows.filter(r=>r.status>=4).reduce((n,r)=>n+r.requests,0),byCategory:['agent','account','api','page'].map(category=>({category,requests:rows.filter(r=>r.category===category).reduce((n,r)=>n+r.requests,0)})),retentionDays:90,granularity:'hour',note:'HTTP totals include automated polling, not unique visitors. No cookies or IP identifiers are used.'};
+    return {requests,averageDurationMs:requests?Math.round(duration/requests):null,errors:rows.filter(r=>r.status>=4).reduce((n,r)=>n+r.requests,0),byCategory:['agent','account','api','page'].map(category=>({category,requests:rows.filter(r=>r.category===category).reduce((n,r)=>n+r.requests,0)})),retentionDays:null,granularity:'raw-event',note:'New requests are indefinite raw events, grouped only at query time. Earlier hourly totals are retained as legacy aggregate data, never expanded into invented events. Automated polling is included.'};
   }
   async member(groupId:string,userId:string){return (await this.store.get<GroupMember>('group-member',hash(`${groupId}:${userId}`)));}
   async group(p:AuthPrincipal,groupId:string,admin=false){

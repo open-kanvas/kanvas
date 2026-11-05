@@ -123,13 +123,13 @@ export class Experience {
     return this.store.atomic(async () => {
     const entry:LogRecord={...input,id:id(),at:new Date().toISOString()};(await this.store.put('lifecycle',entry));
     if(/^(submission\.received|render\.(prepared|failed|superseded))$/.test(input.stage))(await this.service.accounts.audit(`publication.${input.stage}`,{sessionId:input.sessionId,displayId:input.displayId,details:{...(input.code?{code:input.code}:{}),...(input.revision!==undefined?{revision:input.revision}:{})}}));
-    const all=(await this.store.list<LogRecord>('lifecycle',input.sessionId));for(const old of all.slice(0,Math.max(0,all.length-2000)))(await this.store.delete('lifecycle',old.id));
+
 
     });
   }
   async logs(p:AuthPrincipal,a:{sessionId:string;afterId?:string;limit?:number;requestId?:string}){
     (await this.service.fullAccount(p));(await this.service.access(p,a.sessionId));const all=(await this.store.list<LogRecord>('lifecycle',a.sessionId)).filter(x=>!a.requestId||x.requestId===a.requestId);let offset=0;if(a.afterId){const i=all.findIndex(x=>x.id===a.afterId);if(i<0)throw new AppError('INVALID_CURSOR','The log cursor expired. Read again without it.');offset=i+1;}
-    const entries=all.slice(offset,offset+(a.limit??50));return {entries,...(offset+entries.length<all.length?{nextCursor:entries.at(-1)!.id}:{}),clock:'Server receipt timestamps are UTC milliseconds. elapsedMs uses a process monotonic clock where provided; browser clocks are not subtracted.',retention:2000};
+    const entries=all.slice(offset,offset+(a.limit??50));return {entries,...(offset+entries.length<all.length?{nextCursor:entries.at(-1)!.id}:{}),clock:'Server receipt timestamps are UTC milliseconds. elapsedMs uses a process monotonic clock where provided; browser clocks are not subtracted.',retention:null};
   }
   private async cleanupViewers(){
     return this.store.atomic(async () => {for(const x of (await this.store.list<ViewerPresence>('viewer')))if(x.expiresAt<=Date.now())(await this.store.delete('viewer',x.id));
@@ -231,13 +231,12 @@ export class Experience {
     if(p.scopedDisplayId && aggregate?.template!=='overview')throw new AppError('FORBIDDEN','This browser can only see its approved view.',403);
     const selected=aggregate?.template==='overview'?aggregate.data.displayIds as string[]|undefined:undefined;
     const displays=(await this.store.list<DisplayRecord>('display',sessionId)).filter(d=>!selected||selected.includes(d.id));
-    const cards=(await asyncFlatMap(displays, async d=>(await asyncMap((await this.service.history.list(d)).entries.filter(e=>e.template&&e.template!=='overview'&&e.template!=='settings'&&e.template!=='display-grid'), async e=>{
-      const entry=(await this.service.history.target(d,undefined,e.revision)).entry;
-      const data=entry.view?.data,preview=typeof data?.text==='string'?data.text.slice(0,300):typeof data?.value==='string'||typeof data?.value==='number'?String(data.value):e.title??e.template??'';
-      const image=entry.view?.template==='image'?(data?.images as {url:string}[]|undefined)?.[0]?.url:undefined;
-      return {...e,displayId:d.id,displayName:d.name,displayRevision:d.revision,width:d.width,height:d.height,preview,image};
-    })))).sort((a,b)=>a.createdAt.localeCompare(b.createdAt)||a.displayId.localeCompare(b.displayId)).slice(-200);
-    return {cards,limits:{entries:200,perDisplayRetained:60},note:'Retained views only. New publications after history navigation discard the old forward branch.'};
+    const cards=(await asyncFlatMap(displays,async d=>(await this.service.history.frames(d,true)).filter(e=>e.view&&!['overview','settings','display-grid'].includes(e.view.template)).map(entry=>{
+      const view=entry.view!,data=view.data,preview=typeof data.text==='string'?data.text:typeof data.value==='string'?data.value:view.title??view.template;
+      const image=view.template==='image'?(data.images as {url:string}[]|undefined)?.[0]?.url:undefined;
+      return {id:entry.id,revision:entry.revision,template:view.template,title:view.title,createdAt:entry.createdAt,reason:entry.reason,current:entry.current,displayId:d.id,displayName:d.name,displayRevision:d.revision,width:d.width,height:d.height,preview,image};
+    }))).sort((a,b)=>a.createdAt.localeCompare(b.createdAt)||a.displayId.localeCompare(b.displayId));
+    return {cards,limits:{entries:1000,scope:'session'},note:'All retained views. Navigation consumes no publication slots. Publishing at the fixed 1000-view session limit is refused; start a new session. Earlier views and forward history are preserved.'};
   }
   async overviewPreview(p:AuthPrincipal,sessionId:string,displayId:string,sourceDisplayId:string,revision:number){
     const gallery=(await this.service.display(p,sessionId,displayId)),leaf=displayedLeaf(gallery.view);

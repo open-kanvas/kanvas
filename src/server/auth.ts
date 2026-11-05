@@ -1,3 +1,4 @@
+import {attribute} from './raw-events.js';
 import { EventEmitter } from 'node:events';
 import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import type { Request, Response } from 'express';
@@ -117,6 +118,7 @@ export class Auth {
       session.expiresAt=session.idleExpiresAt;
       await this.store.put('browser',session);
       const cookie=request.cookies[this.cookieName] as string;
+      await this.store.db.prepare('UPDATE users SET last_seen_at=now() WHERE id=?').run(session.userId);
       this.store.afterCommit(()=>this.setBrowserCookie(response,cookie,session.expiresAt));
       return {renewed:true,expiresAt:session.expiresAt};
     });
@@ -157,6 +159,7 @@ export class Auth {
       const session:BrowserSession={id:hash(cookie),createdAt:now(),userId,csrf:opaque(),expiresAt:time+7*86400000,...scope};
       if(fullBrowser(session))Object.assign(session,{publicId:id(),lastActiveAt:now(),authenticatedAt:time,renewedAt:time,idleExpiresAt:time+this.policy.idleMs,absoluteExpiresAt:time+this.policy.absoluteMs,expiresAt:time+this.policy.idleMs,...this.metadata(request)});
       await this.store.put('browser',session);await this.audit(session,'signed-in');
+      if(fullBrowser(session))await this.store.db.prepare('UPDATE users SET last_login_at=now(),last_seen_at=now() WHERE id=?').run(userId);
       this.store.afterCommit(()=>this.setBrowserCookie(response,cookie,session.expiresAt));
       return session;
     });
@@ -165,6 +168,7 @@ export class Auth {
     const cookie: unknown=request.cookies?.[this.cookieName];
     if(typeof cookie!=='string')throw new AppError('UNAUTHORIZED','Sign in to continue.',401);
     const session=await this.currentBrowser(hash(cookie),request),pairing=await this.currentPairing(session);
+    attribute({userId:session.userId,browserId:session.id});
     return {session,principal:{userId:session.userId,browserId:session.id,receiverDeviceId:session.receiverDeviceId,scopedSessionId:session.scopedSessionId,scopedDisplayId:session.scopedDisplayId,pairingId:session.pairingId,captureOnly:session.captureOnly,
       interactive:!session.captureOnly&&session.interactive===true&&pairing?.interactive===true,...(pairing&&!session.captureOnly?{participantId:`pairing:${pairing.id}`}:{})}};
   }

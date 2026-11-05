@@ -1,3 +1,4 @@
+import {randomUUID} from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import type { Page } from '@playwright/test';
 import type { ViewSpec } from '../../src/shared/types';
@@ -139,32 +140,24 @@ test('all 51 requested table rows remain reachable without search, sorting or em
   await writeFile(`${info.outputPath('visuals')}/${info.project.name}-paging.json`, JSON.stringify(receipt, null, 2));
 });
 
-test('opt-in utilities reset safely across table publications without changing exact source cells', async ({ page }, info) => {
+test('agent selection remains available without viewer widgets and preserves exact source cells', async ({ page }, info) => {
   const { sessionId, display, viewer } = await setup(page);
   if (info.project.name.startsWith('phone')) await viewer.setViewportSize({ width: 390, height: 844 });
   const view = table({ showControls: true }), surface = viewer.locator('.viewer-candidate .table-surface');
   await show(page, viewer, sessionId, display.id, view);
   await assertNavigation(viewer);
-  const filter = surface.getByLabel('Filter table');
-  await filter.fill('fixture_tool_51'); expect((await pageRows(viewer)).map(row => row.index)).toEqual([50]);
-  await show(page, viewer, sessionId, display.id, { ...view, title: 'Metadata while filtered' });
-  await expect(filter).toHaveValue('fixture_tool_51'); expect((await pageRows(viewer)).map(row => row.index)).toEqual([50]);
-  await surface.getByRole('button', { name: 'Reset', exact: true }).click(); await expect(filter).toHaveValue('');
-  const sort = surface.getByRole('button', { name: 'Sort by Tool identifier', exact: true });
-  await sort.click(); await sort.click(); expect((await pageRows(viewer))[0].index).toBe(50);
+
+  await expect(surface.locator('.table-toolbar,input,th button')).toHaveCount(0);
+  const select=async(selection:unknown)=>{const result=await sessionApi(page,`/api/sessions/${sessionId}/displays/${display.id}/selection`,'POST',{requestId:randomUUID(),selection});expect(result.status).toBe(200);};
+  await select({where:[{field:'Tool identifier',op:'contains',value:'fixture_tool_51'}]});
+  await expect.poll(async()=> (await pageRows(viewer)).map(row=>row.index)).toEqual([50]);
+  await select({sort:[{field:'Tool identifier',direction:'desc'}]});
+  await expect.poll(async()=> (await pageRows(viewer))[0]?.index).toBe(50);
   expect((await pageRows(viewer))[0].cells[1].text).toBe(rows[50]['Original description']);
-  await surface.getByRole('button', { name: 'Reset', exact: true }).click();
-  for (let index = 0; index < 4; index++) await surface.getByRole('button', { name: 'Next →', exact: true }).click();
-  await show(page, viewer, sessionId, display.id, table({ showControls: true, data: { columns, rows: rows.slice(0, 13) } }));
-  expect((await pageRows(viewer)).map(row => row.index)).toEqual([12]);
-  await filter.fill('fixture_tool_51'); await expect(surface.getByText('No matching rows.', { exact: true })).toBeVisible();
-  await show(page, viewer, sessionId, display.id, table({ showControls: true, data: { columns, rows: rows.slice(0, 3) } }));
-  await expect(filter).toHaveValue(''); expect((await pageRows(viewer)).map(row => row.index)).toEqual([0, 1, 2]);
-  await show(page, viewer, sessionId, display.id, view);
-  await filter.fill('fixture_tool_05'); expect((await pageRows(viewer)).map(row => row.index)).toEqual([4]);
-  await show(page, viewer, sessionId, display.id, table());
-  await expect(surface.locator('input,th button')).toHaveCount(0); await expect(surface).toHaveAttribute('data-table-matching-rows', '51');
-  expect((await pageRows(viewer))[0].index).toBe(0);
+  await select(null);
+  await expect.poll(async()=> (await pageRows(viewer))[0]?.index).toBe(0);
+  expect((await sessionDetail(page,sessionId)).displays.find(d=>d.id===display.id)?.view?.data.rows).toEqual(rows);
+  await expect(surface.locator('.table-toolbar,input,th button')).toHaveCount(0);
 
   const exact = '9007199254740993.00000000000000001';
   const precise = table({ source: undefined, data: { columns: ['Identifier', 'Exact amount', 'Enabled', 'Absent'], rows: [{ Identifier: '  0000007  ', 'Exact amount': exact, Enabled: false, Absent: null }, { Identifier: '', 'Exact amount': '\t0.00000000000000001\n  trailing spaces  ', Enabled: true, Absent: 0 }], summary: { sourceRows: 51, displayedRows: 2, precisionNote: 'Exact supplied cells.' } } });

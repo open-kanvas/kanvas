@@ -61,14 +61,14 @@ describe('quiet complete table surface', () => {
     const result = tablePage(data, { query: 'tool_51', sort: { key: 'Tool', direction: 'descending' }, showControls: false });
     expect(result.matchingRows).toBe(51); expect(result.rows[0].row.Tool).toBe('tool_01');
   });
-  it('provides filter/sort only when explicitly requested and leaves source rows untouched', () => {
+  it('keeps source-preserving projections without restoring retired on-screen utilities', () => {
     const before = structuredClone(data);
     const filtered = tablePage(data, { query: ' TOOL_51 ', showControls: true });
     expect(filtered.matchingRows).toBe(1); expect(filtered.rows[0].row).toBe(data.rows[50]);
     const sorted = tablePage(data, { sort: { key: 'Tool', direction: 'descending' }, showControls: true });
     expect(sorted.rows[0].row).toBe(data.rows[50]); expect(data).toEqual(before);
     const html = renderToStaticMarkup(<TableRenderer data={data} showControls />);
-    expect(html).toContain('aria-label="Filter table"'); expect(html).toContain('aria-label="Sort by Tool"');
+    expect(html).not.toContain('aria-label="Filter table"'); expect(html).not.toContain('aria-label="Sort by Tool"'); expect(html).not.toContain('table-toolbar');
   });
   it('does not invent an empty source/info affordance, even when source display is requested', () => {
     const view = validateView({ version: 1, template: 'table', showSource: true, data });

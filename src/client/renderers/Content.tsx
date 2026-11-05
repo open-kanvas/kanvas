@@ -92,6 +92,18 @@ export function ChecklistRenderer({ data, editable, onEdit, revision, actionable
   const [pending, setPending] = useState<string | null>(null), [error, setError] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const columns = useChecklistColumns(listRef, data.items);
+  const previousItems=useRef(data.items),manualUntil=useRef(0);
+  useEffect(()=>{const root=listRef.current;if(!root)return;const pause=()=>{manualUntil.current=Date.now()+15000;};
+    root.addEventListener('wheel',pause,{passive:true});root.addEventListener('touchstart',pause,{passive:true});root.addEventListener('pointerdown',pause);root.addEventListener('keydown',pause);
+    return()=>{root.removeEventListener('wheel',pause);root.removeEventListener('touchstart',pause);root.removeEventListener('pointerdown',pause);root.removeEventListener('keydown',pause);};
+  },[]);
+  useEffect(()=>{const before=previousItems.current;previousItems.current=data.items;
+    if(Date.now()<manualUntil.current||!before.some(old=>!old.checked&&data.items.some(item=>item.id===old.id&&item.checked)))return;
+    const index=data.items.findIndex(item=>!item.checked),root=listRef.current,target=root?.children[index] as HTMLElement|undefined;
+    if(!root||!target||root.scrollHeight<=root.clientHeight)return;
+    const box=root.getBoundingClientRect(),item=target.getBoundingClientRect();
+    if(item.bottom>box.bottom-24||item.top<box.top)root.scrollBy({top:item.top-box.top-root.clientHeight*.55,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+  },[data.items]);
   const canToggle = Boolean(actionable && onRespond || editable && onEdit && revision !== undefined);
   const done = data.items.filter(item => item.checked).length;
   const toggle = async (id: string) => { if (!canToggle || pending) return; const item = data.items.find(item => item.id === id); if (!item) return; setPending(id); setError(null); try { if (actionable && onRespond) await onRespond({ kind: 'checklist.toggle', itemId: id, checked: !item.checked }); else if (onEdit && revision !== undefined) await onEdit({ ...data, items: data.items.map(item => item.id === id ? { ...item, checked: !item.checked } : item) }, revision); } catch (e) { setError(errorMessage(e)); } finally { setPending(null); } };

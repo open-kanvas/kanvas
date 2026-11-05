@@ -1,0 +1,1746 @@
+{
+  "reviewedAt": "2026-11-05",
+  "sourceRepository": "https://github.com/google/material-design-icons",
+  "revision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+  "licenseSha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+  "assets": [
+    {
+      "id": "accessible",
+      "path": "/signage/accessible.svg",
+      "sourceFile": "symbols/web/accessible/materialsymbolsoutlined/accessible_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/accessible/materialsymbolsoutlined/accessible_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/accessible/materialsymbolsoutlined/accessible_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "e4d9275abcac6817958523ba21855f80f2ef5d7a26a6a06119b5e7ebcc5ec2a5",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "baby_changing_station",
+      "path": "/signage/baby_changing_station.svg",
+      "sourceFile": "symbols/web/baby_changing_station/materialsymbolsoutlined/baby_changing_station_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/baby_changing_station/materialsymbolsoutlined/baby_changing_station_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/baby_changing_station/materialsymbolsoutlined/baby_changing_station_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "5a86a356ec5688eec1bf3239fd0c2dfa23a0e9033ef8cd04be7a079e0d7bb8fe",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "badge",
+      "path": "/signage/badge.svg",
+      "sourceFile": "symbols/web/badge/materialsymbolsoutlined/badge_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/badge/materialsymbolsoutlined/badge_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/badge/materialsymbolsoutlined/badge_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "3a96667aca77f0dda0bcd0179cfcf3cb2ea461a11069382660bb70976bf2a5c2",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "bed",
+      "path": "/signage/bed.svg",
+      "sourceFile": "symbols/web/bed/materialsymbolsoutlined/bed_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/bed/materialsymbolsoutlined/bed_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/bed/materialsymbolsoutlined/bed_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "38ee965d0eedda086e8247e3f16d5247f81b4c4dcaec5d4ae0b8a2c099fdc5bd",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "broadcast_on_home",
+      "path": "/signage/broadcast_on_home.svg",
+      "sourceFile": "symbols/web/broadcast_on_home/materialsymbolsoutlined/broadcast_on_home_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/broadcast_on_home/materialsymbolsoutlined/broadcast_on_home_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/broadcast_on_home/materialsymbolsoutlined/broadcast_on_home_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "8cf95db8d6ab43aa098d134d3a89cbdf9966b359f04ad9987ba2f3c117df100e",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "build",
+      "path": "/signage/build.svg",
+      "sourceFile": "symbols/web/build/materialsymbolsoutlined/build_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/build/materialsymbolsoutlined/build_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/build/materialsymbolsoutlined/build_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "50ee5a9864ac7c63d533c28c2f05ddb3195e49f1e9a955e642c8fa273940e113",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "chair",
+      "path": "/signage/chair.svg",
+      "sourceFile": "symbols/web/chair/materialsymbolsoutlined/chair_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/chair/materialsymbolsoutlined/chair_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/chair/materialsymbolsoutlined/chair_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "1a677935156af22bd8425d2723a62ba6e71a9561cffb754d19afb936194e29bc",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "cleaning_services",
+      "path": "/signage/cleaning_services.svg",
+      "sourceFile": "symbols/web/cleaning_services/materialsymbolsoutlined/cleaning_services_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/cleaning_services/materialsymbolsoutlined/cleaning_services_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/cleaning_services/materialsymbolsoutlined/cleaning_services_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "72755942e54369842f6dc35c09d3111cd68a2a61f37f0370e9fd4eca07e78f7b",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "confirmation_number",
+      "path": "/signage/confirmation_number.svg",
+      "sourceFile": "symbols/web/confirmation_number/materialsymbolsoutlined/confirmation_number_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/confirmation_number/materialsymbolsoutlined/confirmation_number_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/confirmation_number/materialsymbolsoutlined/confirmation_number_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "02251f788a6637bd9b066768dda697711fce7315f4f6c7b48747a41f797a1595",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "dark_mode",
+      "path": "/signage/dark_mode.svg",
+      "sourceFile": "symbols/web/dark_mode/materialsymbolsoutlined/dark_mode_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/dark_mode/materialsymbolsoutlined/dark_mode_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/dark_mode/materialsymbolsoutlined/dark_mode_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "b45f29f9b3268bb674a00c025b619292e36a86e6dc6b28851f954763d943eca7",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "delete",
+      "path": "/signage/delete.svg",
+      "sourceFile": "symbols/web/delete/materialsymbolsoutlined/delete_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/delete/materialsymbolsoutlined/delete_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/delete/materialsymbolsoutlined/delete_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "ec75e756af4e37a926a2f64ef8f59eac85276a658fc8a7aef0cc12c5e871e971",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "desk",
+      "path": "/signage/desk.svg",
+      "sourceFile": "symbols/web/desk/materialsymbolsoutlined/desk_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/desk/materialsymbolsoutlined/desk_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/desk/materialsymbolsoutlined/desk_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "b7c23a92ec2887641f5faa6d0e507b6dbdc5d09d48c994eb961da1d7c4f17035",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "directions_bike",
+      "path": "/signage/directions_bike.svg",
+      "sourceFile": "symbols/web/directions_bike/materialsymbolsoutlined/directions_bike_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/directions_bike/materialsymbolsoutlined/directions_bike_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/directions_bike/materialsymbolsoutlined/directions_bike_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "633982d2900f25a111b41e1da3d4c88918d625a8d6499e0e3f186bd7a30e57bc",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "directions_car",
+      "path": "/signage/directions_car.svg",
+      "sourceFile": "symbols/web/directions_car/materialsymbolsoutlined/directions_car_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/directions_car/materialsymbolsoutlined/directions_car_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/directions_car/materialsymbolsoutlined/directions_car_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "8f0a18a0a7a8ad65529fef7917a4aa7fdd4e9a7de784578c744e26cb6f3be2f1",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "directions_walk",
+      "path": "/signage/directions_walk.svg",
+      "sourceFile": "symbols/web/directions_walk/materialsymbolsoutlined/directions_walk_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/directions_walk/materialsymbolsoutlined/directions_walk_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/directions_walk/materialsymbolsoutlined/directions_walk_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "bc0c074e23c643d93f61f85546abd0385ccd98d851dd71081f698e01e732c967",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "do_not_disturb_on",
+      "path": "/signage/do_not_disturb_on.svg",
+      "sourceFile": "symbols/web/do_not_disturb_on/materialsymbolsoutlined/do_not_disturb_on_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/do_not_disturb_on/materialsymbolsoutlined/do_not_disturb_on_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/do_not_disturb_on/materialsymbolsoutlined/do_not_disturb_on_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "f7975bf9ff92cee5e091b46d92c63d3d416730be39a3f3863029679135010330",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "electric_scooter",
+      "path": "/signage/electric_scooter.svg",
+      "sourceFile": "symbols/web/electric_scooter/materialsymbolsoutlined/electric_scooter_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/electric_scooter/materialsymbolsoutlined/electric_scooter_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/electric_scooter/materialsymbolsoutlined/electric_scooter_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "c6e011f03f9b9f951cb3f31715b42a82f3bc3624070c2e22a8ea83b2dac4582a",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "elevator",
+      "path": "/signage/elevator.svg",
+      "sourceFile": "symbols/web/elevator/materialsymbolsoutlined/elevator_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/elevator/materialsymbolsoutlined/elevator_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/elevator/materialsymbolsoutlined/elevator_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "57faad59a87fad5763d187e7c8eebd4be52143eff9d7eadc04ed72af744a27e5",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "event_seat",
+      "path": "/signage/event_seat.svg",
+      "sourceFile": "symbols/web/event_seat/materialsymbolsoutlined/event_seat_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/event_seat/materialsymbolsoutlined/event_seat_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/event_seat/materialsymbolsoutlined/event_seat_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "cfa55ec65f2ffcfb87890d4e1add3d2edb92a2231a0accedd51e2b2dc4e16afe",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "fitness_center",
+      "path": "/signage/fitness_center.svg",
+      "sourceFile": "symbols/web/fitness_center/materialsymbolsoutlined/fitness_center_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/fitness_center/materialsymbolsoutlined/fitness_center_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/fitness_center/materialsymbolsoutlined/fitness_center_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "f462a82945b7e1e8bd71d5d85fd69c17c5bbd65b34ea694dd2919e39a4cc972e",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "flash_on",
+      "path": "/signage/flash_on.svg",
+      "sourceFile": "symbols/web/flash_on/materialsymbolsoutlined/flash_on_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/flash_on/materialsymbolsoutlined/flash_on_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/flash_on/materialsymbolsoutlined/flash_on_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "d426d00c5dcdead622fb0eef8369770d743dee416b73059a658eeb1139413874",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "garage",
+      "path": "/signage/garage.svg",
+      "sourceFile": "symbols/web/garage/materialsymbolsoutlined/garage_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/garage/materialsymbolsoutlined/garage_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/garage/materialsymbolsoutlined/garage_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "85f6d42e62113ca6a8b5d5bfc4ae340623aeae15bd943e612993920d1f40e41d",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "groups",
+      "path": "/signage/groups.svg",
+      "sourceFile": "symbols/web/groups/materialsymbolsoutlined/groups_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/groups/materialsymbolsoutlined/groups_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/groups/materialsymbolsoutlined/groups_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "6b4d11047122bc3fb3ba8224281c6a7c9a751d9b8607e84542f9163a14dbfe67",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "home",
+      "path": "/signage/home.svg",
+      "sourceFile": "symbols/web/home/materialsymbolsoutlined/home_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/home/materialsymbolsoutlined/home_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/home/materialsymbolsoutlined/home_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "41735f056fa43ed570585a294210f4c32dad1481bdf0a617b86b1007b2a8a913",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "hourglass_empty",
+      "path": "/signage/hourglass_empty.svg",
+      "sourceFile": "symbols/web/hourglass_empty/materialsymbolsoutlined/hourglass_empty_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/hourglass_empty/materialsymbolsoutlined/hourglass_empty_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/hourglass_empty/materialsymbolsoutlined/hourglass_empty_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "88b87112cb06f9bd15a2fd87d1297f7f7d6ecd2be300ab7ae4f3f8dde180bba6",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "info",
+      "path": "/signage/info.svg",
+      "sourceFile": "symbols/web/info/materialsymbolsoutlined/info_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/info/materialsymbolsoutlined/info_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/info/materialsymbolsoutlined/info_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "33c77c7a4f193445d0136b970ad4b5a80ba8cc340603465d4cb46a1f8abec4ec",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "key",
+      "path": "/signage/key.svg",
+      "sourceFile": "symbols/web/key/materialsymbolsoutlined/key_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/key/materialsymbolsoutlined/key_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/key/materialsymbolsoutlined/key_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "395a811db6f02319a9ad7ffffb2f34693fcbd5bd0e88ed519ac98e33c5e3de1c",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "list_alt",
+      "path": "/signage/list_alt.svg",
+      "sourceFile": "symbols/web/list_alt/materialsymbolsoutlined/list_alt_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/list_alt/materialsymbolsoutlined/list_alt_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/list_alt/materialsymbolsoutlined/list_alt_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "265561870efe3c62cba92e0ae9617ccf8f21f8780c70bc29c6bb191239c09c63",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "local_bar",
+      "path": "/signage/local_bar.svg",
+      "sourceFile": "symbols/web/local_bar/materialsymbolsoutlined/local_bar_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/local_bar/materialsymbolsoutlined/local_bar_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/local_bar/materialsymbolsoutlined/local_bar_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "852df084032d1a760082bd86aacefe4bea2905da27f693154bd98d8c77052a8e",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "local_cafe",
+      "path": "/signage/local_cafe.svg",
+      "sourceFile": "symbols/web/local_cafe/materialsymbolsoutlined/local_cafe_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/local_cafe/materialsymbolsoutlined/local_cafe_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/local_cafe/materialsymbolsoutlined/local_cafe_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "c203b85663aa67b693b2ae70fbcb716b107d2c4fbc1e8f31085d7b8d6e4ede1b",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "local_parking",
+      "path": "/signage/local_parking.svg",
+      "sourceFile": "symbols/web/local_parking/materialsymbolsoutlined/local_parking_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/local_parking/materialsymbolsoutlined/local_parking_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/local_parking/materialsymbolsoutlined/local_parking_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "edc2d006abb646c96eb493b2bcbbee1e05fba9d550afa56d32e4d87d70305456",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "luggage",
+      "path": "/signage/luggage.svg",
+      "sourceFile": "symbols/web/luggage/materialsymbolsoutlined/luggage_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/luggage/materialsymbolsoutlined/luggage_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/luggage/materialsymbolsoutlined/luggage_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "d00232fb58193cb8a2379f371a638d44ad396b9194891ca8a83e76316ea60408",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "man",
+      "path": "/signage/man.svg",
+      "sourceFile": "symbols/web/man/materialsymbolsoutlined/man_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/man/materialsymbolsoutlined/man_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/man/materialsymbolsoutlined/man_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "52091f6a2d8a151291463ad0f0f7b4d8624c61bf1759ca6a851b3d2f29d514e5",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "map",
+      "path": "/signage/map.svg",
+      "sourceFile": "symbols/web/map/materialsymbolsoutlined/map_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/map/materialsymbolsoutlined/map_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/map/materialsymbolsoutlined/map_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "a49ef8ee004dc4832a4bbe64fce0a054c0b90cb4246422c09cc234278788049b",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "music_note",
+      "path": "/signage/music_note.svg",
+      "sourceFile": "symbols/web/music_note/materialsymbolsoutlined/music_note_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/music_note/materialsymbolsoutlined/music_note_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/music_note/materialsymbolsoutlined/music_note_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "f02c77bc518ba3f6369e5788569a08100fbebf268031ff1a5a0e5eb66656f281",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "notifications",
+      "path": "/signage/notifications.svg",
+      "sourceFile": "symbols/web/notifications/materialsymbolsoutlined/notifications_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/notifications/materialsymbolsoutlined/notifications_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/notifications/materialsymbolsoutlined/notifications_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "f6e1380c76f85851dbeafde7f8eb106c799d72232cd046bf30fabae4f0a0c821",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "package_2",
+      "path": "/signage/package_2.svg",
+      "sourceFile": "symbols/web/package_2/materialsymbolsoutlined/package_2_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/package_2/materialsymbolsoutlined/package_2_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/package_2/materialsymbolsoutlined/package_2_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "f636ce667107594fc2d23116122bfe1247d6a6faed34cb6732425f43913bebb9",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "pets",
+      "path": "/signage/pets.svg",
+      "sourceFile": "symbols/web/pets/materialsymbolsoutlined/pets_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/pets/materialsymbolsoutlined/pets_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/pets/materialsymbolsoutlined/pets_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "36de9fdf4f0dd9b9df0240bd3a88ad26a648bfbffe8fd53caf1de4a8f4114fb9",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "photo_camera",
+      "path": "/signage/photo_camera.svg",
+      "sourceFile": "symbols/web/photo_camera/materialsymbolsoutlined/photo_camera_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/photo_camera/materialsymbolsoutlined/photo_camera_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/photo_camera/materialsymbolsoutlined/photo_camera_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "2f0c1c7f53a7110db7efb824db4b9413253a242f1d87846f0069fc281bdedf27",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "pool",
+      "path": "/signage/pool.svg",
+      "sourceFile": "symbols/web/pool/materialsymbolsoutlined/pool_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/pool/materialsymbolsoutlined/pool_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/pool/materialsymbolsoutlined/pool_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "93be8fe890eea81d0e99a074ee9b570e190d798ada9c4197deca7684b88990f7",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "radio_button_checked",
+      "path": "/signage/radio_button_checked.svg",
+      "sourceFile": "symbols/web/radio_button_checked/materialsymbolsoutlined/radio_button_checked_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/radio_button_checked/materialsymbolsoutlined/radio_button_checked_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/radio_button_checked/materialsymbolsoutlined/radio_button_checked_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "c6b22c59017880bfa2341098a879cee92bc9a4d5ac3f518bcd21def404aa980f",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "restaurant",
+      "path": "/signage/restaurant.svg",
+      "sourceFile": "symbols/web/restaurant/materialsymbolsoutlined/restaurant_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/restaurant/materialsymbolsoutlined/restaurant_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/restaurant/materialsymbolsoutlined/restaurant_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "5b93a8c25a34c244cfb8894746ba90664cf2bb4639f97a0b5f7613e4a86d1159",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "roller_skating",
+      "path": "/signage/roller_skating.svg",
+      "sourceFile": "symbols/web/roller_skating/materialsymbolsoutlined/roller_skating_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/roller_skating/materialsymbolsoutlined/roller_skating_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/roller_skating/materialsymbolsoutlined/roller_skating_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "b0b70ee0c6d24565321b3bd3774faceb9d120f3940b980a3dbae496243ea6c23",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "schedule",
+      "path": "/signage/schedule.svg",
+      "sourceFile": "symbols/web/schedule/materialsymbolsoutlined/schedule_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/schedule/materialsymbolsoutlined/schedule_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/schedule/materialsymbolsoutlined/schedule_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "6b6606472e4d807e4b2afc8cd667a48fa634341d44487580a7b350f8dd790170",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "skateboarding",
+      "path": "/signage/skateboarding.svg",
+      "sourceFile": "symbols/web/skateboarding/materialsymbolsoutlined/skateboarding_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/skateboarding/materialsymbolsoutlined/skateboarding_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/skateboarding/materialsymbolsoutlined/skateboarding_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "469b642c7f29e827fda5aacee1e16a6daf0b028171bb4c45290825b250963edb",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "smartphone",
+      "path": "/signage/smartphone.svg",
+      "sourceFile": "symbols/web/smartphone/materialsymbolsoutlined/smartphone_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/smartphone/materialsymbolsoutlined/smartphone_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/smartphone/materialsymbolsoutlined/smartphone_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "adce120934460969df08130c181f6f23012fe9577839032ffdefb1ad2f2519ee",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "smoking_rooms",
+      "path": "/signage/smoking_rooms.svg",
+      "sourceFile": "symbols/web/smoking_rooms/materialsymbolsoutlined/smoking_rooms_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/smoking_rooms/materialsymbolsoutlined/smoking_rooms_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/smoking_rooms/materialsymbolsoutlined/smoking_rooms_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "6af48727fa32ecf07dd4e1507e5287405c5279f2c741c65fe7ac07180ba6cbd4",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "spa",
+      "path": "/signage/spa.svg",
+      "sourceFile": "symbols/web/spa/materialsymbolsoutlined/spa_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/spa/materialsymbolsoutlined/spa_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/spa/materialsymbolsoutlined/spa_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "6b07373490021813a0500456d10582f53731320f11d7bd0df66a3423001ebfc4",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "stairs",
+      "path": "/signage/stairs.svg",
+      "sourceFile": "symbols/web/stairs/materialsymbolsoutlined/stairs_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/stairs/materialsymbolsoutlined/stairs_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/stairs/materialsymbolsoutlined/stairs_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "5c198e1591ae234b9706c9b08ee6199bb80a8a2ad17828c259ebd6e1dae67948",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "touch_app",
+      "path": "/signage/touch_app.svg",
+      "sourceFile": "symbols/web/touch_app/materialsymbolsoutlined/touch_app_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/touch_app/materialsymbolsoutlined/touch_app_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/touch_app/materialsymbolsoutlined/touch_app_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "0d32214a771e436a8b073ca310484cd3121a97168ac57e3af2a721c7f3025856",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "videocam",
+      "path": "/signage/videocam.svg",
+      "sourceFile": "symbols/web/videocam/materialsymbolsoutlined/videocam_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/videocam/materialsymbolsoutlined/videocam_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/videocam/materialsymbolsoutlined/videocam_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "c08eb2f9cabf43eda0aed18b7f928ea8a29118259342d262d2639d414120e233",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "volume_off",
+      "path": "/signage/volume_off.svg",
+      "sourceFile": "symbols/web/volume_off/materialsymbolsoutlined/volume_off_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/volume_off/materialsymbolsoutlined/volume_off_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/volume_off/materialsymbolsoutlined/volume_off_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "196492ec299a22b1a7fe38840bf99cd3e1c04359e3a567234cc342508c90f53c",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "wc",
+      "path": "/signage/wc.svg",
+      "sourceFile": "symbols/web/wc/materialsymbolsoutlined/wc_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/wc/materialsymbolsoutlined/wc_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/wc/materialsymbolsoutlined/wc_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "34b22b708b5769e573f23fa5fae779bd3ddbd7a74010a724c3d8ddc42389c756",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "wifi",
+      "path": "/signage/wifi.svg",
+      "sourceFile": "symbols/web/wifi/materialsymbolsoutlined/wifi_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/wifi/materialsymbolsoutlined/wifi_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/wifi/materialsymbolsoutlined/wifi_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "dc8d418b687726a857da5e718046d410d378c829d96231149cdf358c1851396b",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    },
+    {
+      "id": "woman",
+      "path": "/signage/woman.svg",
+      "sourceFile": "symbols/web/woman/materialsymbolsoutlined/woman_24px.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/woman/materialsymbolsoutlined/woman_24px.svg",
+      "descriptionPage": "https://github.com/google/material-design-icons/blob/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/symbols/web/woman/materialsymbolsoutlined/woman_24px.svg",
+      "descriptionRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "artworkRevision": "10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7",
+      "sha256": "6411fb7f96c0143dbddb048175bc8b83d0457f6cc19da93c120ab5d36be320da",
+      "author": "Google / Material Symbols contributors",
+      "licenseAlternatives": [
+        "Apache-2.0"
+      ],
+      "chosenLicense": "Apache-2.0",
+      "licenseFile": "/signage/LICENSE-APACHE-2.0.txt",
+      "modified": false,
+      "reviewDecision": "accepted: exact upstream SVG, explicit repository Apache-2.0 license; general communication icon, no ISO or conformity claim",
+      "qualification": "Not a certified safety sign; composed surrounding arrows/text are separate Kanvas layers."
+    }
+  ],
+  "coverage": [
+    {
+      "signType": "exit",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "restroom",
+      "assetId": "wc",
+      "decision": "replaced"
+    },
+    {
+      "signType": "restroom-men",
+      "assetId": "man",
+      "decision": "replaced"
+    },
+    {
+      "signType": "restroom-women",
+      "assetId": "woman",
+      "decision": "replaced"
+    },
+    {
+      "signType": "restroom-unisex",
+      "assetId": "wc",
+      "decision": "replaced"
+    },
+    {
+      "signType": "restroom-accessible",
+      "assetId": "accessible",
+      "decision": "replaced"
+    },
+    {
+      "signType": "baby-care",
+      "assetId": "baby_changing_station",
+      "decision": "replaced"
+    },
+    {
+      "signType": "elevator",
+      "assetId": "elevator",
+      "decision": "replaced"
+    },
+    {
+      "signType": "stairs",
+      "assetId": "stairs",
+      "decision": "replaced"
+    },
+    {
+      "signType": "pickup",
+      "assetId": "package_2",
+      "decision": "replaced"
+    },
+    {
+      "signType": "meeting-point",
+      "assetId": "groups",
+      "decision": "replaced"
+    },
+    {
+      "signType": "reception",
+      "assetId": "desk",
+      "decision": "replaced"
+    },
+    {
+      "signType": "information",
+      "assetId": "info",
+      "decision": "replaced"
+    },
+    {
+      "signType": "emergency-exit",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "assembly-point",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "fire-extinguisher",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "first-aid",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "first-aid-kit",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "life-vest",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "general-warning",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "wet-floor",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "area-closed",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "no-trespassing",
+      "assetId": "man",
+      "decision": "replaced"
+    },
+    {
+      "signType": "do-not-enter",
+      "decision": "kept",
+      "reason": "No clearly matching reviewed source; existing edge-case artwork retained"
+    },
+    {
+      "signType": "staff-only",
+      "assetId": "badge",
+      "decision": "replaced"
+    },
+    {
+      "signType": "reserved",
+      "assetId": "event_seat",
+      "decision": "replaced"
+    },
+    {
+      "signType": "quiet-zone",
+      "assetId": "volume_off",
+      "decision": "replaced"
+    },
+    {
+      "signType": "do-not-disturb",
+      "assetId": "notifications",
+      "decision": "replaced"
+    },
+    {
+      "signType": "no-smoking",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "smoking-area",
+      "assetId": "smoking_rooms",
+      "decision": "replaced"
+    },
+    {
+      "signType": "no-phones",
+      "assetId": "smartphone",
+      "decision": "replaced"
+    },
+    {
+      "signType": "no-pets",
+      "assetId": "pets",
+      "decision": "replaced"
+    },
+    {
+      "signType": "no-bicycling",
+      "assetId": "directions_bike",
+      "decision": "replaced"
+    },
+    {
+      "signType": "no-skateboarding",
+      "assetId": "skateboarding",
+      "decision": "replaced"
+    },
+    {
+      "signType": "no-rollerblading",
+      "assetId": "roller_skating",
+      "decision": "replaced"
+    },
+    {
+      "signType": "no-scooters",
+      "assetId": "electric_scooter",
+      "decision": "replaced"
+    },
+    {
+      "signType": "no-food-drink",
+      "assetId": "local_cafe",
+      "decision": "replaced"
+    },
+    {
+      "signType": "no-photography",
+      "assetId": "photo_camera",
+      "decision": "replaced"
+    },
+    {
+      "signType": "no-flash",
+      "assetId": "flash_on",
+      "decision": "replaced"
+    },
+    {
+      "signType": "no-littering",
+      "assetId": "delete",
+      "decision": "replaced"
+    },
+    {
+      "signType": "do-not-touch",
+      "assetId": "touch_app",
+      "decision": "replaced"
+    },
+    {
+      "signType": "behind-barrier",
+      "decision": "kept",
+      "reason": "No clearly matching reviewed source; existing edge-case artwork retained"
+    },
+    {
+      "signType": "cctv",
+      "assetId": "videocam",
+      "decision": "replaced"
+    },
+    {
+      "signType": "parking",
+      "assetId": "local_parking",
+      "decision": "replaced"
+    },
+    {
+      "signType": "no-parking",
+      "assetId": "local_parking",
+      "decision": "replaced"
+    },
+    {
+      "signType": "parking-hours",
+      "assetId": "local_parking",
+      "decision": "replaced"
+    },
+    {
+      "signType": "valet",
+      "assetId": "key",
+      "decision": "replaced"
+    },
+    {
+      "signType": "accessible-parking",
+      "assetId": "accessible",
+      "decision": "replaced"
+    },
+    {
+      "signType": "reserved-parking",
+      "assetId": "local_parking",
+      "decision": "replaced"
+    },
+    {
+      "signType": "parking-area",
+      "assetId": "local_parking",
+      "decision": "replaced"
+    },
+    {
+      "signType": "parking-garage",
+      "assetId": "garage",
+      "decision": "replaced"
+    },
+    {
+      "signType": "parking-space",
+      "assetId": "directions_car",
+      "decision": "replaced"
+    },
+    {
+      "signType": "toxic",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "flammable",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "flammable-gas",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "explosive",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "corrosive",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "oxidizing",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "compressed-gas",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "biohazard",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "radiation",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "laser",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "environmental-hazard",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "high-voltage",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "hot-surface",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "low-temperature",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "falling-objects",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "low-clearance",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "trip-hazard",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "moving-machinery",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "forklifts",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "noise",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "hearing-protection",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "eye-protection",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "hard-hat",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "gloves",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "face-mask",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "wash-hands",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "floor-directory",
+      "assetId": "list_alt",
+      "decision": "replaced"
+    },
+    {
+      "signType": "tenant-directory",
+      "assetId": "list_alt",
+      "decision": "replaced"
+    },
+    {
+      "signType": "you-are-here",
+      "assetId": "map",
+      "decision": "replaced"
+    },
+    {
+      "signType": "walking-time",
+      "assetId": "directions_walk",
+      "decision": "replaced"
+    },
+    {
+      "signType": "parking-full",
+      "assetId": "local_parking",
+      "decision": "replaced"
+    },
+    {
+      "signType": "parking-free",
+      "assetId": "local_parking",
+      "decision": "replaced"
+    },
+    {
+      "signType": "meeting-room",
+      "assetId": "groups",
+      "decision": "replaced"
+    },
+    {
+      "signType": "out-of-order",
+      "assetId": "build",
+      "decision": "replaced"
+    },
+    {
+      "signType": "maintenance",
+      "assetId": "build",
+      "decision": "replaced"
+    },
+    {
+      "signType": "back-soon",
+      "assetId": "schedule",
+      "decision": "replaced"
+    },
+    {
+      "signType": "wait-here",
+      "assetId": "hourglass_empty",
+      "decision": "replaced"
+    },
+    {
+      "signType": "wait-seated",
+      "assetId": "chair",
+      "decision": "replaced"
+    },
+    {
+      "signType": "now-serving",
+      "assetId": "confirmation_number",
+      "decision": "replaced"
+    },
+    {
+      "signType": "waiting-time",
+      "assetId": "schedule",
+      "decision": "replaced"
+    },
+    {
+      "signType": "room-allocation",
+      "assetId": "list_alt",
+      "decision": "replaced"
+    },
+    {
+      "signType": "waiting-room",
+      "assetId": "chair",
+      "decision": "replaced"
+    },
+    {
+      "signType": "on-air",
+      "assetId": "broadcast_on_home",
+      "decision": "replaced"
+    },
+    {
+      "signType": "recording",
+      "assetId": "radio_button_checked",
+      "decision": "replaced"
+    },
+    {
+      "signType": "rehearsal",
+      "assetId": "music_note",
+      "decision": "replaced"
+    },
+    {
+      "signType": "live-countdown",
+      "assetId": "schedule",
+      "decision": "replaced"
+    },
+    {
+      "signType": "welcome",
+      "assetId": "desk",
+      "decision": "replaced"
+    },
+    {
+      "signType": "visitor-check-in",
+      "assetId": "badge",
+      "decision": "replaced"
+    },
+    {
+      "signType": "name-plate",
+      "assetId": "badge",
+      "decision": "replaced"
+    },
+    {
+      "signType": "wifi",
+      "assetId": "wifi",
+      "decision": "replaced"
+    },
+    {
+      "signType": "road-work",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "utility-work",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "road-closed",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "lane-closed",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "detour",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "incident",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "reduced-speed",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "flagger",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "follow-detour",
+      "decision": "kept",
+      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+    },
+    {
+      "signType": "vacancy",
+      "assetId": "bed",
+      "decision": "replaced"
+    },
+    {
+      "signType": "no-vacancy",
+      "assetId": "bed",
+      "decision": "replaced"
+    },
+    {
+      "signType": "check-in-out",
+      "assetId": "key",
+      "decision": "replaced"
+    },
+    {
+      "signType": "front-desk",
+      "assetId": "desk",
+      "decision": "replaced"
+    },
+    {
+      "signType": "late-check-in",
+      "assetId": "dark_mode",
+      "decision": "replaced"
+    },
+    {
+      "signType": "night-bell",
+      "assetId": "notifications",
+      "decision": "replaced"
+    },
+    {
+      "signType": "breakfast",
+      "assetId": "local_cafe",
+      "decision": "replaced"
+    },
+    {
+      "signType": "restaurant",
+      "assetId": "restaurant",
+      "decision": "replaced"
+    },
+    {
+      "signType": "bar",
+      "assetId": "local_bar",
+      "decision": "replaced"
+    },
+    {
+      "signType": "lounge",
+      "assetId": "chair",
+      "decision": "replaced"
+    },
+    {
+      "signType": "luggage",
+      "assetId": "luggage",
+      "decision": "replaced"
+    },
+    {
+      "signType": "concierge",
+      "assetId": "notifications",
+      "decision": "replaced"
+    },
+    {
+      "signType": "spa",
+      "assetId": "spa",
+      "decision": "replaced"
+    },
+    {
+      "signType": "pool",
+      "assetId": "pool",
+      "decision": "replaced"
+    },
+    {
+      "signType": "gym",
+      "assetId": "fitness_center",
+      "decision": "replaced"
+    },
+    {
+      "signType": "hotel-do-not-disturb",
+      "assetId": "do_not_disturb_on",
+      "decision": "replaced"
+    },
+    {
+      "signType": "make-up-room",
+      "decision": "kept",
+      "reason": "Do-not-disturb source icon is not a semantic match for a housekeeping request; original retained."
+    },
+    {
+      "signType": "room-number",
+      "assetId": "bed",
+      "decision": "replaced"
+    },
+    {
+      "signType": "floor-number",
+      "assetId": "stairs",
+      "decision": "replaced"
+    },
+    {
+      "signType": "housekeeping",
+      "assetId": "cleaning_services",
+      "decision": "replaced"
+    },
+    {
+      "signType": "building-directory",
+      "assetId": "list_alt",
+      "decision": "replaced"
+    },
+    {
+      "signType": "for-sale",
+      "assetId": "home",
+      "decision": "replaced"
+    },
+    {
+      "signType": "for-rent",
+      "assetId": "home",
+      "decision": "replaced"
+    },
+    {
+      "signType": "sold",
+      "assetId": "home",
+      "decision": "replaced"
+    },
+    {
+      "signType": "open-house",
+      "assetId": "home",
+      "decision": "replaced"
+    },
+    {
+      "signType": "sale-pending",
+      "assetId": "home",
+      "decision": "replaced"
+    }
+  ],
+  "excludedSources": [
+    "ISO 7010 P001/P002 provenance conflicts",
+    "ISO 7010 E001 new/E002 new/M002/P035/W030/W035/W039 share-alike",
+    "Other ISO artwork pending underlying-rights review"
+  ],
+  "scope": "All 137 existing sign types reviewed; no new pictograms drawn. Unmodified general-information SVGs only."
+}

@@ -124,6 +124,8 @@ export async function persistedSnapshot(options: DatabaseOptions) {
       for (const [table, order] of tables) {
         const rows = (await reader.query(`SELECT * FROM ${table} ORDER BY ${order}`)).rows;
         result[table] = rows.map(row => Object.fromEntries(Object.entries(row).map(([key, value]) => [key,
+          // PostgreSQL clock timestamps cannot follow Vitest's JavaScript clock.
+          ['created_at','joined_at','last_login_at','last_seen_at'].includes(key) && value instanceof Date ? (expect(Number.isFinite(value.getTime())).toBe(true),'DB_TIMESTAMP') :
           table === 'documents' && key === 'value' ? JSON.parse(String(value)) as unknown
             : value instanceof Uint8Array ? { bytes: Buffer.from(value).toString('hex') } : value,
         ])));

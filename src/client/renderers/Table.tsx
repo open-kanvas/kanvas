@@ -1,8 +1,8 @@
+import { Icon } from '../icons';
 import { cellEmphasis, type Emphasis } from '../../shared/emphasis';
 import { useSelection } from './Selection';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { Cell, DatasetBinding } from '../../shared/chart-contract';
-import { Icon } from '../icons';
 import './table.css';
 import { useNavigation } from './Navigation';
 import { useRegional } from './Regional';
@@ -97,26 +97,14 @@ export function TableRenderer({ data, showControls = false, showSource = false }
   useEffect(()=>{if(navigation?.hasPosition)setState(old=>old.page===page.page?old:{...old,page:page.page});},[navigation?.hasPosition,page.page]);
   useEffect(() => { if (scroll.current) scroll.current.scrollTop = 0; }, [page.page, page.pageSize, current.query, current.sort]);
   const summary = showSource ? tableSummaryText(data.summary) : undefined;
-  const activeUtilities = Boolean((navigation?.hasPosition?navigation.state.query:current.query) || current.sort);
   const selection=useSelection();
   const rowStyles=useMemo(()=>new Map(data.rowStyles?.map(s=>[s.row,s])),[data.rowStyles]);
   const cellStyles=useMemo(()=>new Map(data.cellStyles?.map(s=>[JSON.stringify([s.row,s.column]),s])),[data.cellStyles]);
-  const reset = () => {navigation?.send({action:'reset'});setState(old => ({ ...old, page: 0, query: '', sort: null }));};
-  const changeSort = (column: string) => {
-    const sort: TableSort | null = current.sort?.key !== column ? { key: column, direction: 'ascending' }
-      : current.sort.direction === 'ascending' ? { key: column, direction: 'descending' } : null;
-    setState(old => ({ ...old, sort, page: 0 }));
-  };
   return <div className="table-content table-surface" data-table-total-rows={page.totalRows} data-table-matching-rows={page.matchingRows}>
-    {showControls && <div className="table-toolbar">
-      <label><Icon name="search" size={16} /><input type="search" aria-label="Filter table" placeholder="Find in table…" value={navigation?.hasPosition?navigation.state.query:current.query} disabled={navigation?.canNavigate===false} onChange={event => { const query = event.target.value; if(navigation)navigation.send({action:'search',query});setState(old => ({ ...old, query, page: 0 })); }} /></label>
-      <span aria-live="polite">{(navigation?.hasPosition?navigation.state.query:current.query).trim() ? `${page.matchingRows.toLocaleString()} of ${page.totalRows.toLocaleString()}` : page.totalRows.toLocaleString()} rows</span>
-      {activeUtilities && <button type="button" className="table-reset" onClick={reset}>Reset</button>}
-    </div>}
     <div className="table-scroll" ref={scroll} tabIndex={0} role="region" aria-label="Scrollable data table">
       <table aria-label="Data table" style={{ '--table-columns': Math.max(1, data.columns.length) } as CSSProperties}>
-        {data.showHeaders !== false && <thead><tr>{data.columns.map(column => <th key={column} scope="col" aria-sort={showControls ? current.sort?.key === column ? current.sort.direction : 'none' : undefined}>
-          {showControls ? <button type="button" onClick={() => changeSort(column)} aria-label={`Sort by ${column}`}><span>{column}</span><span className="table-sort-indicator" aria-hidden="true">{current.sort?.key === column ? current.sort.direction === 'ascending' ? '↑' : '↓' : '↕'}</span></button> : <span>{column}</span>}
+        {data.showHeaders !== false && <thead><tr>{data.columns.map(column => <th key={column} scope="col" >
+          <span>{column}</span>
         </th>)}</tr></thead>}
         <tbody>{page.rows.map(({ row, sourceIndex }) => <tr key={sourceIndex} data-source-row={selection.indices?.[sourceIndex]??sourceIndex} className={selection.highlights.includes(sourceIndex)?'agent-highlight':undefined}>{data.columns.map(column => {
           const value = row[column];

@@ -100,14 +100,14 @@ describe('navigation, saved pins and task-focused Help',()=>{
     for(const action of [{action:'search',query:'secret'},{action:'scroll',y:1},{action:'highlight',text:'remote'},{action:'focus',text:'remote',zoom:2}])await expect(nav(action)).rejects.toMatchObject({code:'NAVIGATION_UNAVAILABLE'});
     denied(await h.browser().request('POST',`${path()}/navigation`,{tabId:'fake',requestId:randomUUID(),expectedRevision:1,navigation:{action:'page',page:1}}),[401]);
   });
-  it('recalls an exact labelled pin after linear history has archived the original, with hold, revision, scope and retry checks',async()=>{
+  it('recalls an exact labelled pin after more than 60 retained publications, with hold, revision, scope and retry checks',async()=>{
     process.env.KANVAS_MAX_VIEWS_PER_SESSION='100';
     await owner.submit(s,[d],fact('Pinned source\n9007199254740993.001'));
     const args={sessionId:s,displayId:d,requestId:randomUUID(),label:'Exact reference'};
     const pin=await call('kanvas_pin_save',args) as {id:string};expect(await call('kanvas_pin_save',args)).toEqual(pin);
     await expect(call('kanvas_pin_save',{...args,label:'Different'})).rejects.toMatchObject({code:'REQUEST_ID_CONFLICT'});
     for(let i=0;i<62;i++)await owner.submit(s,[d],fact(`Later ${i}`));
-    await expect(call('kanvas_display_navigate',{sessionId:s,displayIds:[d],requestId:randomUUID(),revision:1,expectedRevisions:{[d]:63}})).rejects.toMatchObject({code:'HISTORY_BOUNDARY'});
+    expect((await h.runtime.service.history.frames(await h.runtime.service.display({userId:owner.user!.id},s,d))).find(frame=>frame.revision===1)?.view?.data.text).toBe('Pinned source\n9007199254740993.001');
     const recall={sessionId:s,displayId:d,requestId:randomUUID(),pinId:pin.id,expectedRevision:63};
     const update=await call('kanvas_pin_recall',recall) as UpdateRecord;expect((await call('kanvas_pin_recall',recall) as UpdateRecord).id).toBe(update.id);
     expect((await owner.detail(s)).displays[0]).toMatchObject({revision:64,view:{data:{text:'Pinned source\n9007199254740993.001'}}});

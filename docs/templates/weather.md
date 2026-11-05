@@ -43,3 +43,7 @@ Read `kanvas_discover` with `{ "catalog":"templates", "action":"get", "id":"kanv
 ```
 
 Examples are illustrative, not evidence. Shared source, security and delivery behavior is in [implemented rendering](../display/implemented-rendering.md). [Template index](README.md).
+
+## Forecast sequence
+
+The top-level conditions are always the first step, labelled with `timeLabel` (or the overview fallback). N forecast entries produce N+1 steps: for exactly four moments, supply the first at the top level and three in `forecast`. Do not repeat the first moment; it cannot be omitted. Storm clouds remain darker than ordinary cloudy skies, with a subtle additional darkening as intensity rises from 0 to 1.

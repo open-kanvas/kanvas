@@ -8,12 +8,10 @@ import { resolveToolCall } from '../../src/server/mcp/catalog.js';
 import { InputError } from '../../src/server/input-errors.js';
 const context={principal:{userId:'test-account',scopes:['read','publish']}};
 describe('contextual discovery and first contact',()=>{
- it('all workflow links name real callable operations and templates surface complete planner/checklist/draft families',()=>{
+ it.each(['planner','checklist','drafting','presentation','chat','progress','scoreboard','countdown'])('%s workflow links name real callable operations and surface the complete family',(template)=>{
   const ids=new Set(operationCatalog().map(x=>x.id));
-  for(const template of ['planner','checklist','drafting','presentation','chat','progress','scoreboard','countdown']){
    for(const id of workflowIds(template))expect(ids.has(id),id).toBe(true);
    const detail=templateCatalog().find(x=>x.id===`kanvas.template.${template}`)!.detail();expect(detail.relatedOperations).toHaveLength(workflowIds(template).length);expect(detail.submitShape).toContain('displayIds');
-  }
  });
  it('submit success proactively exposes targeted workflow operations and committed planner boundary',()=>{
   const result=toolSuccess({status:'prepared'},undefined,'kanvas_submit','discovery',{view:{version:1,template:'planner',data:{status:'committed'}}});

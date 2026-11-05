@@ -42,6 +42,18 @@ test('generic QR preserves arbitrary payload with plain supporting text and no t
  const qr=viewer.locator('.viewer-candidate .qr-code img');await expect(qr).toBeVisible();expect(await qr.getAttribute('src')).toMatch(/^data:image\/png;base64,/);
  await expect(viewer.getByRole('heading',{name:'Connect here'})).toBeVisible();
  await qr.screenshot({path:info.outputPath('nov05-qr.png')});
+ // Supporting media participates in readiness, not only the generated QR.
+ const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=32;c.height=32;c.getContext('2d')!.fillRect(0,0,32,32);return c.toDataURL().split(',')[1];});
+ let received!:()=>void,release!:()=>void;const requested=new Promise<void>(resolve=>{received=resolve;}),held=new Promise<void>(resolve=>{release=resolve;});
+ await viewer.route('https://example.com/nov05-qr-support.png',async route=>{received();await held;await route.fulfill({status:200,contentType:'image/png',body:Buffer.from(png,'base64')});});
+ await publishPrepared(page,s,[d.id],validateView({template:'qr',data:{content:'Updated plain text payload',title:'With image',image:{url:'https://example.com/nov05-qr-support.png',alt:'Supporting illustration'}}}));
+ try{
+  await requested;await expect.poll(()=>viewer.locator('.qr-code img').last().evaluate((e:HTMLImageElement)=>e.naturalWidth)).toBeGreaterThan(0);
+  const pending=(await sessionDetail(page,s)).displays.find(v=>v.id===d.id)!;expect(pending.appliedRevision).toBeLessThan(pending.revision);
+ }finally{release();}
+ await waitForDisplay(page,s,d.id,v=>v.appliedRevision===v.revision&&v.view?.data.content==='Updated plain text payload');
+ await expect(viewer.locator('.viewer-candidate .qr-logo img')).toBeVisible();
+
  await publishPrepared(page,s,[d.id],validateView({template:'table',showControls:true,data:{columns:['Source'],rows:[{Source:'Preserved'}]}}));
  await expect(viewer.locator('.viewer-candidate .table-surface')).toContainText('Preserved');await expect(viewer.locator('.table-toolbar')).toHaveCount(0);
 });

@@ -14,7 +14,7 @@ const data = (result: any): any => { expect(result.isError, JSON.stringify(resul
 const use = (client: Client | LegacyClient, operationId: string, args: Record<string, unknown> = {}) => client.callTool({ name: 'kanvas_call', arguments: { operationId, arguments: args } });
 
 describe('two-tool authenticated HTTP contract', () => {
-  it.each(['discovery', 'domains', 'twelve', 'legacy'] as McpProfile[])('lists exactly two for profile %s in both protocol eras; discovery never executes or records mutations', async profile => {
+  it.each(['discovery', 'domains', 'twelve', 'legacy'] as McpProfile[])('lists exactly two for profile %s in both protocol eras; discovery records raw telemetry but never executes domain mutations', async profile => {
     const h = await harness({ profile }); fixtureServers.push(h);
     const record = vi.fn(); h.service.recordToolCall = record;
     const token = h.service.issue('owner');
@@ -35,9 +35,14 @@ describe('two-tool authenticated HTTP contract', () => {
         expect(got.entry.id).toBe(searched.results[0].id);
       }
       for (const name of ['kanvas_tool_use','kanvas_tool_search','kanvas_help_search','kanvas_template_index','kanvas_session_state','kanvas_session']) expect((await client.callTool({name,arguments:{sessionId:'alpha',operation:'state'}})).isError).toBe(true);
-      expect(h.service.calls.length).toBe(count); expect(record).not.toHaveBeenCalled();
+      expect(h.service.calls.length).toBe(count);
+      expect(record).toHaveBeenCalledTimes(9);
+      for(const [principal,event] of record.mock.calls){expect(principal).toMatchObject({userId:'owner'});expect(event).toMatchObject({tool:'kanvas_discover',rawOnly:true,status:'completed'});}
+      record.mockClear();
       const invalid = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id: '', unexpected: true } }); expect(invalid.isError).toBe(true);
-      expect(record).not.toHaveBeenCalled();
+      expect(h.service.calls.length).toBe(count);
+      expect(record).toHaveBeenCalledOnce();
+      expect(record).toHaveBeenLastCalledWith(expect.objectContaining({userId:'owner'}),expect.objectContaining({tool:'kanvas_discover',rawOnly:true,status:'failed'}));
       expect((await use(client, 'kanvas.session.state', { sessionId: 'alpha' })).isError).not.toBe(true);
       expect(h.service.calls.at(-1)).toMatchObject({ name: 'kanvas_session_state', userId: 'owner', args: { sessionId: 'alpha' } });
       expect((await client.callTool({ name: 'unknown_method', arguments: {} })).isError).toBe(true);

@@ -106,7 +106,7 @@ class BrowserDiagnostics {
         if (gridIndex >= 0) { retiredGrids.splice(gridIndex, 1); return false; }
       }
       if (this.expectedHttp.some(rule => rule.page === error.page && rule.status === status && error.pathname.startsWith(rule.pathname))) return false;
-      if (this.offlinePages.has(error.page) && error.pathname.startsWith('/api/sessions/') && /net::ERR_(INTERNET_DISCONNECTED|NETWORK_CHANGED|CONNECTION_CLOSED|FAILED)/.test(error.message)) return false;
+      if (this.offlinePages.has(error.page) && (error.pathname.startsWith('/api/sessions/')||error.pathname==='/api/device-privacy/status') && /net::ERR_(INTERNET_DISCONNECTED|NETWORK_CHANGED|CONNECTION_CLOSED|FAILED)/.test(error.message)) return false;
       return true;
     }).map(({ kind, pathname, message }) => ({ kind, pathname, message }));
     expect(unexpected, 'No application exceptions or unexpected browser console errors').toEqual([]);

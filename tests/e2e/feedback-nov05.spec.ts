@@ -2,7 +2,7 @@ import {Client,StreamableHTTPClientTransport} from '@modelcontextprotocol/client
 import {operationRequest} from '../mcp/requests.js';
 import {gameExample,GAME_PRESETS} from '../../src/shared/game';
 import {validateView} from '../../src/shared/view-schemas';
-import {createDisplay,createSession,expect,openViewer,publishPrepared,register,sessionApi,test,waitForDisplay} from './support';
+import {createDisplay,createSession,expect,openViewer,publishPrepared,register,sessionApi,sessionDetail,test,waitForDisplay} from './support';
 
 test('all game presets fit both axes and keep readable labels and card-table positions',async({page},info)=>{
  test.setTimeout(240000);
@@ -14,14 +14,15 @@ test('all game presets fit both axes and keep readable labels and card-table pos
    data.cards.last={face:'up',zone:'column7',order:7,rank:'K',suit:'hearts',emphasis:'none'};
   }
   const update=await publishPrepared(page,s,[d.id],{version:1,template:'game-board',data});
-  await waitForDisplay(page,s,d.id,v=>v.appliedRevision===update.revisions[d.id]);
+  try{await waitForDisplay(page,s,d.id,v=>v.appliedRevision===v.revision&&v.view?.data.preset===preset);}catch(error){const detail=await sessionDetail(page,s);console.log('game qualification failure',preset,JSON.stringify({displays:detail.displays.map(d=>({revision:d.revision,appliedRevision:d.appliedRevision,preset:d.view?.data.preset,delivery:d.delivery})),updates:detail.updates.slice(-2)}));await viewer.screenshot({path:info.outputPath('failed-game.png')});throw error;}
   for(const [width,height] of [[390,844],[844,390],[1440,900],[1920,1054]]){
    await viewer.setViewportSize({width,height});
+   await expect.poll(()=>viewer.locator('.viewer-shell').evaluate(e=>Math.round(e.getBoundingClientRect().height)),{message:'Viewport resize is applied before geometry measurements'}).toBe(height);
    const root=viewer.locator('.viewer-candidate .game-surface');await expect(root).toBeVisible();
    const board=root.locator('.game-board,.game-table');
    await expect.poll(async()=>{const b=await board.boundingBox();return !!b&&b.width>100&&b.height>100&&b.x>=-1&&b.y>=-1&&b.x+b.width<=width+1&&b.y+b.height<=height+1;},{message:`${preset} fits ${width}x${height}`}).toBe(true);
    if(!['poker','blackjack','solitaire','backgammon'].includes(preset))await expect(root.locator('.game-column-labels')).toBeVisible();
-   if(preset==='blackjack'){const dealer=await root.locator('.zone-dealer').boundingBox(),player=await root.locator('.game-zone:not(.zone-dealer)').first().boundingBox();expect(dealer!.y).toBeLessThan(player!.y);}
+   if(preset==='blackjack'){const dealer=await root.locator('.zone-dealer').boundingBox(),player=await root.locator('.game-zone:not(.zone-dealer)').first().boundingBox();expect(dealer!.y).toBeLessThan(player!.y);expect(player!.x).toBeGreaterThanOrEqual(0);expect(player!.x+player!.width).toBeLessThanOrEqual(width);const hand=await root.locator('.game-zone:not(.zone-dealer) .game-hand').first().boundingBox();expect(hand!.width).toBeGreaterThan(50);}
    if(preset==='solitaire'){
     const columns=await root.locator('.zone-tableau').all();expect(columns).toHaveLength(7);
     const rects=await Promise.all(columns.map(c=>c.boundingBox()));expect(Math.max(...rects.map(r=>r!.y))-Math.min(...rects.map(r=>r!.y))).toBeLessThan(2);
@@ -76,8 +77,8 @@ test('checklist follows newly completed progress but respects deliberate scrolli
  const list=viewer.locator('.viewer-candidate .checklist-content ul');
  await expect.poll(()=>list.evaluate(e=>e.scrollHeight>e.clientHeight+100)).toBe(true);
  const patch=async(first:number,last:number)=>{
-  const result=await sessionApi(page,`/api/sessions/${s}/displays/${d.id}/patch`,'POST',{requestId:crypto.randomUUID(),operations:Array.from({length:last-first},(_,n)=>({op:'replace',path:`/data/items/${first+n}/checked`,value:true}))});
-  expect(result.status).toBe(200);
+  const result=await sessionApi(page,`/api/sessions/${s}/displays/${d.id}/patch`,'POST',{requestId:crypto.randomUUID(),operations:Array.from({length:last-first},(_,n)=>({op:'checklist',itemId:'step'+(first+n),action:'update',value:{checked:true}}))});
+  expect(result.status,JSON.stringify(result)).toBe(200);
  };
  await patch(0,20);await expect.poll(()=>list.evaluate(e=>e.scrollTop)).toBeGreaterThan(0);
  await list.evaluate(e=>{e.scrollTop=0;e.dispatchEvent(new WheelEvent('wheel',{deltaY:-100,bubbles:true}));});

@@ -1,10 +1,11 @@
-import {afterEach,beforeEach,describe,it,expect} from 'vitest';
+import {afterEach,beforeEach,describe,it,expect,vi} from 'vitest';
 import {randomUUID} from 'node:crypto';
 import {startHarness,success,fact,type Harness,type Browser} from './harness.js';
 import {validateView} from '../../src/shared/view-schemas.js';
 import {validationIssues} from '../../src/server/input-errors.js';
 import {z} from 'zod';
 import {gameDataSchema} from '../../src/shared/game.js';
+import {createApp} from '../../src/server/app.js';
 import {rawEvent,eventContext} from '../../src/server/raw-events.js';
 
 describe('November 5 privacy, retention and raw event contracts',()=>{
@@ -23,6 +24,14 @@ describe('November 5 privacy, retention and raw event contracts',()=>{
   expect((await h.runtime.store.get<any>('device-privacy',device.id)).locked).toBe(true);
   await h.runtime.service.execute('kanvas_device_unlock',{deviceId:device.id},p);
   expect((await owner.detail(sessionId)).displays[0].view?.data.text).toBe('Sensitive source');
+ });
+ it('closes already-open event streams and keeps device lock through a real runtime restart',async()=>{
+  const device=success(await owner.request<{id:string}>('POST','/api/devices/register',{installationId:randomUUID(),provisionHome:false}));
+  const controller=new AbortController(),response=await owner.raw(`/api/sessions/${sessionId}/events`,{},{signal:controller.signal});expect(response.status).toBe(200);
+  const reader=response.body!.getReader();let closed=false;const finished=(async()=>{try{while(!(await reader.read()).done){}}finally{closed=true;}})();
+  try{await h.runtime.service.privacy.set({userId:owner.user!.id},{deviceId:device.id},true);await vi.waitFor(()=>expect(closed).toBe(true));await finished;}finally{controller.abort();}
+  await h.shutdown();const restarted=await createApp({database:h.database});
+  try{expect(await restarted.service.privacy.locked(device.id)).toBe(true);expect((await restarted.store.list('device-privacy-binding')).length).toBeGreaterThan(0);await restarted.service.privacy.set({userId:owner.user!.id},{deviceId:device.id},false);expect(await restarted.service.privacy.locked(device.id)).toBe(false);}finally{await restarted.close();}
  });
  it('kiosk remains separate from privacy and only the owner may configure it',async()=>{
   const p={userId:owner.user!.id};await owner.submit(sessionId,[displayId],fact('Visible kiosk'));
@@ -44,12 +53,28 @@ describe('November 5 privacy, retention and raw event contracts',()=>{
   await h.runtime.service.history.moved(display,1);display.revision++;display.view=fact('Branch preserved');await h.runtime.service.history.record(display,'test-publication');
   expect((await h.runtime.service.history.frames(display)).filter(e=>e.view).length).toBe(72);
  });
+ it('retains more than the former 6 MiB budget without archiving or truncating exact sources',async()=>{
+  const display=await h.runtime.service.display({userId:owner.user!.id},sessionId,displayId);
+  const source='x'.repeat(100000),view=validateView({template:'code',data:{kind:'diff',before:source,after:source}});
+  for(let i=0;i<35;i++){display.revision++;display.view=view;await h.runtime.service.history.record(display,'publication');}
+  const rows=(await h.runtime.store.list<any>('display-history',sessionId,true)).filter(e=>e.view);
+  expect(rows.length).toBe(35);expect(Buffer.byteLength(JSON.stringify(rows))).toBeGreaterThan(6*1024*1024);
+  expect(rows.every(e=>!e.archivedAt&&e.view.data.before===source&&e.view.data.after===source)).toBe(true);
+  expect((await h.runtime.service.history.list(display)).entries.filter(e=>e.template)).toHaveLength(35);
+ });
  it('rejects the 1001st publication without evicting stored views',async()=>{
   const p={userId:owner.user!.id};await owner.submit(sessionId,[displayId],fact('First'));
   await h.runtime.store.query(`INSERT INTO documents(kind,id,session_id,value) SELECT 'display-history','capacity-'||n,$1::text,json_build_object('id','capacity-'||n,'sessionId',$1::text,'displayId',$2::text,'revision',n,'view',json_build_object('version',1,'template','fact','data',json_build_object('text','retained')),'createdAt','2026-11-05T00:00:00Z','reason','fixture')::text FROM generate_series(1,999) n`,[sessionId,displayId]);
   const display=await h.runtime.service.display(p,sessionId,displayId);display.revision++;display.view=fact('Too many');
   await expect(h.runtime.service.history.record(display,'prepared')).rejects.toMatchObject({code:'LIMIT_REACHED',message:expect.stringContaining('Start a new session')});
   expect((await h.runtime.store.list<any>('display-history',sessionId,true)).filter(e=>e.view)).toHaveLength(1000);
+  // Navigating the current retained publication and clearing the screen remain
+  // possible at capacity; neither removes or frees a retained publication.
+  display.revision++;display.view=fact('Navigation state');await h.runtime.service.history.record(display,'display-sync');
+  display.revision++;display.view=null;await h.runtime.service.history.record(display,'clear');
+  expect(await h.runtime.service.history.retainedCount(sessionId)).toBe(1000);
+  display.revision++;display.view=fact('Still full');await expect(h.runtime.service.history.record(display,'prepared')).rejects.toMatchObject({code:'LIMIT_REACHED'});
+
  });
  it('keeps raw attributed events append-only without writing new hourly aggregates or content',async()=>{
   const marker='PRIVATE_CONTENT_NEVER_IN_EVENTS';await owner.submit(sessionId,[displayId],fact(marker));

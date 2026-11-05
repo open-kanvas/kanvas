@@ -32,7 +32,6 @@ export class PublicImages {
     const host=a.url.startsWith('/api/')?'protected-media':new URL(a.url).hostname;
     const key=hash(`${sessionId}:${displayId}:${a.expectedRevision}:${a.url}`);
     await this.service.store.put('image-diagnostic',{id:key,sessionId,displayId,revision:a.expectedRevision,host,reason:a.reason,at:now()} satisfies ImageDiagnostic);
-    for(const old of (await this.service.store.list<ImageDiagnostic>('image-diagnostic',sessionId)).slice(0,-100))await this.service.store.delete('image-diagnostic',old.id);
     return {recorded:true};
   }
   private result(r:ImageRecord){return {status:'available',imageUrl:`/api/sessions/${r.sessionId}/displays/${r.displayId}/image-fallback/${r.id}`,host:r.host,converted:r.converted,...(r.converted?{note:'Anonymous SVG raster preview. Original source is retained.'}:{})};}
@@ -47,7 +46,7 @@ export class PublicImages {
       (await this.service.store.transaction(async ()=>{const old=(await this.service.store.list<ImageRecord>('public-image')).sort((a,b)=>a.createdAt.localeCompare(b.createdAt));let total=old.reduce((n,x)=>n+x.bytes,0)+bytes.length;for(const entry of old)if(entry.expiresAt<Date.now()||total>64*1024*1024){(await this.service.store.delete('public-image',entry.id));(await this.service.store.db.prepare('DELETE FROM assets WHERE id=?').run(entry.id));total-=entry.bytes;}(await this.service.store.db.prepare('INSERT INTO assets(id,bytes) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET bytes=excluded.bytes').run(key,bytes));(await this.service.store.put('public-image',record));(await this.service.store.delete('image-diagnostic',key));}));return this.result(record);
     }catch(error){const code=error&&typeof error==='object'&&'code' in error?String(error.code):'';if(controller.signal.aborted)reason='TIMEOUT';else if(['ENOTFOUND','EAI_AGAIN'].includes(code))reason='DNS_UNAVAILABLE';else if(error instanceof Error&&error.message==='PRIVATE_ADDRESS_BLOCKED')reason='PRIVATE_ADDRESS_BLOCKED';
       // No query strings, cookies, headers, response bodies or stack traces.
-      (await this.target(p,sessionId,displayId,revision,sourceText));(await this.service.store.put('image-diagnostic',{id:key,sessionId,displayId,revision,host:source.hostname,reason,at:now()} satisfies ImageDiagnostic));for(const old of (await this.service.store.list<ImageDiagnostic>('image-diagnostic',sessionId)).slice(0,-100))(await this.service.store.delete('image-diagnostic',old.id));
+      (await this.target(p,sessionId,displayId,revision,sourceText));(await this.service.store.put('image-diagnostic',{id:key,sessionId,displayId,revision,host:source.hostname,reason,at:now()} satisfies ImageDiagnostic));
       return {status:'unavailable',host:source.hostname,reason,message:`${source.hostname}: ${reason}. The original image is retained; supply a working public image or import supported image bytes.`};
     }finally{clearTimeout(timer);this.active--;}
   }

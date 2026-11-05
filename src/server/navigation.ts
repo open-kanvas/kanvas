@@ -88,13 +88,11 @@ export class Navigation {
     const before=(await this.withReading(p,a.sessionId,(await this.position(a.sessionId,d.id,target,shared))));let state:NavigationState;
     try{state=navigate(d.view,before.state,a.navigation);}catch(error){throw new AppError('NAVIGATION_UNAVAILABLE',error instanceof Error?error.message:'This navigation is unavailable.',409);}
     const all=(await s.store.list<Position>('navigation',a.sessionId)).filter(x=>x.displayId===d.id);
-    // Bound inactive per-browser positions without preventing a new screen from joining.
-    const evict=target&&!all.some(x=>x.target===target)&&all.filter(x=>x.target).length>=128?all.filter(x=>x.target).sort((a,b)=>a.updatedAt.localeCompare(b.updatedAt))[0]:undefined;
     const result:Position={action:a.navigation.action,id:this.key(d.id,target),sessionId:a.sessionId,displayId:d.id,revision:d.revision,version:Math.max(0,...all.map(x=>x.version))+1,state,commandId:id(),target,updatedAt:now()};
     (await s.store.transaction(async ()=>{
       if(a.navigation.action==='reading'&&a.navigation.saveDefaults){const current=(await s.experience.preferences(p)),r=state.reading!,patch:Record<string,number>={};if(a.navigation.fontSize!==undefined)patch.readingFontSize=r.fontSize;if(a.navigation.zoom!==undefined)patch.readingZoom=r.zoom;if(a.navigation.wpm!==undefined||['slower','faster'].includes(a.navigation.command))patch.readingWpm=r.wpm;if(!Object.keys(patch).length)Object.assign(patch,{readingFontSize:r.fontSize,readingWpm:r.wpm,readingZoom:r.zoom});(await s.experience.preferences(p,{expectedRevision:current.revision,config:patch}));}
       if(target&&a.navigation.action==='zoom')await s.store.put('window-zoom',{id:target,scale:state.scale??1,updatedAt:now()});
-      if(evict)(await s.store.delete('navigation',evict.id));(await s.store.put('navigation',result));(await s.store.put('navigation-receipt',{id:key,sessionId:a.sessionId,digest,result,createdAt:now()}));for(const old of (await s.store.list<Receipt>('navigation-receipt',a.sessionId)).slice(0,-1000))(await s.store.delete('navigation-receipt',old.id));}));
+      (await s.store.put('navigation',result));(await s.store.put('navigation-receipt',{id:key,sessionId:a.sessionId,digest,result,createdAt:now()}));}));
     s.emit({type:'display',sessionId:a.sessionId,displayId:d.id,revision:d.revision});
     return {...result,note:'Accepted navigation; read navigation.read for per-viewer application. No source data or history changed.'};
 
@@ -107,8 +105,6 @@ export class Navigation {
     if(snapshot.revision!==a.revision||snapshot.version!==a.version)return {ignored:true};
     const record:Viewport={id:hash(`${displayId}:${snapshot.viewerId}`),sessionId,displayId,viewerId:snapshot.viewerId!,revision:a.revision,version:a.version,width:a.width,height:a.height,maxX:a.maxX,maxY:a.maxY,at:now()};
     await this.service.store.put('navigation-viewport',record);
-    const all=(await this.service.store.list<Viewport>('navigation-viewport',sessionId)).filter(x=>x.displayId===displayId).sort((a,b)=>a.at.localeCompare(b.at));
-    for(const old of all.slice(0,-128))await this.service.store.delete('navigation-viewport',old.id);
     return {ignored:false};
   }
   async acknowledge(p:AuthPrincipal,sessionId:string,displayId:string,raw:unknown){
@@ -117,7 +113,7 @@ export class Navigation {
     const snapshot=(await this.browserRead(p,sessionId,displayId,a.tabId));
     if(snapshot.revision!==a.revision||snapshot.commandId!==a.commandId)return {ignored:true};
     const viewerId=snapshot.viewerId!,record:Ack={id:hash(`${displayId}:${viewerId}`),sessionId,displayId,revision:a.revision,commandId:a.commandId,viewerId,status:a.status,matches:a.matches,scroll:a.scroll,at:now()};
-    (await this.service.store.put('navigation-ack',record));const all=(await this.service.store.list<Ack>('navigation-ack',sessionId)).filter(x=>x.displayId===displayId).sort((a,b)=>a.at.localeCompare(b.at));for(const old of all.slice(0,-128))(await this.service.store.delete('navigation-ack',old.id));return {ignored:false};
+    (await this.service.store.put('navigation-ack',record));return {ignored:false};
 
     });
   }
@@ -130,7 +126,7 @@ export class Navigation {
     if(!view)throw new AppError('EMPTY_VIEW','Publish content before pinning it.');
     const pins=(await s.store.list<Pin>('view-pin',a.sessionId));if(pins.length>=40||pins.reduce((n,x)=>n+JSON.stringify(x.view).length,0)+JSON.stringify(view).length>6*1024*1024)throw new AppError('LIMIT_REACHED','Remove a pin before saving more (40 pins / 6 MB per session).',429);
     const record:Pin={id:id(),sessionId:a.sessionId,displayId:d.id,label:a.label,revision,view:structuredClone(view),createdAt:now()}, {view:_view,...result}=record;
-    (await s.store.transaction(async ()=>{(await s.store.put('view-pin',record));(await s.store.put('pin-receipt',{id:key,sessionId:a.sessionId,digest,result}));for(const old of (await s.store.list<{id:string}>('pin-receipt',a.sessionId)).slice(0,-500))(await s.store.delete('pin-receipt',old.id));}));return result;
+    (await s.store.transaction(async ()=>{(await s.store.put('view-pin',record));(await s.store.put('pin-receipt',{id:key,sessionId:a.sessionId,digest,result}));}));return result;
 
     });
   }

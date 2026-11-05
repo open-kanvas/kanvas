@@ -1025,7 +1025,17 @@ export class KanvasService implements McpService {
     const display = (await this.display(principal, sessionId, displayId)); this.presence.set(displayId, (this.presence.get(displayId) ?? 0) + 1);
     if (!display.online) { display.online = true; (await this.store.put('display', display)); this.emit({ type: 'display', sessionId, displayId, revision: display.revision }); }
     let disconnected = false;
-    return async () => { if (disconnected || this.closed) return; disconnected = true; const n = Math.max(0, (this.presence.get(displayId) ?? 1) - 1); this.presence.set(displayId, n); if (n === 0) { const current = (await this.store.get<StoredDisplay>('display', displayId)); if (current) { current.online = false; (await this.store.put('display', current)); this.emit({ type: 'display', sessionId, displayId, revision: current.revision }); } } };
+    return async () => {
+      // This callback runs after the original connect transaction has ended.
+      // Serialize its read with the write: a stale presence snapshot must never
+      // erase a concurrent lockdown, publication or other display configuration.
+      if (disconnected || this.closed) return;
+      disconnected = true;
+      await this.store.atomic(async()=>{
+        const n=Math.max(0,(this.presence.get(displayId)??1)-1);this.presence.set(displayId,n);
+        if(n===0){const current=await this.store.get<StoredDisplay>('display',displayId);if(current){current.online=false;await this.store.put('display',current);this.emit({type:'display',sessionId,displayId,revision:current.revision});}}
+      });
+    };
 
     });
   }

@@ -33,6 +33,30 @@ describe('November 5 privacy, retention and raw event contracts',()=>{
   await h.shutdown();const restarted=await createApp({database:h.database});
   try{expect(await restarted.service.privacy.locked(device.id)).toBe(true);expect((await restarted.store.list('device-privacy-binding')).length).toBeGreaterThan(0);await restarted.service.privacy.set({userId:owner.user!.id},{deviceId:device.id},false);expect(await restarted.service.privacy.locked(device.id)).toBe(false);}finally{await restarted.close();}
  });
+ it('serializes presence disconnect reads with concurrent owner lockdown writes',async()=>{
+  const p={userId:owner.user!.id},disconnect=await h.runtime.service.connectDisplay(p,sessionId,displayId);
+  let start!:()=>void;const signal=new Promise<void>(resolve=>{start=resolve;});
+  // Create outside the transaction so the callback does not inherit its ALS context.
+  const pending=(async()=>{await signal;await disconnect();})();
+  try{
+   await h.runtime.store.atomic(async()=>{
+    const display=await h.runtime.store.get<any>('display',displayId);display.lockdown=true;await h.runtime.store.put('display',display);
+    const read=vi.spyOn(h.runtime.store,'get');
+    try{start();await new Promise<void>(resolve=>setImmediate(resolve));expect(read.mock.calls.filter(([kind])=>kind==='display')).toHaveLength(0);}
+    finally{read.mockRestore();}
+   });
+  }finally{start();await pending;}
+  expect(await h.runtime.store.get<any>('display',displayId)).toMatchObject({lockdown:true,online:false});
+ });
+ it('retains image diagnostic history beyond its former cap and captures content-free raw failures',async()=>{
+  const url='https://example.com/reference.png';await owner.submit(sessionId,[displayId],validateView({template:'image',data:{images:[{url,alt:'Reference'}]}}));
+  await h.runtime.store.query(`INSERT INTO documents(kind,id,session_id,value) SELECT 'image-diagnostic','diagnostic-'||n,$1::text,json_build_object('id','diagnostic-'||n,'sessionId',$1::text,'displayId',$2::text,'revision',0,'reason','HTTP_404','at','2026-11-05T00:00:00Z')::text FROM generate_series(1,100) n`,[sessionId,displayId]);
+  const display=await h.runtime.service.display({userId:owner.user!.id},sessionId,displayId);
+  success(await owner.request('POST',`/api/sessions/${sessionId}/displays/${displayId}/image-diagnostic`,{expectedRevision:display.revision,url,reason:'HTTP_404'}));
+  expect(await h.runtime.store.list('image-diagnostic',sessionId)).toHaveLength(101);
+  const events=(await h.runtime.store.query("SELECT user_id,properties FROM events WHERE event_type='document.image-diagnostic'")).rows;
+  expect(events).toEqual([expect.objectContaining({user_id:owner.user!.id,properties:expect.objectContaining({reason:'HTTP_404'})})]);expect(JSON.stringify(events)).not.toContain(url);
+ });
  it('kiosk remains separate from privacy and only the owner may configure it',async()=>{
   const p={userId:owner.user!.id};await owner.submit(sessionId,[displayId],fact('Visible kiosk'));
   await h.runtime.service.execute('kanvas_display_lockdown',{sessionId,displayId,locked:true},p);

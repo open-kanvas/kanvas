@@ -21,7 +21,7 @@ export async function progressAppend(service:KanvasService,p:AuthPrincipal,raw:u
   return (await service.store.transaction(async ()=>{
     const result=(await service.patches.patch(p,{sessionId:a.sessionId,displayId:d.id,requestId:a.requestId,expectedRevision:a.expectedRevision,operations:[{op:'set',path:`${prefix}/events`,value:[...data.events,{...a.event,timestamp:a.event.timestamp??now()}]},...(a.status?[{op:'set',path:`${prefix}/status`,value:a.status}]:[])]}));
     (await service.store.put('progress-receipt',{id:key,sessionId:a.sessionId,digest,result}));
-    for(const old of (await service.store.list<{id:string}>('progress-receipt',a.sessionId)).slice(0,-1000))(await service.store.delete('progress-receipt',old.id));
+    
     return result;
   }));
 }
@@ -37,5 +37,5 @@ export async function chatAppend(service:KanvasService,p:AuthPrincipal,raw:unkno
   for(const m of a.messages){if(ids.has(m.id))throw new AppError('MESSAGE_EXISTS','This message ID already exists. Use patch for an explicit correction.',409);ids.add(m.id);}
   if(ids.size>1000)throw new AppError('LIMIT_REACHED','This thread already has the maximum retained messages. Start a new supplied excerpt.',429);
   const prefix=d.view!.template==='presentation'?`/data/slides/${Number(d.view!.data.index??0)}/data`:'/data';
-  return (await service.store.transaction(async ()=>{const result=(await service.patches.patch(p,{sessionId:a.sessionId,displayId:d.id,requestId:a.requestId,expectedRevision:a.expectedRevision,operations:[{op:'set',path:`${prefix}/messages`,value:[...data.messages,...a.messages]}]}));(await service.store.put('chat-receipt',{id:key,sessionId:a.sessionId,digest,result}));for(const old of (await service.store.list<{id:string}>('chat-receipt',a.sessionId)).slice(0,-1000))(await service.store.delete('chat-receipt',old.id));return result;}));
+  return (await service.store.transaction(async ()=>{const result=(await service.patches.patch(p,{sessionId:a.sessionId,displayId:d.id,requestId:a.requestId,expectedRevision:a.expectedRevision,operations:[{op:'set',path:`${prefix}/messages`,value:[...data.messages,...a.messages]}]}));(await service.store.put('chat-receipt',{id:key,sessionId:a.sessionId,digest,result}));return result;}));
 }

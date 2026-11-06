@@ -51,12 +51,12 @@ export class EntryDevices {
   private async online(d:Device){if((await this.windows.hasOnline(d)))return true;const c=this.connected.get(d.id);if(!c?.count||c.principal.browserId!==d.browserId)return false;try{(await this.receiver(c.principal,d.id));return true;}catch{return false;}}
   private async public(d:Device){const command=d.command?{...d.command,status:(await this.windows.commandSuperseded(d.command))?'superseded':d.command.status==='pending'&&d.command.expiresAt<=Date.now()?'expired':d.command.status}:undefined;
     const windows=(await this.windows.listForDevice(d));
-    return {id:d.id,name:d.name,location:d.location,role:d.role,tags:d.tags,defaultSessionId:d.defaultSessionId,version:d.version,context:d.context,windows,connected:(await this.online(d)),lastSeenAt:d.lastSeenAt,...(!windows.some(w=>!w.current||w.current.sessionId!==d.sessionId||w.current.displayId!==d.displayId)&&d.sessionId&&d.displayId?{current:this.target(d.sessionId,d.displayId),renderedRevision:d.renderedRevision}:{}),...(d.homeSessionId&&d.homeDisplayId?{home:this.target(d.homeSessionId,d.homeDisplayId)}:{}),command};}
+    return {locked:await this.service.privacy.locked(d.id),id:d.id,name:d.name,location:d.location,role:d.role,tags:d.tags,defaultSessionId:d.defaultSessionId,version:d.version,context:d.context,windows,connected:(await this.online(d)),lastSeenAt:d.lastSeenAt,...(!windows.some(w=>!w.current||w.current.sessionId!==d.sessionId||w.current.displayId!==d.displayId)&&d.sessionId&&d.displayId?{current:this.target(d.sessionId,d.displayId),renderedRevision:d.renderedRevision}:{}),...(d.homeSessionId&&d.homeDisplayId?{home:this.target(d.homeSessionId,d.homeDisplayId)}:{}),command};}
   async register(p:AuthPrincipal,raw:unknown,userAgent:string){
     return this.service.store.atomic(async () => {
     (await this.account(p,true));if(!p.browserId)throw new AppError('FORBIDDEN','Register from a signed-in browser.',403);
     const a=z.object({installationId:identifier,name:z.string().trim().min(1).max(100).optional(),provisionHome:z.boolean().default(true)}).strict().parse(raw),installation=hash(`${p.userId}:${a.installationId}`),prior=(await this.service.store.list<Device>('registered-device')).find(d=>d.ownerId===p.userId&&d.installation===installation);
-    if(prior){const rebound=prior.browserId!==p.browserId;if(rebound){prior.browserId=p.browserId;prior.command=undefined;prior.version++;}prior.lastSeenAt=now();(await this.service.store.put('registered-device',prior));if(rebound)this.events.emit(prior.id);return (await this.public(prior));}
+    if(prior){const rebound=prior.browserId!==p.browserId;if(rebound){prior.browserId=p.browserId;prior.command=undefined;prior.version++;}prior.lastSeenAt=now();(await this.service.store.put('registered-device',prior));if(rebound)this.service.store.afterCommit(()=>this.events.emit(prior.id));return (await this.public(prior));}
     const owned=(await this.service.store.list<Device>('registered-device')).filter(d=>d.ownerId===p.userId);if(owned.length>=48)throw new AppError('LIMIT_REACHED','This account has reached its 48-device limit.',429);
     return (await this.service.store.transaction(async ()=>{
       const context=browserContext(userAgent),stamp=now();
@@ -95,7 +95,7 @@ export class EntryDevices {
     if(prior){if(prior.digest!==digest)throw new AppError('REQUEST_ID_CONFLICT','This request ID was used for a different device command.',409);return {device:(await this.public(d)),commandId:prior.commandId,superseded:d.command?.id!==prior.commandId};}
     this.service.assertRevision(a.expectedVersion,d.version);if(!(await this.online(d)))throw new AppError('DEVICE_OFFLINE','Open KANVAS on that device before targeting it.',409);
     const command:DeviceCommand={id:id(),sessionId:a.sessionId,displayId:a.displayId,issuedAt:now(),expiresAt:Date.now()+180000,status:'pending'};d.command=command;d.version++;
-    (await this.service.store.transaction(async ()=>{await retargetReceiver(this.service,d,a.sessionId,a.displayId);command.windowIds=(await this.windows.broadcast(p,d.id,command));(await this.service.store.put('registered-device',d));(await this.service.store.put('device-request',{id:requestKey,digest,deviceId:d.id,commandId:command.id}));}));(await this.windows.changed(d.id));this.events.emit(d.id);return {device:(await this.public(d)),commandId:command.id};
+    (await this.service.store.transaction(async ()=>{await retargetReceiver(this.service,d,a.sessionId,a.displayId);command.windowIds=(await this.windows.broadcast(p,d.id,command));(await this.service.store.put('registered-device',d));(await this.service.store.put('device-request',{id:requestKey,digest,deviceId:d.id,commandId:command.id}));}));(await this.windows.changed(d.id));this.service.store.afterCommit(()=>this.events.emit(d.id));return {device:(await this.public(d)),commandId:command.id};
 
     });
   }
@@ -132,8 +132,10 @@ export function mountEntryDevices(app:Express,devices:EntryDevices,browser:(req:
   app.post('/api/devices/register',async (req,res)=>{
     const {windowId,...raw}=z.object({installationId:identifier,name:z.string().optional(),windowId:identifier.optional(),provisionHome:z.boolean().optional()}).strict().parse(req.body),p=(await browser(req));
     const device=(await devices.register(p,raw,req.get('user-agent')??''));
+    await devices.service.privacy.bind(req,res,device.id);
     res.json({data:{...device,...(windowId?{window:(await devices.windows.register(p,device.id,windowId))}:{})}});
   });
+  app.post('/api/devices/:deviceId/unlock',async(req,res)=>res.json({data:await devices.service.privacy.set(await browser(req),{deviceId:String(req.params.deviceId)},false)}));
   app.get('/api/devices',async (req,res)=>res.json({data:(await devices.list((await browser(req))))}));
   app.post('/api/entry/open',async (req,res)=>{const a=z.object({deviceId:identifier}).strict().parse(req.body);res.json({data:(await devices.open((await browser(req)),a.deviceId))});});
   app.post('/api/devices/:deviceId/report',async (req,res)=>{

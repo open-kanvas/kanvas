@@ -51,6 +51,19 @@ function relevantIssues(issues: readonly Issue[], depth = 0): Issue[] {
 const safeTypes = new Set(['record', 'array', 'object', 'string', 'number', 'boolean', 'int', 'null']);
 export function validationIssues(error: z.ZodError, prefix = '', submitted?: unknown, trimStrings = false, schema?: z.ZodType): ValidationIssue[] {
   const names = fieldsFor(schema);
+  // A discriminated union may report its error at the view object rather
+  // than at the discriminator. Inspect only schema-known view locations.
+  const candidates: {value:unknown;path:string}[]=[{value:submitted,path:prefix||'input'}];
+  if(submitted&&typeof submitted==='object'&&'view' in submitted)candidates.push({value:(submitted as {view:unknown}).view,path:[prefix,'view'].filter(Boolean).join('.')});
+  for(let i=0;i<candidates.length&&i<100;i++){const {value,path}=candidates[i];if(value&&typeof value==='object'&&'template' in value&&value.template==='presentation'&&'data' in value&&value.data&&typeof value.data==='object'&&'slides' in value.data&&Array.isArray(value.data.slides))value.data.slides.slice(0,64).forEach((slide,index)=>candidates.push({value:slide,path:`${path}.data.slides[${index}]`}));}
+  const ids=[...leafViewSchema.options.map(option=>option.shape.template.value),'presentation'];
+  for(const {value,path} of candidates)if(value&&typeof value==='object'&&'template' in value&&typeof value.template==='string'&&!ids.includes(value.template as typeof ids[number])){
+    const candidateTemplate=value.template;const words=candidateTemplate.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    const score=(id:string)=>{if(words.includes(id))return 0;const source=candidateTemplate.toLowerCase().slice(0,100),row=Array.from({length:id.length+1},(_,i)=>i);for(let i=1;i<=source.length;i++){let diagonal=row[0];row[0]=i;for(let j=1;j<=id.length;j++){const before=row[j];row[j]=Math.min(row[j]+1,row[j-1]+1,diagonal+(source[i-1]===id[j-1]?0:1));diagonal=before;}}return row[id.length];};
+    const suggestions=ids.map(id=>({id,score:score(id)})).sort((a,b)=>a.score-b.score||a.id.localeCompare(b.id)).slice(0,3).map(x=>x.id);
+    return [{path:path+'.template',problem:'Unknown template name.',hint:`${suggestions.length?`Closest valid template IDs: ${suggestions.join(', ')}. `:''}Use kanvas_discover to search templates and retrieve an exact template ID.`}];
+  }
+
   return relevantIssues(error.issues).flatMap((issue): ValidationIssue[] => {
     let received = submitted;
     for (const part of issue.path) received = received && typeof received === 'object' && Object.hasOwn(received, part) ? (received as Record<PropertyKey, unknown>)[part] : undefined;
@@ -59,6 +72,15 @@ export function validationIssues(error: z.ZodError, prefix = '', submitted?: unk
     const path = [prefix, ...issue.path.map(part => typeof part === 'number' ? `[${part}]` : names.has(String(part)) ? String(part) : '<record-key>')].filter(Boolean).join('.').replaceAll('.[','[') || 'input';
     if(issue.path[0]==='expectedRevisions')return [{path,problem:'Supply a map of display IDs to non-negative integer revisions, or omit this optional concurrency guard to apply to current state.'}];
     if(/^expected(?:Revision|Version|DeckRevision|DraftRevision)$/.test(String(issue.path.at(-1))))return [{path,problem:'Supply a non-negative integer revision/version, or omit this optional concurrency guard to apply to current state.'}];
+    if (issue.path.at(-1)==='template' && typeof received==='string') {
+      const ids=[...leafViewSchema.options.map(option=>option.shape.template.value),'presentation'];
+      if(!ids.includes(received as typeof ids[number])) {
+        // Only catalog IDs enter the reply; never echo arbitrary submitted text.
+        const words=received.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+        const suggestions=ids.filter(id=>words.includes(id)||words.some(word=>word.length>2&&id.includes(word))).slice(0,5);
+        return [{path,problem:'Unknown template name.',hint:`${suggestions.length?`Closest valid template IDs: ${suggestions.join(', ')}. `:''}Use kanvas_discover to search templates and retrieve an exact template ID.`}];
+      }
+    }
     const expected = issue.code === 'invalid_type' && safeTypes.has(issue.expected) ? issue.expected : undefined;
     const unionTypes = issue.code === 'invalid_union' ? [...new Set(issue.errors.flatMap(branch => branch.flatMap(child => child.code === 'invalid_type' && child.path.length === 0 && safeTypes.has(child.expected) ? [child.expected] : [])))] : [];
     // One deliberately named, public alias is safe to explain. All other

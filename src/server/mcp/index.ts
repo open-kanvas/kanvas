@@ -149,6 +149,7 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
 
       if (isDiscoveryTool(request.params.name) && request.params.name !== 'kanvas_call') {
         return profileScope.run('discovery', async () => {
+          const started=Date.now();let status:'completed'|'failed'='completed';
           try {
             if(outer.action==='resolve'){
               const input=parseDiscoveryInput('kanvas_discover',outer);
@@ -157,7 +158,8 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
               return decorate({content:[{type:'text' as const,text:JSON.stringify(result)}],structuredContent:result});
             }
             return decorate(discoveryResult(request.params.name, request.params.arguments, { principal: current().principal, signal: extra.mcpReq.signal, privateTemplates:await service.customTemplateCatalog?.(current().principal) })); }
-          catch (error) { return decorate(toolFailure(error, undefined, 'discovery')); }
+          catch (error) { status='failed';return decorate(toolFailure(error, undefined, 'discovery')); }
+          finally{try{await service.recordToolCall?.(current().principal,{rawOnly:true,id:randomUUID(),tool:'kanvas_discover',operation:'discovery',timestamp:new Date(started).toISOString(),status,durationMs:Date.now()-started,clientContext:{userAgent:current().request.get('user-agent')?.slice(0,500),clientName:server.getClientVersion()?.name?.slice(0,240),clientVersion:server.getClientVersion()?.version?.slice(0,120),contextVerified:false}});}catch{/* Metadata failure never changes discovery. */}}
         });
       }
       const callProfile = 'discovery' as const;
@@ -168,17 +170,17 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
       // A failed read is still read-only. Validation and execution errors must
       // not allocate diagnostic or lifecycle records in either profile.
       const mayRecordFailure = call.canonicalName !== undefined && !READ_ONLY_CANONICAL.has(call.canonicalName);
-      const record=async(status:'completed'|'failed',result?:unknown)=>{
-        if(!call.canonicalName||!call.reference||(status==='failed'&&READ_ONLY_CANONICAL.has(call.canonicalName)))return;
+      const record=async(status:'completed'|'failed',result?:unknown,error?:unknown)=>{
+        if(!call.canonicalName||!call.reference)return;
         const outer=request.params.arguments??{},raw=request.params.name==='kanvas_call'&&outer.arguments&&typeof outer.arguments==='object'?outer.arguments as Record<string,unknown>:outer,out=result as {id?:unknown;sessionId?:unknown;session?:{id?:unknown}}|undefined;
         const sessionId=typeof raw.sessionId==='string'?raw.sessionId:typeof out?.sessionId==='string'?out.sessionId:typeof out?.session?.id==='string'?out.session.id:call.canonicalName==='kanvas_session_create'&&typeof out?.id==='string'?out.id:undefined;
-        try{await service.recordToolCall?.(current().principal,{id:invocationId,tool:call.reference.tool,operation:call.reference.operation,sessionId,timestamp:new Date(started).toISOString(),status,durationMs:Date.now()-started});}catch{/* Instrumentation must never change the tool result. */}
+        try{await service.recordToolCall?.(current().principal,{rawOnly:status==='failed'&&READ_ONLY_CANONICAL.has(call.canonicalName),displayId:typeof raw.displayId==='string'?raw.displayId:undefined,errorCode:error&&typeof error==='object'&&'code' in error&&typeof error.code==='string'&&/^[A-Z_]{1,80}$/.test(error.code)?error.code:undefined,clientContext:{...context?.inferred,contextVerified:false},id:invocationId,tool:call.reference.tool,operation:call.reference.operation,sessionId,timestamp:new Date(started).toISOString(),status,durationMs:Date.now()-started});}catch{/* Instrumentation must never change the tool result. */}
       };
       if (call.error) {
         const raw = request.params.name === 'kanvas_call' ? (request.params.arguments?.arguments as Record<string, unknown> | undefined) ?? {} : request.params.arguments ?? {};
         let diagnosticId: string | undefined;
         try { if (mayRecordFailure) diagnosticId = await inToolContext(context, () => service.recordFailure?.(call.canonicalName!, raw, current().principal, call.error)); } catch { /* Preserve the original error. */ }
-        await record('failed');
+        await record('failed',undefined,call.error);
         let failure:unknown=call.error;try{if(call.canonicalName)failure=await service.argumentError?.(call.canonicalName,raw,current().principal,failure)??failure;}catch(error){failure=error;}
         return decorate(toolFailure(failure, diagnosticId, callProfile, call.canonicalName));
       }
@@ -190,7 +192,7 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
       } catch (error) {
         let diagnosticId: string | undefined;
         try { if (mayRecordFailure) diagnosticId = await inToolContext(context, () => service.recordFailure?.(call.canonicalName, call.args, current().principal, error)); } catch { /* Diagnostic failure must not replace this result. */ }
-        await record('failed');
+        await record('failed',undefined,error);
         return decorate(toolFailure(error, diagnosticId, callProfile, call.canonicalName));
       }
     });

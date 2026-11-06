@@ -5,7 +5,8 @@ import { testDatabase } from './tests/postgres.js';
 // Failure-page snapshots can capture transient sign-in or pairing material.
 process.env.PLAYWRIGHT_NO_COPY_PROMPT = '1';
 
-const baseURL = 'http://127.0.0.1:8799';
+const port=process.env.KANVAS_E2E_PORT??'8799';
+const baseURL = `http://127.0.0.1:${port}`;
 const shellQuote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
 // A test-specific PostgreSQL target is mandatory; production settings are never used.
 process.env.KANVAS_E2E_RUN_ID ??= randomUUID();
@@ -47,7 +48,7 @@ export default defineConfig({
     reuseExistingServer: false,
     env: {
       HOST: '127.0.0.1',
-      PORT: '8799',
+      PORT: port,
       KANVAS_PUBLIC_URL: baseURL,
       // Browser workflows use the same two-tool surface as the deployed default.
       KANVAS_MCP_PROFILE: 'discovery',

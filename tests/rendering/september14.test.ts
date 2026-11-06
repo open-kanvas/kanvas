@@ -100,7 +100,9 @@ describe('September 14 source-preserving integration', () => {
     // Keep this structural check tied to the actual transport budget, not a
     // historical size estimate that predates the progress and log templates.
     expect(Buffer.byteLength(JSON.stringify(compact))).toBeLessThan(MAX_TOOL_RESULT_BYTES);
-  });
+  // Full recursive expansion/equality measured 10.578s with two test workers.
+  // Keep every constraint comparison; this is not an application latency budget.
+  }, 30_000);
   // Expanded full catalog: both real AJV compiles measured 10.887s in isolation; retain all strictness cases.
   it('validates compact presentation unions with a real 2020-12 validator without admitting extra fields or reply actions', () => {
     const original = z.toJSONSchema(templateViewSchema('presentation'), { unrepresentable: 'any', io: 'input', reused: 'ref' });

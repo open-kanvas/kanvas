@@ -1,3 +1,5 @@
+import {eventContext} from './raw-events.js';
+import {eventIngress} from './event-ingress.js';
 import {mountDeviceLogin} from './device-login.js';
 import {deliveryIngress,mountDeliveryTelemetry} from './delivery-telemetry.js';
 import {mountScreenEnrollment} from './screen-enrollment.js';
@@ -114,7 +116,13 @@ export async function createApp(options: AppOptions = {}) {
   try { await service.initialize(); } catch(error) { await service.close(); await store.close(); throw error; }
   service.accounts.serviceAdmins=new Set(options.serviceAdmins??[]);
   const app = express(); app.disable('x-powered-by'); app.set('trust proxy', 'loopback');
-  app.use((req,res,next)=>{const started=performance.now();res.on('finish',async ()=>{if(req.method==='GET'&&String(res.getHeader('content-type')).startsWith('text/event-stream'))return;const category=req.path.startsWith('/mcp')?'agent':req.path.startsWith('/api/auth/')||req.path.startsWith('/oauth/')?'account':req.path.startsWith('/api/')?'api':'page';try{(await service.accounts.recordRequest(category,res.statusCode,performance.now()-started));}catch{/* Metrics must not affect a completed response or shutdown. */}});next();});
+  app.use(eventIngress);
+  app.use((req,res,next)=>{const started=performance.now();res.on('finish',async ()=>{const category=req.path.startsWith('/mcp')?'agent':req.path.startsWith('/api/auth/')||req.path.startsWith('/oauth/')?'account':req.path.startsWith('/api/')?'api':'page';try{
+      // Public/static/status endpoints need no login to serve, but a valid
+      // browser credential can still attribute their completed raw request.
+      // Do not reinterpret failed agent bearer calls as browser authentication.
+      if(!eventContext.getStore()?.userId&&!req.path.startsWith('/mcp'))try{await auth.browser(req);}catch{/* Anonymous, expired and invalid cookies stay unattributed. */}
+      (await service.accounts.recordRequest(category,res.statusCode,performance.now()-started,typeof req.route?.path==='string'?req.method+' '+req.route.path:req.method+' unmatched'));}catch{/* Metrics must not affect a completed response or shutdown. */}});next();});
   app.use(deliveryIngress);
   const limiter = new Limiter();
   const streams = new Set<() => void | Promise<void>>();
@@ -176,6 +184,7 @@ export async function createApp(options: AppOptions = {}) {
     } catch (error) { next(error); }
   });
   app.use(cookieParser());
+  service.privacy.mount(app);
   app.use(['/api/diagnostics','/api/push'],express.json({limit:'16kb',strict:true}));
   app.use(express.json({ limit: '15mb', strict: true }));
   app.use(express.urlencoded({ extended: false, limit: '16kb', parameterLimit: 24 }));
@@ -267,6 +276,7 @@ export async function createApp(options: AppOptions = {}) {
   app.post('/api/sessions/:id/displays/:displayId/video-control', operation('kanvas_video_control', displayArgs));
   app.get('/api/sessions/:id/displays/:displayId/video-status', operation('kanvas_video_status', req => ({ ...displayArgs(req), ...(req.query.commandId ? { commandId: req.query.commandId } : {}) })));
   app.post('/api/sessions/:id/displays/:displayId/video-commands/:commandId/result', async (req, res) => send(res, (await service.videoAcknowledge((await browser(req)), String(req.params.id), String(req.params.displayId), String(req.params.commandId), bodyObject(req)))));
+  app.post('/api/sessions/:id/pointing',async (req,res)=>send(res,await service.pointing.configure(await browser(req),{...bodyObject(req),sessionId:String(req.params.id)})));
   app.get('/api/sessions/:id/displays/:displayId/pointing',async (req,res)=>send(res,(await service.pointing.read((await browser(req)),{sessionId:String(req.params.id),displayId:String(req.params.displayId)}))));
   app.put('/api/sessions/:id/displays/:displayId/pointing',async (req,res)=>send(res,(await service.pointing.write((await browser(req)),String(req.params.id),String(req.params.displayId),bodyObject(req)))));
   app.post('/api/sessions/:id/displays/:displayId/respond' , async (req, res) => send(res, (await service.respond((await browser(req)), String(req.params.id), String(req.params.displayId), bodyObject(req))), 201));

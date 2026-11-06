@@ -1,3 +1,4 @@
+import {NOV05_MAPPING} from './nov05-mapping';
 import {NOVEMBER_MAPPING} from './november-mapping.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthPrincipal, Token } from '../../src/server/auth.js';
@@ -68,7 +69,7 @@ async function invoke(w: ParityWorld, profile: McpProfile, canonical: CanonicalF
 
 describe.sequential('twelve-tool semantic parity against real committed stores', () => {
   it('accounts independently for all original parity fixtures and separately exercised new real-client operations', () => {
-    const fixtures = [...PARITY_MAPPING,...AFTERNOON_MAPPING,...WORK_MAPPING,...DEVICE_MAPPING,...ACCOUNT_MAPPING,...CURRENT_MAPPING,...NOVEMBER_MAPPING].map(([canonical, tool, operation]) => ({ canonical, tool, operation }));
+    const fixtures = [...PARITY_MAPPING,...AFTERNOON_MAPPING,...WORK_MAPPING,...DEVICE_MAPPING,...ACCOUNT_MAPPING,...CURRENT_MAPPING,...NOVEMBER_MAPPING,...NOV05_MAPPING].map(([canonical, tool, operation]) => ({ canonical, tool, operation }));
     expect(fixtures).toHaveLength(OPERATION_ENTRIES.length);
     expect(new Set(fixtures.map(entry => entry.canonical)).size).toBe(OPERATION_ENTRIES.length);
     expect(new Set(fixtures.map(entry => entry.tool)).size).toBe(12);
@@ -154,7 +155,7 @@ async function expectOnlyReceiptAudit(w: ParityWorld, before: Awaited<ReturnType
   for (const [index, row] of added.entries()) {
     expect(row.id).toMatch(/^00000000-0000-4000-8000-[0-9a-f]{12}$/);
     expect(row).toEqual({
-      rowid: Number(before.documents.at(-1)?.rowid ?? 0) + index + 1,
+      created_at:'DB_TIMESTAMP',rowid: Number(before.documents.at(-1)?.rowid ?? 0) + index + 1,
       id: row.id, kind: index % 2 === 0 ? 'lifecycle' : 'audit-event', session_id: w.sessionId,
       value: index % 2 === 0
         ? { id: row.id, sessionId: w.sessionId, requestId, stage: 'submission.received', at: new Date(w.time).toISOString() }

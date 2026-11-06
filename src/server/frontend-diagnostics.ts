@@ -1,3 +1,4 @@
+import {rawEvent,eventProperties} from './raw-events.js';
 import type {Express,Request} from 'express';
 import {diagnosticBatchSchema,diagnosticReadSchema} from '../shared/frontend-diagnostics.js';
 import type {AuthPrincipal} from './auth.js';
@@ -6,13 +7,12 @@ import {AppError,id,now} from './store.js';
 import {KANVAS_VERSION} from '../shared/version.js';
 import type {Definition} from './mcp/canonical.js';
 const RETENTION=14*86400000;
-export const diagnosticTools:Definition[]=[{name:'kanvas_diagnostics_read',schema:diagnosticReadSchema,readOnly:true,description:'Read your bounded browser metadata timeline by supportRef (14-day detail). accountId requires service admin. No raw content/logs. Render acknowledgement is not proof a human saw it.'}];
+export const diagnosticTools:Definition[]=[{name:'kanvas_diagnostics_read',schema:diagnosticReadSchema,readOnly:true,description:'Read your bounded browser metadata timeline by supportRef (retained indefinitely). accountId requires service admin. No raw content/logs. Render acknowledgement is not proof a human saw it.'}];
 export class FrontendDiagnostics{
  private limits=new Map<string,{until:number;count:number}>();
- private timer:ReturnType<typeof setInterval>;
- constructor(private service:KanvasService){this.timer=setInterval(()=>void this.prune().catch(()=>{}),3600000);this.timer.unref();void this.prune().catch(()=>{});}
- close(){clearInterval(this.timer);}
- async prune(){await this.service.store.atomic(async()=>{for(const r of await this.service.store.list<{id:string;at:string}>('frontend-diagnostic',undefined,true))if(Date.parse(r.at)<Date.now()-RETENTION)await this.service.store.delete('frontend-diagnostic',r.id);});}
+ constructor(private service:KanvasService){}
+ close(){}
+ async prune(){/* Event history is retained indefinitely. */}
  async receive(p:AuthPrincipal,raw:unknown){
   await this.service.accounts.account(p);const a=diagnosticBatchSchema.parse(raw),t=Date.now();
   for(const [k,v] of this.limits)if(v.until<t)this.limits.delete(k);
@@ -29,16 +29,15 @@ export class FrontendDiagnostics{
     if(e.sessionId){try{if(e.displayId)await this.service.display(p,e.sessionId,e.displayId);else await this.service.access(p,e.sessionId);}catch{continue;}}
     events.push(e);
    }
-   const rows=(await this.service.store.list<{id:string;accountId:string;at:string}>('frontend-diagnostic',undefined,true)).filter(x=>x.accountId===p.userId).sort((a,b)=>a.at.localeCompare(b.at));
-   for(const row of rows.slice(0,Math.max(0,rows.length+1-100)))await this.service.store.delete('frontend-diagnostic',row.id);
    if(events.length)await this.service.store.put('frontend-diagnostic',{id:id(),accountId:p.userId,supportRef:a.supportRef,windowId:a.windowId,release:KANVAS_VERSION,clientRelease:a.clientRelease,at:now(),events});
+   for(const e of events)await rawEvent(this.service.store,'browser.event',{userId:p.userId,sessionId:e.sessionId,displayId:e.displayId,client:{clientRelease:a.clientRelease},properties:eventProperties(e)});
    return {accepted:events.length,supportRef:a.supportRef};
   });
  }
  async read(p:AuthPrincipal,raw:unknown){
   await this.service.accounts.account(p);const a=diagnosticReadSchema.parse(raw),accountId=a.accountId??p.userId;
   if(accountId!==p.userId&&!await this.service.accounts.isServiceAdmin(p))throw new AppError('FORBIDDEN','Cross-account diagnostics require service administrator access.',403);
-  const rows=(await this.service.store.list<{id:string;accountId:string;supportRef:string;at:string}>('frontend-diagnostic',undefined,true)).filter(r=>r.accountId===accountId&&r.supportRef===a.supportRef&&Date.parse(r.at)>=Date.now()-RETENTION).sort((a,b)=>a.at.localeCompare(b.at)).slice(-100);
+  const rows=(await this.service.store.list<{id:string;accountId:string;supportRef:string;at:string}>('frontend-diagnostic',undefined,true)).filter(r=>r.accountId===accountId&&r.supportRef===a.supportRef).sort((a,b)=>a.at.localeCompare(b.at)).slice(-100);
   return {supportRef:a.supportRef,timeline:rows,note:'Browser reports are untrusted observations; applied does not prove a human saw content.'};
  }
 }

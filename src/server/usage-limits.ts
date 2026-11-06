@@ -1,3 +1,4 @@
+export const SESSION_VIEW_LIMIT = 1000;
 import type { Store } from './store.js';
 import type { SessionRecord } from '../shared/types.js';
 export type AccountTier = 'trial' | 'free' | 'admin';
@@ -10,7 +11,7 @@ export async function accountTier(store: Store, userId: string): Promise<Account
 }
 export async function accountUsageLimits(store: Store, userId: string) {
  const tier = await accountTier(store, userId);
- return tier === 'trial' ? {...usageLimits(), tier} : {sessions: Infinity, views: Infinity, tier};
+ return tier === 'trial' ? {...usageLimits(), tier} : {sessions: Infinity, views: SESSION_VIEW_LIMIT, tier};
 }
 export async function sessionUsageLimits(store: Store, sessionId: string) {
  const session = await store.get<SessionRecord>('session', sessionId, true);
@@ -19,5 +20,5 @@ export async function sessionUsageLimits(store: Store, sessionId: string) {
 /** Deployment-admin trial guardrails. Safety/storage budgets still apply to all tiers. */
 export function usageLimits(){
  const read=(name:string,fallback:number)=>{const raw=process.env[name];if(raw===undefined||raw==='')return fallback;const n=Number(raw);if(!Number.isSafeInteger(n)||n<1||n>100000)throw new Error(`${name} must be a positive integer up to 100000.`);return n;};
- return {sessions:read('KANVAS_MAX_SESSIONS_PER_ACCOUNT',10),views:read('KANVAS_MAX_VIEWS_PER_SESSION',50)};
+ return {sessions:read('KANVAS_MAX_SESSIONS_PER_ACCOUNT',10),views:SESSION_VIEW_LIMIT};
 }

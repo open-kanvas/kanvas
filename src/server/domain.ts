@@ -1,3 +1,5 @@
+import {attribute,eventContext} from './raw-events.js';
+import {DevicePrivacy} from './device-privacy.js';
 import {SuggestedGuidance} from './suggested-guidance.js';
 import {resolveIntent} from './mcp/intent-resolve.js';
 import {moleculeLibrary} from '../shared/molecules.js';
@@ -138,6 +140,7 @@ export class KanvasService implements McpService {
   readonly toolLog:ToolLog;
   readonly accounts:Accounts;
   readonly topology:Topology;
+  readonly privacy:DevicePrivacy;
   readonly devices:EntryDevices;
   readonly inventory:AccountInventory;
   readonly browserAuth:BrowserAuth;
@@ -181,7 +184,7 @@ export class KanvasService implements McpService {
     this.inviteEmail=new InviteEmail(this);
     this.clientCapture = new ClientCapture(this);
     this.archive=new Archive(this); this.history = new DisplayHistory(store); this.video = new VideoControls(store); this.engagement = new Engagement(store); this.visualCapture = new VisualCapture(store, auth, publicUrl);
-    this.devices=new EntryDevices(this);
+    this.devices=new EntryDevices(this);this.privacy=new DevicePrivacy(this);
     this.inventory=new AccountInventory(this);
     this.patches = new ViewPatches({
       transaction: async operation => (await store.transaction(operation)),
@@ -310,7 +313,8 @@ export class KanvasService implements McpService {
     const supplied={...old?.selfReported,...selfReported};const conflicts:string[]=[];
     if(supplied.agent&&inferred.clientName&&supplied.agent.toLowerCase()!==inferred.clientName.toLowerCase())conflicts.push('Self-reported agent differs from MCP client name; neither is verified.');
     const value:AgentConnection={id:key,sessionId,userId:principal.userId,started:old?.started??started,joinedAt:old?.joinedAt??now(),updatedAt:now(),selfReported:supplied,inferred,conflicts,verified:false};
-    await this.store.put('agent-connection',value);const records=(await this.store.list<AgentConnection>('agent-connection',sessionId)).filter(x=>x.userId===principal.userId).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));for(const stale of records.slice(64))await this.store.delete('agent-connection',stale.id);return value;
+    const event=eventContext.getStore();if(event)event.client={...event.client,selfReported:Object.fromEntries(Object.entries(supplied).filter(([key])=>['agent','model','harness','effort_or_mode','interaction_mode','device'].includes(key))),contextVerified:false};
+    await this.store.put('agent-connection',value);return value;
   }
   async agentConnections(principal:AuthPrincipal,sessionId:string){
     if(principal.scopedSessionId||principal.pairingId)return [];
@@ -497,6 +501,13 @@ export class KanvasService implements McpService {
 
     });
   }
+  async lockdownDisplay(principal:AuthPrincipal,raw:unknown){
+    const a=z.object({sessionId:z.string(),displayId:z.string(),expectedRevision:revisionSchema.optional(),locked:z.boolean()}).strict().parse(raw);
+    return this.store.atomic(async()=>{await this.fullAccount(principal,'publish');const display=await this.display(principal,a.sessionId,a.displayId,'owner');
+      this.assertRevision(a.expectedRevision,display.revision);display.lockdown=a.locked;await this.store.put('display',display);this.store.afterCommit(()=>this.emit({type:'display',sessionId:a.sessionId,displayId:a.displayId,revision:display.revision}));
+      return {displayId:a.displayId,locked:a.locked,note:'App-only kiosk restriction; content remains visible and owner tools remain available. Use OS/browser kiosk mode to restrict the address bar, tabs and operating system.'};
+    });
+  }
   async renameDisplay(principal:AuthPrincipal,sessionId:string,displayId:string,expectedRevision:number|undefined,name:string){
     return this.store.atomic(async () => {
     (await this.fullAccount(principal,'publish'));
@@ -603,7 +614,7 @@ export class KanvasService implements McpService {
     });
   }
   /** Called inside the patch/timer host transaction; original input is the durable identity. */
-  private async publishMutation(principal: AuthPrincipal, input: { sessionId: string; displayId: string; requestId: string }, before: ViewPatchDisplay, view: ViewSpec, kind: 'patch' | 'timer-control' | 'presentation-control' | 'pin-recall' | 'checklist-show' | DocumentKind): Promise<Awaited<UpdateRecord>> {
+  private async publishMutation(principal: AuthPrincipal, input: { sessionId: string; displayId: string; requestId: string }, before: ViewPatchDisplay, view: ViewSpec, kind: 'patch' | 'timer-control' | 'presentation-control' | 'pin-recall' | 'checklist-show' | DocumentKind, navigationOnly = false): Promise<Awaited<UpdateRecord>> {
     return this.store.atomic(async () => {
     const display = (await this.display(principal, input.sessionId, input.displayId, 'editor'));
     this.assertRevision(before.revision, display.revision);
@@ -618,7 +629,7 @@ export class KanvasService implements McpService {
     display.targetAgentId = principal.agentId ?? display.targetAgentId;
     display.delivery = { revision: display.revision, status: 'pending', updatedAt: display.updatedAt };
     const update: UpdateRecord = { id: id(), sessionId: input.sessionId, requestId: input.requestId, displayIds: [display.id], revisions: { [display.id]: display.revision }, status: 'prepared', createdAt: now(), completedAt: now(), metrics: {  path: 'direct' } };
-    (await this.store.put('display', display)); (await this.history.record(display, kind)); (await this.store.put('update', update));
+    (await this.store.put('display', display)); (await this.history.record(display, navigationOnly ? 'presentation.navigate' : kind)); (await this.store.put('update', update));
     (await this.saveRequest(principal, input.sessionId, input.requestId, kind, input, update.id));await recordDeliveryRequest(this,update,{...input,view},kind);
     return update;
 
@@ -672,7 +683,7 @@ export class KanvasService implements McpService {
       if (index === current) {
         result = { id: id(), sessionId: input.sessionId, requestId: input.requestId, displayIds: [display.id], revisions: { [display.id]: display.revision }, status: 'retained', createdAt: now(), completedAt: now(), metrics: {  path: 'direct' } };
         (await this.store.put('update', result)); (await this.saveRequest(principal, input.sessionId, input.requestId, 'presentation-control', input, result.id));
-      } else result = (await this.publishMutation(principal, input, display, view, 'presentation-control'));
+      } else result = (await this.publishMutation(principal, input, display, view, 'presentation-control', true));
     }));
     this.emit({ type: 'display', sessionId: input.sessionId, displayId: display.id, revision: result.revisions[display.id] });
     return result;
@@ -697,9 +708,9 @@ export class KanvasService implements McpService {
     const existing = (await this.retry<UpdateRecord>(principal, input.sessionId, input.requestId, kind, input)); if (existing) return existing;
     const displays = (await asyncMap(input.displayIds, async displayId => (await this.display(principal, input.sessionId, displayId, 'editor'))));
     const viewLimit=(await sessionUsageLimits(this.store,input.sessionId)).views;
-    const retained=(await this.store.list<{view:unknown}>('display-history',input.sessionId,true)).filter(entry=>entry.view).length;
+    const retained=await this.history.retainedCount(input.sessionId);
     const pending=(await this.store.list<UpdateRecord>('update',input.sessionId)).filter(u=>['accepted','rendering'].includes(u.status)).reduce((n,u)=>n+u.displayIds.length,0);
-    if(retained+pending+displays.length>viewLimit)throw new AppError('LIMIT_REACHED',`Trial session view limit (${viewLimit}) reached. Existing views remain available. Contact the administrator about upgrading. Archived views still count.`,429);
+    if(retained+pending+displays.length>viewLimit)throw new AppError('LIMIT_REACHED',`Fixed session view limit (${viewLimit}) reached. Existing views remain available. Start a new session to continue. Archived views still count.`,429);
 
     if (input.datasetId && !(await this.store.list<DatasetRecord>('dataset', input.sessionId)).some(d => d.id === input.datasetId)) throw new AppError('NOT_FOUND', 'The supplied dataset is unavailable.', 404);
     for (const assetId of input.assetIds ?? []) (await this.asset(principal, assetId, input.sessionId));
@@ -1014,7 +1025,17 @@ export class KanvasService implements McpService {
     const display = (await this.display(principal, sessionId, displayId)); this.presence.set(displayId, (this.presence.get(displayId) ?? 0) + 1);
     if (!display.online) { display.online = true; (await this.store.put('display', display)); this.emit({ type: 'display', sessionId, displayId, revision: display.revision }); }
     let disconnected = false;
-    return async () => { if (disconnected || this.closed) return; disconnected = true; const n = Math.max(0, (this.presence.get(displayId) ?? 1) - 1); this.presence.set(displayId, n); if (n === 0) { const current = (await this.store.get<StoredDisplay>('display', displayId)); if (current) { current.online = false; (await this.store.put('display', current)); this.emit({ type: 'display', sessionId, displayId, revision: current.revision }); } } };
+    return async () => {
+      // This callback runs after the original connect transaction has ended.
+      // Serialize its read with the write: a stale presence snapshot must never
+      // erase a concurrent lockdown, publication or other display configuration.
+      if (disconnected || this.closed) return;
+      disconnected = true;
+      await this.store.atomic(async()=>{
+        const n=Math.max(0,(this.presence.get(displayId)??1)-1);this.presence.set(displayId,n);
+        if(n===0){const current=await this.store.get<StoredDisplay>('display',displayId);if(current){current.online=false;await this.store.put('display',current);this.emit({type:'display',sessionId,displayId,revision:current.revision});}}
+      });
+    };
 
     });
   }
@@ -1166,6 +1187,8 @@ export class KanvasService implements McpService {
     return error;
   }
   async execute(name: string, raw: unknown, principal: AuthPrincipal): Promise<unknown> {
+    attribute(principal);const event=eventContext.getStore();if(event){event.client={...event.client,...currentToolContext()?.inferred};for(const key of ['sessionId','displayId'] as const)if(raw&&typeof raw==='object'&&key in raw&&typeof (raw as Record<string,unknown>)[key]==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test((raw as Record<string,string>)[key]))event[key]=(raw as Record<string,string>)[key];}
+    if(event?.sessionId){const context=currentToolContext(),connection=context?.connectionId??principal.agentId??principal.tokenId??'direct';const known=await this.store.get<AgentConnection>('agent-connection',hash(`${principal.userId}:${event.sessionId}:${connection}`));if(known)event.client={...event.client,selfReported:Object.fromEntries(Object.entries(known.selfReported).filter(([key])=>['agent','model','harness','effort_or_mode','interaction_mode','device'].includes(key))),contextVerified:false};}
     const definition = MCP_TOOLS.find(tool => tool.name === name); if (!definition) throw new AppError('UNKNOWN_TOOL', 'This operation is unavailable.', 404);
     // Each operation shares the published runtime schema; all casts follow this validation.
     const parsed = definition.schema.safeParse(raw);
@@ -1239,6 +1262,9 @@ export class KanvasService implements McpService {
       case 'kanvas_window_present': return (await this.devices.windows.present(principal,a));
       case 'kanvas_connection_redirect': return (await this.devices.windows.redirect(principal,a));
       case 'kanvas_account_inventory': return (await this.inventory.read(principal,a));
+      case 'kanvas_display_lockdown':return this.lockdownDisplay(principal,a);
+      case 'kanvas_device_lock':return this.privacy.set(principal,a,true);
+      case 'kanvas_device_unlock':return this.privacy.set(principal,a,false);
       case 'kanvas_device_rename': return (await this.devices.rename(principal,a));
       case 'kanvas_participants_read': return (await this.devices.participants(principal,a.sessionId));
       case 'kanvas_help': {if(a.sessionId)(await this.access(principal,a.sessionId));if(a.displayId)(await this.display(principal,a.sessionId,a.displayId));return {...helpFor(a.topic,this.publicUrl,a.question),...(a.sessionId?{context:{sessionId:a.sessionId,displayId:a.displayId,config:(await this.access(principal,a.sessionId)).config}}:{})};}

@@ -1,3 +1,4 @@
+import {DevicePrivacyBoundary} from './DevicePrivacy';
 import {parseKioskRoute} from '../shared/satisfaction';
 import {SatisfactionKiosk,KioskUnavailable} from './SatisfactionKiosk';
 import {ReauthenticationPrompt} from './BrowserSessions';
@@ -27,7 +28,7 @@ function Router({ emailToken }: { emailToken?: string }) {
   const viewer = parseViewerRoute(window.location.pathname), authorize = new URLSearchParams(window.location.search).get('authorize');
   if (auth.loading) return <main className="app-loading"><Wordmark /><span className="spinner" /><span>Opening your space…</span></main>;
   const kiosk=parseKioskRoute(window.location.pathname);
-  if(kiosk)return auth.user&&auth.viewOnly&&auth.interactive&&!auth.captureOnly&&auth.sessionId===kiosk.sessionId&&auth.displayId===kiosk.displayId?<SatisfactionKiosk {...kiosk}/>:<KioskUnavailable/>;
+  if(kiosk)return auth.user&&!auth.captureOnly&&(!auth.viewOnly||auth.sessionId===kiosk.sessionId&&auth.displayId===kiosk.displayId)?<SatisfactionKiosk {...kiosk}/>:<KioskUnavailable/>;
   if (!auth.user && auth.error) return <main className="app-loading"><Wordmark /><h1>Couldn’t open your workspace.</h1><p role="alert">{auth.error}</p><button className="button button-primary" onClick={() => void auth.refresh().catch(() => {})}>Try connecting again</button></main>;
   // OAuth intent takes precedence over all display/home entry routes. A paired
   // screen represents its owner for viewing only, never account consent.
@@ -69,4 +70,4 @@ function AccountBoundary({emailToken}:{emailToken?:string}) {
 export default function App() {
   const [emailToken,setEmailToken]=useState(initialEmailToken);
   useEffect(()=>{const changed=()=>{const token=takeEmailFragment();if(token)setEmailToken(token);};window.addEventListener('hashchange',changed);return()=>window.removeEventListener('hashchange',changed);},[]);
-  return <AuthProvider>{!parseKioskRoute(window.location.pathname)&&<ReauthenticationPrompt/>}<Suspense fallback={<main className="app-loading"><Wordmark /><span className="spinner" /></main>}><AccountBoundary emailToken={emailToken}/></Suspense></AuthProvider>; }
+  return <DevicePrivacyBoundary><AuthProvider>{!parseKioskRoute(window.location.pathname)&&<ReauthenticationPrompt/>}<Suspense fallback={<main className="app-loading"><Wordmark /><span className="spinner" /></main>}><AccountBoundary emailToken={emailToken}/></Suspense></AuthProvider></DevicePrivacyBoundary>; }

@@ -110,6 +110,7 @@ describe('PostgreSQL storage and SQLite migration', () => {
   it('restores a private PostgreSQL archive into a new database and preserves identity sequences',async () => {
     const options=database(),s=await store(options);await s.put('report',{id:'one',sessionId:'s',text:'restore me'});
     await s.query('INSERT INTO assets(id,bytes) VALUES($1,$2)',['blob',Buffer.from([0,1,255])]);
+    await s.query("INSERT INTO events(event_id,event_type,user_id,properties) VALUES('backup-event','test.backup','fixture','{\"exact\":\"9007199254740993\"}')");
     const path=join(await directory(),'backup.dump');await backupPostgres(options,path);
     expect((await stat(path)).mode&0o077).toBe(0);await expect(backupPostgres(options,path)).rejects.toThrow('already exists');
     const name=`restore_${randomUUID().replaceAll('-','')}`,admin=new pg.Client(options);await admin.connect();await admin.query(`CREATE DATABASE ${name}`);
@@ -119,6 +120,8 @@ describe('PostgreSQL storage and SQLite migration', () => {
       await runPostgresTool('pg_restore',['--exit-on-error','--no-owner','--no-privileges','--dbname',name,path],env);
       check=new Store(restored);await check.ready;expect(await check.get('report','one')).toEqual({id:'one',sessionId:'s',text:'restore me'});
       expect((await check.query('SELECT bytes FROM assets WHERE id=$1',['blob'])).rows[0].bytes).toEqual(Buffer.from([0,1,255]));
+      expect((await check.query("SELECT properties FROM events WHERE event_id='backup-event'")).rows[0].properties).toEqual({exact:'9007199254740993'});
+      await expect(check.query('DELETE FROM events')).rejects.toThrow('append-only');
       await check.put('report',{id:'two',sessionId:'s'});expect((await check.list<{id:string}>('report')).map(x=>x.id)).toEqual(['one','two']);
     } finally {await check?.close();await admin.query(`DROP DATABASE ${name}`);await admin.end();}
   });

@@ -216,7 +216,7 @@ const definitions: readonly Definition[] = [{name:'kanvas_satisfaction_read',des
   },
   {
     name: 'kanvas_display_history',
-    description: 'List up to 60 actual retained display views (6 MiB total), with original revision IDs and back/forward position. Returns metadata, not source prompts. New publication after navigating back discards the forward branch. Use kanvas_display_navigate to restore a retained view without resubmitting source content.',
+    description: 'List all retained display views with revision IDs and back/forward position. Returns metadata, not source prompts. No per-display eviction; publishing after back preserves forward history. Fixed1000-view session cap refuses new publications; start a new session. Navigation consumes no slot. Use kanvas_display_navigate to restore without resubmitting source.',
     schema: z.strictObject({ sessionId: id, displayId: id }), readOnly: true,
   },
   {

@@ -131,7 +131,9 @@ describe('twelve-tool strict published and runtime contract', () => {
     // allowance and allocate at most960bytes for each of six independently
     // inventoried, real-SDK-tested new operations:162432bytes absolute cap.
     expect(NOVEMBER_MAPPING).toHaveLength(6);
-    expect(bytes('twelve')).toBeLessThan(153 * 1024 + 6 * 960);
+    // Nov05 adds exactly three owner controls (device lock/unlock, display lockdown).
+    // Preserve the same per-operation allowance, not a relaxed blanket budget.
+    expect(bytes('twelve')).toBeLessThan(153 * 1024 + (6 + 3) * 960);
     // Returned schemas/examples are detached; callers cannot poison later catalogs.
     const changed = listToolDefinitions('twelve');
     (changed[0].inputSchema.examples as unknown[]).push({ poison: true });

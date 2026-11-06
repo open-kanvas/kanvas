@@ -28,9 +28,9 @@ describe('platform feedback safeguards',()=>{
    display=await h.runtime.service.display(p,s.id,d.id);expect(display.view?.data.text).toBe('B');expect(display.revision).not.toBe(b.revision);
    await h.runtime.service.archive.manage(p,{resource:'view',sessionId:s.id,targetId:b.id});
    expect((await h.runtime.service.display(p,s.id,d.id)).view).toBeNull();
-   expect(await h.runtime.store.get('display-history',c.id,true)).toMatchObject({view:{data:{text:'C'}},archivedAt:expect.any(String)});
-   expect((await h.runtime.service.archive.list(p,{})).items.map(x=>x.targetId)).toEqual(expect.arrayContaining([b.id,c.id]));
-   await h.runtime.service.archive.manage(p,{action:'restore',resource:'view',sessionId:s.id,targetId:c.id});
+   expect(await h.runtime.store.get('display-history',c.id,true)).toMatchObject({view:{data:{text:'C'}}});expect((await h.runtime.store.get<any>('display-history',c.id,true)).archivedAt).toBeUndefined();
+   expect((await h.runtime.service.archive.list(p,{})).items.map(x=>x.targetId)).toEqual(expect.arrayContaining([b.id]));
+   await h.runtime.service.archive.manage(p,{action:'restore',resource:'view',sessionId:s.id,targetId:b.id});
    expect((await h.runtime.service.history.list(await h.runtime.service.display(p,s.id,d.id))).entries.some(e=>e.id===c.id)).toBe(true);
  });
  it.each(['display','session'] as const)('archives a current retained view beneath an archived %s',async(parent)=>{
@@ -43,21 +43,21 @@ describe('platform feedback safeguards',()=>{
    expect((await h.runtime.service.display(p,s.id,d.id)).view).toBeNull();
    expect(await h.runtime.store.get('display-history',frame.id,true)).toMatchObject({view:{data:{text:'Retained content'}},archivedAt:expect.any(String)});
  });
- it('keeps live-history overflow recoverable rather than permanently pruning source',async()=>{
+ it('retains all history without automatic archiving beyond the former 60-frame cap',async()=>{
    h=await startHarness();const owner=await h.account(),p=await principal(owner),s=await owner.session(),d=await owner.display(s.id);
    process.env.KANVAS_MAX_VIEWS_PER_SESSION='100';
    const display=await h.runtime.service.display(p,s.id,d.id);await h.runtime.service.history.ensure(display);
    for(let i=1;i<=62;i++){display.revision=i;display.view=fact(`Retained ${i}`);await h.runtime.service.history.record(display,'test');}
    const retained=await h.runtime.store.list<{view:unknown;archivedAt?:string}>('display-history',s.id,true);
    expect(retained.filter(e=>e.view)).toHaveLength(62);
-   expect(retained.some(e=>e.view&&e.archivedAt)).toBe(true);
-   expect((await h.runtime.service.history.list(display)).entries).toHaveLength(60);
+   expect(retained.some(e=>e.view&&e.archivedAt)).toBe(false);
+   expect((await h.runtime.service.history.list(display)).entries).toHaveLength(63);
  });
  it('requires an unexpired target-bound one-use visual code for permanent deletion',async()=>{h=await startHarness();const owner=await h.account(),p=await principal(owner),s=await owner.session(),d=await owner.display(s.id);const input={resource:'display',sessionId:s.id,targetId:d.id,confirmationDisplayId:d.id} as const;const challenge:any=await h.runtime.service.archive.manage(p,{...input,action:'request-delete'});expect(challenge.words).toBeUndefined();const row:any=await h.runtime.store.get('delete-challenge',challenge.challengeId);const toast:any=await h.runtime.store.get('toast',row.toastId);expect(toast.text).toContain('cannot be undone');expect(toast.ownerId).toBe(p.userId);const words=toast.confirmationWords;
  const wrong:any=await h.runtime.service.archive.manage(p,{...input,action:'confirm-delete',challengeId:challenge.challengeId,words:'wrong words'});expect(wrong.deleted).toBe(false);row.expiresAt=Date.now()-1;await h.runtime.store.put('delete-challenge',row);await expect(h.runtime.service.archive.manage(p,{...input,action:'confirm-delete',challengeId:challenge.challengeId,words})).rejects.toMatchObject({code:'CONFIRMATION_EXPIRED'});
  const fresh:any=await h.runtime.service.archive.manage(p,{...input,action:'request-delete'});const r:any=await h.runtime.store.get('delete-challenge',fresh.challengeId),t:any=await h.runtime.store.get('toast',r.toastId);const code=t.confirmationWords;expect(await h.runtime.service.archive.manage(p,{...input,action:'confirm-delete',challengeId:fresh.challengeId,words:code})).toMatchObject({deleted:true,recoverable:false});expect(await h.runtime.store.get('display',d.id,true)).toBeUndefined();await expect(h.runtime.service.archive.manage(p,{...input,action:'confirm-delete',challengeId:fresh.challengeId,words:code})).rejects.toBeDefined();
  });
- it('enforces configurable creation limits without removing existing content',async()=>{h=await startHarness();const owner=await h.account(),p=await principal(owner),s=await owner.session(),d=await owner.display(s.id);process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT='1';await expect(h.runtime.service.createSession(p,'Blocked')).rejects.toMatchObject({code:'LIMIT_REACHED'});expect((await h.runtime.service.sessions(p)).some(x=>x.id===s.id)).toBe(true);process.env.KANVAS_MAX_VIEWS_PER_SESSION='1';await owner.submit(s.id,[d.id],fact('First'));await expect(h.runtime.service.submit(p,{sessionId:s.id,displayIds:[d.id],requestId:randomUUID(),view:fact('Second')})).rejects.toMatchObject({code:'LIMIT_REACHED'});expect((await h.runtime.service.display(p,s.id,d.id)).view?.data.text).toBe('First');
+ it('enforces configurable session creation limits but ignores retired view-limit overrides',async()=>{h=await startHarness();const owner=await h.account(),p=await principal(owner),s=await owner.session(),d=await owner.display(s.id);process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT='1';await expect(h.runtime.service.createSession(p,'Blocked')).rejects.toMatchObject({code:'LIMIT_REACHED'});expect((await h.runtime.service.sessions(p)).some(x=>x.id===s.id)).toBe(true);process.env.KANVAS_MAX_VIEWS_PER_SESSION='1';await owner.submit(s.id,[d.id],fact('First'));await owner.submit(s.id,[d.id],fact('Second'));expect((await h.runtime.service.display(p,s.id,d.id)).view?.data.text).toBe('Second');
  });
  it('writes settings to explicit account/team scopes with revisions and admin authorization',async()=>{h=await startHarness();const owner=await h.account(),other=await h.account(),p=await principal(owner),q=await principal(other),s=await owner.session(),os=await other.session();const team:any=await h.runtime.service.accounts.create(p,{kind:'team',name:'Synthetic team',requestId:randomUUID()});await h.runtime.service.experience.scopedSettings(p,{sessionId:s.id,scope:'team',groupId:team.id,expectedRevision:team.revision,config:{timeFormat:'24h',unitSystem:'metric'}});await expect(h.runtime.service.experience.scopedSettings(q,{sessionId:os.id,scope:'team',groupId:team.id,expectedRevision:1,config:{timeFormat:'12h'}})).rejects.toMatchObject({code:'NOT_FOUND'});await h.runtime.service.accounts.setContext(p,{sessionId:s.id,teamId:team.id,expectedRevision:0});expect((await h.runtime.service.access(p,s.id)).config.timeFormat).toBe('24h');const prefs=await h.runtime.service.experience.defaults(p.userId);await h.runtime.service.experience.scopedSettings(p,{sessionId:s.id,scope:'account',expectedRevision:prefs.revision,config:{timeFormat:'12h'}});expect((await h.runtime.service.access(p,s.id)).config.timeFormat).toBe('12h');await h.runtime.service.updateConfig(p,s.id,0,{timeFormat:'24h'});expect((await h.runtime.service.access(p,s.id)).config.timeFormat).toBe('24h');
  });

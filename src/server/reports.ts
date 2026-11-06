@@ -83,7 +83,6 @@ export class SessionReports {
       if (updateId && (await this.store.get<UpdateRecord>('update', updateId))?.sessionId === sessionId) record.updateId = updateId;
       (await this.store.transaction(async () => {
         (await this.store.put('diagnostic', record));
-        (await this.store.db.prepare("DELETE FROM documents WHERE kind='diagnostic' AND session_id=? AND id IN (SELECT id FROM documents WHERE kind='diagnostic' AND session_id=? ORDER BY rowid DESC OFFSET 500)").run(sessionId, sessionId));
       }));
       return record.id;
     } catch { return; } // Diagnostics never replace the original failure or grant access.
@@ -184,7 +183,7 @@ export class SessionReports {
       if (input.title !== undefined) record.title = clean(input.title);
       if (input.description !== undefined) record.description = clean(input.description);
       record.revision++; record.updatedAt = now();
-      record.history = [...record.history, {status: record.status, note: clean(input.note), actorId: principal.userId, createdAt: record.updatedAt}].slice(-16);
+      record.history = [...record.history, {status: record.status, note: clean(input.note), actorId: principal.userId, createdAt: record.updatedAt}];
       while (record.history.length > 1 && Buffer.byteLength(JSON.stringify(record)) > REPORT_RECORD_BYTES) record.history.shift();
       if (Buffer.byteLength(JSON.stringify(record)) > REPORT_RECORD_BYTES) throw new AppError('LIMIT_EXCEEDED', 'The report exceeds its UTF-8 storage budget. Shorten the update.');
       await this.store.put('report', record);
@@ -203,7 +202,7 @@ export class SessionReports {
     const note = redactReportText(input.note);
     record.redacted ||= note !== input.note;
     record.status = input.status; record.revision++; record.updatedAt = now();
-    record.history = [...record.history, { status: input.status, note, actorId: principal.userId, createdAt: record.updatedAt }].slice(-16);
+    record.history = [...record.history, { status: input.status, note, actorId: principal.userId, createdAt: record.updatedAt }];
     // Keep the full report bounded, including its review history and UTF-8 text.
     while (record.history.length > 1 && Buffer.byteLength(JSON.stringify(record)) > REPORT_RECORD_BYTES) record.history.shift();
     const bytes = Buffer.byteLength(JSON.stringify(record));

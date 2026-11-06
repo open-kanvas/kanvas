@@ -86,14 +86,14 @@ describe('October 13 feedback security and durable state',()=>{
   h.runtime.service.accounts.serviceAdmins.add(stranger.user!.id);
   expect((success(await stranger.request<any>('GET','/api/diagnostics?supportRef='+supportRef+'&accountId='+owner.user!.id))).timeline).toHaveLength(1);
  });
- it('bounds diagnostic size/rate and prunes retained detail',async()=>{
+ it('bounds diagnostic ingestion size/rate while retaining accepted historical detail indefinitely',async()=>{
   const body={supportRef:randomUUID(),windowId:randomUUID(),events:Array.from({length:20},()=>({event:'startup'}))};
   expect(diagnosticBatchSchema.safeParse({...body,events:[...body.events,...body.events]}).success).toBe(false);
   for(let i=0;i<6;i++)success(await owner.request('POST','/api/diagnostics',body));
   const limited=success(await owner.request<any>('POST','/api/diagnostics',body));expect(limited).toMatchObject({accepted:0,rateLimited:true,supportRef:body.supportRef});expect(limited.retryAfterMs).toBeGreaterThan(0);expect(limited.retryAfterMs).toBeLessThanOrEqual(60000);
   const timeline=success(await owner.request<any>('GET','/api/diagnostics?supportRef='+body.supportRef)).timeline;expect(timeline.reduce((n:number,b:{events:unknown[]})=>n+b.events.length,0)).toBe(120);
   await h.runtime.store.put('frontend-diagnostic',{id:'expired',accountId:p.userId,at:new Date(Date.now()-15*86400000).toISOString()});
-  await h.runtime.service.diagnostics.prune();expect(await h.runtime.store.get('frontend-diagnostic','expired')).toBeUndefined();
+  await h.runtime.service.diagnostics.prune();expect(await h.runtime.store.get('frontend-diagnostic','expired')).toMatchObject({id:'expired',accountId:p.userId});
   expect(diagnosticRoute('/view/id/display?token=secret#body')).toBe('view');
  });
  it('rejects private/unknown push destinations, credentials, ports and fragments',()=>{

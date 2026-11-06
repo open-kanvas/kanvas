@@ -1,0 +1,1 @@
+Material Symbols artwork: Google and contributors. Licensed under Apache License 2.0. Files are unmodified. Exact sources/revisions/hashes are in manifest.json. Include LICENSE-APACHE-2.0.txt, this notice and manifest when redistributing these artwork files. Kanvas composition/layouts are separate. No ISO/safety certification.

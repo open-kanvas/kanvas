@@ -12,6 +12,6 @@ export const pointingReadSchema=z.object({sessionId:id,displayId:id.optional()})
 export const pointingWriteSchema=z.object({revision:index,anchor:pointingAnchorSchema.nullable()}).strict();
 export type PointingAnchor=z.infer<typeof pointingAnchorSchema>;
 export interface SharedPointer {id:string;name:string;revision:number;anchor:PointingAnchor;createdAt:string;expiresAt:number;color:string}
-export interface PointingState {enabled:boolean;revision:number;canPoint:boolean;canPointScope?:'calling-principal';eligibilityReason?:'disabled'|'agent-read-only'|'capture-only'|'view-only'|'eligible';pointers:SharedPointer[]}
+export interface PointingState {canConfigure?:boolean;enabled:boolean;revision:number;canPoint:boolean;canPointScope?:'calling-principal';eligibilityReason?:'disabled'|'agent-read-only'|'capture-only'|'view-only'|'eligible';pointers:SharedPointer[]}
 /** Stable semantic text fingerprint, not a credential or security primitive. */
 export function pointingTextKey(text:string){let h=2166136261;for(let i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,16777619);}return(h>>>0).toString(16).padStart(8,'0');}

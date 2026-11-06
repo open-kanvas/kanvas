@@ -29,7 +29,7 @@ async function setup(page:Page,baseURL:string,mode:'success'|'denied'|'unsupport
   else await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',baseURL),options));
   const call=async(operation:string,args:Record<string,unknown>={})=>{
     const result=await client.callTool(operationRequest({name:'kanvas_capture',arguments:{operation,sessionId,displayId:display.id,...args}}));
-    expect(result.isError).not.toBe(true);return (result.structuredContent as any).data;
+    expect(result.isError, JSON.stringify(result.structuredContent ?? result.content)).not.toBe(true);return (result.structuredContent as any).data;
   };
   await expect.poll(async()=>{const result=await sessionApi<any[]>(page,`/api/sessions/${sessionId}/viewers`);return result.data?.filter(v=>v.connected&&v.displayId===display.id).length;}).toBe(1);
   return {viewer,client,call,sessionId,display};

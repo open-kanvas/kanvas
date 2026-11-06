@@ -2,7 +2,7 @@ import {afterEach,describe,it,expect,vi} from 'vitest';
 import {randomUUID} from 'node:crypto';
 import type {Response} from 'express';
 import {startHarness,fact,type Harness,type Browser} from './harness.js';
-import {accountTier} from '../../src/server/usage-limits.js';
+import {accountTier,accountUsageLimits} from '../../src/server/usage-limits.js';
 import {VisualCaptureResult} from '../../src/server/visual-capture.js';
 import {resolveToolCall} from '../../src/server/mcp/catalog.js';
 let h:Harness;
@@ -20,7 +20,7 @@ describe('October platform feedback',()=>{
    expect(resolveToolCall('domains',tool,{operation,...args}).error).toBeUndefined();
   }
  });
- it('default/unknown tiers retain limits; free/admin bypass quotas but not administrator authority',async()=>{
+ it('tiers retain session entitlements and share the fixed view cap without gaining administrator authority',async()=>{
   h=await startHarness();const a=await h.account(),p=await principal(a);
   process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT=String((await h.runtime.service.sessions(p)).length+1);process.env.KANVAS_MAX_VIEWS_PER_SESSION='1';
   expect(await accountTier(h.runtime.store,p.userId)).toBe('trial');
@@ -32,7 +32,8 @@ describe('October platform feedback',()=>{
   for(let i=0;i<3;i++)await a.submit(s.id,[d.id],fact(`View ${i}`));
   expect((await h.runtime.service.history.list(await h.runtime.service.display(p,s.id,d.id))).entries.filter(x=>x.template)).toHaveLength(3);
   await h.runtime.store.put('account-tier',{id:p.userId,tier:'trial'});
-  await expect(h.runtime.service.submit(p,{sessionId:s.id,displayIds:[d.id],requestId:randomUUID(),view:fact('Excess')})).rejects.toMatchObject({code:'LIMIT_REACHED'});
+  expect((await accountUsageLimits(h.runtime.store,p.userId)).views).toBe(1000);await a.submit(s.id,[d.id],fact('Within fixed cap'));
+  for(const tier of ['free','admin']){await h.runtime.store.put('account-tier',{id:p.userId,tier});expect((await accountUsageLimits(h.runtime.store,p.userId)).views).toBe(1000);}
  });
  it('author patches by report ID across conversation context with revision and access checks',async()=>{
   h=await startHarness();const owner=await h.account(),other=await h.account(),p=await principal(owner),q=await principal(other),s=await owner.session();

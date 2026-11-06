@@ -31,7 +31,6 @@ export class Topology {
     (await this.service.store.put('connection-history',{id:key,sessionId:input.sessionId,connection}));
     if(fresh||!old?.connected||old.displayId!==input.displayId)(await this.service.accounts.audit('viewer.joined',{actorId:guest?undefined:p.userId,subjectId:connection.personId,sessionId:input.sessionId,displayId:input.displayId,details:{guest,device:connection.deviceType,browser:connection.browser,...(connection.location?{country:connection.location.country}:{})}}));
     const records=(await this.service.store.list<{id:string;connection:TopologyConnection}>('connection-history',input.sessionId)).sort((a,b)=>b.connection.lastSeenAt.localeCompare(a.connection.lastSeenAt));
-    for(const stale of records.filter((r,i)=>i>=512||Date.parse(r.connection.lastSeenAt)<Date.now()-30*86400000))(await this.service.store.delete('connection-history',stale.id));
 
     });
   }

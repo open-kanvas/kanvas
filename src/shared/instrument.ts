@@ -8,7 +8,7 @@ export const instrumentElementSchema=z.object({
 }).strict();
 export const elementId=z.string().regex(/^(key:[0-9]{1,3}|string:[a-zA-Z0-9_.-]{1,40}:(fret:[0-9]{1,2}|mute))$/);
 const keyboard=z.object({family:z.literal('keyboard'),firstMidi:midi,lastMidi:midi}).strict();
-const fretted=z.object({family:z.literal('fretted'),strings:z.array(z.object({id:z.string().regex(/^[a-zA-Z0-9_.-]{1,40}$/),label:z.string().min(1).max(30),openPitch:pitch}).strict()).min(1).max(12),firstFret:z.number().int().min(0).max(23).default(0),fretCount:z.number().int().min(1).max(24).default(5),capo:z.number().int().min(0).max(12).default(0)}).strict();
+const fretted=z.object({family:z.literal('fretted'),handedness:z.enum(['right','left']).default('right').describe('Left mirrors the fret direction horizontally, preserving string order and physical fret IDs.'),strings:z.array(z.object({id:z.string().regex(/^[a-zA-Z0-9_.-]{1,40}$/),label:z.string().min(1).max(30),openPitch:pitch}).strict()).min(1).max(12).describe('Top-to-bottom as supplied. Conventional horizontal guitar order is high to low: E4, B3, G3, D3, A2, E2. Handedness does not reverse strings.'),firstFret:z.number().int().min(0).max(23).default(0),fretCount:z.number().int().min(1).max(24).default(5),capo:z.number().int().min(0).max(12).default(0)}).strict();
 export const instrumentConfigSchema=z.discriminatedUnion('family',[keyboard,fretted]);
 export const instrumentElementsSchema=z.record(elementId,instrumentElementSchema);
 export const instrumentFrameSchema=z.object({id:sequenceId,durationMs:z.number().int().min(250).max(120000),elements:instrumentElementsSchema}).strict();

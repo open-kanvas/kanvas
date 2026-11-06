@@ -130,8 +130,8 @@ describe('profile images, scoped history and protected service analytics',()=>{
     service.accounts.serviceAdmins.add(a.user!.id);const admin=success(await a.request<any>('GET','/api/analytics?scope=service'));
     expect(admin.service.accounts).toBe(2);expect(admin.service.sessions).toBeGreaterThanOrEqual(2);expect(admin.traffic.requests).toBeGreaterThan(0);
     expect(JSON.stringify(admin)).not.toContain(b.user!.username);
-    const metrics=(await h.runtime.store.db.prepare('SELECT * FROM request_metrics').all());expect(metrics.length).toBeGreaterThan(0);
-    expect(Object.keys(metrics[0]).sort()).toEqual(['category','duration_ms','hour','requests','rowid','status']);
+    const metrics=(await h.runtime.store.db.prepare('SELECT * FROM request_metrics').all());expect(metrics).toEqual([]);
+    const events=(await h.runtime.store.query("SELECT * FROM events WHERE event_type='http.request'")).rows;expect(events.length).toBeGreaterThan(0);expect(events.some(e=>e.user_id===a.user!.id)).toBe(true);expect(events.every(e=>e.occurred_at instanceof Date)).toBe(true);
     expect((await h.runtime.store.list('request-metric'))).toEqual([]);
     const restricted=(await h.runtime.auth.issueToken(a.user!.id,'Scoped admin is not service admin',['read'],[s.id])),limited=(await h.runtime.auth.authorize({get:()=> 'Bearer '+restricted.value} as unknown as Request));
     (await expect((async ()=>(await service.accounts.analytics(limited,{scope:'service'})))()).rejects.toThrow(/account-wide/));

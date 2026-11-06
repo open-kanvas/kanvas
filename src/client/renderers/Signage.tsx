@@ -1,3 +1,4 @@
+import {SIGN_ART} from '../../shared/sign-art';
 import {useEffect,useState} from 'react';
 import {SignageDetails} from './SignageDetails';
 import {signageDataSchema,signCatalog,signLabel,type SignageData} from '../../shared/signage';
@@ -20,8 +21,8 @@ export function SignageRenderer({view,serverNow}:{view:ViewSpec;serverNow?:strin
 function SignCard({item,data,now}:{now:number;item:SignageData['items'][number];data:SignageData}){
  const rich=!!(item.directory||item.destinations||item.map||item.wifi);
  const def=signCatalog.find(s=>s.id===item.type)!,region=item.region??data.region,label=item.label??signLabel(item.type,region);
- return <article className={'signage-card sign-'+def.style+(rich?' sign-rich':'')} data-sign-id={item.id} data-sign-type={item.type} data-region={region} aria-label={label}><div className="signage-visual"><svg className="sign-pictogram" viewBox="0 0 120 120" role="img" aria-label={label}>
+ return <article className={'signage-card sign-'+def.style+(rich?' sign-rich':'')} data-sign-id={item.id} data-sign-type={item.type} data-region={region} aria-label={label}><div className="signage-visual">{SIGN_ART[item.type]?<div className="sign-reviewed-composition"><img className="sign-reviewed-art" src={SIGN_ART[item.type]} alt={label}/>{def.style==='prohibit'&&<svg className="sign-reviewed-prohibition" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="55"/><path d="M22 22L98 98"/></svg>}</div>:<svg className="sign-pictogram" viewBox="0 0 120 120" role="img" aria-label={label}>
  {def.style==='warning'&&<path className="sign-shape" d="M60 4L117 109H3Z"/>}{def.style==='prohibit'&&<circle className="sign-shape" cx="60" cy="60" r="55"/>}{def.style==='mandatory'&&<circle className="sign-shape" cx="60" cy="60" r="57"/>}
  <g transform={def.style==='warning'?'translate(33 42) scale(.54)':def.style==='prohibit'?'translate(25 25) scale(.7)':'translate(10 10)'}><SignGlyph name={def.glyph}/></g>
- {def.style==='prohibit'&&<path className="prohibition-slash" d="M22 22L98 98"/>}</svg>{item.direction&&<SignArrow direction={item.direction}/>}</div><SignageDetails item={item} showText={data.text!=='none'} now={now}/>{data.text!=='none'&&<><h2>{label}</h2>{item.caption&&<p>{item.caption}</p>}</>}</article>;
+ {def.style==='prohibit'&&<path className="prohibition-slash" d="M22 22L98 98"/>}</svg>}{item.direction&&<SignArrow direction={item.direction}/>}</div><SignageDetails item={item} showText={data.text!=='none'} now={now}/>{data.text!=='none'&&<><h2>{label}</h2>{item.caption&&<p>{item.caption}</p>}</>}</article>;
 }

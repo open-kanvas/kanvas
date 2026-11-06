@@ -316,7 +316,7 @@ test('member viewer responses, no editing authority, live revocation and logout 
   } finally { await guestContext.close(); }
 });
 
-test('disconnected viewer retains its last view, reconnects to the newest state and keeps the explicit theme', async ({ page, browser, baseURL, diagnostics }, testInfo) => {
+test('disconnected viewer hides cached content, reconnects to the newest state and keeps the explicit theme', async ({ page, browser, baseURL, diagnostics }, testInfo) => {
   const account = await register(page);
   const sessionId = await createSession(page, 'Connection continuity');
   const display = await createDisplay(page, sessionId, 'Resilient surface');
@@ -331,7 +331,9 @@ test('disconnected viewer retains its last view, reconnects to the newest state 
     const initial = await waitForDisplay(page, sessionId, display.id, item => item.appliedRevision === item.revision);
     diagnostics.allowOffline(viewer);
     await viewerContext.setOffline(true);
-    await expect(viewer.getByRole('status')).toContainText('Offline', { timeout: 2_000 });
+    await expect(viewer.locator('.device-privacy-screen')).toHaveAttribute('data-privacy-state','offline');
+    await expect(viewer.getByRole('status')).toHaveText('Reconnecting securely…');
+    await expect(viewer.locator('.fact-text,.render-surface')).toHaveCount(0);
     await publishPrepared(page, sessionId, [display.id], fact('The current view arrives after reconnect.'));
     // A delayed acknowledgement must not mark the newer, unseen revision applied.
     const staleAck = await sessionApi(page, `/api/sessions/${sessionId}/displays/${display.id}/applied`, 'POST', { revision: initial.revision });
@@ -339,7 +341,7 @@ test('disconnected viewer retains its last view, reconnects to the newest state 
     const offline = (await sessionDetail(page, sessionId)).displays.find(item => item.id === display.id)!;
     expect(offline.revision).toBeGreaterThan(initial.revision);
     expect(offline.appliedRevision).toBe(initial.revision);
-    await expect(viewer.locator('.fact-text')).toHaveText('The last received view stays useful.');
+    await expect(viewer.locator('.fact-text,.render-surface')).toHaveCount(0);
     await viewerContext.setOffline(false);
     await expect(viewer.locator('.viewer-candidate .fact-text')).toHaveText('The current view arrives after reconnect.');
     await expect(viewer.locator('.viewer-candidate .fact-text')).toBeVisible();

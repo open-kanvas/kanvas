@@ -28,7 +28,7 @@ describe('October4 persistent account and session feedback',()=>{
   await h.runtime.store.put('verified-email',{id:p.userId,email:'owner@example.test',verifiedAt:new Date().toISOString()});
   await h.runtime.store.put('account-tier',{id:p.userId,tier:'admin'});
   const result:any=await h.runtime.service.execute('kanvas_account_details',{},p);
-  expect(result).toMatchObject({id:p.userId,email:'owner@example.test',emailVerified:true,tier:'admin',quotaExempt:true,limits:{sessions:null,retainedViewsPerSession:null}});
+  expect(result).toMatchObject({id:p.userId,email:'owner@example.test',emailVerified:true,tier:'admin',quotaExempt:true,limits:{sessions:null,retainedViewsPerSession:1000}});
   expect(await h.runtime.service.accounts.isServiceAdmin(p)).toBe(false);
   expect(await h.runtime.service.verifyView(p,(await a.session()).id,result.publishRecipe.view)).toMatchObject({template:'table'});
   const grant=await h.runtime.auth.issueToken(p.userId,'Selected',['read'],['some-session']);

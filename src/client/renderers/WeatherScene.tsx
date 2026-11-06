@@ -22,6 +22,7 @@ function WeatherFallback({condition,period,sunPosition,intensity=.55,still=false
    const coverage=d.condition==='clear'?.09:d.condition==='partly-cloudy'?.65:1;
    for(let layer=0;layer<3;layer++){const tw=width*(1.2+layer*.3),th=height*(.48+layer*.13),offset=(phase*(.010+layer*.006))%tw;ctx.globalAlpha=coverage*(night?.22:.44)*(layer===2?.7:1);for(let tile=-1;tile<2;tile++)ctx.drawImage(texture,tile*tw-offset,-height*.11+layer*height*.12,tw,th);}
    ctx.globalAlpha=1;
+   if(d.condition==='storm'){ctx.fillStyle=`rgba(8,14,20,${.38+.10*d.intensity})`;ctx.fillRect(0,0,width,height);}
    // Subtle atmospheric landscape supplies depth without claiming a real location.
    for(let layer=0;layer<4;layer++){const horizon=.73+layer*.055;ctx.fillStyle=night?['#26394a','#20303e','#172b34','#12252b'][layer]:wet?['#7f969d','#647f87','#4a6b72','#36565e'][layer]:['#8aa4ac','#6d9199','#537d86','#3a6671'][layer];ctx.beginPath();ctx.moveTo(0,height);for(let i=0;i<=40;i++){const x=i/40*width,y=height*(horizon+Math.sin(i*.19+layer*1.7)*.035+Math.sin(i*.47+layer)*.012);ctx.lineTo(x,y);}ctx.lineTo(width,height);ctx.fill();}
    if(d.condition==='fog'){for(let i=0;i<5;i++){const gy=height*(.3+i*.13),fog=ctx.createLinearGradient(0,gy-height*.1,0,gy+height*.12);fog.addColorStop(0,'#d9e3e800');fog.addColorStop(.5,night?'#bbcbd340':'#e3ebed99');fog.addColorStop(1,'#d9e3e800');ctx.fillStyle=fog;ctx.fillRect(0,gy-height*.1,width,height*.22);}}

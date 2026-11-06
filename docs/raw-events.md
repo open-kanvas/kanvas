@@ -36,3 +36,7 @@ For people-only analyses join users and exclude is_internal. A template history 
 ## Release and recovery
 
 Migration2 runs transactionally. Older 0.34 binaries refuse the newer schema: an artifact-only rollback is insufficient. Take and verify a pre-migration PostgreSQL archive, preserve the previous artifact and restore that matching snapshot if rolling back. Do not drop new columns/events in place or silently discard new activity. Normal backup/restore preserves the append-only trigger and exact event rows.
+
+## Traffic query precision and scale
+
+Service traffic totals are filtered and aggregated inside PostgreSQL; only bounded category totals reach the application, not the full retained request history. New raw events use exact inclusive timestamp bounds on the event-type/time index. Legacy hourly aggregates retain hour precision: a partial starting hour includes that legacy hour, never fabricated per-request timestamps. Queries do not modify or delete either source. Polling remains included in the raw history.

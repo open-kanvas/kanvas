@@ -16,7 +16,6 @@ const rank:Record<Role,number>={viewer:0,editor:1,owner:2};
 const appearanceKeys=['theme','style','accent'] as const;
 const appearance=(value:Partial<SessionConfig>):Appearance=>Object.fromEntries(appearanceKeys.filter(k=>value[k]!==undefined).map(k=>[k,value[k]]));
 const identifier=z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
-interface RequestMetric {at:string;category:string;status:number;requests:number;durationMs:number}
 
 /** Account/group policy is evaluated at use time: inherited access is never
  * copied into the individual member table, and OAuth restrictions still apply. */
@@ -41,9 +40,27 @@ export class Accounts {
     await rawEvent(this.store,'http.request',{operation,status:String(status),durationMs:Math.max(0,durationMs),properties:{category}});
   }
   private async traffic(since?:string,until?:string){
-    const rows=((await this.store.db.prepare(`SELECT hour AS at,category,status,requests,duration_ms AS "durationMs" FROM request_metrics UNION ALL SELECT to_char(occurred_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') AS at, properties->>'category' AS category, (status::integer/100) AS status,1 AS requests,round(duration_ms)::bigint AS "durationMs" FROM events WHERE event_type='http.request' ORDER BY at`).all()) as unknown as RequestMetric[]).filter(r=>(!since||r.at>=since.slice(0,13)+':00:00.000Z')&&(!until||r.at<=until));
-    const requests=rows.reduce((n,r)=>n+r.requests,0),duration=rows.reduce((n,r)=>n+r.durationMs,0);
-    return {requests,averageDurationMs:requests?Math.round(duration/requests):null,errors:rows.filter(r=>r.status>=4).reduce((n,r)=>n+r.requests,0),byCategory:['agent','account','api','page'].map(category=>({category,requests:rows.filter(r=>r.category===category).reduce((n,r)=>n+r.requests,0)})),retentionDays:null,granularity:'raw-event',note:'New requests are indefinite raw events, grouped only at query time. Earlier hourly totals are retained as legacy aggregate data, never expanded into invented events. Automated polling is included.'};
+    // Filter at the indexed source and aggregate in PostgreSQL. Retained raw
+    // history must never be materialized in Node just to render these totals.
+    // Legacy aggregates have only hour precision; include the start hour, but
+    // do not round the lower bound of newly recorded raw timestamps.
+    const parameters:unknown[]=[],rawBounds:string[]=[],legacyBounds:string[]=[];
+    if(since){parameters.push(since);rawBounds.push(`occurred_at >= $${parameters.length}::timestamptz`);parameters.push(since.slice(0,13)+':00:00.000Z');legacyBounds.push(`hour >= $${parameters.length}::text`);}
+    if(until){parameters.push(until);rawBounds.push(`occurred_at <= $${parameters.length}::timestamptz`);legacyBounds.push(`hour <= $${parameters.length}::text`);}
+    const {rows}=await this.store.query(`
+      SELECT CASE WHEN category IN ('agent','account','api','page') THEN category ELSE 'other' END AS category,
+        sum(requests) AS requests, sum(duration_ms) AS duration,
+        sum(CASE WHEN status >= 4 THEN requests ELSE 0 END) AS errors
+      FROM (
+        SELECT category,status,requests,duration_ms FROM request_metrics ${legacyBounds.length?'WHERE '+legacyBounds.join(' AND '):''}
+        UNION ALL
+        SELECT properties->>'category' AS category,status::integer/100 AS status,1 AS requests,round(duration_ms)::bigint AS duration_ms
+        FROM events WHERE event_type='http.request' ${rawBounds.length?'AND '+rawBounds.join(' AND '):''}
+      ) AS traffic
+      GROUP BY 1`,parameters);
+    // At most five categories cross the database boundary, regardless of age.
+    const requests=rows.reduce((n,r)=>n+Number(r.requests),0),duration=rows.reduce((n,r)=>n+Number(r.duration),0);
+    return {requests,averageDurationMs:requests?Math.round(duration/requests):null,errors:rows.reduce((n,r)=>n+Number(r.errors),0),byCategory:['agent','account','api','page'].map(category=>({category,requests:Number(rows.find(r=>r.category===category)?.requests??0)})),retentionDays:null,granularity:'raw-event',note:'New requests are indefinite raw events, grouped only at query time with exact timestamp bounds. Earlier hourly totals are retained as legacy aggregate data, never expanded into invented events; a partial starting hour includes that legacy hour. Automated polling is included.'};
   }
   async member(groupId:string,userId:string){return (await this.store.get<GroupMember>('group-member',hash(`${groupId}:${userId}`)));}
   async group(p:AuthPrincipal,groupId:string,admin=false){

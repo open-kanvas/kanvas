@@ -1,50 +1,32 @@
-# Raw activity events (0.35.0)
+# Raw activity events (0.36.0)
 
-New activity is recorded as individual append-only PostgreSQL `events` rows: UUID, server `occurred_at` timestamptz, authenticated user/principal where known, session/display where applicable, event type, operation, exact HTTP/result status, duration and JSONB client context/properties. No new hourly aggregates are written. Service traffic charts aggregate raw requests at query time; pre-existing `request_metrics` rows remain untouched legacy aggregates, not invented individual requests.
+## Current operation-level policy
 
-Captured sources include HTTP completion, authenticated tool operations (including failed reads), session/display/publication/history changes, lifecycle/render outcomes, accepted browser diagnostics, connection connect/heartbeat/disconnect, device/window changes, account audit/funnel/sharing events and removal metadata before expiring security records. Device lock hides content but does not delete events. A source snapshot may still change; its accepted changes also append separate raw events.
+Record meaningful actions and state changes as individual append-only PostgreSQL `events` rows: authenticated tool operations (including failed reads), session/display/publication/history changes, navigation commands/acks/receipts, render/lifecycle outcomes, pointing, satisfaction, device lock and requested window commands, account/sign-in/out/sharing actions, connection connect/disconnect, and validation/runtime failures. Each row has a UUID, server occurred_at timestamp, known principal/session/display, event type, operation/status/duration where supplied, structural context and server-authoritative properties.serverVersion.
 
-Otherwise-public/status/static requests are attributed after response completion when an existing browser credential validates; this never grants access. Anonymous requests have NULL user IDs; account-independent calls have NULL session/display IDs. Server background work uses its known owning/acting user when available. Missing identity is never fabricated. Known MCP client name/version and supplied agent/model/harness are attached as unverified context; unavailable model names remain absent. Browser context includes raw User-Agent, parsed browser/version/OS/version and available model, language(s), timezone, screen/viewport/pixel ratio, network type, client release, referrer origin and approximate local GeoIP when available. These are observations/hints, not authentication. No external geolocation call is made.
+Exclude successful category-api HTTP completions (including polling/status/background calls), connection heartbeats, connection-history snapshots, navigation-viewport snapshots, registered-window snapshots and routine frontend diagnostics. Registered-device writes changing only lastSeenAt are suppressed. Explicit window commands remain document.device-request events. Failed API completions remain recorded. Frontend *-error and failed-request observations (status 0 or >=400) remain browser.event rows without duplicate diagnostic-batch rows. Existing page/account/agent HTTP categories remain recorded. A status poll therefore does not imply a new person action. Access logs are separate and unchanged.
 
-No credentials, source text, messages, request/response bodies, arbitrary URL paths/query strings, cookies, authorization headers or raw IPs are copied into events. Referrer paths, UTM values and IP hashes are deliberately omitted rather than risking embedded secrets or unstable pseudonymous identifiers. Existing source/report storage retains its own authorized data separately. Only a structural metadata allowlist is copied from documents.
+## Context and privacy
 
-## Retention and historical limits
+Retained HTTP events attribute an existing validated browser credential without granting access. Anonymous or unavailable identities remain NULL; identity is never fabricated. Supplied agent/model/harness and MCP client name/version are unverified context. Browser context may include User-Agent, parsed browser/OS, language, timezone, viewport, network type, client release, referrer origin and approximate local GeoIP. No external geolocation request is made.
 
-No TTL, automatic eviction or aggregation replaces raw events. PostgreSQL rejects UPDATE, DELETE and TRUNCATE on the events table. Diagnostic (including image diagnostics), lifecycle, connection-history, audit, tool-log, navigation observations/acknowledgements and operation-receipt automatic pruning has been removed. Navigation and paint acknowledgements append raw events as well as maintaining their current-state projections. Temporary remote-image raster caches still expire; they are derivatives, not the raw tracking history. Resolving an image diagnostic clears its current-state projection only after retaining raw removal metadata. Read pagination limits do not delete rows. Credential/login expiry, rate limits, revocation and stale-cookie cleanup remain security boundaries; metadata events survive those deletions without retaining usable credentials. Browser/disconnect state can still expire as operational presence, not as history deletion. Web-server/system log rotation is unchanged: these are not the event source of truth, and are not reconstructed as historical app events.
+No credentials, source text, messages, request/response bodies, arbitrary URL paths/query strings, cookies, authorization headers or raw IPs are copied into events. Referrer paths, UTM values and IP hashes are omitted. Document events use a structural allowlist. Existing source/report storage retains its separately authorized data. Controlled synthetic privacy tests establish their tested cases, not universal safety of arbitrary production headers.
 
-Migration2 adds nullable created_at to documents/users/requests, joined_at to members, user last_login_at/last_seen_at, and is_internal (default false). Existing creation/join timestamps remain NULL; new insertions receive database timestamps. SQLite historical imports explicitly retain NULL rather than presenting import time as original creation time. Login time changes only on a new full-account sign-in, not routine foreground renewal. Operators can mark known automation with users.is_internal=true; do not guess which accounts are people.
+## Retention and history
 
-No claim of reconstructing pre-0.35 activity or identifying every anonymous visitor is made. Abrupt process/network loss can prevent a final disconnect/completion event; heartbeats provide the last positive observation. Browser diagnostic admission limits remain bounded and report dropped/rate-limited input; they do not prune already accepted events.
+No TTL, eviction, archive, deletion or replacement aggregation is introduced. PostgreSQL rejects UPDATE, DELETE and TRUNCATE on events. All historical 0.35 rows—including heartbeats, successful API polling and diagnostic batches—remain unchanged. Suppression applies only to future events. Accepted operation/audit/render/diagnostic history is not automatically pruned. Mutable presence/current-state projections and expiring credentials remain operational/security state, not event history. Temporary raster caches and web-server log rotation are unchanged.
 
-## Query examples
+Version 0.35 introduced schema migration 2 and recorded substantially more housekeeping. Migration 2 added nullable document/user/request created_at, member joined_at, user login/seen timestamps and is_internal. Pre-migration timestamps remain unknown rather than reconstructed; new insertions receive database timestamps. Version 0.36 keeps schema 2 and preserves every existing timestamp/column. No pre-0.35 activity is reconstructed. Abrupt process/network loss can prevent final completion/disconnect recording.
+
+## Queries and recovery
+
+Service traffic charts aggregate retained events in PostgreSQL with indexed inclusive timestamp bounds and bounded results. Legacy request_metrics remain untouched hourly aggregates; partial legacy hours retain hour precision. Traffic totals from 0.36 deliberately omit suppressed successful API housekeeping, so they are not total HTTP throughput.
 
 ```sql
-SELECT count(DISTINCT user_id)
-FROM events WHERE occurred_at >= now()-interval '14 days';
-
-SELECT operation,status,count(*)
-FROM events WHERE event_type='tool.call'
-GROUP BY operation,status;
-
-SELECT properties->>'template' AS template,count(*)
-FROM events WHERE event_type='document.display-history'
-GROUP BY properties->>'template';
+SELECT operation,status,count(*) FROM events
+WHERE event_type='tool.call' GROUP BY operation,status;
+SELECT properties->>'template',count(*) FROM events
+WHERE event_type='document.display-history' GROUP BY properties->>'template';
 ```
 
-For people-only analyses join users and exclude is_internal. A template history row is a publication/navigation-state event, not by itself proof that a browser painted it; correlate lifecycle/render events.
-
-## Release and recovery
-
-Migration2 runs transactionally. Older 0.34 binaries refuse the newer schema: an artifact-only rollback is insufficient. Take and verify a pre-migration PostgreSQL archive, preserve the previous artifact and restore that matching snapshot if rolling back. Do not drop new columns/events in place or silently discard new activity. Normal backup/restore preserves the append-only trigger and exact event rows.
-
-## Traffic query precision and scale
-
-Service traffic totals are filtered and aggregated inside PostgreSQL; only bounded category totals reach the application, not the full retained request history. New raw events use exact inclusive timestamp bounds on the event-type/time index. Legacy hourly aggregates retain hour precision: a partial starting hour includes that legacy hour, never fabricated per-request timestamps. Queries do not modify or delete either source. Polling remains included in the raw history.
-
-## 0.36.0 operation-level recording policy
-
-Record what people and agents do and meaningful state changes: operation/tool calls with status/duration/caller context; session/display/publication lifecycle; navigation commands/acks/receipts; pointing, satisfaction, device lock and requested user actions; registration/sign-in/out; connection connect/disconnect; validation and runtime failures. New event properties include server-authoritative serverVersion.
-
-Deliberately exclude successful background category-api HTTP requests, connection heartbeats, navigation-viewport snapshots, connection-history snapshots, registered-window snapshots, and routine frontend diagnostics. Frontend `*-error` and failed requests (status 0 or >=400) remain individual `browser.event` rows, without a duplicate batch event. Failed API requests are retained. Existing page/account/agent HTTP records remain. Per-operation rows retain rich client context. Server access logs are separate and unchanged.
-
-No event deletes, expiry, archival or replacement aggregates are introduced. Previously stored housekeeping remains intact indefinitely. Future new event types should answer who did what, when and whether it worked, not merely show that a browser is alive. Controlled synthetic event-count/privacy tests establish bounded cases, not a claim that sampling proves every production row or arbitrary malicious header safe.
+For people-only analysis join users and exclude explicitly marked is_internal accounts; never infer which accounts are people. A history row does not prove paint: correlate delivery/render outcomes. Version 0.36 introduces no database migration. Preserve backups and matching artifacts; a rollback must preserve newly recorded events and all current schema-2 columns. Older 0.34 binaries reject schema 2 and require the documented matching snapshot recovery, not in-place column/event deletion.

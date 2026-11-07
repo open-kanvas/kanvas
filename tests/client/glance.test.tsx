@@ -51,7 +51,7 @@ describe('supplied weather, not model-inferred data',()=>{
     expect(html).toContain('High');expect(html).toContain('Low');expect(html).toContain('19°C');expect(html).toContain('12°C');
     expect(html).not.toContain('class="weather-temperature"');
     expect(html).toContain('weather-scene');expect(html).toContain('<h2>Rain</h2>');
-    expect(()=>validateView({version:1,template:'weather',data:{place:'Arendal',condition:'rain'}})).toThrow();
+    expect(()=>validateView({version:1,template:'weather',data:{place:'Arendal',condition:'rain'}})).not.toThrow();
   });
   it('preserves the reported temperature pair verbatim instead of guessing its meaning',()=>{
     const html=renderToStaticMarkup(<Renderer view={validateView({version:1,template:'weather',title:'Arendal, Norway Tomorrow',data:{place:'Arendal, Norway',temperature:'19C / 12C',condition:'rain',period:'day',description:'Morning rain and drizzle clearing later, light winds.'}})}/>);

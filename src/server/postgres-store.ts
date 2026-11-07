@@ -100,8 +100,11 @@ export class Store {
   }
   async put<T extends {id: string; sessionId?: string}>(kind: string, value: T): Promise<void> {
     return this.atomic(async()=>{
+    const previousDevice=kind==='registered-device'?await this.get<Record<string,unknown>>(kind,value.id,true):undefined;
+    const deviceState=(v:Record<string,unknown>)=>{const {lastSeenAt:_lastSeenAt,...state}=v;return JSON.stringify(state);};
+    const routineDevice=!!previousDevice&&deviceState(previousDevice)===deviceState(value as Record<string,unknown>);
     await this.query('INSERT INTO documents(kind,id,session_id,value) VALUES($1,$2,$3,$4) ON CONFLICT(kind,id) DO UPDATE SET session_id=excluded.session_id,value=excluded.value', [kind,value.id,value.sessionId ?? '',JSON.stringify(value)]);
-    if(trackedKinds.has(kind)){const record=value as Record<string,unknown>;await rawEvent(this,`document.${kind}`,{userId:typeof record.actorId==='string'?record.actorId:typeof record.userId==='string'?record.userId:typeof record.ownerId==='string'?record.ownerId:undefined,sessionId:value.sessionId,displayId:kind==='display'?value.id:typeof record.displayId==='string'?record.displayId:undefined,properties:eventProperties(record)});}
+    if(trackedKinds.has(kind)&&!routineDevice){const record=value as Record<string,unknown>;await rawEvent(this,`document.${kind}`,{userId:typeof record.actorId==='string'?record.actorId:typeof record.userId==='string'?record.userId:typeof record.ownerId==='string'?record.ownerId:undefined,sessionId:value.sessionId,displayId:kind==='display'?value.id:typeof record.displayId==='string'?record.displayId:undefined,properties:eventProperties(record)});}
     });
   }
   async delete(kind: string, key: string): Promise<void> { await this.atomic(async()=>{if(trackedKinds.has(kind)){const record=await this.get<any>(kind,key,true);if(record)await rawEvent(this,`document.${kind}.removed`,{userId:record.userId??record.ownerId,sessionId:record.sessionId,displayId:record.displayId,properties:eventProperties(record)});}await this.query('DELETE FROM documents WHERE kind=$1 AND id=$2',[kind,key]);}); }

@@ -5,6 +5,8 @@ import {validateView} from '../../src/shared/view-schemas.js';
 import {KANVAS_VERSION} from '../../src/shared/version.js';
 import {feedbackSubmitSchema} from '../../src/shared/reports.js';
 import {experienceTools} from '../../src/server/mcp/experience-tools.js';
+import {pairedDisplayAllowsAsset} from '../../src/server/access-flows.js';
+import {parseDataset} from '../../src/server/rendering/datasets.js';
 import {rawEvent} from '../../src/server/raw-events.js';
 const toastSchema=experienceTools.find(t=>t.name==='kanvas_toast')!.schema;
 it('accepts generic rich notices and legacy text, rejecting unsafe icons/oversized fields',()=>{
@@ -46,6 +48,24 @@ describe('November 6 isolated operation regressions',()=>{
   for(const target of [d,d2])expect((await h.runtime.service.display(p(),s,target)).view?.data.items).toEqual([{id:'one',text:'One',checked:true}]);
   expect((await h.runtime.service.display(p(),s,d3)).view?.data.text).toBe('Newer content wins');expect(await h.runtime.store.list('display-history',s)).toEqual(before);
  });
+ it('bounds the whole split after dataset expansion, without publishing a partial screen',async()=>{
+  const dataset={...parseDataset({name:'Large supplied data',rows:Array.from({length:100},()=>({value:'x'.repeat(12000)}))}),id:'large',sessionId:s,createdAt:new Date().toISOString()};await h.runtime.store.put('dataset',dataset);
+  const child={version:1 as const,template:'table' as const,data:{binding:{datasetId:'large'}}};
+  expect((await h.runtime.service.verifyView(p(),s,child)).data.rows).toBeTruthy();
+  await expect(h.runtime.service.verifyView(p(),s,{version:1,template:'split-screen',data:{panes:Array.from({length:6},(_,i)=>({id:'p'+i,view:child}))}})).rejects.toThrow(/size|complexity/);
+ });
+ it('paired media authority includes split current slides and public live toast icons only',async()=>{
+  const store=h.runtime.store,browser=await h.runtime.auth.issueBrowser(owner.user!.id,{cookie:()=>{}} as any),pairId='fixture-pair';
+  await store.put('pairing',{id:pairId,status:'approved',ownerId:owner.user!.id,sessionId:s,displayId:d,browserSessionId:browser.id,grantExpiresAt:Date.now()+60000});
+  const principal={...p(),browserId:browser.id,pairingId:pairId,scopedDisplayId:d,scopedSessionId:s};
+  const image=(id:string)=>({version:1 as const,template:'image' as const,data:{images:[{url:'/api/assets/'+id}]}});
+  const display=await store.get<any>('display',d);display.view={version:1,template:'split-screen',data:{panes:[{id:'one',view:image('shown')},{id:'two',view:{version:1,template:'presentation',data:{index:1,slides:[image('hidden'),image('current')]}}}]}};await store.put('display',display);
+  const allows=(id:string)=>pairedDisplayAllowsAsset(store,principal,{id,sessionId:s,url:'/api/assets/'+id});
+  expect(await allows('shown')).toBe(true);expect(await allows('current')).toBe(true);expect(await allows('hidden')).toBe(false);expect(await allows('unreferenced')).toBe(false);
+  for(const [id,ownerId,expiry] of [['icon',undefined,60000],['private',owner.user!.id,60000],['expired',undefined,-1]] as const)await store.put('toast',{id,sessionId:s,displayId:d,icon:'/api/assets/'+id,ownerId,expiresAt:new Date(Date.now()+expiry).toISOString()});
+  expect(await allows('icon')).toBe(true);expect(await allows('private')).toBe(false);expect(await allows('expired')).toBe(false);
+  display.view=fact('Replacement');await store.put('display',display);expect(await allows('shown')).toBe(false);
+ });
  it('reports public pages one-based without changing internal browser indices or history',async()=>{
   await owner.submit(s,[d],{version:1,template:'table',data:{columns:['N'],rows:Array.from({length:30},(_,i)=>({N:i})),pageSize:10}});
   const count=(await h.runtime.store.list('display-history',s)).length;
@@ -72,7 +92,8 @@ describe('event privacy and idle-volume boundaries',()=>{
  let h:Harness;afterEach(async()=>{await h?.close();});
  it('keeps connect/disconnect, but sixty simulated heartbeat touches write no event rows',async()=>{
   h=await startHarness();const owner=await h.account(),s=(await owner.session()).id,d=(await owner.display(s)).id;
-  const connection=await h.runtime.service.experience.receiving.connect({userId:owner.user!.id,browserId:'isolated-window'},s,d,'idle-tab','Synthetic Browser');
+  const browser=await h.runtime.auth.issueBrowser(owner.user!.id,{cookie:()=>{}} as any);
+  const connection=await h.runtime.service.experience.receiving.connect({userId:owner.user!.id,browserId:browser.id},s,d,'idle-tab','Synthetic Browser');
   const count=Number((await h.runtime.store.query('SELECT count(*) n FROM events')).rows[0].n);for(let i=0;i<60;i++)connection.touch();
   expect(Number((await h.runtime.store.query('SELECT count(*) n FROM events')).rows[0].n)).toBe(count);expect((await h.runtime.store.query("SELECT event_type FROM events WHERE event_type='connection.connect'")).rows).toHaveLength(1);connection.disconnect();
  });

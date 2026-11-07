@@ -592,6 +592,7 @@ export class KanvasService implements McpService {
     }
     if(validated.template==='todays-special'){const item=validated.data.item as {id?:string};item.id??=id();}
     const view = materializeDatasetView(validated, (await this.store.list<DatasetRecord>('dataset', sessionId)));
+    try{assertJsonBudget(view);}catch{throw new InputError([{path:'view',problem:'Materialized content exceeds the supported content size or complexity.'}]);}
     const leafViews=view.template==='presentation'?view.data.slides as ViewSpec[]:[view];
     for(const leaf of leafViews)if(leaf.template==='session-topology'&&(leaf.data.includeLocation||leaf.data.layout==='map'))(await this.access(principal,sessionId,'owner'));
     for (const assetId of referencedAssets(view)) (await this.asset(principal, assetId, sessionId));

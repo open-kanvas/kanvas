@@ -1,3 +1,4 @@
+import type { ToastRecord } from '../shared/viewer-experience.js';
 import { asyncMap, asyncSome } from './async-collections.js';
 import { requestContext } from './request-context.js';
 import { lifecycleNotice } from './lifecycle-notices.js';
@@ -230,7 +231,7 @@ export async function pairedDisplayAllowsAsset(store: Store, principal: AuthPrin
   const matches = (value: unknown) => typeof value === 'string' && value === asset.url;
   const images = (value: unknown) => Array.isArray(value) && value.some(image => image && typeof image === 'object' && matches((image as Record<string, unknown>).url));
   async function referenced(view: ViewSpec, depth = 0): Promise<Awaited<boolean>> {
-    if (!view || !view.data || depth > 1) return false;
+    if (!view || !view.data || depth > 2) return false;
     const data = view.data;
     if (view.template === 'image' || view.template === 'document') return images(data.images);
     if (view.template === 'timeline' && Array.isArray(data.events)) return data.events.some(event=>{
@@ -259,6 +260,9 @@ export async function pairedDisplayAllowsAsset(store: Store, principal: AuthPrin
         return (await referenced(retained,0));
       }))));
     }
+    if (view.template === 'split-screen' && depth === 0 && Array.isArray(data.panes) && [2,4,6].includes(data.panes.length)) {
+      return await asyncSome(data.panes as {view:ViewSpec}[], pane=>referenced(pane.view,depth+1));
+    }
     if (view.template === 'presentation' && Array.isArray(data.slides)) {
       const index = data.index === undefined ? 0 : data.index;
       if (!Number.isSafeInteger(index) || (index as number) < 0) return false;
@@ -266,6 +270,9 @@ export async function pairedDisplayAllowsAsset(store: Store, principal: AuthPrin
     }
     return false;
   }
+  // Only public, live overlays for this exact display confer icon access.
+  const overlays=await store.list<ToastRecord>('toast',asset.sessionId);
+  if(overlays.some(t=>t.displayId===display.id&&!t.ownerId&&Date.parse(t.expiresAt)>Date.now()&&matches(t.icon)))return true;
   return (await referenced(display.view));
 }
 

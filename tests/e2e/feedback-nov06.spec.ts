@@ -2,6 +2,7 @@ import type {Page} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {createDisplay,createSession,expect,openViewer,publishPrepared,register,sessionApi,sessionDetail,test,waitForDisplay} from './support';
 import {validateView} from '../../src/shared/view-schemas';
+import {samples} from '../../src/shared/template-examples';
 import {gameExample} from '../../src/shared/game';
 import {emailRuntime,beginEmailConnector} from './email-oauth-fixture';
 const quiet=async(page:Page)=>{for(const button of await page.locator('.viewer-toast button').all())await button.click();};
@@ -37,7 +38,7 @@ test('split panes use real local viewports and retain sibling DOM state across s
  const result=await sessionApi(page,`/api/sessions/${s}/displays/${d.id}/patch`,'POST',{requestId:randomUUID(),expectedRevision:current.revision,operations:[{op:'set',path:'/data/panes/0/view',value:fact('Updated pane')}]});expect(result.status).toBe(200);await expect(left.getByText('Updated pane',{exact:true})).toBeVisible();expect(await right.locator('body').getAttribute('data-sibling-sentinel')).toBe('retained');
  await quiet(viewer);await viewer.screenshot({path:info.outputPath('split-two.png')});
  await publishPrepared(page,s,[d.id],{version:1,template:'split-screen',data:{direction:'horizontal',panes}});await waitForDisplay(page,s,d.id,x=>x.appliedRevision===x.revision);const frames=await viewer.locator('.viewer-candidate .split-pane').evaluateAll(es=>es.map(e=>({top:e.getBoundingClientRect().top,width:e.getBoundingClientRect().width})));expect(frames[1].top).toBeGreaterThan(frames[0].top);expect(frames[0].width).toBeGreaterThan(1000);await quiet(viewer);await viewer.screenshot({path:info.outputPath('split-horizontal.png')});
- for(const count of [4,6]){await publishPrepared(page,s,[d.id],{version:1,template:'split-screen',data:{panes:Array.from({length:count},(_,i)=>({id:'p'+i,view:fact('Pane '+i)}))}});await expect(viewer.locator('.viewer-candidate .split-pane')).toHaveCount(count);await quiet(viewer);await viewer.screenshot({path:info.outputPath(`split-${count}.png`)});}
+ for(const count of [4,6]){await publishPrepared(page,s,[d.id],{version:1,template:'split-screen',data:{panes:Array.from({length:count},(_,i)=>({id:'p'+i,view:[samples.chart,samples.table,{version:1 as const,template:'game-board' as const,data:gameExample('chess')},validateView({template:'weather',data:{condition:'rain',display:{visualOnly:true}}}),validateView({template:'qr',data:{content:'https://example.com/',title:'Scan'}}),fact('Pane 5')][i]}))}});await expect(viewer.locator('.viewer-candidate .split-pane')).toHaveCount(count);await waitForDisplay(page,s,d.id,x=>x.appliedRevision===x.revision);await quiet(viewer);await viewer.screenshot({path:info.outputPath(`split-${count}.png`)});}
  await viewer.setViewportSize({width:390,height:844});const nav=viewer.locator('.viewer-candidate .split-screen>nav');await expect(nav).toBeVisible();await nav.getByRole('button',{name:'p5',exact:true}).click();await expect(viewer.frameLocator('iframe[title="Pane p5"]').getByText('Pane 5',{exact:true})).toBeVisible();await quiet(viewer);await viewer.screenshot({path:info.outputPath('split-phone.png')});
 });
 

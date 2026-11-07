@@ -95,7 +95,7 @@ export class EntryDevices {
     if(prior){if(prior.digest!==digest)throw new AppError('REQUEST_ID_CONFLICT','This request ID was used for a different device command.',409);return {device:(await this.public(d)),commandId:prior.commandId,superseded:d.command?.id!==prior.commandId};}
     this.service.assertRevision(a.expectedVersion,d.version);if(!(await this.online(d)))throw new AppError('DEVICE_OFFLINE','Open KANVAS on that device before targeting it.',409);
     const command:DeviceCommand={id:id(),sessionId:a.sessionId,displayId:a.displayId,issuedAt:now(),expiresAt:Date.now()+180000,status:'pending'};d.command=command;d.version++;
-    (await this.service.store.transaction(async ()=>{await retargetReceiver(this.service,d,a.sessionId,a.displayId);command.windowIds=(await this.windows.broadcast(p,d.id,command));(await this.service.store.put('registered-device',d));(await this.service.store.put('device-request',{id:requestKey,digest,deviceId:d.id,commandId:command.id}));}));(await this.windows.changed(d.id));this.service.store.afterCommit(()=>this.events.emit(d.id));return {device:(await this.public(d)),commandId:command.id};
+    (await this.service.store.transaction(async ()=>{await retargetReceiver(this.service,d,a.sessionId,a.displayId);command.windowIds=(await this.windows.broadcast(p,d.id,command));(await this.service.store.put('registered-device',d));(await this.service.store.put('device-request',{id:requestKey,digest,deviceId:d.id,commandId:command.id,userId:p.userId,sessionId:a.sessionId,displayId:a.displayId,operation:'device.present',status:'pending'}));}));(await this.windows.changed(d.id));this.service.store.afterCommit(()=>this.events.emit(d.id));return {device:(await this.public(d)),commandId:command.id};
 
     });
   }

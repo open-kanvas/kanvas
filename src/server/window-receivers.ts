@@ -1,3 +1,4 @@
+import {rawEvent} from './raw-events.js';
 import { navigationActionSchema, navigate, initialNavigation } from '../shared/navigation.js';
 import { asyncEvery, asyncFilter, asyncMap, asyncSome } from './async-collections.js';
 import { EventEmitter } from 'node:events';
@@ -88,7 +89,7 @@ export class WindowReceivers {
     this.service.assertRevision(a.expectedVersion,w.version);if(!(await this.online(w)))throw new AppError('WINDOW_OFFLINE','Open this browser window before targeting it.',409);
     const command:DeviceCommand={id:id(),sessionId:a.sessionId,displayId:a.displayId,issuedAt:now(),expiresAt:Date.now()+180000,status:'pending'};
     w.command=command;w.version++;
-    (await this.service.store.transaction(async ()=>{(await this.service.store.put('registered-window',w));(await this.service.store.put('device-request',{id:key,digest,deviceId:w.deviceId,windowId:w.id,commandId:command.id}));}));
+    (await this.service.store.transaction(async ()=>{(await this.service.store.put('registered-window',w));(await this.service.store.put('device-request',{id:key,digest,deviceId:w.deviceId,windowId:w.id,commandId:command.id,userId:p.userId,sessionId:a.sessionId,displayId:a.displayId,operation:'window.present',status:'pending'}));}));
     this.events.emit(w.id);return {window:(await this.public(w)),commandId:command.id};
 
     });
@@ -102,7 +103,7 @@ export class WindowReceivers {
       if(!await this.online(w))throw new AppError('WINDOW_OFFLINE','Open this browser window before targeting it.',409);
       const command:OverviewCommand={id:id(),destination:'overview',overviewUrl:`${this.service.publicUrl}/`,issuedAt:now(),expiresAt:Date.now()+180000,status:'pending'};
       w.command=command;w.version++;
-      await this.service.store.transaction(async()=>{await this.service.store.put('registered-window',w);await this.service.store.put('device-request',{id:key,digest,deviceId:w.deviceId,windowId:w.id,commandId:command.id});});
+      await this.service.store.transaction(async()=>{await this.service.store.put('registered-window',w);await this.service.store.put('device-request',{id:key,digest,deviceId:w.deviceId,windowId:w.id,commandId:command.id,userId:p.userId,operation:'window.overview',status:'pending'});});
       this.events.emit(w.id);return {window:await this.public(w),commandId:command.id,note:'Pending until this window paints the account overview. No session is created.'};
     });
   }
@@ -120,7 +121,7 @@ export class WindowReceivers {
       const scale=n.action==='zoom'?navigate({version:1,template:'fact',data:{text:'Overview'}},{...initialNavigation(),scale:previousScale},n).scale??1:previousScale;
       const command:ViewportCommand={id:id(),destination:'viewport',overviewUrl:`${this.service.publicUrl}/`,viewport:{scale,...(n.action==='scroll'?{x:n.x,y:n.y,deltaX:n.deltaX,deltaY:n.deltaY}:{})},issuedAt:now(),expiresAt:Date.now()+180000,status:'pending'};
       w.command=command;w.version++;
-      await this.service.store.transaction(async()=>{await this.service.store.put('window-zoom',{id:hash(`${w.browserId}:${w.tabId}`).slice(0,32),scale,updatedAt:now()});await this.service.store.put('registered-window',w);await this.service.store.put('device-request',{id:key,digest,deviceId:w.deviceId,windowId:w.id,commandId:command.id});});
+      await this.service.store.transaction(async()=>{await this.service.store.put('window-zoom',{id:hash(`${w.browserId}:${w.tabId}`).slice(0,32),scale,updatedAt:now()});await this.service.store.put('registered-window',w);await this.service.store.put('device-request',{id:key,digest,deviceId:w.deviceId,windowId:w.id,commandId:command.id,userId:p.userId,operation:'window.viewport',status:'pending'});});
       this.events.emit(w.id);return {window:await this.public(w),commandId:command.id,note:'Pending until the owned overview window applies the viewport and reports paint.'};
     });
   }
@@ -137,7 +138,7 @@ export class WindowReceivers {
     const from=w.sessionId&&w.displayId?{sessionId:w.sessionId,displayId:w.displayId}:undefined;
     const command:DeviceCommand={id:id(),sessionId:a.sessionId,displayId:a.displayId,issuedAt:now(),expiresAt:Date.now()+180000,status:'pending'};
     w.command=command;w.version++;
-    (await this.service.store.transaction(async ()=>{(await this.service.store.put('registered-window',w));(await this.service.store.put('device-request',{id:key,digest,deviceId:w.deviceId,windowId:w.id,commandId:command.id}));}));
+    (await this.service.store.transaction(async ()=>{(await this.service.store.put('registered-window',w));(await this.service.store.put('device-request',{id:key,digest,deviceId:w.deviceId,windowId:w.id,commandId:command.id,userId:p.userId,sessionId:a.sessionId,displayId:a.displayId,operation:'connection.redirect',status:'pending'}));}));
     this.events.emit(w.id);return {window:(await this.public(w)),commandId:command.id,...(from?{from}:{}),note:'Pending until the window paints the target display; its command status in devices.read becomes applied.'};
     });
   }
@@ -146,14 +147,14 @@ export class WindowReceivers {
     const overview=z.object({destination:z.enum(['overview','viewport']),commandId:identifier.optional()}).strict().safeParse(raw);
     if(overview.success){
       const w=await this.window(p,deviceId,windowId,false,true),a=overview.data;
-      if(a.commandId){const c=w.command;if(!c||c.id!==a.commandId||!('destination' in c)||c.destination!==a.destination||c.expiresAt<=Date.now())throw new AppError('STALE_COMMAND','This window command is no longer current.',409);c.status='applied';c.appliedAt=now();}
+      if(a.commandId){const c=w.command;if(!c||c.id!==a.commandId||!('destination' in c)||c.destination!==a.destination||c.expiresAt<=Date.now())throw new AppError('STALE_COMMAND','This window command is no longer current.',409);if(c.status!=='applied')await rawEvent(this.service.store,'window.command',{userId:p.userId,operation:'window.'+a.destination,status:'applied',properties:{deviceId,windowId,commandId:c.id}});c.status='applied';c.appliedAt=now();}
       w.atOverview=true;delete w.sessionId;delete w.displayId;delete w.renderedRevision;w.lastSeenAt=now();await this.service.store.put('registered-window',w);
       return {recorded:true,windowId:w.id,command:w.command?{id:w.command.id,status:w.command.status}:undefined};
     }
     const a=z.object({sessionId:identifier,displayId:identifier,renderedRevision:z.number().int().nonnegative(),commandId:identifier.optional()}).strict().parse(raw);
     const w=(await this.window(p,deviceId,windowId,false,true)),display=(await this.service.display(p,a.sessionId,a.displayId));
     if(display.revision!==a.renderedRevision)throw new AppError('STALE_OBSERVATION','The display changed before this paint report.',409);
-    if(a.commandId){const c=w.command;if(!c||c.id!==a.commandId||c.expiresAt<=Date.now()||c.sessionId!==a.sessionId||c.displayId!==a.displayId)throw new AppError('STALE_COMMAND','This window command is no longer current.',409);c.status='applied';c.appliedAt=now();c.renderedRevision=a.renderedRevision;}
+    if(a.commandId){const c=w.command;if(!c||c.id!==a.commandId||c.expiresAt<=Date.now()||c.sessionId!==a.sessionId||c.displayId!==a.displayId)throw new AppError('STALE_COMMAND','This window command is no longer current.',409);if(c.status!=='applied')await rawEvent(this.service.store,'window.command',{userId:p.userId,sessionId:a.sessionId,displayId:a.displayId,operation:'window.present',status:'applied',properties:{deviceId,windowId,commandId:c.id}});c.status='applied';c.appliedAt=now();c.renderedRevision=a.renderedRevision;}
     w.atOverview=false;w.sessionId=a.sessionId;w.displayId=a.displayId;w.renderedRevision=a.renderedRevision;w.lastSeenAt=now();
     (await this.service.store.transaction(async ()=>{(await this.service.store.put('registered-window',w));(await this.devices.recordWindowPaint(p,deviceId,a));}));
     return {recorded:true,windowId:w.id,command:w.command?{id:w.command.id,status:w.command.status}:undefined};

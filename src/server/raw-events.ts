@@ -6,7 +6,7 @@ import type {AuthPrincipal} from './auth.js';
 export interface EventContext {userId?:string;principal?:string;sessionId?:string;displayId?:string;client?:Record<string,unknown>}
 export const eventContext=new AsyncLocalStorage<EventContext>();
 export function attribute(p:AuthPrincipal){const c=eventContext.getStore();if(c){c.userId=p.userId;c.principal=p.tokenId?`token:${p.tokenId}`:`user:${p.userId}`;}}
-const fields=['reason','template','revision','status','stage','type','operation','event','errorCode','kind','role','locked','visible','width','height','renderedRevision','durationMs','elapsedMs','clientRelease','release'] as const;
+const fields=['deviceId','windowId','commandId','reason','template','revision','status','stage','type','operation','event','errorCode','kind','role','locked','visible','width','height','renderedRevision','durationMs','elapsedMs','clientRelease','release'] as const;
 const scalar=(v:unknown)=>typeof v==='boolean'||typeof v==='number'&&Number.isFinite(v)||typeof v==='string'&&/^[A-Za-z0-9_.:/ -]{0,120}$/.test(v);
 /** Explicit structural allowlist: never include raw content, arguments, tokens,
  * passwords, query strings, URLs, report prose, labels or arbitrary payloads. */

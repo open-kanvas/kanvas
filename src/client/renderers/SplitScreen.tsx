@@ -4,6 +4,7 @@ import {Renderer,type RendererProps} from './Renderer';
 import type {ViewSpec} from '../../shared/types';
 import './split-screen.css';
 type Pane={id:string;view:ViewSpec};
+function controlPreview(view:ViewSpec){const active=view.template==='presentation'?(view.data.slides as ViewSpec[])[Number(view.data.index??0)]:view;return Boolean(active&&['display-grid','session-topology','overview'].includes(active.template));}
 /** Same-origin empty document creates a real CSS viewport. No supplied HTML or scripts. */
 const PaneViewport=memo(function PaneViewport({pane,config,serverNow,preview,onReady,onError,sessionId,displayId,revision}:{pane:Pane;config:RendererProps['config'];serverNow?:string;preview?:boolean;onReady:(id:string,signature:string)=>void;onError:()=>void;sessionId?:string;displayId?:string;revision?:number}){
  const frame=useRef<HTMLIFrameElement>(null),[body,setBody]=useState<HTMLElement>();
@@ -13,7 +14,7 @@ const PaneViewport=memo(function PaneViewport({pane,config,serverNow,preview,onR
   sync();const observer=new MutationObserver(sync);observer.observe(document.head,{childList:true});observer.observe(document.documentElement,{attributes:true,attributeFilter:['class']});observer.observe(document.body,{attributes:true,attributeFilter:['class']});setBody(doc.body);return()=>observer.disconnect();
  },[]);
  useEffect(()=>{const doc=frame.current?.contentDocument,element=frame.current;if(!doc||!element)return;const style=getComputedStyle(element);for(const name of Array.from(style))if(name.startsWith('--'))doc.documentElement.style.setProperty(name,style.getPropertyValue(name));doc.documentElement.style.colorScheme=style.colorScheme;},[body,config]);
- return <iframe ref={frame} title={`Pane ${pane.id}`} className="split-pane" src="about:blank">{body&&createPortal(<Renderer view={pane.view} revision={revision} sessionId={sessionId} displayId={displayId} onReady={()=>onReady(pane.id,JSON.stringify(pane.view))} onError={onError} config={config} serverNow={serverNow} preview={preview||['display-grid','session-topology','overview'].includes(pane.view.template)} editable={false} actionable={false}/>,body)}</iframe>;
+ return <iframe ref={frame} title={`Pane ${pane.id}`} className="split-pane" src="about:blank">{body&&createPortal(<Renderer view={pane.view} revision={revision} sessionId={sessionId} displayId={displayId} onReady={()=>onReady(pane.id,JSON.stringify(pane.view))} onError={onError} config={config} serverNow={serverNow} preview={preview||controlPreview(pane.view)} editable={false} actionable={false}/>,body)}</iframe>;
 },(a,b)=>a.config===b.config&&a.preview===b.preview&&JSON.stringify(a.pane)===JSON.stringify(b.pane));
 export function SplitScreen(props:RendererProps){
  const ready=useRef(new Map<string,string>()),latest=useRef(props);latest.current=props;

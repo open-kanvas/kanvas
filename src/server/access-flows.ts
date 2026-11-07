@@ -249,6 +249,7 @@ export async function pairedDisplayAllowsAsset(store: Store, principal: AuthPrin
     }
     if (view.template === 'leaderboard' && Array.isArray(data.items)) return data.items.some(item=>item && typeof item==='object' && (item as {image?:{url?:unknown}}).image && matches((item as {image:{url?:unknown}}).image.url));
     if(view.template==='overview'){
+      if(depth>0&&display.view?.template==='split-screen')return false;
       // Publishing this aggregate explicitly exposes its retained image previews,
       // not arbitrary historical media, datasets or other session endpoints.
       const selected=Array.isArray(data.displayIds)?data.displayIds as string[]:undefined;

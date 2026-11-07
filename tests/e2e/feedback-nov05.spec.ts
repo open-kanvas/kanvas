@@ -110,9 +110,9 @@ test('checklist follows newly completed progress but respects deliberate scrolli
 
 test('reviewed sign artwork loads with direction/prohibition layers and remains region-aware',async({page},info)=>{
  await register(page);const s=await createSession(page,'Reviewed signage'),d=await createDisplay(page,s,'Signs'),viewer=await openViewer(page,s,d.id);
- await publishPrepared(page,s,[d.id],validateView({template:'signage',data:{region:'no',items:[{id:'toilet',type:'restroom',direction:'left'},{id:'phone',type:'no-phones'},{id:'exit',type:'exit',direction:'right'}]}}));
+ await publishPrepared(page,s,[d.id],validateView({template:'signage',data:{region:'no',items:[{id:'toilet',type:'restroom',direction:'left'},{id:'phone',type:'no-phones'},{id:'information',type:'information',direction:'right'}]}}));
  await waitForDisplay(page,s,d.id,v=>v.appliedRevision===v.revision);
- const images=viewer.locator('.viewer-candidate .sign-reviewed-art');await expect(images).toHaveCount(2);
+ const images=viewer.locator('.viewer-candidate .sign-reviewed-art');await expect(images).toHaveCount(3);
  expect(await images.evaluateAll(elements=>elements.every(e=>(e as HTMLImageElement).complete&&(e as HTMLImageElement).naturalWidth>0))).toBe(true);
  await expect(viewer.locator('.viewer-candidate .sign-reviewed-prohibition')).toHaveCount(1);
  await expect(viewer.locator('.viewer-candidate .sign-arrow')).toHaveCount(2);

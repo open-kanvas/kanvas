@@ -63,7 +63,7 @@ describe.each(['modern', 'legacy'] as const)('%s MCP publication contracts and p
     success(await owner.request('POST', `/api/sessions/${session.id}/displays/${display.id}/applied`, { revision: prepared.detail.displays[0].revision }));
     expect(value<UpdateRecord>(await p.call('kanvas_update_status', { sessionId: session.id, updateId: accepted.id })).status).toBe('applied');
     expect((value<{ displays: DisplayRecord[] }>(await p.call('kanvas_session_state', { sessionId: session.id }))).displays[0].viewerUrl).toBe(display.viewerUrl);
-  },20_000); // Exhaustively fetch every contract as the built-in catalog grows.
+  },40_000); // Exhaustive 104-contract cold catalog, including two composite schemas; assertions and wire budgets unchanged.
 
 
   it('classifies invalid inline data and advertised context limits before rendering, without changing the last view', async () => {

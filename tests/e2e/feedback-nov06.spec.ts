@@ -18,8 +18,9 @@ test('both neutral Connect Four discs differ from empty slots and face-up corner
  await register(page);const s=await createSession(page,'Game readability'),d=await createDisplay(page,s,'Board'),viewer=await openViewer(page,s,d.id);
  const board=gameExample('connect-four');board.pieces={a:{cell:'r6c3',symbol:'disc',side:'first',emphasis:'none'},b:{cell:'r6c4',symbol:'disc',side:'second',emphasis:'none'}};
  await publishPrepared(page,s,[d.id],{version:1,template:'game-board',data:board});await waitForDisplay(page,s,d.id,x=>x.appliedRevision===x.revision);
+ for(const theme of ['dark','light']){const detail=await sessionDetail(page,s);expect((await sessionApi(page,`/api/sessions/${s}/config`,'PATCH',{expectedRevision:detail.session.configRevision,config:{theme}})).status).toBe(200);await expect(viewer.locator('.viewer-shell')).toHaveClass(new RegExp('theme-'+theme));
  const colors=await viewer.locator('.viewer-candidate').evaluate(root=>({empty:getComputedStyle(root.querySelector('.game-cell')!).backgroundColor,discs:[...root.querySelectorAll('.game-piece')].map(e=>getComputedStyle(e,'::before').backgroundColor)}));expect(new Set([colors.empty,...colors.discs]).size).toBe(3);
- await viewer.screenshot({path:info.outputPath('connect-four.png')});
+ await viewer.screenshot({path:info.outputPath(`connect-four-${theme}.png`)});}
  await publishPrepared(page,s,[d.id],{version:1,template:'game-board',data:gameExample('solitaire')});const cards=viewer.locator('.viewer-candidate .game-card');await expect(cards.locator('.game-card-index')).toHaveCount(4);await expect(viewer.locator('.viewer-candidate .game-card.is-back .game-card-index')).toHaveCount(0);await expect(viewer.locator('.viewer-candidate [data-game-card="c"] .game-card-index')).toHaveText('Q♥');await viewer.screenshot({path:info.outputPath('solitaire-corners.png')});
 });
 

@@ -48,7 +48,7 @@ describe('navigation, saved pins and task-focused Help',()=>{
     const before=(await owner.detail(s)).displays[0],checklistId=before.view!.data.checklistId;
     success(await owner.request('POST',`${path()}/navigation`,{tabId:'reading-window',requestId:randomUUID(),expectedRevision:before.revision,navigation:{action:'scroll',y:.8}}));
     await call('kanvas_checklist_update',{sessionId:s,checklistId,expectedRevision:0,requestId:randomUUID(),items:[{id:'one',text:'Original',checked:true}]});
-    await call('kanvas_checklist_show',{sessionId:s,displayId:d,checklistId,expectedRevision:before.revision,requestId:randomUUID()});
+    // Save alone now refreshes the displayed checklist; no re-show is needed.
     const after=(await owner.detail(s)).displays[0];expect(after.navigationRoot).toBe(before.navigationRoot);
     expect((await browserState(owner,'reading-window')).state.scroll.y).toBe(.8);
     expect((await browserState(owner,'other-window')).state.scroll.y).toBe(0);

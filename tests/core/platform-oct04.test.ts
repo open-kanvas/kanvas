@@ -56,12 +56,12 @@ describe('October4 persistent account and session feedback',()=>{
   const reader=new Checklists(h.runtime.service),saved:any=await reader.read(p,{sessionId:s.id,checklistId:key});expect(saved.revision).toBe(1);expect(saved.view.data.items[0].checked).toBe(true);
   const args={sessionId:s.id,checklistId:key,displayId:second.id,expectedRevision:0,requestId:'bring-back'};const shown:any=await reader.show(p,args);expect((await h.runtime.service.display(p,s.id,second.id)).view!.data).toMatchObject({checklistId:key,checklistRevision:1});expect((await reader.show(p,args)).id).toBe(shown.id);expect((await h.runtime.service.display(p,s.id,d.id)).view!.template).toBe('fact');
  });
- it('document update is revisioned/idempotent, does not overwrite screens and rejects stale mirrors',async()=>{
+ it('document update is revisioned/idempotent, refreshes matching screens and rejects stale mirrors',async()=>{
   h=await startHarness();const a=await h.account(),p=await principal(a),s=await a.session(),d=await a.display(s.id);await a.submit(s.id,[d.id],view);const current=await h.runtime.service.display(p,s.id,d.id),key=String(current.view!.data.checklistId);
   const args={sessionId:s.id,checklistId:key,expectedRevision:0,requestId:'edit-items',items:[{id:'a',text:'Review',checked:true}]};const saved:any=await h.runtime.service.checklists.update(p,args);expect(saved.revision).toBe(1);expect((await h.runtime.service.checklists.update(p,args)).revision).toBe(1);
   await expect(h.runtime.service.checklists.update(p,{...args,items:[]})).rejects.toMatchObject({code:'REQUEST_ID_CONFLICT'});
   await expect(h.runtime.service.checklists.update(p,{...args,requestId:'stale'})).rejects.toMatchObject({code:'REVISION_CONFLICT'});
-  expect((await h.runtime.service.display(p,s.id,d.id)).revision).toBe(current.revision);
+  expect((await h.runtime.service.display(p,s.id,d.id)).revision).toBe(current.revision+1);
   await expect(h.runtime.service.edit(p,s.id,d.id,current.revision,{...current.view!.data,items:[{id:'a',text:'Stale overwrite',checked:false}]})).rejects.toMatchObject({code:'REVISION_CONFLICT'});
   expect((await h.runtime.service.checklists.read(p,{sessionId:s.id,checklistId:key}) as any).view.data.items[0].text).toBe('Review');
  });

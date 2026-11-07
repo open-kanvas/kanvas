@@ -101,6 +101,7 @@ export function mountEmailSignin(app:Express,auth:Auth,origin:string,mailer?:Sig
   // identity, callback URL or grant. Does not authenticate the email-link tab.
   const connectionReceipts=new Map<string,{consentId:string;expiresAt:number}>();
   app.post('/api/auth/email/connection-status',async(req,res)=>{
+    res.set('Cache-Control','no-store');
     const a=z.object({receipt:z.string().regex(/^[A-Za-z0-9_-]{43}$/)}).strict().parse(req.body);
     const receipt=connectionReceipts.get(hash(a.receipt));
     if(!receipt||receipt.expiresAt<=Date.now()){res.json({data:{status:'unavailable'}});return;}

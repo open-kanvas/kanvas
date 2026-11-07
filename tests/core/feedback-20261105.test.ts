@@ -100,12 +100,12 @@ describe('November 5 privacy, retention and raw event contracts',()=>{
   display.revision++;display.view=fact('Still full');await expect(h.runtime.service.history.record(display,'prepared')).rejects.toMatchObject({code:'LIMIT_REACHED'});
 
  });
- it('attributes otherwise-public status requests only when their browser credential is valid',async()=>{
+ it('omits routine privacy status polls while retaining attributed sign-in requests',async()=>{
   success(await owner.request('GET','/api/device-privacy/status'));
   success(await h.browser().request('GET','/api/device-privacy/status'));
   await vi.waitFor(async()=>{
    const rows=(await h.runtime.store.query("SELECT user_id FROM events WHERE event_type='http.request' AND operation='GET /api/device-privacy/status'")).rows;
-   expect(rows).toHaveLength(2);expect(rows.map(r=>r.user_id)).toEqual(expect.arrayContaining([owner.user!.id,null]));
+   expect(rows).toHaveLength(0);
    const signins=(await h.runtime.store.query("SELECT user_id FROM events WHERE event_type='http.request' AND operation='POST /api/auth/register'")).rows;
    expect(signins).toContainEqual({user_id:owner.user!.id});
   });

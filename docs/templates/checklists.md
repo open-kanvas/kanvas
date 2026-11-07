@@ -10,3 +10,7 @@ Read-only access shows a disabled checkbox and “View-only checklist”. Checkl
 
 
 See the [template index](README.md) and running `/docs/` reference for current fields and examples.
+
+## In-place update refresh (0.36.0)
+
+`checklist.update` saves independently, then refreshes every display still showing that same top-level checklist. The save/check/update runs under the publication serialization boundary: newer replacement content cannot be overwritten. No display-history publication is added and navigation roots remain stable for scroll/autofollow. Multiple windows receive the normal display invalidation. If no display shows the checklist, update changes no display. `checklist.show` remains the explicit operation to put it on a screen. Snapshots inside presentation/split panes are not live bindings.

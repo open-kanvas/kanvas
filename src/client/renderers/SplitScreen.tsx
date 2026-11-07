@@ -12,6 +12,7 @@ const PaneViewport=memo(function PaneViewport({pane,config,serverNow,preview}:{p
   const sync=()=>{doc.head.querySelectorAll('[data-pane-style]').forEach(n=>n.remove());for(const node of document.head.querySelectorAll('style,link[rel="stylesheet"]')){const copy=node.cloneNode(true) as HTMLElement;copy.dataset.paneStyle='';doc.head.append(copy);}doc.documentElement.className=document.documentElement.className;doc.body.className=document.body.className;};
   sync();const observer=new MutationObserver(sync);observer.observe(document.head,{childList:true});observer.observe(document.documentElement,{attributes:true,attributeFilter:['class']});observer.observe(document.body,{attributes:true,attributeFilter:['class']});setBody(doc.body);return()=>observer.disconnect();
  },[]);
+ useEffect(()=>{const doc=frame.current?.contentDocument,element=frame.current;if(!doc||!element)return;const style=getComputedStyle(element);for(const name of Array.from(style))if(name.startsWith('--'))doc.documentElement.style.setProperty(name,style.getPropertyValue(name));doc.documentElement.style.colorScheme=style.colorScheme;},[body,config]);
  return <iframe ref={frame} title={`Pane ${pane.id}`} className="split-pane" src="about:blank">{body&&createPortal(<Renderer view={pane.view} config={config} serverNow={serverNow} preview={preview} editable={false} actionable={false}/>,body)}</iframe>;
 },(a,b)=>a.config===b.config&&a.preview===b.preview&&JSON.stringify(a.pane)===JSON.stringify(b.pane));
 export function SplitScreen(props:RendererProps){

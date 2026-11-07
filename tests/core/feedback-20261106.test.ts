@@ -67,3 +67,18 @@ describe('November 6 isolated operation regressions',()=>{
   const legacy={id:'legacy',name:'Old',ownerId:owner.user!.id,config:{},createdAt:'2020-01-01',updatedAt:'2020-01-01'};await h.runtime.store.put('session',legacy);expect((await h.runtime.store.get<any>('session','legacy')).serverVersion).toBeUndefined();
  });
 });
+
+describe('event privacy and idle-volume boundaries',()=>{
+ let h:Harness;afterEach(async()=>{await h?.close();});
+ it('keeps connect/disconnect, but sixty simulated heartbeat touches write no event rows',async()=>{
+  h=await startHarness();const owner=await h.account(),s=(await owner.session()).id,d=(await owner.display(s)).id;
+  const connection=await h.runtime.service.experience.receiving.connect({userId:owner.user!.id,browserId:'isolated-window'},s,d,'idle-tab','Synthetic Browser');
+  const count=Number((await h.runtime.store.query('SELECT count(*) n FROM events')).rows[0].n);for(let i=0;i<60;i++)connection.touch();
+  expect(Number((await h.runtime.store.query('SELECT count(*) n FROM events')).rows[0].n)).toBe(count);expect((await h.runtime.store.query("SELECT event_type FROM events WHERE event_type='connection.connect'")).rows).toHaveLength(1);connection.disconnect();
+ });
+ it('meaningful HTTP event context excludes test credentials, body, query and raw IP',async()=>{
+  h=await startHarness();const owner=await h.account();const secrets=['private-query-7721','private-body-7721','private-header-7721','203.0.113.77'];
+  success(await owner.request('POST','/api/sessions?private='+secrets[0],{name:secrets[1]},{headers:{'X-API-Key':secrets[2],'X-Forwarded-For':secrets[3]}}));
+  const rows=(await h.runtime.store.query('SELECT * FROM events')).rows;expect(rows.some(r=>r.event_type==='document.session')).toBe(true);const serialized=JSON.stringify(rows);for(const secret of secrets)expect(serialized).not.toContain(secret);for(const cookie of owner.cookies.values())expect(serialized).not.toContain(cookie);
+ });
+});

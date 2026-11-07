@@ -64,10 +64,10 @@ describe('navigation, saved pins and task-focused Help',()=>{
   });
   it('pages and searches the exact collection without changing history, source, responses or display revision; retries and late receipts are bounded',async()=>{
     await owner.submit(s,[d],table);const before=await owner.detail(s),history=await call('kanvas_display_history',{sessionId:s,displayId:d});
-    const args={requestId:randomUUID()},first=await nav({action:'page',page:6},args);expect(first.state.page).toBe(5);expect((await nav({action:'page',page:6},args)).commandId).toBe(first.commandId);
+    const args={requestId:randomUUID()},first=await nav({action:'page',page:6},args);expect(first.state.page).toBe(6);expect((await nav({action:'page',page:6},args)).commandId).toBe(first.commandId);
     await expect(nav({action:'page',page:5},args)).rejects.toMatchObject({code:'REQUEST_ID_CONFLICT'});
     await expect(nav({action:'page',page:7})).rejects.toMatchObject({code:'NAVIGATION_UNAVAILABLE'});
-    const searched=await nav({action:'search',query:'Row 51'});expect(searched.state).toMatchObject({page:0,query:'Row 51'});
+    const searched=await nav({action:'search',query:'Row 51'});expect(searched.state).toMatchObject({page:1,pageIndex:0,query:'Row 51'});
     const state=await browserState(owner,'navigation-tab');expect(state.capabilities).toMatchObject({matchingItems:1,pageCount:1});
     success(await owner.request('POST',`${path()}/navigation/ack`,{tabId:'navigation-tab',revision:1,commandId:searched.commandId,status:'applied',matches:1}));
     const after=await owner.detail(s);expect(after.displays[0].view).toEqual(before.displays[0].view);expect(after.displays[0].revision).toBe(1);expect(after.interactions).toEqual(before.interactions);expect(await call('kanvas_display_history',{sessionId:s,displayId:d})).toEqual(history);
@@ -96,7 +96,7 @@ describe('navigation, saved pins and task-focused Help',()=>{
   });
   it('rejects unauthenticated navigation and unsupported cross-origin content actions while allowing page selection',async()=>{
     await owner.submit(s,[d],{version:1,template:'iframe',data:{pages:[{url:'https://example.com/'},{url:'https://example.org/'}],index:0}});
-    expect((await nav({action:'page',direction:'next'})).state.page).toBe(1);
+    expect((await nav({action:'page',direction:'next'})).state.page).toBe(2);
     for(const action of [{action:'search',query:'secret'},{action:'scroll',y:1},{action:'highlight',text:'remote'},{action:'focus',text:'remote',zoom:2}])await expect(nav(action)).rejects.toMatchObject({code:'NAVIGATION_UNAVAILABLE'});
     denied(await h.browser().request('POST',`${path()}/navigation`,{tabId:'fake',requestId:randomUUID(),expectedRevision:1,navigation:{action:'page',page:1}}),[401]);
   });

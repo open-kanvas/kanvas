@@ -90,7 +90,7 @@ describe.each(['modern', 'legacy'] as const)('%s MCP publication contracts and p
     expect(report.context.displayRevision).toBe(0);
     expect(value<ReportRecord>(await p.call('kanvas_error_report', input)).id).toBe(report.id);
     failure(await p.call('kanvas_error_report', { ...input, description: 'Different retry content' }), 'REQUEST_ID_CONFLICT');
-    const feedback = value<ReportRecord>(await p.call('kanvas_feedback_submit', { sessionId: session.id, requestId: 'suggestion', title: 'Make sharing clear', description: 'Return the viewer URL from display registration.', category: 'usability' }));
+    const feedback = value<ReportRecord>(await p.call('kanvas_feedback_submit', { sessionId: session.id, requestId: 'suggestion', title: 'Make sharing clear', description: 'Return the viewer URL from display registration.' }));
     expect(feedback.kind).toBe('feedback');
     failure(await p.call('kanvas_update_status', { sessionId: session.id, requestId: 'report-bug' }), 'NOT_FOUND');
     expect((await owner.detail(session.id)).interactions).toHaveLength(0);

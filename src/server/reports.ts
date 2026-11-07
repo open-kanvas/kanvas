@@ -135,7 +135,7 @@ export class SessionReports {
       ...(principal.agentId ? { agentId: principal.agentId } : {}), ...(input.client ? { client: input.client } : {}),
       ...(input.displayId ? { displayId: input.displayId } : {}), ...(input.updateId ? { updateId: input.updateId } : {}),
       ...(diagnostic ? { diagnosticId, diagnostic } : {}),
-      ...('category' in input ? { category: input.category } : { severity: input.severity }),
+      ...('severity' in input ? { severity: input.severity } : {}),
       ...('steps' in input && input.steps ? { steps: (typeof input.steps === 'string' ? [input.steps] : input.steps).map(clean) } : {}),
       ...('expected' in input && input.expected ? { expected: clean(input.expected) } : {}),
       ...('actual' in input && input.actual ? { actual: clean(input.actual) } : {}),

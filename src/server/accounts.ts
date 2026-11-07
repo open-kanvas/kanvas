@@ -37,6 +37,7 @@ export class Accounts {
     });
   }
   async recordRequest(category:'agent'|'account'|'api'|'page',status:number,durationMs:number,operation?:string){
+    if(category==='api'&&status<400)return;
     await rawEvent(this.store,'http.request',{operation,status:String(status),durationMs:Math.max(0,durationMs),properties:{category}});
   }
   private async traffic(since?:string,until?:string){

@@ -130,10 +130,10 @@ export class EntryDevices {
 
 export function mountEntryDevices(app:Express,devices:EntryDevices,browser:(req:Request)=>Promise<Awaited<AuthPrincipal>>){
   app.post('/api/devices/register',async (req,res)=>{
-    const {windowId,...raw}=z.object({installationId:identifier,name:z.string().optional(),windowId:identifier.optional(),provisionHome:z.boolean().optional()}).strict().parse(req.body),p=(await browser(req));
+    const {windowId,clientVersion,...raw}=z.object({installationId:identifier,name:z.string().optional(),windowId:identifier.optional(),clientVersion:z.string().regex(/^\d{1,3}\.\d{1,3}\.\d{1,3}$/).optional(),provisionHome:z.boolean().optional()}).strict().parse(req.body),p=(await browser(req));
     const device=(await devices.register(p,raw,req.get('user-agent')??''));
     await devices.service.privacy.bind(req,res,device.id);
-    res.json({data:{...device,...(windowId?{window:(await devices.windows.register(p,device.id,windowId))}:{})}});
+    res.json({data:{...device,...(windowId?{window:(await devices.windows.register(p,device.id,windowId,clientVersion))}:{})}});
   });
   app.post('/api/devices/:deviceId/unlock',async(req,res)=>res.json({data:await devices.service.privacy.set(await browser(req),{deviceId:String(req.params.deviceId)},false)}));
   app.get('/api/devices',async (req,res)=>res.json({data:(await devices.list((await browser(req))))}));

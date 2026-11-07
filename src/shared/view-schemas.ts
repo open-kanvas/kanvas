@@ -1,3 +1,4 @@
+import {databaseSchemaDataSchema} from './database-schema.js';
 import { instrumentDataSchema } from './instrument.js';
 import { captionDataSchema } from './local-sequence.js';
 import {mathWorkspaceSchema} from './math-workspace.js';
@@ -250,6 +251,7 @@ export const actionSchema = z.object({ id: identifier, label, kind: z.enum(['but
 export const codeWorkspaceDataSchema=z.object({files:codeDataSchema.shape.files.unwrap(),activePath:z.string().min(1).max(500),excerpt:codeDataSchema}).strict().refine(v=>v.files.some(f=>f.path===v.activePath&&f.kind==='file'),'Active path must name a supplied file.').refine(v=>['code','diff'].includes(v.excerpt.kind),'Workspace excerpt must be code or diff.');
 const base = { format: viewFormatSchema.optional().describe('Display-only format overrides; source stays ISO.'), selection: selectionSchema.optional().describe('Agent-controlled filter/sort/highlight; full source is retained. No display filter widgets.'), version: z.literal(1).default(1), title: short.optional(), showTitle: z.boolean().optional().describe('Show the stored title on the display only when explicitly true.'), showCaption: z.boolean().optional().describe('Opt in to supporting captions on the display; content remains stored when hidden.'), showSource: z.boolean().optional().describe('Opt in to visible source metadata. Required attribution is always retained.'), showControls: z.boolean().optional().describe('Default off for every template. Opt in to utility controls such as chart data; tables have no filter/sort/reset widgets. Intrinsic responses and navigation remain available.'), source: provenanceSchema.optional(), actions: z.array(actionSchema).max(8).refine(uniqueIds, 'Action IDs must be unique').optional() };
 export const leafViewSchema = z.discriminatedUnion('template', [
+  z.object({...base,template:z.literal('database-schema'),data:databaseSchemaDataSchema}).strict(),
   z.object({...base,template:z.literal('sing-along'),data:venueSchemas['sing-along']}).strict(),
   z.object({...base,template:z.literal('seat-map'),data:venueSchemas['seat-map']}).strict(),
   z.object({...base,template:z.literal('vocabulary'),data:venueSchemas['vocabulary']}).strict(),
@@ -357,11 +359,14 @@ export const presenterPreviewSchema = z.boolean().optional().describe('Notes dis
 export const cueOptionsSchema={mirrored:z.union([z.boolean(),z.enum(['vertical','horizontal','both'])]).optional().describe('false disables mirroring; true defaults to vertical (top/bottom flip). Choose vertical, horizontal (left/right flip), or both (180-degree rotation). Select for your physical rig; no glass calibration is inferred.'),cueMode:z.boolean().optional()};
 export const presentationDataSchema = z.object({ ...cueOptionsSchema,slides: z.array(leafViewSchema).min(1).max(VIEW_LIMITS.slides), index: z.number().int().min(0).default(0), presenterPreview: presenterPreviewSchema,
 }).strict().refine((v) => v.index < v.slides.length, 'Slide index is outside this deck');
-export const viewSchema = z.union([leafViewSchema, z.object({ ...base, template: z.literal('presentation'), data: presentationDataSchema }).strict()]).describe('title, showTitle, showCaption, showSource, showControls, source and actions are view-level fields beside template/data, never inside data.');
+const ordinaryViewSchema = z.union([leafViewSchema,z.object({...base,template:z.literal('presentation'),data:presentationDataSchema}).strict()]);
+export const splitScreenSchema=z.object({...base,template:z.literal('split-screen'),data:z.object({direction:z.enum(['vertical','horizontal']).default('vertical'),panes:z.array(z.object({id:z.string().regex(/^[A-Za-z0-9_-]{1,32}$/),view:ordinaryViewSchema}).strict()).min(2).max(6).refine(p=>[2,4,6].includes(p.length),'Use 2, 4 or 6 panes.').refine(p=>new Set(p.map(x=>x.id)).size===p.length,'Pane IDs must be unique.')}).strict()}).strict();
+export const viewSchema = z.union([leafViewSchema, ordinaryViewSchema.options[1],splitScreenSchema]).describe('title, showTitle, showCaption, showSource, showControls, source and actions are view-level fields beside template/data, never inside data.');
 export type ValidatedView = z.infer<typeof viewSchema>;
 
 /** The same per-template contract powers runtime validation and MCP discovery. */
 export function templateViewSchema(template: TemplateId): z.ZodType {
+  if(template==='split-screen')return splitScreenSchema;
   return template === 'presentation' ? z.object({...base,template:z.literal('presentation'),data:z.object({...cueOptionsSchema,slides:z.array(z.union(leafViewSchema.options.filter(option=>!['web'].includes(option.shape.template.value)))).min(1).max(VIEW_LIMITS.slides),index:z.number().int().min(0).default(0),presenterPreview:presenterPreviewSchema}).strict().refine(data=>data.index<data.slides.length,'Slide index is outside the presentation.')}).strict()
     : sourceDescribedSchema(template);
 }
@@ -402,7 +407,7 @@ export function validateView(input: unknown): ViewSpec {
   // Select the known discriminator before parsing so a malformed fact returns
   // fact field errors, not an opaque union failure across all fifteen templates.
   if (input && typeof input === 'object' && 'template' in input) {
-    const schema = input.template === 'presentation' ? viewSchema.options[1]
+    const schema = input.template === 'split-screen' ? splitScreenSchema : input.template === 'presentation' ? viewSchema.options[1]
       : leafViewSchema.options.find(option => option.shape.template.value === input.template);
     if (schema) return checkedSelection(normalizeTableRows(schema.parse(input) as ViewSpec));
   }
@@ -410,12 +415,14 @@ export function validateView(input: unknown): ViewSpec {
 }
 
 function checkedSelection(view:ViewSpec,path:(string|number)[]=[]):ViewSpec {
+  if(view.template==='split-screen')(view.data.panes as {view:ViewSpec}[]).forEach((p,i)=>checkedSelection(p.view,[...path,'data','panes',i,'view']));
   if(view.selection&&!selectionKey(view))throw new z.ZodError([{code:'custom',path:[...path,'selection'],message:'Selection requires a table, list, log, communication or technical record view.'}]);
   if(view.template==='presentation')(view.data.slides as ViewSpec[]).forEach((slide,i)=>checkedSelection(slide,[...path,'data','slides',i]));
   return view;
 }
 
 function normalizeTableRows(view: ViewSpec): ViewSpec {
+  if(view.template==='split-screen')return {...view,data:{...view.data,panes:(view.data.panes as {id:string;view:ViewSpec}[]).map(p=>({...p,view:normalizeTableRows(p.view)}))}};
   if (view.template === 'presentation') return { ...view, data: { ...view.data, slides: (view.data.slides as ViewSpec[]).map(normalizeTableRows) } };
   if (view.template !== 'table') return view;
   const supplied = view.data.columns as string[], rows = view.data.rows as unknown[];

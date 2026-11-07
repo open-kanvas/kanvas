@@ -24,7 +24,7 @@ const text = z.string().max(200);
 const emphasis = z.enum(['none','selected','last-move','warning']).default('none');
 const color = z.union([z.enum(['white','black','red','yellow','blue','green']),z.string().regex(/^#[0-9a-fA-F]{6}$/)]).optional();
 const cell = z.object({ value:text.optional(), notes:z.array(z.string().max(8)).max(12).optional(), given:z.boolean().optional(), blocked:z.boolean().optional(), number:z.number().int().min(1).max(999).optional(), emphasis }).strict();
-const piece = z.object({ cell: id.describe('Internal rROWcCOLUMN (top-left r1c1), or visible A1-style coordinate. Chess/checkers/Go/reversi number rows bottom-up; other grids top-down.'), side:z.enum(['first','second']).optional().describe('Neutral opposing sides: first near-black, second near-white with outline. Explicit color overrides.'), symbol:z.enum(['king','queen','rook','bishop','knight','pawn','disc','X','O','tile']), color, stack:z.number().int().min(1).max(30).optional(), label:z.string().max(12).optional(), emphasis }).strict();
+const piece = z.object({ coordinate:id.optional().describe('Canonical friendly coordinate returned alongside the stable internal cell; derived from cell, never orientation.'), cell: id.describe('Internal rROWcCOLUMN (top-left r1c1), or visible A1-style coordinate. Chess/checkers/Go/reversi number rows bottom-up; other grids top-down.'), side:z.enum(['first','second']).optional().describe('Neutral opposing sides: first near-black, second near-white with outline. Explicit color overrides.'), symbol:z.enum(['king','queen','rook','bishop','knight','pawn','disc','X','O','tile']), color, stack:z.number().int().min(1).max(30).optional(), label:z.string().max(12).optional(), emphasis }).strict();
 const card = z.discriminatedUnion('face',[
   z.object({ face:z.literal('up'), zone:id, order:z.number().int().min(0).max(100), rank:z.enum(['A','2','3','4','5','6','7','8','9','10','J','Q','K']), suit:z.enum(['clubs','diamonds','hearts','spades']), emphasis }).strict(),
   // An unknown back has NO retained identity. It is not a private card hidden by CSS.
@@ -33,7 +33,7 @@ const card = z.discriminatedUnion('face',[
 const bounded = <T extends z.ZodType>(schema:T, max:number) => z.record(id,schema).refine(v=>Object.keys(v).length<=max,`At most ${max} entries`);
 export const gameDataSchema = z.object({
   preset:z.enum(GAME_PRESETS), visibility:z.literal('public').default('public').describe('All supplied state is visible to every authorized session reader. No private/recipient payloads; unknown card backs contain no identities.'),
-  positionLabel:text.default('Live position'),showLabels:z.boolean().default(true),
+  orientation:z.enum(['default','flipped']).default('default').describe('Rotate grid geometry 180 degrees, never reinterpret coordinates. Applies to grid presets, not card tables.'),positionLabel:text.default('Live position'),showLabels:z.boolean().default(true),
   cells:bounded(cell,800).default({}), pieces:bounded(piece,400).default({}),
   zones:bounded(z.object({ label:text, badge:text.optional(), counter:text.optional(),bet:text.optional(),role:z.enum(['community','seat','dealer','player','stock','waste','foundation','tableau']).optional() }).strict(),32).default({}),
   cards:bounded(card,104).default({}), counters:bounded(z.object({ label:text, value:text,zone:id.optional() }).strict(),32).default({}),
@@ -42,7 +42,7 @@ export const gameDataSchema = z.object({
   const preset=gamePresets[data.preset];
   const coordinate=(value:string)=>{const m=/^([A-Za-z])([1-9][0-9]*)$/.exec(value);if(!m)return value;const col=m[1].toUpperCase().charCodeAt(0)-64,row=['chess','checkers','go','reversi'].includes(data.preset)?preset.rows-Number(m[2])+1:Number(m[2]);return `r${row}c${col}`;};
   for(const key of Object.keys(data.cells)){const normalized=coordinate(key);if(normalized!==key){if(Object.hasOwn(data.cells,normalized))ctx.addIssue({code:'custom',path:['cells',key],message:'Duplicate coordinate aliases'});else data.cells[normalized]=data.cells[key];delete data.cells[key];}}
-  for(const piece of Object.values(data.pieces))piece.cell=coordinate(piece.cell);
+  for(const piece of Object.values(data.pieces)){piece.cell=coordinate(piece.cell);const m=/^r(\d+)c(\d+)$/.exec(piece.cell);if(m)piece.coordinate=String.fromCharCode(64+Number(m[2]))+(['chess','checkers','go','reversi'].includes(data.preset)?preset.rows-Number(m[1])+1:Number(m[1]));}
   for(const annotation of Object.values(data.annotations))annotation.cells=annotation.cells.map(coordinate);
 
   const validCell=(key:string)=>{const m=/^r([1-9]\d*)c([1-9]\d*)$/.exec(key);return !!m&&Number(m[1])>=1&&Number(m[1])<=preset.rows&&Number(m[2])>=1&&Number(m[2])<=preset.columns;};

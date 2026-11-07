@@ -40,3 +40,11 @@ Migration2 runs transactionally. Older 0.34 binaries refuse the newer schema: an
 ## Traffic query precision and scale
 
 Service traffic totals are filtered and aggregated inside PostgreSQL; only bounded category totals reach the application, not the full retained request history. New raw events use exact inclusive timestamp bounds on the event-type/time index. Legacy hourly aggregates retain hour precision: a partial starting hour includes that legacy hour, never fabricated per-request timestamps. Queries do not modify or delete either source. Polling remains included in the raw history.
+
+## 0.36.0 operation-level recording policy
+
+Record what people and agents do and meaningful state changes: operation/tool calls with status/duration/caller context; session/display/publication lifecycle; navigation commands/acks/receipts; pointing, satisfaction, device lock and requested user actions; registration/sign-in/out; connection connect/disconnect; validation and runtime failures. New event properties include server-authoritative serverVersion.
+
+Deliberately exclude successful background category-api HTTP requests, connection heartbeats, navigation-viewport snapshots, connection-history snapshots, registered-window snapshots, and routine frontend diagnostics. Frontend `*-error` and failed requests (status 0 or >=400) remain individual `browser.event` rows, without a duplicate batch event. Failed API requests are retained. Existing page/account/agent HTTP records remain. Per-operation rows retain rich client context. Server access logs are separate and unchanged.
+
+No event deletes, expiry, archival or replacement aggregates are introduced. Previously stored housekeeping remains intact indefinitely. Future new event types should answer who did what, when and whether it worked, not merely show that a browser is alive. Controlled synthetic event-count/privacy tests establish bounded cases, not a claim that sampling proves every production row or arbitrary malicious header safe.

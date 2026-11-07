@@ -15,7 +15,7 @@ type ViewportCommand=Omit<OverviewCommand,'destination'> & {destination:'viewpor
 type WindowCommand=DeviceCommand|OverviewCommand|ViewportCommand;
 export const connectionRedirectSchema=z.object({connectionId:identifier.describe('Your connection: topology.read connections[].id.'),sessionId:identifier,displayId:identifier,requestId:identifier}).strict();
 interface RegisteredWindow {
-  id:string;deviceId:string;ownerId:string;browserId:string;tabId:string;name:string;version:number;
+  clientVersion?:string;id:string;deviceId:string;ownerId:string;browserId:string;tabId:string;name:string;version:number;
   atOverview?:boolean;createdAt:string;lastSeenAt:string;sessionId?:string;displayId?:string;renderedRevision?:number;command?:WindowCommand;
 }
 interface LiveWindow {principal:AuthPrincipal;count:number}
@@ -41,18 +41,18 @@ export class WindowReceivers {
   private async scale(w:RegisteredWindow){return (await this.service.store.get<{scale:number}>('window-zoom',hash(`${w.browserId}:${w.tabId}`).slice(0,32)))?.scale??1;}
   private async public(w:RegisteredWindow){
     const command=w.command?{...w.command,status:w.command.status==='pending'&&w.command.expiresAt<=Date.now()?'expired':w.command.status}:undefined;
-    return {id:w.id,name:w.name,version:w.version,connected:(await this.online(w)),lastSeenAt:w.lastSeenAt,overviewScale:await this.scale(w),location:w.atOverview?'overview':w.sessionId?'display':'unknown',
+    return {id:w.id,name:w.name,clientVersion:w.clientVersion,version:w.version,connected:(await this.online(w)),lastSeenAt:w.lastSeenAt,overviewScale:await this.scale(w),location:w.atOverview?'overview':w.sessionId?'display':'unknown',
       ...(w.sessionId&&w.displayId?{current:{sessionId:w.sessionId,displayId:w.displayId,viewerUrl:`${this.service.publicUrl}/view/${w.sessionId}/${w.displayId}`},renderedRevision:w.renderedRevision}:{}),command};
   }
   async listForDevice(d:Device){return (await asyncMap((await this.rows(d.id)).filter(w=>w.browserId===d.browserId), async w=>(await this.public(w))));}
   async hasOnline(d:Device){return (await asyncSome((await this.rows(d.id)), async w=>w.browserId===d.browserId&&(await this.online(w))));}
-  async register(p:AuthPrincipal,deviceId:string,tabId:string){
+  async register(p:AuthPrincipal,deviceId:string,tabId:string,clientVersion?:string){
     return this.service.store.atomic(async () => {
     identifier.parse(tabId);const d=(await this.devices.receiverDevice(p,deviceId)),key=hash(`${d.id}:${tabId}`),old=(await this.service.store.get<RegisteredWindow>('registered-window',key));
-    if(old){if(old.browserId!==p.browserId){old.browserId=p.browserId!;old.command=undefined;old.version++;}old.lastSeenAt=now();(await this.service.store.put('registered-window',old));return (await this.public(old));}
+    if(old){if(old.browserId!==p.browserId){old.browserId=p.browserId!;old.command=undefined;old.version++;}old.clientVersion=clientVersion;old.lastSeenAt=now();(await this.service.store.put('registered-window',old));return (await this.public(old));}
     for(const stale of (await this.rows(d.id)))if(!(await this.online(stale))&&Date.parse(stale.lastSeenAt)<Date.now()-30*86400000)(await this.service.store.delete('registered-window',stale.id));
     const rows=(await this.rows(d.id));if(rows.length>=128)throw new AppError('LIMIT_REACHED','This device has reached its 128-window retention limit.',429);
-    const stamp=now(),w:RegisteredWindow={id:key,deviceId:d.id,ownerId:p.userId,browserId:p.browserId!,tabId,name:`${d.context.browser} window ${rows.length+1}`,version:0,createdAt:stamp,lastSeenAt:stamp};
+    const stamp=now(),w:RegisteredWindow={clientVersion,id:key,deviceId:d.id,ownerId:p.userId,browserId:p.browserId!,tabId,name:`${d.context.browser} window ${rows.length+1}`,version:0,createdAt:stamp,lastSeenAt:stamp};
     (await this.service.store.put('registered-window',w));return (await this.public(w));
 
     });

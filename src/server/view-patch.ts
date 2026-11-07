@@ -94,6 +94,13 @@ function existingIndex(part: string, values: unknown[]): number {
 /** Do not cross a nested view envelope or mutate source/response authorities. */
 function assertPatchTarget(view: ViewSpec, parts: string[]): void {
   let leaf = view, relative = parts.slice(1);
+  if(leaf.template==='split-screen'){
+    if(relative.length===1&&relative[0]==='direction')return;
+    if(relative[0]!=='panes'||relative[2]!=='view')unsupported('Patch a pane at /data/panes/N/view or its data; pane IDs/count remain stable until a new submission.');
+    const pane=(leaf.data.panes as {view:ViewSpec}[])[existingIndex(relative[1],leaf.data.panes as unknown[])];
+    if(relative.length===3)return;
+    return assertPatchTarget(pane.view,relative.slice(3));
+  }
   while (leaf.template === 'presentation') {
     if (relative[0] === 'index' && relative.length === 1) return;
     if (relative[0] !== 'slides' || relative.length < 4 || relative[2] !== 'data') {

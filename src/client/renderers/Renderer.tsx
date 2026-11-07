@@ -67,6 +67,9 @@ import { CalendarRenderer, PlannerRenderer } from './Planner';
 import './glance.css';
 import { RegionalContext } from './Regional';
 import { ListRenderer, IframeRenderer } from './Browsing';
+import {SplitScreen} from './SplitScreen';
+import {DatabaseSchema} from './DatabaseSchema';
+import type {DatabaseSchemaData} from '../../shared/database-schema';
 import type { IframeData, ListData } from '../../shared/browsing-templates';
 import type { CountdownData, FormData, PollData, QAData, ScheduleData, TranscriptionData, TranslationData } from '../../shared/view-schemas';
 const MathWorkspaceRenderer = lazy(() => import('./MathWorkspace').then(m => ({default:m.MathWorkspaceRenderer})));
@@ -153,6 +156,8 @@ function ContentInner(props: RendererProps) {
     case 'scene3d': return <Scene3DRenderer {...props} />;
     case 'drafting': return <DraftingRenderer {...props} />;
     case 'molecule': return <MoleculeRenderer view={view} />;
+    case 'split-screen': return <SplitScreen {...props}/>;
+    case 'database-schema': return <DatabaseSchema data={view.data as DatabaseSchemaData}/>;
     case 'qr': return <QrRenderer key={JSON.stringify(view.data)} data={view.data as {content:string;title?:string;text?:string;image?:{url:string;alt:string}}}/>;
     case 'signage': return <SignageRenderer view={view} serverNow={props.serverNow} />;
     case 'satisfaction': return <SatisfactionRenderer {...props} />;

@@ -17,7 +17,7 @@ const common = {
 };
 const contextual=(v:{sessionId?:string;displayId?:string;updateId?:string;diagnosticId?:string},c:z.RefinementCtx)=>{if(!v.sessionId&&(v.displayId||v.updateId||v.diagnosticId))c.addIssue({code:'custom',path:['sessionId'],message:'Supply sessionId when attaching a display, update or diagnostic.'});};
 export const feedbackSubmitSchema = z.strictObject({
-  ...common, category: z.enum(['usability', 'feature', 'quality', 'other']).default('other'),
+  ...common,
 }).superRefine(contextual);
 export const errorReportSchema = z.strictObject({
   ...common, severity: z.enum(['low', 'normal', 'high']).default('normal'),
@@ -56,7 +56,7 @@ export interface ReportRecord {
   id: string; accountId?:string; sessionId?: string; kind: typeof REPORT_KINDS[number]; status: typeof REPORT_STATUSES[number]; revision: number;
   title: string; description: string; authorId: string; agentId?: string; client?: FeedbackInput['client'];
   displayId?: string; updateId?: string; diagnosticId?: string; diagnostic?: DiagnosticRecord;
-  category?: FeedbackInput['category']; severity?: ErrorReportInput['severity']; steps?: string[]; expected?: string; actual?: string;
+  category?: 'usability'|'feature'|'quality'|'other'; severity?: ErrorReportInput['severity']; steps?: string[]; expected?: string; actual?: string;
   createdAt: string; updatedAt: string;
   clientDetails?:ClientDetails; clientContext?:{inferred?:{userAgent?:string;clientName?:string;clientVersion?:string};selfReported:ClientDetails;verified:false;conflicts:string[]};
   context: { configRevision?: number; displayRevision?: number; template?: string; updateStatus?: string };

@@ -18,3 +18,16 @@ export async function rawEvent(store:Store,eventType:string,input:{userId?:strin
  await store.query('INSERT INTO events(event_id,user_id,principal,session_id,display_id,event_type,operation,status,duration_ms,client_context,properties) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb)',[randomUUID(),userId??null,input.principal??c?.principal??null,input.sessionId??c?.sessionId??null,input.displayId??c?.displayId??null,eventType,input.operation??null,input.status??null,input.durationMs??null,JSON.stringify({...c?.client,...input.client}),JSON.stringify({...input.properties,serverVersion:KANVAS_VERSION})]);
 }
 export const trackedKinds=new Set(['image-diagnostic','delivery-paint','navigation','navigation-receipt','pin-receipt','progress-receipt','chat-receipt','view-pin','session','display','display-history','update','lifecycle','registered-device','audit-event','tool-log-event','diagnostic','navigation-command','navigation-ack','invitation','group-member','pairing','device-privacy','satisfaction-response','interaction','account-entry','browser','device-login','device-request','email-signin','screen-enrollment','agent-connection','work','publish-intent','publish-receipt','toast']);
+
+/** Keep user mutations even where no document/audit event exists (for example uploads).
+ * Route templates, never supplied paths/query strings, are used for this decision. */
+export function recordHttpOperation(category:'agent'|'account'|'api'|'page',status:number,operation=''){
+ if(status>=400)return true;
+ if(category==='account'&&new Set(['GET /api/auth/me','POST /api/auth/activity','GET /api/auth/email/status','POST /api/auth/email/connection-status']).has(operation))return false;
+ if(category!=='api')return true;
+ if(!/^(POST|PUT|PATCH|DELETE) /.test(operation))return false;
+ const path=operation.slice(operation.indexOf(' ')+1);
+ if(path==='/api/diagnostics'||/^\/api\/devices\/:deviceId(?:\/windows\/:windowId)?\/report$/.test(path))return false;
+ if(/^\/api\/sessions\/:id\/displays\/:displayId\/(observe|applied|delivery|paint-timing|navigation\/(viewport|ack)|video-commands\/:commandId\/result)$/.test(path))return false;
+ return true;
+}

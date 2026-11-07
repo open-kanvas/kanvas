@@ -1,4 +1,4 @@
-import {afterEach,beforeEach,describe,it,expect} from 'vitest';
+import {afterEach,beforeEach,describe,it,expect,vi} from 'vitest';
 import {randomUUID} from 'node:crypto';
 import {startHarness,success,fact,type Harness,type Browser} from './harness.js';
 import {validateView} from '../../src/shared/view-schemas.js';
@@ -7,7 +7,7 @@ import {feedbackSubmitSchema} from '../../src/shared/reports.js';
 import {experienceTools} from '../../src/server/mcp/experience-tools.js';
 import {pairedDisplayAllowsAsset} from '../../src/server/access-flows.js';
 import {parseDataset} from '../../src/server/rendering/datasets.js';
-import {rawEvent} from '../../src/server/raw-events.js';
+import {rawEvent,recordHttpOperation} from '../../src/server/raw-events.js';
 const toastSchema=experienceTools.find(t=>t.name==='kanvas_toast')!.schema;
 it('accepts generic rich notices and legacy text, rejecting unsafe icons/oversized fields',()=>{
  expect(toastSchema.safeParse({sessionId:'s',displayIds:['d'],text:'Original'}).success).toBe(true);
@@ -15,6 +15,12 @@ it('accepts generic rich notices and legacy text, rejecting unsafe icons/oversiz
  expect(toastSchema.safeParse(base).success).toBe(true);
  for(const extra of [{icon:'javascript:alert(1)'},{icon:'http://127.0.0.1/a'},{title:'x'.repeat(161)},{time:'not-time'},{type:'email'},{action:'https://example.com'}])expect(toastSchema.safeParse({...base,...extra}).success).toBe(false);
  expect(toastSchema.safeParse({sessionId:'s',displayIds:['d']}).success).toBe(false);
+});
+it('retains real API mutations and failures but suppresses read/observation/auth polling completions',()=>{
+ for(const operation of ['POST /api/sessions/:id/assets','POST /api/sessions/:id/datasets','PATCH /api/preferences','POST /api/sessions/:id/displays/:displayId/toasts/dismiss','POST /api/devices/register'])expect(recordHttpOperation('api',200,operation),operation).toBe(true);
+ for(const operation of ['GET /api/sessions/:id','POST /api/diagnostics','POST /api/sessions/:id/displays/:displayId/observe','POST /api/sessions/:id/displays/:displayId/navigation/viewport','POST /api/devices/:deviceId/windows/:windowId/report']){expect(recordHttpOperation('api',200,operation),operation).toBe(false);expect(recordHttpOperation('api',500,operation),operation).toBe(true);}
+ for(const operation of ['GET /api/auth/me','POST /api/auth/activity','GET /api/auth/email/status','POST /api/auth/email/connection-status']){expect(recordHttpOperation('account',200,operation)).toBe(false);expect(recordHttpOperation('account',401,operation)).toBe(true);}
+ expect(recordHttpOperation('account',200,'POST /api/auth/email/consume')).toBe(true);expect(recordHttpOperation('agent',200,'POST /mcp')).toBe(true);
 });
 it('feedback no longer publishes or requires a category',()=>{
  const base={requestId:'r',title:'Finding',description:'Description'};expect(feedbackSubmitSchema.parse(base)).toEqual(base);expect(feedbackSubmitSchema.safeParse({...base,category:'improvement'}).success).toBe(false);
@@ -80,6 +86,10 @@ describe('November 6 isolated operation regressions',()=>{
   await h.runtime.service.accounts.recordRequest('api',500,2,'fixture-failure');await rawEvent(store,'tool.call',{sessionId:s,operation:'fixture.operation',status:'success'});
   const after=await store.query('SELECT * FROM events ORDER BY occurred_at,event_id');expect(after.rows.slice(0,before.rows.length)).toEqual(before.rows);expect(after.rows).toHaveLength(before.rows.length+2);
   expect(after.rows.at(-1)?.properties.serverVersion).toBe(KANVAS_VERSION);
+ });
+ it('retains an authenticated browser upload operation without copying uploaded bytes or filename',async()=>{
+  const result=await owner.request('POST',`/api/sessions/${s}/assets`,{name:'private-upload-name-7721.png',mimeType:'image/png',base64:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6Ot8AAAAASUVORK5CYII='});expect(result.status).toBe(201);
+  await vi.waitFor(async()=>{const rows=(await h.runtime.store.query("SELECT * FROM events WHERE event_type='http.request' AND operation='POST /api/sessions/:id/assets'")).rows;expect(rows).toHaveLength(1);expect(rows[0].user_id).toBe(owner.user!.id);expect(JSON.stringify(rows)).not.toContain('private-upload-name-7721');expect(JSON.stringify(rows)).not.toContain('iVBORw0KGgo');});
  });
  it('stamps new sessions/window reports without inventing a historical release',async()=>{
   expect((await h.runtime.service.access(p(),s)).serverVersion).toBe(KANVAS_VERSION);

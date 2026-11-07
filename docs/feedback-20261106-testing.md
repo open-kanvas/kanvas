@@ -5,7 +5,7 @@ Use a disposable DEV session. Refresh old receiver tabs after the deployment; br
 1. Send legacy text and rich title/description/icon/time toasts together. Check local HH:mm, stacking, dismissal and one broken icon; display content/history must not change.
 2. Show a QR with a short title/caption on portrait phone and desktop; code and caption fit with a clear quiet zone.
 3. Lock a test device. It says “Kanvas is locked on this device. Ask your agent to unlock.” Unlock through the still-supported account/device workflow.
-4. In isolated operator evidence, compare housekeeping with actual publications/failures: successful API polling/heartbeats do not create rows, while operations and failures do. Historical rows remain identical.
+4. In isolated operator evidence, compare housekeeping with actual publications/failures: successful API/auth polling and heartbeats do not create rows, while actual browser mutations (including uploads), operations and failures do. Historical rows remain identical.
 5. Show black and white Connect Four discs on dark/light themes; empty slots are visibly distinct.
 6. Show chart/document in two vertical panes; change to horizontal, then four/six mixed views. Patch one child, preserving the other's scroll/state. Resize/rotate; phone selector keeps one readable pane. Delayed media in a hidden pane must complete before paint acknowledgement. No nested splits. Server-backed responses/editing are disabled; live overview/grid/topology use preview presentation and should be opened full-display for live data.
 7. Navigate a 3-page table to first/middle/last. Agent read/control reports pages 1/2/3; explicit pageIndex is 0/1/2; no new publication history.

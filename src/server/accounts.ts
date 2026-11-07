@@ -1,4 +1,4 @@
-import {rawEvent} from './raw-events.js';
+import {recordHttpOperation,rawEvent} from './raw-events.js';
 import { asyncFilter, asyncFlatMap, asyncMap, asyncReduce, asyncSome } from './async-collections.js';
 import type { Express, Request } from 'express';
 import { z } from 'zod';
@@ -37,7 +37,7 @@ export class Accounts {
     });
   }
   async recordRequest(category:'agent'|'account'|'api'|'page',status:number,durationMs:number,operation?:string){
-    if(category==='api'&&status<400)return;
+    if(!recordHttpOperation(category,status,operation))return;
     await rawEvent(this.store,'http.request',{operation,status:String(status),durationMs:Math.max(0,durationMs),properties:{category}});
   }
   private async traffic(since?:string,until?:string){

@@ -36,9 +36,9 @@ export class Accounts {
 
     });
   }
-  async recordRequest(category:'agent'|'account'|'api'|'page',status:number,durationMs:number,operation?:string){
+  async recordRequest(category:'agent'|'account'|'api'|'page',status:number,durationMs:number,operation?:string,operationId?:string){
     if(!recordHttpOperation(category,status,operation))return;
-    await rawEvent(this.store,'http.request',{operation,status:String(status),durationMs:Math.max(0,durationMs),properties:{category}});
+    await rawEvent(this.store,category==='api'&&status<400?'browser.operation':'http.request',{operation:operationId??operation,status:String(status),durationMs:Math.max(0,durationMs),properties:{category}});
   }
   private async traffic(since?:string,until?:string){
     // Filter at the indexed source and aggregate in PostgreSQL. Retained raw

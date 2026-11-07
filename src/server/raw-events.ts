@@ -3,7 +3,7 @@ import {AsyncLocalStorage} from 'node:async_hooks';
 import {randomUUID} from 'node:crypto';
 import type {Store} from './store.js';
 import type {AuthPrincipal} from './auth.js';
-export interface EventContext {userId?:string;principal?:string;sessionId?:string;displayId?:string;client?:Record<string,unknown>}
+export interface EventContext {operation?:string;userId?:string;principal?:string;sessionId?:string;displayId?:string;client?:Record<string,unknown>}
 export const eventContext=new AsyncLocalStorage<EventContext>();
 export function attribute(p:AuthPrincipal){const c=eventContext.getStore();if(c){c.userId=p.userId;c.principal=p.tokenId?`token:${p.tokenId}`:`user:${p.userId}`;}}
 const fields=['deviceId','windowId','commandId','reason','template','revision','status','stage','type','operation','event','errorCode','kind','role','locked','visible','width','height','renderedRevision','durationMs','elapsedMs','clientRelease','release'] as const;

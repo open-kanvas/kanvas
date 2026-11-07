@@ -43,7 +43,7 @@ it('database schema preserves 12+ columns and validates explicit relationship en
 });
 describe('November 6 isolated operation regressions',()=>{
  let h:Harness,owner:Browser,s:string,d:string;const p=()=>({userId:owner.user!.id});
- beforeEach(async()=>{h=await startHarness();owner=await h.account();s=(await owner.session()).id;d=(await owner.display(s)).id;await vi.waitFor(async()=>expect((await h.runtime.store.query("SELECT count(*)::int n FROM events WHERE event_type='http.request' AND operation='POST /api/sessions/:id/displays'")).rows[0].n).toBe(1));});afterEach(async()=>{await h?.close();});
+ beforeEach(async()=>{h=await startHarness();owner=await h.account();s=(await owner.session()).id;d=(await owner.display(s)).id;await vi.waitFor(async()=>expect((await h.runtime.store.query("SELECT count(*)::int n FROM events WHERE event_type='browser.operation' AND operation='kanvas_display_register'")).rows[0].n).toBe(1));});afterEach(async()=>{await h?.close();});
  it('refreshes all matching checklist displays, not replacement content, without history growth',async()=>{
   await owner.submit(s,[d],{version:1,template:'checklist',data:{items:[{id:'one',text:'One',checked:false}]}});
   const view=(await owner.detail(s)).displays.find(x=>x.id===d)!.view!,checklistId=String(view.data.checklistId),d2=(await owner.display(s)).id,d3=(await owner.display(s)).id;
@@ -89,7 +89,7 @@ describe('November 6 isolated operation regressions',()=>{
  });
  it('retains an authenticated browser upload operation without copying uploaded bytes or filename',async()=>{
   const result=await owner.request('POST',`/api/sessions/${s}/assets`,{name:'private-upload-name-7721.png',mimeType:'image/png',base64:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6Ot8AAAAASUVORK5CYII='});expect(result.status).toBe(201);
-  await vi.waitFor(async()=>{const rows=(await h.runtime.store.query("SELECT * FROM events WHERE event_type='http.request' AND operation='POST /api/sessions/:id/assets'")).rows;expect(rows).toHaveLength(1);expect(rows[0].user_id).toBe(owner.user!.id);expect(JSON.stringify(rows)).not.toContain('private-upload-name-7721');expect(JSON.stringify(rows)).not.toContain('iVBORw0KGgo');});
+  await vi.waitFor(async()=>{const rows=(await h.runtime.store.query("SELECT * FROM events WHERE event_type='browser.operation' AND operation='POST /api/sessions/:id/assets'")).rows;expect(rows).toHaveLength(1);expect(rows[0].user_id).toBe(owner.user!.id);expect(JSON.stringify(rows)).not.toContain('private-upload-name-7721');expect(JSON.stringify(rows)).not.toContain('iVBORw0KGgo');});
  });
  it('omits credential renewal snapshots while retaining creation and explicit authentication changes',async()=>{
   const store=h.runtime.store,browser=await h.runtime.auth.issueBrowser(owner.user!.id,{cookie:()=>{}} as any);const count=async()=>Number((await store.query("SELECT count(*) n FROM events WHERE event_type='document.browser'")).rows[0].n),before=await count();

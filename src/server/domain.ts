@@ -1,3 +1,4 @@
+import {KANVAS_VERSION} from '../shared/version.js';
 import {attribute,eventContext} from './raw-events.js';
 import {DevicePrivacy} from './device-privacy.js';
 import {SuggestedGuidance} from './suggested-guidance.js';
@@ -350,7 +351,7 @@ export class KanvasService implements McpService {
     if (principal.tokenId && (await this.store.get<{sessionIds?:string[]}>('token', principal.tokenId))?.sessionIds) throw new AppError('FORBIDDEN', 'A session-scoped client cannot create another session. Create it in the workspace.', 403);
     const sessionLimit=(await accountUsageLimits(this.store,principal.userId)).sessions;
     if ((await this.store.list<SessionRecord>('session',undefined,true)).filter(s => s.ownerId === principal.userId).length >= sessionLimit) throw new AppError('LIMIT_REACHED', `Trial account session limit (${sessionLimit}) reached. Existing sessions remain available. Contact the administrator about upgrading. Archived sessions still count.`, 429);
-    const session: SessionRecord = { id: id(), name, ownerId: principal.userId, config: copy((await this.experience.defaults(principal.userId)).config), configRevision: 0, createdAt: now(), updatedAt: now() };
+    const session: SessionRecord = { serverVersion:KANVAS_VERSION, id: id(), name, ownerId: principal.userId, config: copy((await this.experience.defaults(principal.userId)).config), configRevision: 0, createdAt: now(), updatedAt: now() };
     (await this.store.transaction(async () => { (await this.store.put('session', session)); (await this.store.db.prepare('INSERT INTO members VALUES(?,?,?)').run(session.id, principal.userId, 'owner')); }));
     (await this.accounts.audit('session.created',{actorId:principal.userId,sessionId:session.id}));
     if(currentToolContext())await this.recordAgentContext(principal,session.id,{},true);
@@ -575,6 +576,7 @@ export class KanvasService implements McpService {
     if(value.template==='instrument'&&process.env.KANVAS_INSTRUMENTS_ENABLED==='false')throw new AppError('FEATURE_DISABLED','Instrument publication is disabled on this installation.',403);
     if(value.template==='live-captions'&&process.env.KANVAS_CAPTIONS_ENABLED==='false')throw new AppError('FEATURE_DISABLED','Live Captions publication is disabled on this installation.',403);
     try{assertJsonBudget(value);}catch{throw new InputError([{path:'view',problem:'Exceeds the supported content size or complexity.'}]);}
+    if(value.template==='split-screen'&&Array.isArray(value.data.panes)){const panes:{id:string;view:ViewSpec}[]=[];for(const pane of value.data.panes as {id:string;view:ViewSpec}[])panes.push({...pane,view:await this.verifyView(principal,sessionId,pane.view)});value={...value,data:{...value.data,panes}};}
     if(value.template==='presentation'&&Array.isArray(value.data.slides)){const slides:ViewSpec[]=[];for(const slide of value.data.slides as ViewSpec[])slides.push(await this.verifyView(principal,sessionId,slide));value={...value,data:{...value.data,slides}};}
     if(value.template==='game-board'&&process.env.KANVAS_GAMES_ENABLED==='false')throw new AppError('FEATURE_DISABLED','Game publication is disabled; retained positions are preserved.',409);
     if(value.template==='account-template')value=await this.customTemplates.resolve(principal,value);
@@ -590,6 +592,7 @@ export class KanvasService implements McpService {
     }
     if(validated.template==='todays-special'){const item=validated.data.item as {id?:string};item.id??=id();}
     const view = materializeDatasetView(validated, (await this.store.list<DatasetRecord>('dataset', sessionId)));
+    try{assertJsonBudget(view);}catch{throw new InputError([{path:'view',problem:'Materialized content exceeds the supported content size or complexity.'}]);}
     const leafViews=view.template==='presentation'?view.data.slides as ViewSpec[]:[view];
     for(const leaf of leafViews)if(leaf.template==='session-topology'&&(leaf.data.includeLocation||leaf.data.layout==='map'))(await this.access(principal,sessionId,'owner'));
     for (const assetId of referencedAssets(view)) (await this.asset(principal, assetId, sessionId));

@@ -1,3 +1,4 @@
+import {KANVAS_VERSION} from '../shared/version';
 import {diagnostic,supportReference} from './frontend-diagnostics';
 import { Wordmark } from './icons';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
@@ -41,7 +42,7 @@ export function DeviceReceiver({children,suspended=false}:{children:ReactNode;su
       if(data.command){const c=data.command;diagnostic({event:'command',sessionId:c.sessionId,displayId:c.displayId});command.current=c;const path=c.destination==='overview'?'/':c.sessionId&&c.displayId?viewerPath(c.sessionId,c.displayId):undefined;if(!path)return;const target=new URL(path,location.href);if(location.pathname!==target.pathname||location.origin!==target.origin||location.search!==target.search){diagnostic({event:'navigation',sessionId:c.sessionId,displayId:c.displayId});location.assign(path);return;}window.dispatchEvent(new Event('kanvas:return-live'));report();}else command.current=undefined;
     };
     const commandEvent=(event:Event)=>receive((event as CustomEvent).detail);window.addEventListener('kanvas:window-command',commandEvent);
-    const start=async()=>{try{registered=auth.receiverDeviceId?await api<Device>('/api/screens/receiver'):await api<Device>('/api/devices/register',{method:'POST',body:{installationId:installationId(),windowId:viewerTabId(),...(['/', '/console'].includes(location.pathname)?{provisionHome:false}:{})}});if(stopped)return;setDevice(registered);setError(undefined);report();
+    const start=async()=>{try{registered=auth.receiverDeviceId?await api<Device>('/api/screens/receiver'):await api<Device>('/api/devices/register',{method:'POST',body:{installationId:installationId(),windowId:viewerTabId(),clientVersion:KANVAS_VERSION,...(['/', '/console'].includes(location.pathname)?{provisionHome:false}:{})}});if(stopped)return;setDevice(registered);setError(undefined);report();
       // A viewer carries targeted commands on its content stream. Two streams
       // per tab exhaust HTTP/1.1's six-connection origin limit.
       if(registered.window&&/^\/view\//.test(location.pathname)){window.dispatchEvent(new Event('kanvas:device-registered'));return;}

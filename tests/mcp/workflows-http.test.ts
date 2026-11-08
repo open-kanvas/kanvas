@@ -23,7 +23,7 @@ describe('workflows over both MCP protocols',()=>{
     const c=await connect(legacy,'/mcp',{Authorization:`Bearer ${issued.value}`}),stranger=await connect(legacy,'/mcp',{Authorization:`Bearer ${foreign.value}`}),reader=await connect(legacy,'/mcp',{Authorization:`Bearer ${read.value}`});
     const call=async(name:string,operation:string,args:Record<string,unknown>={})=>{const r=await c.callTool(operationRequest({name,arguments:{operation,...args}}));expect(r.isError,JSON.stringify(r.structuredContent)).not.toBe(true);return (r.structuredContent as any).data;};
     try{
-      const report=await call('kanvas_feedback','submit',{requestId:'wire-report',title:'Synthetic finding',description:'Initial observation',category:'feature'});
+      const report=await call('kanvas_feedback','submit',{requestId:'wire-report',title:'Synthetic finding',description:'Initial observation'});
       expect(await call('kanvas_feedback','patch',{reportId:report.id,expectedRevision:0,note:'Follow-up observation'})).toMatchObject({revision:1,history:[{note:'Follow-up observation'}]});
       expect((await stranger.callTool(operationRequest({name:'kanvas_feedback',arguments:{operation:'patch',reportId:report.id,expectedRevision:1,note:'Foreign'}}))).isError).toBe(true);
       const pixel='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6Ot8AAAAASUVORK5CYII=';

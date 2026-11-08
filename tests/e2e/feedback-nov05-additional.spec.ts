@@ -50,7 +50,7 @@ test('privacy recovery on another signed-in browser restores the locked installa
   const {Client,StreamableHTTPClientTransport}=await import('@modelcontextprotocol/client');const client=new Client({name:'recovery-fixture',version:'1'});
   await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',baseURL),{requestInit:{headers:{Authorization:'Bearer '+token.data!.token}}}));
   try{diagnostics.allowHttp(page,'/api/',423);const result=await client.callTool({name:'kanvas_call',arguments:{operationId:'kanvas.device.lock',arguments:{deviceId:devices.data!.devices[0].id}}});expect(result.isError).not.toBe(true);}finally{await client.close();}
-  await expect(page.getByText('Locked from your AI assistant',{exact:true})).toBeVisible();
+  await expect(page.getByText('Kanvas is locked on this device.',{exact:true})).toBeVisible();
   await recovery.getByRole('button',{name:'Refresh locked devices',exact:true}).click();
   await recovery.getByRole('button',{name:'Unlock',exact:true}).click();
   await expect(page.locator('.workspace')).toBeVisible();await expect(recovery.getByRole('button',{name:'Unlock',exact:true})).toHaveCount(0);

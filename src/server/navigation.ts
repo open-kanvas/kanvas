@@ -7,6 +7,7 @@ import { AppError, id, now, required } from './store.js';
 import { initialNavigation, navigate, navigationCapabilities, navigationLeaf, navigationInputSchema, navigationActionSchema, navigationReadSchema, pinSaveSchema, pinRecallSchema, pinRemoveSchema, type NavigationAction, type NavigationSnapshot, type NavigationState } from '../shared/navigation.js';
 import type { ViewSpec } from '../shared/types.js';
 
+const publicPage=<T extends {state:NavigationState}>(p:T)=>({...p,state:{...p.state,pageIndex:p.state.page,page:p.state.page+1}});
 interface Position {action?:NavigationAction['action'];id:string;sessionId:string;displayId:string;revision:number;version:number;state:NavigationState;commandId:string;target?:string;updatedAt:string}
 interface Receipt {id:string;sessionId:string;digest:string;result:Position;createdAt:string}
 interface Ack {id:string;sessionId:string;displayId:string;revision:number;commandId:string;viewerId:string;status:'applied'|'unsupported'|'failed';matches?:number;scroll?:{x:number;y:number;maxX:number;maxY:number};at:string}
@@ -56,7 +57,7 @@ export class Navigation {
     const acks=(await this.service.store.list<Ack>('navigation-ack',a.sessionId)).filter(x=>x.displayId===d.id&&x.revision===d.revision);
     const measured=(await this.service.store.list<Viewport>('navigation-viewport',a.sessionId)).filter(x=>x.displayId===d.id&&x.revision===d.revision&&Date.now()-Date.parse(x.at)<15000);
     const viewers=await Promise.all((await this.service.experience.viewers(p,a.sessionId,d.id)).filter(v=>!a.viewerId||v.id===a.viewerId).map(async v=>{const current=await this.position(a.sessionId,d.id,v.id,(s.config.syncMode??'independent')!=='independent');const viewport=measured.find(x=>x.viewerId===v.id&&x.version===current.version);return {viewerId:v.id,scale:current.state.scale??1,commandId:current.commandId||undefined,viewport:viewport?{width:viewport.width,height:viewport.height,maxX:viewport.maxX,maxY:viewport.maxY,contentOverflowsViewport:viewport.maxX>1||viewport.maxY>1,measuredAt:viewport.at}:null,status:acks.find(x=>x.viewerId===v.id&&x.commandId===current.commandId)?.status??'unconfirmed',matches:acks.find(x=>x.viewerId===v.id&&x.commandId===current.commandId)?.matches,scroll:acks.find(x=>x.viewerId===v.id&&x.commandId===current.commandId)?.scroll};}));
-    return {...(await this.withReading(p,a.sessionId,position)),capabilities:navigationCapabilities(d.view,position.state),mode:s.config.syncMode??'independent',presenterViewerId:s.config.presenterViewerId||undefined,viewers,note:'pageCount/matchingItems are logical pagination, NOT visible rows. viewport is measured per receiving browser; null means unknown or stale. Execute explicit scroll/navigation requests even on one logical page. Per-viewer receipts only. Offline or unconfirmed viewers are not assumed to have applied this position. Source revision/history are unchanged.'};
+    return {...publicPage(await this.withReading(p,a.sessionId,position)),capabilities:navigationCapabilities(d.view,position.state),mode:s.config.syncMode??'independent',presenterViewerId:s.config.presenterViewerId||undefined,viewers,note:'pageCount/matchingItems are logical pagination, NOT visible rows. viewport is measured per receiving browser; null means unknown or stale. Execute explicit scroll/navigation requests even on one logical page. Per-viewer receipts only. Offline or unconfirmed viewers are not assumed to have applied this position. Source revision/history are unchanged.'};
   }
   async browserRead(p:AuthPrincipal,sessionId:string,displayId:string,tabId:string):Promise<Awaited<NavigationSnapshot>>{
     tab.parse(tabId);const d=(await this.service.display(p,sessionId,displayId)),s=(await this.service.access(p,sessionId)),viewerId=this.service.experience.viewerId(p,tabId),mode=s.config.syncMode??'independent';
@@ -66,11 +67,11 @@ export class Navigation {
   async control(p:AuthPrincipal,raw:unknown){
     const a=navigationInputSchema.parse(raw);await this.service.display(p,a.sessionId,a.displayId,'editor');
     const replay=await this.service.store.get<Receipt>('navigation-receipt',hash(`${p.tokenId??p.browserId??p.userId}:${a.sessionId}:${a.requestId}`));
-    if(replay){const target=a.viewerId??(a.navigation.action==='zoom'?replay.result.target:undefined);return this.write(p,{...a,...(target?{viewerId:target}:{})},target);}
+    if(replay){const target=a.viewerId??(a.navigation.action==='zoom'?replay.result.target:undefined);return publicPage(await this.write(p,{...a,...(target?{viewerId:target}:{})},target));}
 
     if(a.navigation.action==='zoom'&&!a.viewerId){const viewers=await this.service.experience.viewers(p,a.sessionId,a.displayId);if(viewers.length!==1)throw new AppError('VIEWER_REQUIRED','Zoom belongs to one device window. Select viewerId from viewers.read (exactly one connected viewer may be inferred).',409);a.viewerId=viewers[0].id;}
     if(a.viewerId){if(a.navigation.action!=='zoom'&&((await this.service.access(p,a.sessionId)).config.syncMode??'independent')!=='independent')throw new AppError('NAVIGATION_UNAVAILABLE','A single viewer navigation target requires independent mode.',409);await this.liveViewer(p,a.sessionId,a.displayId,a.viewerId);}
-    return this.write(p,a,a.viewerId);
+    return publicPage(await this.write(p,a,a.viewerId));
   }
   async browserControl(p:AuthPrincipal,sessionId:string,displayId:string,raw:unknown){
     const a=browserInput.parse(raw),snapshot=(await this.browserRead(p,sessionId,displayId,a.tabId));

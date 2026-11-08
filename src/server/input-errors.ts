@@ -56,7 +56,7 @@ export function validationIssues(error: z.ZodError, prefix = '', submitted?: unk
   const candidates: {value:unknown;path:string}[]=[{value:submitted,path:prefix||'input'}];
   if(submitted&&typeof submitted==='object'&&'view' in submitted)candidates.push({value:(submitted as {view:unknown}).view,path:[prefix,'view'].filter(Boolean).join('.')});
   for(let i=0;i<candidates.length&&i<100;i++){const {value,path}=candidates[i];if(value&&typeof value==='object'&&'template' in value&&value.template==='presentation'&&'data' in value&&value.data&&typeof value.data==='object'&&'slides' in value.data&&Array.isArray(value.data.slides))value.data.slides.slice(0,64).forEach((slide,index)=>candidates.push({value:slide,path:`${path}.data.slides[${index}]`}));}
-  const ids=[...leafViewSchema.options.map(option=>option.shape.template.value),'presentation'];
+  const ids=[...leafViewSchema.options.map(option=>option.shape.template.value),'presentation','split-screen'];
   for(const {value,path} of candidates)if(value&&typeof value==='object'&&'template' in value&&typeof value.template==='string'&&!ids.includes(value.template as typeof ids[number])){
     const candidateTemplate=value.template;const words=candidateTemplate.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
     const score=(id:string)=>{if(words.includes(id))return 0;const source=candidateTemplate.toLowerCase().slice(0,100),row=Array.from({length:id.length+1},(_,i)=>i);for(let i=1;i<=source.length;i++){let diagonal=row[0];row[0]=i;for(let j=1;j<=id.length;j++){const before=row[j];row[j]=Math.min(row[j]+1,row[j-1]+1,diagonal+(source[i-1]===id[j-1]?0:1));diagonal=before;}}return row[id.length];};
@@ -73,7 +73,7 @@ export function validationIssues(error: z.ZodError, prefix = '', submitted?: unk
     if(issue.path[0]==='expectedRevisions')return [{path,problem:'Supply a map of display IDs to non-negative integer revisions, or omit this optional concurrency guard to apply to current state.'}];
     if(/^expected(?:Revision|Version|DeckRevision|DraftRevision)$/.test(String(issue.path.at(-1))))return [{path,problem:'Supply a non-negative integer revision/version, or omit this optional concurrency guard to apply to current state.'}];
     if (issue.path.at(-1)==='template' && typeof received==='string') {
-      const ids=[...leafViewSchema.options.map(option=>option.shape.template.value),'presentation'];
+      const ids=[...leafViewSchema.options.map(option=>option.shape.template.value),'presentation','split-screen'];
       if(!ids.includes(received as typeof ids[number])) {
         // Only catalog IDs enter the reply; never echo arbitrary submitted text.
         const words=received.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);

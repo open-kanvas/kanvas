@@ -1,7 +1,7 @@
 import {z} from 'zod';
 import type {KanvasService} from './domain.js';
 import type {AuthPrincipal} from './auth.js';
-import type {ViewSpec} from '../shared/types.js';
+import type {DisplayRecord,ViewSpec} from '../shared/types.js';
 import {checklistDataSchema} from '../shared/view-schemas.js';
 import {AppError,id,now,required} from './store.js';
 import {hash} from './auth.js';
@@ -14,7 +14,7 @@ export const checklistUpdateSchema=z.strictObject({...target,expectedRevision:re
 export const checklistShowSchema=z.strictObject({...target,displayId:identifier,expectedRevision:revision.optional(),requestId:identifier});
 export const checklistTools:Definition[]=[
  {name:'kanvas_checklist_read',readOnly:true,schema:checklistReadSchema,description:'Persistent SESSION checklists survive replacing or clearing displays. Omit checklistId to list IDs/titles; include it to retrieve exact saved items/checked state, revision and ready view. Large records return bounded item windows; follow nextOffset with offset, or show the complete stored document directly. Legacy retained checklist snapshots are listed with legacy_ IDs; show saves the selected snapshot as an independent document. No cross-session reads.'},
- {name:'kanvas_checklist_update',schema:checklistUpdateSchema,idempotent:true,description:'Update saved checklist items/title independently of any currently displayed content. expectedRevision is the checklist document revision from read, not a display revision. Exact requestId retries are safe. Does not overwrite a screen; show the saved checklist on the intended display afterward.'},
+ {name:'kanvas_checklist_update',schema:checklistUpdateSchema,idempotent:true,description:'Update saved checklist items/title independently of any currently displayed content. expectedRevision is the checklist document revision from read, not a display revision. Exact requestId retries are safe. Refreshes displays already showing this checklist without adding history. Other content is never replaced; show is still explicit.'},
  {name:'kanvas_checklist_show',schema:checklistShowSchema,idempotent:true,description:'Bring a saved checklist back on ANY display in the SAME session without resupplying its items. Uses latest document state; expectedRevision is the destination display revision. Honors hold/access and requestId retries. Zoom belongs to each receiving device window, not the checklist. Re-showing the same checklist in place preserves local scroll; showing different content resets position.'},
 ];
 interface Checklist {id:string;sessionId:string;revision:number;view:ViewSpec;createdAt:string;updatedAt:string}
@@ -106,6 +106,14 @@ export class Checklists {
    const record=await this.get(a.sessionId,a.checklistId);this.service.assertRevision(a.expectedRevision,record.revision);
    const view=await this.capture(a.sessionId,{...record.view,...(a.title!==undefined?{title:a.title}:{}),data:{...record.view.data,items:a.items}});
    const result=required(await this.store.get<Checklist>('checklist',String(view.data.checklistId)));
+   for(const display of await this.store.list<DisplayRecord>('display',a.sessionId)){
+    if(display.view?.template!=='checklist'||display.view.data.checklistId!==a.checklistId)continue;
+    display.navigationRoot??=display.revision;display.zoomRoot??=display.revision;
+    display.view=structuredClone(view);display.revision++;display.updatedAt=now();
+    display.delivery={revision:display.revision,status:'pending',updatedAt:display.updatedAt};
+    await this.store.put('display',display);
+    this.store.afterCommit(()=>this.service.emit({type:'display',sessionId:a.sessionId,displayId:display.id,revision:display.revision}));
+   }
    await this.store.put('checklist-request',{id:key,sessionId:a.sessionId,digest,result});return result;
   }));
  }

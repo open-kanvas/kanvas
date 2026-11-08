@@ -34,7 +34,7 @@ export class ReceivingPresence {
     if(!sameTarget)(await lifecycleNotice(this.service.store,sessionId,displayId,`viewer:${id}:${record.joinedAt}:connected`,`${name} connected · ${context.device}, ${context.browser}.`,'success'));
     await rawEvent(this.service.store,'connection.connect',{userId:p.userId,sessionId,displayId,client:{...context,userAgent},properties:{connectionId:id}});
     let closed=false;
-    return {touch:()=>{if(!closed){record.lastActiveAt=now();const task=rawEvent(this.service.store,'connection.heartbeat',{userId:p.userId,sessionId,displayId,client:{...context,userAgent},properties:{connectionId:id}});this.pending.add(task);void task.catch(()=>{}).finally(()=>this.pending.delete(task));}},disconnect:()=>{if(closed||this.closed)return;closed=true;record.count=Math.max(0,record.count-1);record.lastActiveAt=now();if(record.count)return;
+    return {touch:()=>{if(!closed){record.lastActiveAt=now();}},disconnect:()=>{if(closed||this.closed)return;closed=true;record.count=Math.max(0,record.count-1);record.lastActiveAt=now();if(record.count)return;
       record.timer = setTimeout(() => {
         if (this.closed || record.count || this.connections.get(id) !== record) return;
         this.connections.delete(id);

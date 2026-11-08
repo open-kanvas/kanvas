@@ -30,7 +30,7 @@ export class FrontendDiagnostics{
     events.push(e);
    }
    if(events.length)await this.service.store.put('frontend-diagnostic',{id:id(),accountId:p.userId,supportRef:a.supportRef,windowId:a.windowId,release:KANVAS_VERSION,clientRelease:a.clientRelease,at:now(),events});
-   for(const e of events)await rawEvent(this.service.store,'browser.event',{userId:p.userId,sessionId:e.sessionId,displayId:e.displayId,client:{clientRelease:a.clientRelease},properties:eventProperties(e)});
+   for(const e of events.filter(e=>e.event.endsWith('-error')||e.event==='request'&&(e.status===0||(e.status??0)>=400)))await rawEvent(this.service.store,'browser.event',{userId:p.userId,sessionId:e.sessionId,displayId:e.displayId,client:{clientRelease:a.clientRelease},properties:eventProperties(e)});
    return {accepted:events.length,supportRef:a.supportRef};
   });
  }

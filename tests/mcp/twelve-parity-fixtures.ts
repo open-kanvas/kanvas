@@ -241,7 +241,7 @@ export class ParityWorld {
     this.ids.deck = result.id;
   }
   async report() {
-    const result = await this.canonical<ReportRecord>('kanvas_feedback_submit', { ...this.base(), requestId: 'seed-report', title: 'Literal kanvas_submit report', description: LITERAL, category: 'quality' });
+    const result = await this.canonical<ReportRecord>('kanvas_feedback_submit', { ...this.base(), requestId: 'seed-report', title: 'Literal kanvas_submit report', description: LITERAL });
     this.ids.report = result.id;
   }
   async interaction() {
@@ -339,7 +339,7 @@ export class ParityWorld {
       case 'kanvas_dataset_import': return { sessionId: this.sessionId, name: 'Exact numeric source', json: EXACT_JSON, source: EXACT_SOURCE };
       case 'kanvas_asset_import': return { sessionId: this.sessionId, name: 'Literal kanvas_submit.png', mimeType: 'image/png', base64: PNG.toString('base64') };
       case 'kanvas_interaction_ack': await this.interaction(); await this.report(); return { sessionId: this.sessionId, interactionId: this.ids.interaction };
-      case 'kanvas_feedback_submit': await this.interaction(); return { ...this.base(), requestId: 'operation-request', title: 'Literal kanvas_submit report', description: LITERAL, category: 'quality', client: 'other' };
+      case 'kanvas_feedback_submit': await this.interaction(); return { ...this.base(), requestId: 'operation-request', title: 'Literal kanvas_submit report', description: LITERAL, client: 'other' };
       case 'kanvas_error_report': return { ...this.base(), requestId: 'operation-request', title: 'Literal kanvas_timer_control error', description: LITERAL, severity: 'high', steps: ['Keep 00123.4500 exactly', 'kanvas_submit is quoted content'], expected: LITERAL, actual: 'Exact failure words', client: 'other' };
       case 'kanvas_report_update': await this.report(); return { sessionId: this.sessionId, reportId: this.ids.report, expectedRevision: 0, status: 'investigating', note: LITERAL };
       case 'kanvas_display_snapshot': return { ...this.base(), width: 640, height: 480 };
@@ -428,7 +428,7 @@ export async function verifySuccessfulFixture(name: CanonicalFixture, w: ParityW
       expect(Buffer.from((await w.store.db.prepare('SELECT bytes FROM assets WHERE id=?').get(asset.id))!.bytes as Uint8Array)).toEqual(PNG); break;
     }
     case 'kanvas_interaction_ack': expect(result).toMatchObject({ id: w.ids.interaction, value: LITERAL, status: 'acknowledged' }); expect((await w.store.get('interaction', w.ids.interaction))).toMatchObject({ status: 'acknowledged' }); expect((await w.store.get('report', w.ids.report))).toMatchObject({ status: 'open', revision: 0 }); break;
-    case 'kanvas_feedback_submit': expect(result).toMatchObject({ kind: 'feedback', description: LITERAL, category: 'quality', status: 'open', redacted: false }); expect((await w.store.get('interaction', w.ids.interaction))).toMatchObject({ status: 'pending' }); expect((await w.store.list('report'))).toHaveLength(1); break;
+    case 'kanvas_feedback_submit': expect(result).toMatchObject({ kind: 'feedback', description: LITERAL, status: 'open', redacted: false }); expect((await w.store.get('interaction', w.ids.interaction))).toMatchObject({ status: 'pending' }); expect((await w.store.list('report'))).toHaveLength(1); break;
     case 'kanvas_error_report': expect(result).toMatchObject({ kind: 'error', description: LITERAL, severity: 'high', expected: LITERAL, actual: 'Exact failure words', redacted: false }); expect((await w.store.list('report'))).toHaveLength(1); break;
     case 'kanvas_report_update': expect(result).toMatchObject({ id: w.ids.report, revision: 1, status: 'investigating', history: [{ note: LITERAL, status: 'investigating' }] }); expect((await w.store.get('report', w.ids.report))).toEqual(result); break;
     case 'kanvas_display_snapshot': {

@@ -37,7 +37,7 @@ describe('October platform feedback',()=>{
  });
  it('author patches by report ID across conversation context with revision and access checks',async()=>{
   h=await startHarness();const owner=await h.account(),other=await h.account(),p=await principal(owner),q=await principal(other),s=await owner.session();
-  const report=await h.runtime.service.reports.submit(p,'feedback',{sessionId:s.id,requestId:'report',title:'Synthetic finding',description:'Initial description',category:'feature'});
+  const report=await h.runtime.service.reports.submit(p,'feedback',{sessionId:s.id,requestId:'report',title:'Synthetic finding',description:'Initial description'});
   const patched:any=await h.runtime.service.execute('kanvas_report_patch',{reportId:report.id,expectedRevision:0,note:'Follow-up observation',title:'Updated finding'},p);
   expect(patched).toMatchObject({revision:1,title:'Updated finding',status:'open',history:[{note:'Follow-up observation'}]});
   await expect(h.runtime.service.execute('kanvas_report_patch',{reportId:report.id,expectedRevision:0,note:'Stale'},p)).rejects.toMatchObject({code:'REVISION_CONFLICT'});

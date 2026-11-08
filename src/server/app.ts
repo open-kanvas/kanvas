@@ -122,7 +122,7 @@ export async function createApp(options: AppOptions = {}) {
       // browser credential can still attribute their completed raw request.
       // Do not reinterpret failed agent bearer calls as browser authentication.
       if(!eventContext.getStore()?.userId&&!req.path.startsWith('/mcp'))try{await auth.browser(req);}catch{/* Anonymous, expired and invalid cookies stay unattributed. */}
-      (await service.accounts.recordRequest(category,res.statusCode,performance.now()-started,typeof req.route?.path==='string'?req.method+' '+req.route.path:req.method+' unmatched'));}catch{/* Metrics must not affect a completed response or shutdown. */}});next();});
+      (await service.accounts.recordRequest(category,res.statusCode,performance.now()-started,typeof req.route?.path==='string'?req.method+' '+req.route.path:req.method+' unmatched',eventContext.getStore()?.operation));}catch{/* Metrics must not affect a completed response or shutdown. */}});next();});
   app.use(deliveryIngress);
   const limiter = new Limiter();
   const streams = new Set<() => void | Promise<void>>();
@@ -131,6 +131,7 @@ export async function createApp(options: AppOptions = {}) {
   const send = (res: Response, data: unknown, status = 200) => res.status(status).json({ data });
   const operation = (name: string, extra: (req: Request) => Record<string, unknown> = () => ({})) => async (req: Request, res: Response) => {
     const principal = (await browser(req)), input = unsafe(req) && req.body !== undefined ? bodyObject(req) : {};
+    const context=eventContext.getStore();if(context)context.operation=name;
     send(res, await service.execute(name, { ...input, ...extra(req) }, principal));
   };
   const sessionArgs = (req: Request) => ({ sessionId: String(req.params.id) });

@@ -62,7 +62,7 @@ test('core-tool workflow preserves exact content, actual painting, viewer input 
     await call('kanvas_interactions', 'acknowledge', { sessionId, interactionId: interaction!.id });
     expect((await call<{ interactions: InteractionRecord[] }>('kanvas_inspect', 'interactions.read', { sessionId })).interactions.some(item => item.id === interaction!.id)).toBe(false);
 
-    const report = await call<ReportRecord>('kanvas_feedback', 'submit', { sessionId, requestId: 'report-1', title: 'Synthetic acceptance observation', description: 'kanvas_submit remains literal report text, not a callable instruction.', category: 'quality', displayId: display.id });
+    const report = await call<ReportRecord>('kanvas_feedback', 'submit', { sessionId, requestId: 'report-1', title: 'Synthetic acceptance observation', description: 'kanvas_submit remains literal report text, not a callable instruction.', displayId: display.id });
     const readReports = await call<ReportPage>('kanvas_inspect', 'reports.read', { sessionId });
     expect(readReports.reports.map(item => item.id)).toEqual([report.id]);
     expect(readReports.reports[0].description).toBe(report.description);

@@ -97,6 +97,17 @@ export function mountEmailSignin(app:Express,auth:Auth,origin:string,mailer?:Sig
     const pending=challenge.pendingId?await auth.store.get<PendingSignin>('email-pending',challenge.pendingId):undefined;
     res.json({data:{email:challenge.email,...(pending&&pending.status==='pending'&&pending.expiresAt>Date.now()?{originatingDevice:{code:pending.code,device:pending.device,createdAt:pending.createdAt,expiresAt:pending.expiresAt}}:{}),...(client&&consent?.status==='pending'&&Date.parse(consent.expiresAt)>Date.now()?{connection:{requestId,clientName:client.clientName,scopes:consent.scopes,...(consent.deviceCode?{device:true}:{})}}:{})}});
   });
+  // Narrow post-confirmation receipt: reveals only completion, never a code,
+  // identity, callback URL or grant. Does not authenticate the email-link tab.
+  const connectionReceipts=new Map<string,{consentId:string;expiresAt:number}>();
+  app.post('/api/auth/email/connection-status',async(req,res)=>{
+    res.set('Cache-Control','no-store');
+    const a=z.object({receipt:z.string().regex(/^[A-Za-z0-9_-]{43}$/)}).strict().parse(req.body);
+    const receipt=connectionReceipts.get(hash(a.receipt));
+    if(!receipt||receipt.expiresAt<=Date.now()){res.json({data:{status:'unavailable'}});return;}
+    const consent=await auth.store.get<{status:string;deviceCode?:string}>('oauth-consent',receipt.consentId);
+    res.json({data:{status:!consent||consent.deviceCode?'unavailable':consent.status==='approved'?'connected':consent.status==='denied'?'denied':'pending'}});
+  });
   app.post('/api/auth/email/consume',async (req,res)=>{
     limit(`consume:${req.ip}`,30);
     const a=z.object({token:z.string().regex(/^[A-Za-z0-9_-]{43}$/),confirm:z.literal(true),acceptedLegalVersion:z.literal(LEGAL_VERSION),target:z.enum(['current','origin']).default('current'),matchesCode:z.literal(true).optional(),displayName:z.string().trim().min(1).max(80).optional(),avatar:profileImageSchema.optional()}).strict().parse(req.body);
@@ -128,7 +139,11 @@ export function mountEmailSignin(app:Express,auth:Auth,origin:string,mailer?:Sig
       await auth.store.delete('email-challenge',current.id);
       if(pending){pending.status=originOnly||a.target==='origin'?'approved':'transferred';if(originOnly||a.target==='origin'){pending.userId=userId;pending.returnTo=current.returnTo;}await auth.store.put('email-pending',pending);}
     }));
-    if(originOnly||a.target==='origin'){res.json({data:{approved:true}});return;}
+    if(originOnly||a.target==='origin'){
+      let connectionReceipt:string|undefined;
+      if(originOnly&&consentId){for(const [key,r] of connectionReceipts)if(r.expiresAt<=Date.now())connectionReceipts.delete(key);if(connectionReceipts.size<10000){connectionReceipt=opaque();connectionReceipts.set(hash(connectionReceipt),{consentId,expiresAt:Date.now()+600000});}}
+      res.json({data:{approved:true,...(connectionReceipt?{connectionReceipt}:{})}});return;
+    }
     (await auth.logout(req,res,'replaced'));const session=(await auth.issueBrowser(userId!,res,undefined,req));res.json({data:{user:(await auth.user(userId!)),csrfToken:session.csrf,returnTo:challenge.returnTo}});
   });
   return {requestLink};

@@ -13,5 +13,5 @@ export function DevicePrivacyBoundary({children}:{children:ReactNode}){
   return()=>{stopped=true;active?.abort();clearTimeout(timer);window.removeEventListener('offline',offline);};
  },[]);
  if(state==='open')return <>{children}</>;
- return <main className="app-loading device-privacy-screen" data-privacy-state={state}><Wordmark/><p role="status">{state==='locked'?'Locked from your AI assistant':state==='offline'?'Reconnecting securely…':'Opening Kanvas…'}</p></main>;
+ return <main className="app-loading device-privacy-screen" data-privacy-state={state}><Wordmark/><p role="status">{state==='locked'?'Kanvas is locked on this device.':state==='offline'?'Reconnecting securely…':'Opening Kanvas…'}</p>{state==='locked'&&<p>Ask your agent to unlock.</p>}</main>;
 }

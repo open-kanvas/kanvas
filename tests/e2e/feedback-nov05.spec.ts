@@ -71,9 +71,9 @@ test('device lock covers existing windows and reloads, while kiosk preserves vis
   const devices=await sessionApi<{devices:{id:string}[]}>(page,'/api/devices');expect(devices.data!.devices.length).toBeGreaterThan(0);const deviceId=devices.data!.devices[0].id;
   for(const screen of [page,viewer,second])diagnostics.allowHttp(screen,'/api/',423);
   await call('kanvas_device_lock',{deviceId});
-  for(const screen of [page,viewer,second]){await expect(screen.getByText('Locked from your AI assistant',{exact:true})).toBeVisible();await expect(screen.locator('.viewer-shell,.workspace')).toHaveCount(0);}
+  for(const screen of [page,viewer,second]){await expect(screen.getByText('Kanvas is locked on this device.',{exact:true})).toBeVisible();await expect(screen.locator('.viewer-shell,.workspace')).toHaveCount(0);}
   expect((await page.request.get(`/api/sessions/${s}`)).status()).toBe(423);
-  await second.reload();await expect(second.getByText('Locked from your AI assistant',{exact:true})).toBeVisible();
+  await second.reload();await expect(second.getByText('Kanvas is locked on this device.',{exact:true})).toBeVisible();
   await call('kanvas_device_unlock',{deviceId});await expect(viewer.locator('.viewer-candidate')).toContainText('PRIVATE RECEIVER CONTENT');
   await call('kanvas_display_lockdown',{sessionId:s,displayId:d.id,locked:true});
   try{await expect(viewer.locator('[data-kiosk=true]')).toContainText('PRIVATE RECEIVER CONTENT');}
@@ -110,9 +110,9 @@ test('checklist follows newly completed progress but respects deliberate scrolli
 
 test('reviewed sign artwork loads with direction/prohibition layers and remains region-aware',async({page},info)=>{
  await register(page);const s=await createSession(page,'Reviewed signage'),d=await createDisplay(page,s,'Signs'),viewer=await openViewer(page,s,d.id);
- await publishPrepared(page,s,[d.id],validateView({template:'signage',data:{region:'no',items:[{id:'toilet',type:'restroom',direction:'left'},{id:'phone',type:'no-phones'},{id:'exit',type:'exit',direction:'right'}]}}));
+ await publishPrepared(page,s,[d.id],validateView({template:'signage',data:{region:'no',items:[{id:'toilet',type:'restroom',direction:'left'},{id:'phone',type:'no-phones'},{id:'information',type:'information',direction:'right'}]}}));
  await waitForDisplay(page,s,d.id,v=>v.appliedRevision===v.revision);
- const images=viewer.locator('.viewer-candidate .sign-reviewed-art');await expect(images).toHaveCount(2);
+ const images=viewer.locator('.viewer-candidate .sign-reviewed-art');await expect(images).toHaveCount(3);
  expect(await images.evaluateAll(elements=>elements.every(e=>(e as HTMLImageElement).complete&&(e as HTMLImageElement).naturalWidth>0))).toBe(true);
  await expect(viewer.locator('.viewer-candidate .sign-reviewed-prohibition')).toHaveCount(1);
  await expect(viewer.locator('.viewer-candidate .sign-arrow')).toHaveCount(2);

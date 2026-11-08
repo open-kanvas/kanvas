@@ -9,10 +9,10 @@ export function input(overrides: Partial<InterpretationInput> = {}): Interpretat
 export const source = { title: 'Source ledger', url: 'https://example.com/source', locator: 'Table 2', timestamp: '2026-09-08T12:00:00Z' };
 export const cases: {template:TemplateId;data:Record<string, unknown>}[] = [
   // Real supplied examples for the five new families; completeness/provenance guards remain exhaustive.
-  ...(['scene3d','venn','math','instrument','live-captions'] as const).map(template=>({template,data:samples[template].data})),
+  ...(['split-screen','database-schema','scene3d','venn','math','instrument','live-captions'] as const).map(template=>({template,data:samples[template].data})),
   {template:'qr',data:{content:'https://example.com/exact?value=hello',title:'Scan here',text:'Original supporting text'}},
   {template:'molecule',data:{libraryId:'ethanol-v1'}},
-  {template:'signage',data:{items:[{id:'exit',type:'exit'}]}},
+  {template:'signage',data:{items:[{id:'information',type:'information'}]}},
   {template:'game-board',data:{preset:'chess',pieces:{knight:{cell:'r8c7',symbol:'knight',color:'white'}}}},
   {template:'satisfaction',data:{surveyId:'test-survey'}},
   {template:'traffic-demo',data:{pairId:'demo',epoch:'2026-01-01T00:00:00Z'}},

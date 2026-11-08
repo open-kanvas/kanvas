@@ -1053,8 +1053,8 @@
   "coverage": [
     {
       "signType": "exit",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "restroom",
@@ -1118,48 +1118,48 @@
     },
     {
       "signType": "emergency-exit",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "assembly-point",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "fire-extinguisher",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "first-aid",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "first-aid-kit",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "life-vest",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "general-warning",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "wet-floor",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "area-closed",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "no-trespassing",
@@ -1168,8 +1168,8 @@
     },
     {
       "signType": "do-not-enter",
-      "decision": "kept",
-      "reason": "No clearly matching reviewed source; existing edge-case artwork retained"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "staff-only",
@@ -1193,8 +1193,8 @@
     },
     {
       "signType": "no-smoking",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "smoking-area",
@@ -1258,8 +1258,8 @@
     },
     {
       "signType": "behind-barrier",
-      "decision": "kept",
-      "reason": "No clearly matching reviewed source; existing edge-case artwork retained"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "cctv",
@@ -1313,133 +1313,133 @@
     },
     {
       "signType": "toxic",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "flammable",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "flammable-gas",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "explosive",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "corrosive",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "oxidizing",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "compressed-gas",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "biohazard",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "radiation",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "laser",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "environmental-hazard",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "high-voltage",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "hot-surface",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "low-temperature",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "falling-objects",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "low-clearance",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "trip-hazard",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "moving-machinery",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "forklifts",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "noise",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "hearing-protection",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "eye-protection",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "hard-hat",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "gloves",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "face-mask",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "wash-hands",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "floor-directory",
@@ -1563,48 +1563,48 @@
     },
     {
       "signType": "road-work",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "utility-work",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "road-closed",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "lane-closed",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "detour",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "incident",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "reduced-speed",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "flagger",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "follow-detour",
-      "decision": "kept",
-      "reason": "ISO/national safety or traffic artwork requires unresolved rights review; no certification claimed"
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "vacancy",
@@ -1688,8 +1688,8 @@
     },
     {
       "signType": "make-up-room",
-      "decision": "kept",
-      "reason": "Do-not-disturb source icon is not a semantic match for a housekeeping request; original retained."
+      "decision": "retired",
+      "reason": "Removed from catalog/rendering in 0.36.0; historical source retained, no fallback artwork."
     },
     {
       "signType": "room-number",
@@ -1742,5 +1742,5 @@
     "ISO 7010 E001 new/E002 new/M002/P035/W030/W035/W039 share-alike",
     "Other ISO artwork pending underlying-rights review"
   ],
-  "scope": "All 137 existing sign types reviewed; no new pictograms drawn. Unmodified general-information SVGs only."
+  "scope": "88 reviewed Apache-2.0 sign types offered; all 49 original self-made types retired. No certification claim."
 }

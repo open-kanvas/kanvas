@@ -23,7 +23,9 @@ export function observeSurface(shell:HTMLElement){
 export function ViewerExperience({sessionId,display,shell,enabled,contribute,optionsOpen,closeOptions,browsing=false}:{sessionId:string;display:DisplayRecord;shell:RefObject<HTMLDivElement|null>;enabled:boolean;contribute:boolean;browsing?:boolean;optionsOpen:boolean;closeOptions:()=>void}){
   const seenCommands=useRef(new Set<string>());
   const commandStorage='kanvas:screen-commands:'+sessionId+':'+display.id;
-  const sequence=useRef(0),inspection=useRef<(InspectionOptions&{requestId:string})|undefined>(undefined);
+  // Monotonic across reloads of the same tab: a counter that restarted at zero was ignored by the
+  // server until it caught up, so notifications and inspections were withheld after a reload.
+  const sequence=useRef(Date.now()),inspection=useRef<(InspectionOptions&{requestId:string})|undefined>(undefined);
   const locationRequest=useRef(0);
   const [tabId]=useState(viewerTabId),[context,setContext]=useState<ViewerObservation['context']>(null),[error,setError]=useState<string|null>(null);
   const [toasts,setToasts]=useState<ToastRecord[]>([]),[annotations,setAnnotations]=useState<AnnotationRecord[]>([]),[annotating,setAnnotating]=useState(false),[kind,setKind]=useState<AnnotationInput['kind']>('point'),[note,setNote]=useState('');

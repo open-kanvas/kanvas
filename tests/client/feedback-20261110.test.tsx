@@ -90,7 +90,7 @@ describe('new template renderers',()=>{
   expect(options).toContain('data-colour="#fbbf24"');expect(options).toContain('data-colour-label="A"');expect(options).toMatch(/is-selected[^>]*data-colour="#4f46e5"/);
   expect((view({mode:'shades',palette:'tailwind'}).match(/role="cell"/g)??[]).length).toBe(242);
   expect(view({mode:'contrast',backgrounds:['#ffffff'],texts:['#000000']})).toContain('21.00:1');expect(view({mode:'contrast',backgrounds:['#ffffff'],texts:['#000000']})).toContain('AAA');
-  for(const input of [{mode:'variations',base:'#0090ff'},{mode:'harmony',base:'#0090ff'},{mode:'roles',scale:'radix:blue'},{mode:'theme',seed:'#6750a4'},{mode:'named',group:'blues'}]){const markup=view(input);expect(markup,input.mode as string).toContain(`data-colour-mode="${input.mode}"`);expect(markup).not.toContain('<button');expect(markup).not.toContain('<input');}
+  for(const input of [{mode:'variations',base:'#0090ff'},{mode:'harmony',base:'#0090ff'},{mode:'roles',scale:'radix:blue'},{mode:'theme',seed:'#6750a4'},{mode:'named',group:'blues'}]){const markup=view(input);expect(markup,input.mode as string).toContain(`data-colour-mode="${input.mode}"`);expect(markup).toContain(`colour-mode-${input.mode}`);expect(markup).not.toContain('<button');expect(markup).not.toContain('<input');}
  });
  it('pickers address only the Kanvas server and print the exact names',()=>{
   const icons=renderToStaticMarkup(<IconPicker data={data('icon-picker')}/>);

@@ -98,7 +98,7 @@ export function Colour({data}:{data:ColourData}){
   case 'theme':{const theme=seedTheme(resolveColour(data.seed!)!),card=(name:string,scheme:typeof theme.light)=><div className="colour-scheme" style={{background:scheme.background,color:scheme.text,borderColor:scheme.outline}}><small>{name}</small><div style={{background:scheme.surface}}><strong>Title</strong><p>Body text on surface</p><u style={{background:scheme.primary,color:scheme.onPrimary}}>Primary</u><i style={{background:scheme.secondary}}/><i style={{background:scheme.tertiary}}/><i style={{background:scheme.error}}/></div></div>;
    content=<div className="colour-theme"><div className="colour-shades" style={{'--columns':12,'--rows':5} as CSSProperties} role="table" aria-label="Tonal palettes"><div className="colour-shade-head" role="row"><span/>{theme.palettes.primary.map(t=><b key={t.label} role="columnheader">{t.label}</b>)}</div>{Object.entries(theme.palettes).map(([name,tones])=><div key={name} className="colour-shade-row" role="row"><b role="rowheader">{name}</b>{tones.map(t=><i key={t.label} role="cell" style={{background:t.hex}} data-colour={t.hex} data-colour-label={`${name} ${t.label}`} title={`${name} ${t.label} ${t.hex}`}/>)}</div>)}</div><div className="colour-schemes">{card('Light',theme.light)}{card('Dark',theme.dark)}</div></div>;break;}
  }
- return <div className={`colour-view colour-${data.mode}`} data-colour-mode={data.mode}>{content}</div>;
+ return <div className={`colour-view colour-mode-${data.mode}`} data-colour-mode={data.mode}>{content}</div>;
 }
 
 const iconStyle=(icon:IconRef):CSSProperties=>({WebkitMaskImage:`url(${iconUrl(icon)})`,maskImage:`url(${iconUrl(icon)})`});

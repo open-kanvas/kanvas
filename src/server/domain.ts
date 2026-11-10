@@ -1,5 +1,7 @@
 import {KANVAS_VERSION} from '../shared/version.js';
 import {SessionModes} from './session-mode.js';
+import {limitError} from './limit-errors.js';
+import {STORED_SESSION_FACTOR} from './usage-limits.js';
 import {Friction,type FrictionCall} from './friction.js';
 import {Agents} from './agents.js';
 import {TaskLists} from './task-lists.js';
@@ -8,7 +10,6 @@ import {Pickers} from './pickers.js';
 import type {SessionMode} from '../shared/philosophy.js';
 import type {ResponseContext} from './mcp/response-policy.js';
 import {manageMap} from './mcp/manage-map.js';
-import {displayNameUnset} from '../shared/display-name.js';
 import {attribute,eventContext} from './raw-events.js';
 import {DevicePrivacy} from './device-privacy.js';
 import {SuggestedGuidance} from './suggested-guidance.js';
@@ -347,7 +348,7 @@ export class KanvasService implements McpService {
     const a=args&&typeof args==='object'&&!Array.isArray(args)?args as {sessionId?:unknown}:{},out:ResponseContext={};
     try{await this.fullAccount(principal);}catch{return out;}
     out.preference=(await this.store.get<{preference:'concise'|'full'}>('guidance-preference',hash(`${principal.userId}:${connectionId}`)))?.preference??'concise';
-    try{const user=await this.auth.user(principal.userId);if(user&&displayNameUnset(user))out.displayNameHint='This account has no display name yet; set one with kanvas.profile.update {displayName} so screens show a name, not an email.';}catch{/* No account detail for a narrowed grant. */}
+    try{const user=await this.auth.user(principal.userId);if(user&&user.displayNameSet===false)out.displayNameHint='This account has no display name yet; set one with kanvas.profile.update {displayName} so screens show a name, not an email.';}catch{/* No account detail for a narrowed grant. */}
     if(typeof a.sessionId==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(a.sessionId)){
       try{await this.access(principal,a.sessionId);const online=(await this.experience.receiving.viewers(a.sessionId,undefined,true)).length>0;out.displayConnected=online;out.mode=await this.modes.observeAgent(principal,a.sessionId,online);}catch{/* An unauthorized or ended session contributes nothing. */}
     }
@@ -395,12 +396,34 @@ export class KanvasService implements McpService {
       return {...session,displays:[display],viewerUrl:display.viewerUrl,note:'This private display is ready to join and shows the branded ready screen until content is published. Creating its address does not grant access.'};
     }));
   }
+  /** The blank ready screen invites a first-time account: nothing has been
+   * published in this session yet and its owner has no other session. */
+  async firstTimeSession(sessionId: string): Promise<boolean> {
+    try {
+      const session = await this.store.get<SessionRecord>('session', sessionId);
+      if (!session || (await this.store.list<UpdateRecord>('update', sessionId)).length) return false;
+      return (await this.sessionUsage(session.ownerId)).stored <= 1;
+    } catch { return false; }
+  }
+  /** Sessions that use a slot: owned, not archived, and not the hidden home
+   * session a device gets for itself (a person can neither see nor archive it). */
+  async sessionUsage(userId: string): Promise<{active: number; stored: number; limit: number; storedLimit: number; tier: string}> {
+    const limits = await accountUsageLimits(this.store, userId), entry = new Set((await this.store.list<{sessionId?: string}>('account-entry')).flatMap(e => e.sessionId ? [e.sessionId] : []));
+    const mine = (session: SessionRecord) => session.ownerId === userId && !entry.has(session.id);
+    return { active: (await this.store.list<SessionRecord>('session')).filter(mine).length, stored: (await this.store.list<SessionRecord>('session', undefined, true)).filter(mine).length, limit: limits.sessions, storedLimit: limits.sessions * STORED_SESSION_FACTOR, tier: limits.tier };
+  }
+  /** Throws the structured, honest limit error when another active session is not allowed. */
+  async assertSessionSlot(userId: string): Promise<void> {
+    const usage = await this.sessionUsage(userId);
+    if (usage.active >= usage.limit) throw limitError({ code: 'SESSION_LIMIT_REACHED', limit: usage.limit, used: usage.active, resource: 'sessions', tier: usage.tier, whatYouCanDo: ['Keep using existing sessions (kanvas.sessions.list).', 'Archive a session that is no longer needed: kanvas.archive.manage {resource:"session", sessionId}.'] });
+    if (usage.stored >= usage.storedLimit) throw limitError({ code: 'SESSION_STORAGE_LIMIT_REACHED', limit: usage.storedLimit, used: usage.stored, resource: 'storedSessions', tier: usage.tier, whatYouCanDo: ['Keep using existing sessions.', 'Permanently delete an archived session: kanvas.archive.list, then kanvas.archive.manage request-delete and confirm-delete.'] });
+  }
   async createSession(principal: AuthPrincipal, name: string): Promise<Awaited<SessionRecord>> {
     return this.store.atomic(async () => {
     (await this.fullAccount(principal, 'publish'));
     if (principal.tokenId && (await this.store.get<{sessionIds?:string[]}>('token', principal.tokenId))?.sessionIds) throw new AppError('FORBIDDEN', 'A session-scoped client cannot create another session. Create it in the workspace.', 403);
     const sessionLimit=(await accountUsageLimits(this.store,principal.userId)).sessions;
-    if ((await this.store.list<SessionRecord>('session',undefined,true)).filter(s => s.ownerId === principal.userId).length >= sessionLimit) throw new AppError('LIMIT_REACHED', `Trial account session limit (${sessionLimit}) reached. Existing sessions remain available. Contact the administrator about upgrading. Archived sessions still count.`, 429);
+    await this.assertSessionSlot(principal.userId);
     const session: SessionRecord = { serverVersion:KANVAS_VERSION, id: id(), name, ownerId: principal.userId, config: copy((await this.experience.defaults(principal.userId)).config), configRevision: 0, createdAt: now(), updatedAt: now() };
     (await this.store.transaction(async () => { (await this.store.put('session', session)); (await this.store.db.prepare('INSERT INTO members VALUES(?,?,?)').run(session.id, principal.userId, 'owner')); }));
     (await this.accounts.audit('session.created',{actorId:principal.userId,sessionId:session.id}));
@@ -424,13 +447,14 @@ export class KanvasService implements McpService {
   async detail(principal: AuthPrincipal, sessionId: string, requestedDisplayId?: string) {
     return this.store.snapshot(async () => {
     const session = {...(await this.access(principal, sessionId)),agentConnections:await this.agentConnections(principal,sessionId)};
+    const invitation = await this.firstTimeSession(sessionId);
     const displayId = requestedDisplayId ?? principal.scopedDisplayId;
     if (displayId) (await this.display(principal, sessionId, displayId));
     const displays = (await asyncMap((await this.store.list<StoredDisplay>('display', sessionId)).filter(d => !displayId || d.id === displayId), async d => (await this.publicDisplay(d, principal))));
-    if (principal.scopedSessionId) return { session, displays, members: [], updates: [], interactions: [], datasets: [], assets: [] };
-    if (displayId) return { session, displays, members: [], updates: [], interactions: (await this.interactions(principal, sessionId, 'all', 500)).interactions.filter(item => item.displayId === displayId), datasets: [], assets: [] };
+    if (principal.scopedSessionId) return { session, displays, invitation, members: [], updates: [], interactions: [], datasets: [], assets: [] };
+    if (displayId) return { session, displays, invitation, members: [], updates: [], interactions: (await this.interactions(principal, sessionId, 'all', 500)).interactions.filter(item => item.displayId === displayId), datasets: [], assets: [] };
     const members = (await asyncMap((await this.store.db.prepare('SELECT user_id AS "userId",role FROM members WHERE session_id=?').all(sessionId)), async row => ({ ...row, ...(await this.auth.user(String(row.userId))) })));
-    return { session, displays, members, updates: (await asyncMap((await this.store.list<UpdateRecord>('update', sessionId)).slice(-200), async update => (await this.updateDelivery(update)))), interactions: (await this.interactions(principal, sessionId, 'all', 500)).interactions, datasets: (await this.store.list<DatasetSummary>('dataset-summary', sessionId)), assets: (await this.store.list<AssetRecord>('asset', sessionId)), recentDiagnostics: (await this.reports.recentDiagnostics(principal, sessionId)) };
+    return { session, displays, invitation, members, updates: (await asyncMap((await this.store.list<UpdateRecord>('update', sessionId)).slice(-200), async update => (await this.updateDelivery(update)))), interactions: (await this.interactions(principal, sessionId, 'all', 500)).interactions, datasets: (await this.store.list<DatasetSummary>('dataset-summary', sessionId)), assets: (await this.store.list<AssetRecord>('asset', sessionId)), recentDiagnostics: (await this.reports.recentDiagnostics(principal, sessionId)) };
 
     });
   }
@@ -795,7 +819,7 @@ export class KanvasService implements McpService {
     const viewLimit=(await sessionUsageLimits(this.store,input.sessionId)).views;
     const retained=await this.history.retainedCount(input.sessionId);
     const pending=(await this.store.list<UpdateRecord>('update',input.sessionId)).filter(u=>['accepted','rendering'].includes(u.status)).reduce((n,u)=>n+u.displayIds.length,0);
-    if(retained+pending+displays.length>viewLimit)throw new AppError('LIMIT_REACHED',`Fixed session view limit (${viewLimit}) reached. Existing views remain available. Start a new session to continue. Archived views still count.`,429);
+    if(retained+pending+displays.length>viewLimit)throw limitError({code:'VIEW_LIMIT_REACHED',limit:viewLimit,used:retained+pending,resource:'views',tier:(await sessionUsageLimits(this.store,input.sessionId)).tier,whatYouCanDo:['Everything already shown stays available.','Permanently delete retained views that are no longer needed (kanvas.archive.manage on views); archived views still count.','Continue in a new session if the account has a free session slot.']});
 
     if (input.datasetId && !(await this.store.list<DatasetRecord>('dataset', input.sessionId)).some(d => d.id === input.datasetId)) throw new AppError('NOT_FOUND', 'The supplied dataset is unavailable.', 404);
     for (const assetId of input.assetIds ?? []) (await this.asset(principal, assetId, input.sessionId));
@@ -1373,6 +1397,8 @@ export class KanvasService implements McpService {
       case 'kanvas_guide': { (await this.fullAccount(principal)); return { ...guideFor(a.topic),help:helpFor('orientation',this.publicUrl), capabilities: { publishSetup: this.publication.enabled, inlinePresentationNavigation: true, videoProviders: ['native', 'youtube', 'vimeo'] } }; }
       case 'kanvas_procedure_control': {
         const interaction=(await this.respond(principal,a.sessionId,a.displayId,{requestId:a.requestId,revision:a.expectedRevision??(await this.display(principal,a.sessionId,a.displayId,'editor')).revision,value:{kind:'procedure.navigate',action:a.action}}));
+        // The agent's own navigation is not viewer input: keep it for history, never as something to acknowledge.
+        if(interaction.status==='pending'||interaction.source!=='agent'){interaction.status='acknowledged';interaction.source='agent';await this.store.put('interaction',interaction);}
         return {interaction,display:(await this.publicDisplay((await this.display(principal,a.sessionId,a.displayId)),principal))};
       }
       case 'kanvas_display_current': return (await this.experience.current(principal,a.sessionId,a.displayId));

@@ -1,3 +1,4 @@
+import { LimitError } from '../limit-errors.js';
 import {samples} from '../../shared/template-examples.js';
 import { workflowIds, WORKFLOW_NOTE, PLANNER_BOUNDARY, SUBMIT_SHAPE } from './workflow-guidance.js';
 import { operationCatalog } from './discovery.js';
@@ -18,7 +19,7 @@ export const MAX_TOOL_RESULT_BYTES = 96 * 1024;
 export const MAX_RESOURCE_BYTES = 256 * 1024;
 export const mcpServerInfo = (profile: McpProfile) => ({ name: 'kanvas', version: KANVAS_VERSION, profile, tools: isGrouped(profile) ? toolNames(profile).length : operationEntries(profile).length, operations: profile === 'discovery' ? operationCatalog().length : operationEntries(profile).length });
 
-export interface SafeError { wouldRemoveIds?:string[]; layer?:string; example?:unknown; validateTool?:string; currentRevision?:number; expectedRevision?:number; code: string; message: string; issues?: ValidationIssue[]; schemaTool?: string; topic?: string; template?: TemplateId; diagnosticId?: string }
+export interface SafeError { /** Which limit, how much is used and what can be done. */ limit?:import('../usage-limits.js').LimitDetails; wouldRemoveIds?:string[]; layer?:string; example?:unknown; validateTool?:string; currentRevision?:number; expectedRevision?:number; code: string; message: string; issues?: ValidationIssue[]; schemaTool?: string; topic?: string; template?: TemplateId; diagnosticId?: string }
 
 const messages: Record<string, string> = {
   NAVIGATION_UNAVAILABLE:'This action or page is unavailable for the current view. Read navigation.read for supported actions and pageCount. See /docs/navigation.',
@@ -109,6 +110,7 @@ const renderingMessages: Record<string, string> = {
 
 /** Domain/transport exceptions may contain credentials, SQL, or private inputs. Never echo them. */
 export function safeError(error: unknown): SafeError {
+  if(error instanceof LimitError)return {code:error.code,message:error.message,limit:error.limitDetails};
   if(error instanceof AppError && 'currentRevision' in error && Number.isSafeInteger(error.currentRevision))return {code:error.code,message:error.message,currentRevision:error.currentRevision as number,expectedRevision:error.currentRevision as number};
   if (error instanceof InputError || error instanceof z.ZodError) return {
     layer:error instanceof InputError&&error.template?'template':'operation-envelope',validateTool:'kanvas.view.validate',

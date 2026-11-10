@@ -17,6 +17,7 @@ import { ProcedureRenderer } from './Procedure';
 import { errorMessage } from '../api';
 import { WeatherRenderer } from './Weather';
 import { liveSurfaceOptions } from '../../shared/live-surface';
+import { CustomHtml } from './Nov10';
 import { profileContactTarget, type ProfileDetail } from '../../shared/profile-contact';
 import { isSafeUrl } from '../../shared/urls';
 import './profile-contact.css';
@@ -57,12 +58,7 @@ export function ExtendedRenderer(props: RendererProps) {
   const surface=liveSurfaceOptions(view,props.containerView);
   switch (view.template) {
     case 'keyboard-shortcuts': return <KeyboardShortcuts/>;
-    case 'html': {
-      const data = view.data as ExtendedData<'html'>;
-      const css = (data.css ?? '').replace(/<\/style/gi, '');
-      const doc = `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src 'none'; form-action 'none'; base-uri 'none'"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;min-height:100%;font-family:system-ui;background:#151515;color:#fafafa}*{box-sizing:border-box}${css}</style></head><body>${data.html}</body></html>`;
-      return <iframe className="custom-visual" title={data.description} sandbox="" referrerPolicy="no-referrer" srcDoc={doc} onLoad={onReady} />;
-    }
+    case 'html': { const data = view.data as ExtendedData<'html'>; return <CustomHtml html={data.html} css={data.css} description={data.description} onReady={onReady}/>; }
     case 'story-cards':{const d=view.data as ExtendedData<'story-cards'>;const news=d.items.some(item=>item.image);return <div className={`story-cards ${news?'story-news':'story-text'}`} data-count={d.items.length} data-layout={news?'news':'text'} data-many={d.items.length>=4?'true':undefined} data-navigation-scroll>{d.items.map((item,i)=><article className={item.image?'story-card has-image':'story-card'} key={i}>{item.image&&<div className="story-card-image"><MediaImage entry={item.image}/></div>}<div className="story-card-copy"><h2>{item.headline}</h2>{item.summary&&<p>{item.summary}</p>}</div></article>)}</div>;}
     case 'timeline': return <TimelineRenderer data={view.data as ExtendedData<'timeline'>}/>;
     case 'itinerary': return <ItineraryRenderer data={view.data as ExtendedData<'itinerary'>}/>;

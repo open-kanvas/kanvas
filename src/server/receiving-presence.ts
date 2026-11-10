@@ -6,6 +6,7 @@ import type { PairingRecord } from './access-flows.js';
 import type { KanvasService } from './domain.js';
 import { AppError, now } from './store.js';
 import { lifecycleNotice } from './lifecycle-notices.js';
+import { safeLabel } from '../shared/display-name.js';
 
 /** A dropped stream is "unknown", not "gone": browsers, TV sticks and proxies
  * reconnect on their own after a few seconds. Only a stream that stays away
@@ -29,7 +30,7 @@ export class ReceivingPresence {
     const sameTarget=prior?.sessionId===sessionId&&prior?.displayId===displayId;
     if(!sameTarget&&[...this.connections.values()].filter(x=>x.sessionId===sessionId).length>=128)throw new AppError('LIMIT_REACHED','Too many connected browsers.',429);
     const pair=p.pairingId?(await this.service.store.get<PairingRecord>('pairing',p.pairingId)):undefined;
-    const context=request??pair?.requestContext??browserContext(userAgent,language),name=pair?.selfName||pair?.deviceName||(await this.service.auth.user(p.userId))?.displayName||'Account browser';
+    const context=request??pair?.requestContext??browserContext(userAgent,language),name=safeLabel(pair?.selfName||pair?.deviceName||(await this.service.auth.user(p.userId))?.displayName,'Account browser');
     const record:Connection=prior&&sameTarget?prior:{id,sessionId,displayId,principal:p,count:0,joinedAt:stamp,lastActiveAt:stamp,name,method:pair?'paired':'account',context};
     if(prior?.timer)clearTimeout(prior.timer);record.timer=undefined;record.leaving=false;record.droppedAt=undefined;record.expire=undefined;record.count++;record.lastActiveAt=stamp;record.context=context;this.connections.set(id,record);
     if(prior&&!sameTarget)(await this.service.topology.disconnected(prior.sessionId,id));
@@ -75,7 +76,9 @@ export class ReceivingPresence {
     record.leaving=true;if(!record.count&&record.expire)this.schedule(record);
     return {left:true};
   }
-  async metadata(viewerId:string){const c=this.connections.get(viewerId),device=c?(await this.service.devices.forBrowser(c.principal)):undefined;return c?{...(device?{deviceId:device.id,deviceName:device.name}:{}),connected:c.count>0,connectionMethod:c.method,joinedAt:c.joinedAt,lastActiveAt:c.lastActiveAt,name:c.name,requestContext:c.context}:{};}
+  /** A person's name is resolved now, not copied at connect time, so a profile change shows everywhere at once. */
+  private async liveName(c:Connection){if(c.method==='account'){try{const user=await this.service.auth.user(c.principal.userId);if(user?.displayName)c.name=user.displayName;}catch{/* Keep the last known label. */}}return safeLabel(c.name,'Account browser');}
+  async metadata(viewerId:string){const c=this.connections.get(viewerId),device=c?(await this.service.devices.forBrowser(c.principal)):undefined;return c?{...(device?{deviceId:device.id,deviceName:device.name}:{}),connected:c.count>0,connectionMethod:c.method,joinedAt:c.joinedAt,lastActiveAt:c.lastActiveAt,name:await this.liveName(c),requestContext:c.context}:{};}
   /** includeReconnecting also returns browsers whose stream dropped moments ago
    * and is expected back; they carry connected:false and reconnecting:true. */
   async viewers(sessionId:string,displayId?:string,includeReconnecting=false):Promise<Awaited<ViewerPresence[]>>{

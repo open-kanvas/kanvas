@@ -1,3 +1,4 @@
+import { LimitError } from './limit-errors.js';
 import {eventContext} from './raw-events.js';
 import {eventIngress} from './event-ingress.js';
 import {mountDeviceLogin} from './device-login.js';
@@ -411,7 +412,7 @@ export async function createApp(options: AppOptions = {}) {
     if (res.headersSent) { res.end(); return; }
     const errorType = error && typeof error === 'object' && 'type' in error ? error.type : undefined;
     const known = error instanceof AppError ? error : error instanceof z.ZodError ? new AppError('INVALID_REQUEST', 'Request fields do not match the supported format.') : error instanceof RenderingError ? new AppError(error.code, safeRenderingError(error).message) : errorType === 'entity.too.large' ? new AppError('PAYLOAD_TOO_LARGE', 'Request exceeds the supported size limit.', 413) : errorType === 'entity.parse.failed' ? new AppError('INVALID_JSON', 'The request contains invalid JSON.') : new AppError('INTERNAL_ERROR', 'The request could not be completed.', 500);
-    res.status(known.status).json({ error: { code: known.code, message: known.message.slice(0, 700), ...('currentRevision' in known&&Number.isSafeInteger(known.currentRevision)?{currentRevision:known.currentRevision}:{}), ...(error instanceof InputError ? { issues: error.issues, ...error.guidance } : error instanceof z.ZodError ? { issues: validationIssues(error) } : {}) } });
+    res.status(known.status).json({ error: { code: known.code, message: known.message.slice(0, 700), ...('currentRevision' in known&&Number.isSafeInteger(known.currentRevision)?{currentRevision:known.currentRevision}:{}), ...(known instanceof LimitError?{limit:known.limitDetails}:{}), ...(error instanceof InputError ? { issues: error.issues, ...error.guidance } : error instanceof z.ZodError ? { issues: validationIssues(error) } : {}) } });
   });
   let closing = false;
   return { app, store, auth, service, async close() { if (closing) return; closing = true; await closePublic();await closeDevices();await closeAccess(); await Promise.allSettled([...streams].map(close=>Promise.resolve(close()))); await mcp.close(); await service.close(); (await store.close()); } };

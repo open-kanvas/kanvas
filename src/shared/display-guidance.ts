@@ -1,3 +1,4 @@
+import { DESIGN_COMPACT, DESIGN_NAVIGATION_RULE } from './philosophy.js';
 import { VERBATIM_SOURCE, SOURCE_RECORD_TEMPLATES } from './source-guidance.js';
 import { workDescriptions } from './work-examples.js';
 import type { TemplateId, ViewSpec } from './types.js';
@@ -107,7 +108,7 @@ venn:focus('Two or three explicitly supplied sets.','A/B/C correspond to set arr
   calendar: focus('Read-only events in day, three-day, week or month grids.', 'Use calendar for existing events; planner for proposals and commitments. Supply items with ISO times, or all-day dates with exclusive end. Optional hourly weather is agent-supplied and shown for day/three-day/week, with optional wind and sunrise/sunset; Kanvas fetches nothing.'),
   planner: focus('The plan being decided: current placements, conflicts and pending proposals with reasons.', 'Day/three-day/week/month; optional supplied hourly weather appears in day/three-day/week. For read-only events use calendar. Create the plan with show, then change it with planner.edit/propose/review/finalize so every change is revisioned and decided explicitly. Pending proposals show the current placement struck through and the proposed one with its reason; conflicts get a warning treatment. Kanvas never proposes or resolves conflicts itself.'),
   settings: focus('The setting being changed.', 'Configuration is an explicit interaction; clear selection, Apply and conflict states matter.', true),
-  html: focus('One visual beat with large typography, not a webpage shell.', 'Static body fragment and CSS only; preserve supplied facts and accessible overflow.'),
+  html: focus('One visual beat with large typography, not a webpage shell.', `Static body fragment and CSS only; preserve supplied facts and accessible overflow. ${DESIGN_COMPACT} ${DESIGN_NAVIGATION_RULE}`),
   timeline: focus('The meaningful sequence or spacing in time.', 'Dense timelines are explicit references; retain readable dates and durations.', true),
   itinerary: focus('The next relevant stop or requested day.', 'Optional item images, category icons, inlineMap with 1–2 supplied coordinate pins and optional straight connector, and layout map with explicit coordinates. Map navigation selectDay uses one-based day or all and exposes state.day. Never invent geocoding; map legs are straight supplied connections, not actual navigation. Full day details remain readable.', true),
   product: focus('The product and decisive price or distinction.', 'One identical product, several sellers: layout multi-vendor (comparison remains a legacy alias). For different items choose the standalone comparison template. Preserve exact prices and specifications.'),

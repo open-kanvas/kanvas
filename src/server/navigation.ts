@@ -1,3 +1,4 @@
+import {derivedViewLabel} from '../shared/view-label.js';
 import { z } from 'zod';
 import { readingDefaults } from '../shared/reading.js';
 import type { Express, Request } from 'express';
@@ -12,7 +13,7 @@ interface Position {action?:NavigationAction['action'];id:string;sessionId:strin
 interface Receipt {id:string;sessionId:string;digest:string;result:Position;createdAt:string}
 interface Ack {id:string;sessionId:string;displayId:string;revision:number;commandId:string;viewerId:string;status:'applied'|'unsupported'|'failed';matches?:number;scroll?:{x:number;y:number;maxX:number;maxY:number};at:string}
 interface Viewport {id:string;sessionId:string;displayId:string;viewerId:string;revision:number;version:number;width:number;height:number;maxX:number;maxY:number;at:string}
-interface Pin {id:string;sessionId:string;displayId:string;label:string;revision:number;view:ViewSpec;createdAt:string}
+interface Pin {title?:string;template?:string;id:string;sessionId:string;displayId:string;label:string;revision:number;view:ViewSpec;createdAt:string}
 const tab=z.string().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/);
 const browserInput=z.object({tabId:tab,requestId:tab,expectedRevision:z.number().int().nonnegative(),navigation:navigationActionSchema}).strict();
 
@@ -118,7 +119,7 @@ export class Navigation {
 
     });
   }
-  async pins(p:AuthPrincipal,sessionId:string,displayId:string){(await this.service.display(p,sessionId,displayId));return (await this.service.store.list<Pin>('view-pin',sessionId)).filter(x=>x.displayId===displayId).map(({view:_view,...x})=>x);}
+  async pins(p:AuthPrincipal,sessionId:string,displayId:string){(await this.service.display(p,sessionId,displayId));return (await this.service.store.list<Pin>('view-pin',sessionId)).filter(x=>x.displayId===displayId).map(({view,...x})=>({...x,template:x.template??view.template,...(x.title??view.title??derivedViewLabel(view)?{title:x.title??view.title??derivedViewLabel(view)}:{})}));}
   async savePin(p:AuthPrincipal,raw:unknown){
     return this.service.store.atomic(async () => {
     const a=pinSaveSchema.parse(raw),s=this.service,d=(await s.display(p,a.sessionId,a.displayId,'editor')),key=hash(`${p.tokenId??p.userId}:${a.sessionId}:${a.requestId}`),digest=hash(JSON.stringify(a));
@@ -126,7 +127,7 @@ export class Navigation {
     const revision=a.revision??d.revision,view=revision===d.revision?d.view:(await s.history.target(d,undefined,revision)).entry.view;
     if(!view)throw new AppError('EMPTY_VIEW','Publish content before pinning it.');
     const pins=(await s.store.list<Pin>('view-pin',a.sessionId));if(pins.length>=40||pins.reduce((n,x)=>n+JSON.stringify(x.view).length,0)+JSON.stringify(view).length>6*1024*1024)throw new AppError('LIMIT_REACHED','Remove a pin before saving more (40 pins / 6 MB per session).',429);
-    const record:Pin={id:id(),sessionId:a.sessionId,displayId:d.id,label:a.label,revision,view:structuredClone(view),createdAt:now()}, {view:_view,...result}=record;
+    const pinTitle=view.title??derivedViewLabel(view),record:Pin={id:id(),sessionId:a.sessionId,displayId:d.id,label:a.label,revision,template:view.template,...(pinTitle?{title:pinTitle}:{}),view:structuredClone(view),createdAt:now()}, {view:_view,...result}=record;
     (await s.store.transaction(async ()=>{(await s.store.put('view-pin',record));(await s.store.put('pin-receipt',{id:key,sessionId:a.sessionId,digest,result}));}));return result;
 
     });

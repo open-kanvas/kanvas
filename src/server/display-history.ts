@@ -1,9 +1,11 @@
+import {derivedViewLabel} from '../shared/view-label.js';
+import {limitError} from './limit-errors.js';
 import { SESSION_VIEW_LIMIT } from './usage-limits.js';
 import { asyncMap } from './async-collections.js';
 import type { DisplayRecord, ViewSpec } from '../shared/types.js';
 import { AppError, id, Store } from './store.js';
 
-interface Entry { id: string; sessionId: string; displayId: string; revision: number; view: ViewSpec | null; createdAt: string; reason: string; archivedAt?:string; interactionEpoch?: string; zoomRoot?: number }
+interface Entry { /** Derived at write time for a view without a title. */ label?: string; id: string; sessionId: string; displayId: string; revision: number; view: ViewSpec | null; createdAt: string; reason: string; archivedAt?:string; interactionEpoch?: string; zoomRoot?: number }
 type HistoricalDisplay = DisplayRecord & { interactionEpoch?: string };
 interface Timeline { id: string; sessionId: string; entries: string[]; cursor: number }
 
@@ -41,8 +43,8 @@ export class DisplayHistory {
   private async append(display: HistoricalDisplay, reason: string, timeline: Timeline): Promise<void> {
     // Publishing while browsing appends, never discards the forward branch.
     if(display.view&&await this.retainedCount(display.sessionId)>=SESSION_VIEW_LIMIT)
-      throw new AppError('LIMIT_REACHED',`Fixed session view limit (${SESSION_VIEW_LIMIT}) reached. Publishing was refused to preserve every earlier view. Start a new session to continue.`,429);
-    const entry: Entry = { id: id(), sessionId: display.sessionId, displayId: display.id, revision: display.revision, view: structuredClone(display.view), createdAt: display.updatedAt, reason, interactionEpoch: display.interactionEpoch, zoomRoot: display.zoomRoot ?? display.navigationRoot ?? display.revision };
+      throw limitError({code:'VIEW_LIMIT_REACHED',limit:SESSION_VIEW_LIMIT,used:SESSION_VIEW_LIMIT,resource:'views',tier:'fixed',whatYouCanDo:['Everything already shown stays available; publishing was refused to preserve every earlier view.','Permanently delete retained views that are no longer needed, or continue in a new session.']});
+    const entry: Entry = { id: id(), sessionId: display.sessionId, displayId: display.id, revision: display.revision, view: structuredClone(display.view), createdAt: display.updatedAt, reason, interactionEpoch: display.interactionEpoch, zoomRoot: display.zoomRoot ?? display.navigationRoot ?? display.revision, ...(derivedViewLabel(display.view) ? { label: derivedViewLabel(display.view) } : {}) };
     (await this.store.put('display-history', entry)); timeline.entries.push(entry.id); timeline.cursor = timeline.entries.length - 1;
     (await this.store.put('display-timeline', timeline));
   }
@@ -63,7 +65,7 @@ export class DisplayHistory {
     const { timeline, entries } = (await this.snapshot(display,true));
     return { displayId: display.id, currentRevision: display.revision, cursor: timeline.cursor, canGoBack: timeline.cursor > 0, canGoForward: timeline.cursor < timeline.entries.length - 1,
       entries: entries.map((entry, index) => {
-        return { id:entry.id, revision: entry.revision, template: entry.view?.template ?? null, title: entry.view?.title, createdAt: entry.createdAt, reason: entry.reason, current: index === timeline.cursor };
+        return { id:entry.id, revision: entry.revision, template: entry.view?.template ?? null, title: entry.view?.title ?? entry.label ?? derivedViewLabel(entry.view), createdAt: entry.createdAt, reason: entry.reason, current: index === timeline.cursor };
       }), limits: { entries: SESSION_VIEW_LIMIT, scope: 'session' } };
   }
   async target(display: DisplayRecord, direction?: 'back' | 'forward', revision?: number): Promise<Awaited<{ entry: Entry; cursor: number }>> {

@@ -22,12 +22,12 @@ describe('October platform feedback',()=>{
  });
  it('tiers retain session entitlements and share the fixed view cap without gaining administrator authority',async()=>{
   h=await startHarness();const a=await h.account(),p=await principal(a);
-  process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT=String((await h.runtime.service.sessions(p)).length+1);process.env.KANVAS_MAX_VIEWS_PER_SESSION='1';
+  process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT=String((await h.runtime.service.sessionUsage(p.userId)).active+1);process.env.KANVAS_MAX_VIEWS_PER_SESSION='1';
   expect(await accountTier(h.runtime.store,p.userId)).toBe('trial');
   const s=await h.runtime.service.createSession(p,'Trial'),d=await h.runtime.service.createDisplay(p,s.id,{name:'Screen',width:800,height:600});
-  await expect(h.runtime.service.createSession(p,'Too many')).rejects.toMatchObject({code:'LIMIT_REACHED'});
+  await expect(h.runtime.service.createSession(p,'Too many')).rejects.toMatchObject({code:'SESSION_LIMIT_REACHED'});
   await h.runtime.store.put('account-tier',{id:p.userId,tier:'future-invalid'});
-  await expect(h.runtime.service.createSession(p,'Still trial')).rejects.toMatchObject({code:'LIMIT_REACHED'});
+  await expect(h.runtime.service.createSession(p,'Still trial')).rejects.toMatchObject({code:'SESSION_LIMIT_REACHED'});
   for(const tier of ['free','admin']){await h.runtime.store.put('account-tier',{id:p.userId,tier});await h.runtime.service.createSession(p,`Tier ${tier}`);expect(await h.runtime.service.accounts.isServiceAdmin(p)).toBe(false);}
   for(let i=0;i<3;i++)await a.submit(s.id,[d.id],fact(`View ${i}`));
   expect((await h.runtime.service.history.list(await h.runtime.service.display(p,s.id,d.id))).entries.filter(x=>x.template)).toHaveLength(3);

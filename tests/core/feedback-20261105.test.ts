@@ -90,14 +90,14 @@ describe('November 5 privacy, retention and raw event contracts',()=>{
   const p={userId:owner.user!.id};await owner.submit(sessionId,[displayId],fact('First'));
   await h.runtime.store.query(`INSERT INTO documents(kind,id,session_id,value) SELECT 'display-history','capacity-'||n,$1::text,json_build_object('id','capacity-'||n,'sessionId',$1::text,'displayId',$2::text,'revision',n,'view',json_build_object('version',1,'template','fact','data',json_build_object('text','retained')),'createdAt','2026-11-05T00:00:00Z','reason','fixture')::text FROM generate_series(1,999) n`,[sessionId,displayId]);
   const display=await h.runtime.service.display(p,sessionId,displayId);display.revision++;display.view=fact('Too many');
-  await expect(h.runtime.service.history.record(display,'prepared')).rejects.toMatchObject({code:'LIMIT_REACHED',message:expect.stringContaining('Start a new session')});
+  await expect(h.runtime.service.history.record(display,'prepared')).rejects.toMatchObject({code:'VIEW_LIMIT_REACHED',message:expect.stringContaining('continue in a new session')});
   expect((await h.runtime.store.list<any>('display-history',sessionId,true)).filter(e=>e.view)).toHaveLength(1000);
   // Navigating the current retained publication and clearing the screen remain
   // possible at capacity; neither removes or frees a retained publication.
   display.revision++;display.view=fact('Navigation state');await h.runtime.service.history.record(display,'display-sync');
   display.revision++;display.view=null;await h.runtime.service.history.record(display,'clear');
   expect(await h.runtime.service.history.retainedCount(sessionId)).toBe(1000);
-  display.revision++;display.view=fact('Still full');await expect(h.runtime.service.history.record(display,'prepared')).rejects.toMatchObject({code:'LIMIT_REACHED'});
+  display.revision++;display.view=fact('Still full');await expect(h.runtime.service.history.record(display,'prepared')).rejects.toMatchObject({code:'VIEW_LIMIT_REACHED'});
 
  });
  it('omits routine privacy status polls while retaining attributed sign-in requests',async()=>{

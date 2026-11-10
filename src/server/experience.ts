@@ -1,3 +1,4 @@
+import {derivedViewLabel} from '../shared/view-label.js';
 import { instrumentDataSchema } from '../shared/instrument.js';
 import { captionDataSchema, sequenceStatus } from '../shared/local-sequence.js';
 import {inspectionOptionsSchema,type InspectionOptions} from '../shared/dom-inspection.js';
@@ -261,7 +262,7 @@ export class Experience {
     const cards=(await asyncFlatMap(displays,async d=>(await this.service.history.frames(d,true)).filter(e=>e.view&&!['overview','settings','display-grid'].includes(e.view.template)).map(entry=>{
       const view=entry.view!,data=view.data,preview=typeof data.text==='string'?data.text:typeof data.value==='string'?data.value:view.title??view.template;
       const image=view.template==='image'?(data.images as {url:string}[]|undefined)?.[0]?.url:undefined;
-      return {id:entry.id,revision:entry.revision,template:view.template,title:view.title,createdAt:entry.createdAt,reason:entry.reason,current:entry.current,displayId:d.id,displayName:d.name,displayRevision:d.revision,width:d.width,height:d.height,preview,image};
+      return {id:entry.id,revision:entry.revision,template:view.template,title:view.title??(entry as {label?:string}).label??derivedViewLabel(view),createdAt:entry.createdAt,reason:entry.reason,current:entry.current,displayId:d.id,displayName:d.name,displayRevision:d.revision,width:d.width,height:d.height,preview,image};
     }))).sort((a,b)=>a.createdAt.localeCompare(b.createdAt)||a.displayId.localeCompare(b.displayId));
     return {cards,limits:{entries:1000,scope:'session'},note:'All retained views. Navigation consumes no publication slots. Publishing at the fixed 1000-view session limit is refused; start a new session. Earlier views and forward history are preserved.'};
   }

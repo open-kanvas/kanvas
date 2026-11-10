@@ -24,7 +24,7 @@ const text = z.string().max(200);
 const emphasis = z.enum(['none','selected','last-move','warning']).default('none');
 const color = z.union([z.enum(['white','black','red','yellow','blue','green']),z.string().regex(/^#[0-9a-fA-F]{6}$/)]).optional();
 const cell = z.object({ value:text.optional(), notes:z.array(z.string().max(8)).max(12).optional(), given:z.boolean().optional(), blocked:z.boolean().optional(), number:z.number().int().min(1).max(999).optional(), emphasis }).strict();
-const piece = z.object({ coordinate:id.optional().describe('Canonical friendly coordinate returned alongside the stable internal cell; derived from cell, never orientation.'), cell: id.describe('Internal rROWcCOLUMN (top-left r1c1), or visible A1-style coordinate. Chess/checkers/Go/reversi number rows bottom-up; other grids top-down.'), side:z.enum(['first','second']).optional().describe('Neutral opposing sides: first near-black, second near-white with outline. Explicit color overrides.'), symbol:z.enum(['king','queen','rook','bishop','knight','pawn','disc','X','O','tile']), color, stack:z.number().int().min(1).max(30).optional(), label:z.string().max(12).optional(), emphasis }).strict();
+const piece = z.object({ coordinate:id.optional().describe('Canonical friendly coordinate returned alongside the stable internal cell; derived from cell, never orientation.'), cell: id.describe('Internal rROWcCOLUMN (top-left r1c1), or visible A1-style coordinate. Chess/checkers/Go/reversi number rows bottom-up; other grids top-down.'), side:z.enum(['first','second']).optional().describe('Opposing sides by who moves first. Chess: first is White (light pieces, ranks 1-2, bottom of the default board), second is Black. Go, reversi, checkers and other grids: first is the dark side, second the light side with an outline. Explicit color overrides.'), symbol:z.enum(['king','queen','rook','bishop','knight','pawn','disc','X','O','tile']), color, stack:z.number().int().min(1).max(30).optional(), label:z.string().max(12).optional(), emphasis }).strict();
 const card = z.discriminatedUnion('face',[
   z.object({ face:z.literal('up'), zone:id, order:z.number().int().min(0).max(100), rank:z.enum(['A','2','3','4','5','6','7','8','9','10','J','Q','K']), suit:z.enum(['clubs','diamonds','hearts','spades']), emphasis }).strict(),
   // An unknown back has NO retained identity. It is not a private card hidden by CSS.
@@ -73,4 +73,14 @@ export function gameExample(preset:GamePreset): GameData {
   if(preset==='word-search'){data.cells=Object.fromEntries(Array.from({length:100},(_,i)=>[`r${Math.floor(i/10)+1}c${i%10+1}`,{value:'KANVASWORD'.charAt(i%10)||'S',emphasis:i<6?'selected':'none'}]));data.annotations={word:{text:'KANVAS',cells:['r1c1','r1c2','r1c3','r1c4','r1c5','r1c6']}};}
   if(preset==='sliding-tile')data.pieces=Object.fromEntries(Array.from({length:15},(_,i)=>[`tile${i+1}`,{cell:`r${Math.floor(i/4)+1}c${i%4+1}`,symbol:'tile',label:String(i+1),color:'blue'}]));
   return gameDataSchema.parse(data);
+}
+
+/** Painted tone of a piece. Chess follows its own convention: the side that
+ * moves first is White. Elsewhere the first side is the dark one. An explicit
+ * colour always wins; X/O marks are ink. */
+export function pieceTone(preset:string,piece:{color?:string;side?:'first'|'second';symbol?:string}):string{
+ if(piece.color)return piece.color.startsWith('#')?'custom':piece.color;
+ if(piece.symbol==='X'||piece.symbol==='O')return 'black';
+ if(preset==='chess'&&piece.side)return piece.side==='first'?'white':'black';
+ return piece.side==='second'?'white':'black';
 }

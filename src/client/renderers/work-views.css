@@ -28,3 +28,28 @@
 .inbox-from{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.9em;line-height:1.5}
 
 .chat-bubbles{display:flex;flex-direction:column;gap:12px}.chat-bubbles .chat-message{align-self:flex-start;max-width:min(85%,48rem);border:1px solid var(--line);border-radius:18px 18px 18px 4px;padding:14px 18px;background:var(--surface);overflow-wrap:anywhere}.chat-bubbles .chat-self{align-self:flex-end;border-radius:18px 18px 4px 18px}.chat-bubbles .chat-message p{white-space:pre-wrap}
+
+/* 2026-11-10 (7e7fb1b1). Tool detail: clear hierarchy, compact required /
+   optional indicator, and a mobile-first layout. Narrow screens get one card
+   per parameter (name and indicator, then type, then description) with every
+   long type or description wrapping inside its card; wide screens keep the
+   structured columns. Nothing scrolls sideways. */
+.tool-detail-name{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-wrap:anywhere;margin:0 0 .3em}
+.tool-detail-description{max-width:70ch;line-height:1.45;margin:0 0 1em;color:var(--text)}
+.tool-detail tbody th{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-weight:650}
+.tool-detail .parameter-need{white-space:nowrap;width:1%}
+.tool-detail .parameter-need>span{display:inline-block;padding:.12em .6em;border-radius:999px;border:1px solid var(--line);font-size:.78em;line-height:1.5;color:var(--muted)}
+.tool-detail .parameter-need.is-required>span{border-color:var(--accent);color:var(--accent);font-weight:650}
+.tool-detail .parameter-description{line-height:1.45}
+@container (max-width:700px){
+ .tool-detail{font-size:clamp(15px,4.2cqw,19px);padding-inline:4px}
+ .tool-detail table{display:block;min-width:0;width:100%}
+ .tool-detail thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+ .tool-detail tbody{display:flex;flex-direction:column;gap:12px}
+ .tool-detail tbody tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;padding:14px;border:1px solid var(--line);border-radius:14px}
+ .tool-detail tbody th,.tool-detail tbody td{display:block;padding:0;border:0;min-width:0;width:auto}
+ .tool-detail tbody th{grid-column:1;grid-row:1;font-size:1.08em;min-width:0}
+ .tool-detail .parameter-need{grid-column:2;grid-row:1;justify-self:end}
+ .tool-detail .parameter-type{grid-column:1/-1;white-space:normal;overflow-wrap:anywhere;word-break:normal;color:var(--muted);font-size:.9em;min-width:0}
+ .tool-detail .parameter-description,.tool-detail td:last-child{grid-column:1/-1;min-width:0}
+}

@@ -1,7 +1,7 @@
 import {WEATHER_STEP_MS,weatherSunPosition} from './weather-motion';
 import {WeatherScene} from './WeatherScene';
 import { FormattedTime } from './Regional';
-import { useId,useState,useEffect, type CSSProperties } from 'react';
+import { useId,useState,useEffect,useLayoutEffect,useRef, type CSSProperties } from 'react';
 import type { ExtendedData } from '../../shared/extended-templates';
 import './weather.css';
 import { useRegional } from './Regional';
@@ -27,17 +27,30 @@ export function WeatherSymbol({ condition, night = false, miniature = false }: {
   </svg>;
 }
 
+/** Type scale steps tried, largest first, until the forecast text fits its row. */
+export const WEATHER_FIT_STEPS=[1,.9,.8,.7,.6] as const;
 export function WeatherRenderer({data:supplied,preview=false}: {preview?:boolean;data:ExtendedData<'weather'>;title?:string;showControls?:boolean}){
  const regional=useRegional(),convert=(v:string|undefined)=>regionalTemperature(v,regional,supplied.temperatureUnit),[index,setIndex]=useState(-1),[playing,setPlaying]=useState(true);
  const identity=JSON.stringify(supplied);useEffect(()=>setIndex(-1),[identity]);
  useEffect(()=>{if(preview||!playing||!supplied.forecast?.length)return;const reduced=matchMedia('(prefers-reduced-motion: reduce)');const timer=setInterval(()=>{if(!document.hidden&&!reduced.matches)setIndex(i=>i+1>=supplied.forecast!.length?-1:i+1);},WEATHER_STEP_MS);return()=>clearInterval(timer);},[playing,identity,preview]);
  const show=(field:'place'|'time'|'temperature'|'description'|'details'|'timeline')=>!supplied.display?.visualOnly&&supplied.display?.[field]!==false;
+ // Fit the text block to its row for every scene and screen size: shrink the
+ // type in steps, never scroll. What still does not fit is cut off at the bottom.
+ const reading=useRef<HTMLElement>(null);
+ useLayoutEffect(()=>{const block=reading.current;if(!block||preview||typeof ResizeObserver==='undefined')return;
+  const fit=()=>{let chosen:number=WEATHER_FIT_STEPS[0];for(const step of WEATHER_FIT_STEPS){chosen=step;block.style.setProperty('--weather-fit',String(step));if(block.scrollHeight<=block.clientHeight+1)break;}
+   const clipped=block.scrollHeight>block.clientHeight+1;block.dataset.weatherFit=chosen===WEATHER_FIT_STEPS.at(-1)&&clipped?'min':String(chosen);
+   if(clipped&&block.dataset.weatherFit==='min')block.dataset.weatherClipped=String(block.scrollHeight>block.clientHeight+1);else delete block.dataset.weatherClipped;};
+  fit();const observer=new ResizeObserver(fit);if(block.parentElement)observer.observe(block.parentElement);
+  void document.fonts?.ready.then(fit);
+  return()=>observer.disconnect();
+ },[index,identity,preview]);
  const moment=index>=0?supplied.forecast?.[index]:undefined,condition=moment?.condition??supplied.condition,period=moment?.period??supplied.period,temperature=convert(moment?.temperature??supplied.temperature);
  return <div className={`weather-cinema weather-${condition} weather-period-${period}`} data-weather-moment={index}>
   <WeatherScene sunPosition={weatherSunPosition(moment?.time??supplied.timeLabel,period,supplied.forecast)} preview={preview} condition={condition} period={period} intensity={moment?moment.intensity:supplied.intensity}/>
   {condition==='storm'&&!preview&&<div className="weather-lightning" aria-hidden="true"/>}
   <header className="weather-scene-heading">{show('place')&&<p>{supplied.place}</p>}{show('time')&&<span>{moment?<FormattedTime value={moment.time}/>:supplied.timeLabel??'Current forecast'}</span>}</header>
-  <section key={index} className="weather-scene-reading" aria-label="Forecast conditions">{show('description')&&<h2>{labels[condition]}</h2>}{show('temperature')&&temperature&&<strong className="weather-temperature">{temperature}</strong>}{show('temperature')&&!moment&&(supplied.high||supplied.low)&&<p>{supplied.high&&`High ${convert(supplied.high)}`} {supplied.low&&` · Low ${convert(supplied.low)}`}</p>}{show('description')&&(moment?.description??(!moment?supplied.description:undefined))&&<p>{moment?.description??supplied.description}</p>}{show('details')&&Boolean((moment?.details??(!moment?supplied.details:undefined))?.length)&&<dl>{(moment?.details??supplied.details)?.map((d,i)=><div key={i}><dt>{d.label}</dt><dd>{d.value}</dd></div>)}</dl>}</section>
+  <section key={index} ref={reading} className="weather-scene-reading" aria-label="Forecast conditions">{show('description')&&<h2>{labels[condition]}</h2>}{show('temperature')&&temperature&&<strong className="weather-temperature">{temperature}</strong>}{show('temperature')&&!moment&&(supplied.high||supplied.low)&&<p>{supplied.high&&`High ${convert(supplied.high)}`} {supplied.low&&` · Low ${convert(supplied.low)}`}</p>}{show('description')&&(moment?.description??(!moment?supplied.description:undefined))&&<p className="weather-description">{moment?.description??supplied.description}</p>}{show('details')&&Boolean((moment?.details??(!moment?supplied.details:undefined))?.length)&&<dl>{(moment?.details??supplied.details)?.map((d,i)=><div key={i}><dt>{d.label}</dt><dd>{d.value}</dd></div>)}</dl>}</section>
   {show('timeline')&&Boolean(supplied.forecast?.length)&&<footer className="weather-time-strip"><button className="weather-play" onClick={()=>setPlaying(v=>!v)} aria-label={playing?'Pause forecast scenes':'Play forecast scenes'}>{playing?'Ⅱ':'▶'}</button><ol><li><button aria-current={index===-1?'step':undefined} onClick={()=>{setIndex(-1);setPlaying(false);}}><span>{supplied.timeLabel??'Overview'}</span><strong>{convert(supplied.temperature)??[convert(supplied.low),convert(supplied.high)].filter(Boolean).join(' – ')}</strong></button></li>{supplied.forecast?.map((f,i)=><li key={i}><button aria-current={index===i?'step':undefined} onClick={()=>{setIndex(i);setPlaying(false);}}><time><FormattedTime value={f.time}/></time><strong>{convert(f.temperature)}</strong><span>{labels[f.condition]}</span></button></li>)}</ol></footer>}
  </div>;
 }

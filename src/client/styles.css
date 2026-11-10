@@ -212,3 +212,9 @@
 .viewer-menu{max-height:calc(100dvh - 80px - env(safe-area-inset-top,0px));overflow-y:auto;overscroll-behavior:contain}
 
 .device-privacy-retry{appearance:none;border:1px solid #5a5a5a;background:transparent;color:inherit;font:inherit;padding:.7em 1.4em;border-radius:999px;cursor:pointer}.device-privacy-retry:hover,.device-privacy-retry:focus-visible{border-color:#e2e2e2}
+
+/* 2026-11-10 (341c9d9b): navigation goes through the agent. On-screen navigation of the agent's content is an explicit view-level opt-in (showControls). */
+.render-surface[data-show-controls="false"] .itinerary-day-picker,.render-surface[data-show-controls="false"] .sing-along>footer>button{display:none}
+
+/* 2026-11-10 (aef9fccb): sender address is plain selectable text. */
+.email-delivery-help{margin-top:12px;font-size:.9em;line-height:1.6}.email-sender{user-select:all;-webkit-user-select:all;overflow-wrap:anywhere;font-weight:650}.email-resend{appearance:none;background:transparent;border:0;padding:6px 0;color:inherit;font:inherit;text-decoration:underline;cursor:pointer;opacity:.8}.email-resend:disabled{opacity:.4;cursor:default}

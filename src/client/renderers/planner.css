@@ -88,3 +88,22 @@
 .planner-month{font-size:clamp(14px,1.35cqw,20px)}.planner-span{font-size:.9em}
 /* On narrow multi-day columns, a time range must not consume the event title. */
 @container(max-width:600px){.planner-column>.planner-block.is-compact{flex-direction:column;align-items:flex-start;gap:0}.planner-column>.planner-block.is-compact strong{flex:none;width:100%;order:-1}.planner-column>.planner-block.is-compact .planner-time{max-width:100%;overflow:hidden;font-size:.7em}}
+
+/* 2026-11-10 (bebc556b). Weather point: icon on the left, values beside it in
+   one compact row. Absent or zero values have no slot. Narrow columns let the
+   values wrap beside the icon instead of stacking under it. */
+.planner-column{--weather-width:min(10.5rem,65%)}
+.view-three-day .planner-column,.view-week .planner-column{--weather-width:min(6.4rem,65%)}
+.planner-weather>.weather-point{flex-direction:row;align-items:center;justify-content:flex-start;gap:.35em;padding-inline:.35em;text-align:left;box-sizing:border-box}
+.planner-weather .weather-icon{flex:none;font-size:22px}
+.planner-weather .weather-values{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 .45em;min-width:0;font-size:15px;font-weight:600;line-height:1.15}
+.planner-weather .weather-values small{font-weight:400;white-space:nowrap}
+@container (max-width:600px){.planner-column,.view-three-day .planner-column,.view-week .planner-column{--weather-width:min(5.4rem,65%)}.planner-weather .weather-values{font-size:12px}.planner-weather .weather-icon{font-size:19px}}
+/* Proposals: larger type, one line per proposal (action, item, new time); the
+   reason sits on a second, dimmer line. The current time is the row's tooltip. */
+.planner-proposals{font-size:1.12em}
+.planner-proposal{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:.6em;row-gap:.1em}
+.planner-proposal-when del{display:none}
+.planner-proposal-when{font-size:1em}
+.planner-proposal>p{flex-basis:100%;margin:.05em 0 0;font-size:.82em;color:var(--muted)}
+.planner-proposal>.planner-actions{flex-basis:100%}

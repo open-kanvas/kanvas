@@ -62,3 +62,20 @@
 @media(prefers-reduced-motion:reduce){.weather-lightning{display:none}.weather-scene-reading{animation:none}}
 
 .weather-scene-reading{top:auto;bottom:27%;transform:none;max-height:64%;overflow:auto}.weather-scene-reading dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.3em 1em}.weather-scene-reading h2,.weather-scene-reading p{margin:.2em 0}
+
+/* 2026-11-10 (20722a0f, aca837d4). The text block sits LOW: its bottom edge
+   rests on the horizon (27% from the bottom of the scene), below the place and
+   time and above the ground band and the timeline. It is an ordinary grid item
+   again: the former relative offset (bottom:27%) pushed it up into the heading.
+   It never scrolls. Rich content first shrinks its type (--weather-fit, set by
+   the renderer), then is cut off at the bottom. */
+@container (min-height:451px){.weather-cinema{grid-template-rows:auto minmax(0,1fr) minmax(calc(27cqh - max(4cqh,env(safe-area-inset-bottom,0px)) - clamp(8px,2cqh,24px)),auto)}.weather-time-strip{align-self:end}}
+.weather-scene-reading{position:relative;inset:auto;top:auto;bottom:auto;transform:none;align-self:end;min-height:0;max-height:100%;overflow:hidden;scrollbar-width:none}
+.weather-scene-reading::-webkit-scrollbar{display:none}
+.weather-scene-reading h2{font-size:calc(clamp(18px,3cqh,32px)*var(--weather-fit,1))}
+.weather-scene-reading>strong,.weather-scene-reading>.weather-temperature{display:block;font-size:calc(clamp(38px,10cqh,102px)*var(--weather-fit,1));line-height:1.16;overflow:visible}
+.weather-scene-reading>p{font-size:calc(clamp(12px,2cqh,20px)*var(--weather-fit,1))}
+.weather-scene-reading dd{font-size:calc(clamp(12px,2cqh,18px)*var(--weather-fit,1))}
+.weather-scene-reading dt{font-size:calc(clamp(10px,1.5cqh,12px)*var(--weather-fit,1))}
+.weather-scene-reading>.weather-description{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;line-clamp:4;overflow:hidden}
+.weather-scene-reading[data-weather-fit="min"]>.weather-description{-webkit-line-clamp:2;line-clamp:2}

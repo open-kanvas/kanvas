@@ -27,3 +27,8 @@
 }
 
 .render-surface:not(.is-preview) .checklist-content.checklist-adaptive li .checklist-detail{font-size:clamp(14px,1.45cqw,2.3cqh);line-height:1.25;margin:4px 0 0}
+
+/* The one item the agent marked as current: an accent bar and a quiet tint.
+   Content and order are untouched. */
+.checklist-content.checklist-adaptive li.is-current{position:relative;background:color-mix(in srgb,var(--accent,#8ab4ff) 13%,transparent);border-radius:10px;box-shadow:inset 5px 0 0 var(--accent,#8ab4ff);padding-inline-start:clamp(12px,1.2cqw,20px)}
+.checklist-content.checklist-adaptive li.is-current>div>span{font-weight:600}

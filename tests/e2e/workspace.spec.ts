@@ -332,7 +332,7 @@ test('disconnected viewer hides cached content, reconnects to the newest state a
     diagnostics.allowOffline(viewer);
     await viewerContext.setOffline(true);
     await expect(viewer.locator('.device-privacy-screen')).toHaveAttribute('data-privacy-state','offline');
-    await expect(viewer.getByRole('status')).toHaveText('Reconnecting securely…');
+    await expect(viewer.getByRole('status')).toHaveText('Reconnecting…');
     await expect(viewer.locator('.fact-text,.render-surface')).toHaveCount(0);
     await publishPrepared(page, sessionId, [display.id], fact('The current view arrives after reconnect.'));
     // A delayed acknowledgement must not mark the newer, unseen revision applied.

@@ -210,3 +210,5 @@
 .auth-logo-panel .wordmark.kanvas-brand>svg.kanvas-brand-art{width:100%;max-width:640px}
 
 .viewer-menu{max-height:calc(100dvh - 80px - env(safe-area-inset-top,0px));overflow-y:auto;overscroll-behavior:contain}
+
+.device-privacy-retry{appearance:none;border:1px solid #5a5a5a;background:transparent;color:inherit;font:inherit;padding:.7em 1.4em;border-radius:999px;cursor:pointer}.device-privacy-retry:hover,.device-privacy-retry:focus-visible{border-color:#e2e2e2}

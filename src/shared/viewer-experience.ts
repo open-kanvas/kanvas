@@ -26,6 +26,16 @@ export type ViewerObservation = z.infer<typeof viewerObservationSchema>;
 export type AnnotationInput = z.infer<typeof annotationInputSchema>;
 export interface ViewerPresence extends ViewerObservation {deviceId?:string;deviceName?:string;connected?:boolean;connectionMethod?:'account'|'paired';joinedAt?:string;lastActiveAt?:string;disconnectedAt?:string;name?:string;requestContext?:RequestContext;id:string;sessionId:string;displayId:string;observedAt:string;expiresAt:number;participantId:string}
 export interface AnnotationRecord extends AnnotationInput {id:string;sessionId:string;displayId:string;viewerId:string;createdAt:string}
-export interface ToastRecord {title?:string;description?:string;icon?:string;time?:string;confirmationWords?:string;confirmation?:boolean;ownerId?:string;id:string;sessionId:string;displayId:string;text:string;severity:'info'|'success'|'warning';createdAt:string;expiresAt:string;sticky:boolean}
+/** Built-in, generic, unbranded notification pictograms. Deliberately small. */
+export const TOAST_TYPES=['message','email','success','warning','error','info','calendar','update','person'] as const;
+export type ToastType=typeof TOAST_TYPES[number];
+/** Explicit image first, then the chosen type, then the severity an agent
+ * stated. A plain notification with neither keeps no icon, as before. */
+export function toastBuiltInIcon(toast:{icon?:string;type?:ToastType;severity?:string;severityStated?:boolean}):ToastType|undefined{
+ if(toast.icon)return undefined;
+ if(toast.type)return toast.type;
+ return toast.severityStated&&(toast.severity==='info'||toast.severity==='success'||toast.severity==='warning')?toast.severity:undefined;
+}
+export interface ToastRecord {groupId?:string;type?:ToastType;severityStated?:boolean;title?:string;description?:string;icon?:string;time?:string;confirmationWords?:string;confirmation?:boolean;ownerId?:string;id:string;sessionId:string;displayId:string;text:string;severity:'info'|'success'|'warning';createdAt:string;expiresAt:string;sticky:boolean}
 /** Lifecycle records remain available for delivery, but must not cover a reading screen for their whole retention period. */
 export function toastVisibleUntil(toast:ToastRecord){return toast.ownerId&&!toast.confirmation?Math.min(Date.parse(toast.expiresAt),Date.parse(toast.createdAt)+(toast.severity==='warning'?15_000:8_000)):Date.parse(toast.expiresAt);}

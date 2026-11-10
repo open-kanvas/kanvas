@@ -68,3 +68,34 @@ export function useChecklistColumns(ref: RefObject<HTMLUListElement | null>, ite
   }, [ref, items]);
   return columns;
 }
+
+type FocusItem = { id: string; text: string; checked?: boolean; detail?: string };
+/** Which item an update is "about": a newly chosen highlight first, otherwise
+ * the last item that was ticked, unticked, reworded, annotated or added. A
+ * re-render that changes nothing has no focus, so the reader's place is kept. */
+export function checklistFocus(before: readonly FocusItem[], after: readonly FocusItem[], highlightBefore?: string, highlightAfter?: string): string | undefined {
+  if (highlightAfter && highlightAfter !== highlightBefore && after.some(item => item.id === highlightAfter)) return highlightAfter;
+  const earlier = new Map(before.map(item => [item.id, item]));
+  let focus: string | undefined;
+  for (const item of after) {
+    const old = earlier.get(item.id);
+    if (!old || Boolean(old.checked) !== Boolean(item.checked) || old.text !== item.text || (old.detail ?? '') !== (item.detail ?? '')) focus = item.id;
+  }
+  return focus;
+}
+/** Scroll distance that brings the focused item to the middle of the list, or
+ * undefined when it already sits comfortably in view and nothing should move.
+ * "Comfortably" is deliberately generous: the list starts moving well before
+ * the item reaches an edge. While the reader is scrolling by hand only an item
+ * that is completely out of sight is fetched. */
+export function checklistScrollDelta(box: { top: number; height: number }, item: { top: number; bottom: number }, readerBusy = false): number | undefined {
+  if (box.height <= 0) return undefined;
+  const bottom = box.top + box.height;
+  const hidden = item.bottom <= box.top || item.top >= bottom;
+  const comfortable = item.top >= box.top + box.height * .12 && item.bottom <= bottom - box.height * .25;
+  if (readerBusy ? !hidden : comfortable) return undefined;
+  const itemHeight = item.bottom - item.top;
+  // An item taller than the list is shown from its first line.
+  const delta = itemHeight >= box.height ? item.top - box.top : (item.top + itemHeight / 2) - (box.top + box.height / 2);
+  return Math.abs(delta) < 1 ? undefined : delta;
+}

@@ -176,7 +176,7 @@ function applyOperation(view: ViewSpec, operation: ViewPatchOperation): void {
     if (action==='add' ? index>=0 : index<0) pathConflict();
     if (action==='add' && !value?.text || action==='update' && (!value || !Object.keys(value).length)) unsupported('Add requires text; update requires text, detail or checked.');
     if (beforeId && (beforeId===operation.itemId || !items.some(item=>item.id===beforeId))) pathConflict();
-    if(action==='remove') { items.splice(index,1); return; }
+    if(action==='remove') { items.splice(index,1); if(view.data.highlight===operation.itemId)delete view.data.highlight; return; }
     const item=action==='add'?{id:operation.itemId,text:value!.text!}:{...items[index]};
     if(value) { if(value.text!==undefined)item.text=value.text;if(value.checked!==undefined)item.checked=value.checked;if(value.detail===null)delete item.detail;else if(value.detail!==undefined)item.detail=value.detail; }
     if(action==='update')items[index]=item;

@@ -18,7 +18,7 @@ export const MAX_TOOL_RESULT_BYTES = 96 * 1024;
 export const MAX_RESOURCE_BYTES = 256 * 1024;
 export const mcpServerInfo = (profile: McpProfile) => ({ name: 'kanvas', version: KANVAS_VERSION, profile, tools: isGrouped(profile) ? toolNames(profile).length : operationEntries(profile).length, operations: profile === 'discovery' ? operationCatalog().length : operationEntries(profile).length });
 
-export interface SafeError { layer?:string; example?:unknown; validateTool?:string; currentRevision?:number; expectedRevision?:number; code: string; message: string; issues?: ValidationIssue[]; schemaTool?: string; topic?: string; template?: TemplateId; diagnosticId?: string }
+export interface SafeError { wouldRemoveIds?:string[]; layer?:string; example?:unknown; validateTool?:string; currentRevision?:number; expectedRevision?:number; code: string; message: string; issues?: ValidationIssue[]; schemaTool?: string; topic?: string; template?: TemplateId; diagnosticId?: string }
 
 const messages: Record<string, string> = {
   NAVIGATION_UNAVAILABLE:'This action or page is unavailable for the current view. Read navigation.read for supported actions and pageCount. See /docs/navigation.',
@@ -115,6 +115,7 @@ export function safeError(error: unknown): SafeError {
     ...(error instanceof InputError&&error.template&&Object.hasOwn(samples,error.template)?{example:samples[error.template as TemplateId]}:{}),
     code: 'INVALID_ARGUMENT', message: (error instanceof InputError ? error.message : new InputError(validationIssues(error)).message).slice(0, 700),
     issues: error instanceof InputError ? error.issues : validationIssues(error),
+    ...(error instanceof InputError && Array.isArray((error as InputError & {wouldRemoveIds?:unknown}).wouldRemoveIds) ? { wouldRemoveIds: (error as InputError & {wouldRemoveIds:string[]}).wouldRemoveIds } : {}),
     ...(error instanceof InputError && error.guidance ? error.guidance : error instanceof InputError && error.template ? { schemaTool: 'kanvas_template_get' } : { schemaTool: 'kanvas_guide', topic: 'tools' }),
     ...(error instanceof InputError && (TEMPLATE_IDS as readonly string[]).includes(error.template as string) ? { template: error.template as TemplateId } : {}),
   };

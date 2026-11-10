@@ -175,6 +175,8 @@ export function useSession(id: string | null, displayId?: string) {
             return;
           }
           window.dispatchEvent(new CustomEvent('kanvas:session-change', { detail: { sessionId: change.sessionId, displayId: change.displayId, type: change.type } }));
+          // Overlay notifications change no session detail; the receiving window re-reads them itself.
+          if (change.type === 'toast') return;
           if (change.type === 'ended') {
             ended.current = true; streamOpen.current = false; setDetail(null); setConnection('closed'); setError('This session has ended.'); source.close(); return;
           }

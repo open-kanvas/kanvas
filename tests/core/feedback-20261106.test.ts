@@ -13,7 +13,7 @@ it('accepts generic rich notices and legacy text, rejecting unsafe icons/oversiz
  expect(toastSchema.safeParse({sessionId:'s',displayIds:['d'],text:'Original'}).success).toBe(true);
  const base={sessionId:'s',displayIds:['d'],title:'Sender',description:'Notice',icon:'https://example.com/icon.png',time:'2026-11-06T14:38:00Z'};
  expect(toastSchema.safeParse(base).success).toBe(true);
- for(const extra of [{icon:'javascript:alert(1)'},{icon:'http://127.0.0.1/a'},{title:'x'.repeat(161)},{time:'not-time'},{type:'email'},{action:'https://example.com'}])expect(toastSchema.safeParse({...base,...extra}).success).toBe(false);
+ for(const extra of [{icon:'javascript:alert(1)'},{icon:'http://127.0.0.1/a'},{title:'x'.repeat(161)},{time:'not-time'},{type:'gmail'},{action:'https://example.com'}])expect(toastSchema.safeParse({...base,...extra}).success).toBe(false);
  expect(toastSchema.safeParse({sessionId:'s',displayIds:['d']}).success).toBe(false);
 });
 it('retains real API mutations and failures but suppresses read/observation/auth polling completions',()=>{

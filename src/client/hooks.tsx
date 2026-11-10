@@ -204,13 +204,17 @@ export function useSession(id: string | null, displayId?: string) {
     // Registration can finish after the first content connection. Reconnect
     // once so the same authenticated stream also owns this window receiver.
     const onDeviceRegistered=()=>{if(displayId)connect();};
+    // A window that is really closing says so, so its leave is announced promptly;
+    // every other dropped stream is treated by the server as a reconnect in progress.
+    const onPageHide=(event:PageTransitionEvent)=>{if(displayId&&!event.persisted&&!disposed)void api(`${sessionPath(id)}/displays/${encodeURIComponent(displayId)}/leave`,{method:'POST',body:{tabId:viewerTabId()},keepalive:true}).catch(()=>{});};
+    window.addEventListener('pagehide',onPageHide);
     window.addEventListener('kanvas:device-registered',onDeviceRegistered);
     if (navigator.onLine) { connect(); void reload(); } else onOffline();
     return () => {
       disposed = true; generation.current += 1; streamOpen.current = false; eventSource?.close(); clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('offline', onOffline); window.removeEventListener('online', onOnline);
-      window.removeEventListener('kanvas:device-registered',onDeviceRegistered);
+      window.removeEventListener('kanvas:device-registered',onDeviceRegistered);window.removeEventListener('pagehide',onPageHide);
     };
   }, [id, displayId, reload]);
   const reconnect = () => { if (navigator.onLine) setEpoch(value => value + 1); else setConnection('offline'); };

@@ -375,7 +375,7 @@ export async function createApp(options: AppOptions = {}) {
       if (closed || event.sessionId !== sessionId) return;
       if (event.type === 'ended') { res.write(`event: change\ndata: ${JSON.stringify({ type: 'ended', sessionId })}\n\n`); (await finish()); return; }
       try { (await service.access(principal, sessionId)); if (displayId) (await service.display(principal, sessionId, displayId)); } catch { (await finish()); return; }
-      if (principal.scopedDisplayId && (event.displayId && event.displayId !== displayId || !['display', 'config', 'update', 'membership', 'identify'].includes(event.type))) return;
+      if (principal.scopedDisplayId && (event.displayId && event.displayId !== displayId || !['display', 'config', 'update', 'membership', 'identify', 'toast'].includes(event.type))) return;
       const safe = { type: event.type, sessionId, ...(event.displayId ? { displayId: event.displayId } : {}), ...(event.revision !== undefined ? { revision: event.revision } : {}), ...(event.type === 'identify' && event.data && typeof event.data === 'object' ? { identify: event.data } : {}) };
       if (!res.write(`event: change\ndata: ${JSON.stringify(safe)}\n\n`)) (await finish());
     });

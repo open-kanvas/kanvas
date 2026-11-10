@@ -24,7 +24,7 @@ export const annotationInputSchema = z.object({
 }).strict();
 export type ViewerObservation = z.infer<typeof viewerObservationSchema>;
 export type AnnotationInput = z.infer<typeof annotationInputSchema>;
-export interface ViewerPresence extends ViewerObservation {deviceId?:string;deviceName?:string;connected?:boolean;connectionMethod?:'account'|'paired';joinedAt?:string;lastActiveAt?:string;disconnectedAt?:string;name?:string;requestContext?:RequestContext;id:string;sessionId:string;displayId:string;observedAt:string;expiresAt:number;participantId:string}
+export interface ViewerPresence extends ViewerObservation {/** Stream dropped moments ago and is expected back; not announced as left. */reconnecting?:boolean;droppedAt?:string;deviceId?:string;deviceName?:string;connected?:boolean;connectionMethod?:'account'|'paired';joinedAt?:string;lastActiveAt?:string;disconnectedAt?:string;name?:string;requestContext?:RequestContext;id:string;sessionId:string;displayId:string;observedAt:string;expiresAt:number;participantId:string}
 export interface AnnotationRecord extends AnnotationInput {id:string;sessionId:string;displayId:string;viewerId:string;createdAt:string}
 /** Built-in, generic, unbranded notification pictograms. Deliberately small. */
 export const TOAST_TYPES=['message','email','success','warning','error','info','calendar','update','person'] as const;

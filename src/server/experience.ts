@@ -157,6 +157,7 @@ export class Experience {
     if(!prior && (await this.store.list<ViewerPresence>('viewer',sessionId)).length>=128)throw new AppError('LIMIT_REACHED','Too many receiving browser instances.',429);
     const pair=p.pairingId?(await this.store.get<PairingRecord>('pairing',p.pairingId)):undefined;
     const record:ViewerPresence={...a,id:viewerId,sessionId,displayId,participantId:p.participantId??p.userId,observedAt:now(),expiresAt:Date.now()+120000,joinedAt:prior?.joinedAt??now(),lastActiveAt:now(),connectionMethod:pair?'paired':'account',name:pair?.selfName||pair?.deviceName||(await this.service.auth.user(p.userId))?.displayName,...(await this.receiving.metadata(viewerId))};(await this.store.put('viewer',record));(await this.service.topology.observed(sessionId,viewerId,a.width,a.height));
+    if(prior?.width!==a.width||prior?.height!==a.height||prior?.visible!==a.visible)await this.service.settleViewport(sessionId,displayId);
     // Durable notices point to expiring consented context, never copy coordinates.
     if(JSON.stringify(prior?.context??null)!==JSON.stringify(a.context??null)) {
       const event:InteractionRecord={id:id(),sessionId,displayId,revision:d.revision,actionId:'viewer.context',userId:p.participantId??p.userId,targetAgentId:d.targetAgentId,status:'pending',createdAt:now(),value:{viewerId,consent:Boolean(a.context),locationStatus:a.context?.locationStatus??'withdrawn',locationAvailable:Boolean(a.context?.location),changedFields:['context'],readTool:'kanvas_viewers_read',note:'Read fresh consented context by viewerId. This notice deliberately contains no coordinates.'}};
@@ -178,10 +179,10 @@ export class Experience {
   }
   async viewers(p:AuthPrincipal,sessionId:string,displayId?:string){
     (await this.service.fullAccount(p));(await this.service.access(p,sessionId));if(displayId)(await this.service.display(p,sessionId,displayId));
-    const live=(await this.receiving.viewers(sessionId,displayId)),ids=new Set(live.map(x=>x.id));
+    const live=(await this.receiving.viewers(sessionId,displayId,true)),ids=new Set(live.map(x=>x.id));
     const recent=(await this.store.list<ViewerPresence>('viewer',sessionId)).filter(x=>!ids.has(x.id)&&x.expiresAt>Date.now()&&Date.parse(x.observedAt)>Date.now()-15_000&&(!displayId||x.displayId===displayId)).map(x=>({...x,connected:false}));
     const owner=(await this.service.access(p,sessionId)).ownerId===p.userId;
-    return [...live,...recent].map(({tabId:_tab,requestContext,...x})=>({...x,...(owner?{requestContext}:{}),presence:x.connected?'connected':'recent-observation'}));
+    return [...live,...recent].map(({tabId:_tab,requestContext,...x})=>({...x,...(owner?{requestContext}:{}),presence:x.connected?'connected':x.reconnecting?'reconnecting':'recent-observation'}));
   }
   async notices(p:AuthPrincipal,sessionId:string){(await this.service.fullAccount(p));const session=(await this.service.access(p,sessionId,'owner'));return (await this.store.list<ToastRecord>('toast',sessionId)).filter(x=>x.ownerId===session.ownerId&&Date.parse(x.expiresAt)>Date.now());}
   async accountNotices(p:AuthPrincipal){(await this.service.fullAccount(p));const sessions=new Set((await this.service.sessions(p)).filter(s=>s.ownerId===p.userId).map(s=>s.id));return (await this.store.list<ToastRecord>('toast')).filter(x=>x.ownerId===p.userId&&sessions.has(x.sessionId)&&Date.parse(x.expiresAt)>Date.now()).slice(-20);}
@@ -301,6 +302,7 @@ export function mountExperience(app:Express,experience:Experience,browser:(req:R
   app.post('/api/sessions/:id/displays/:displayId/inspect',async(req,res)=>{const a=inspectionOptionsSchema.extend({viewerId:slot.optional(),fresh:z.boolean().default(true)}).strict().parse(req.body);res.json({data:await experience.inspect(await browser(req),{...a,sessionId:String(req.params.id),displayId:String(req.params.displayId)})});});
   app.post('/api/sessions/:id/displays/:displayId/observe',async (req,res)=>res.json({data:(await experience.observe((await browser(req)),...ids(req),req.body))}));
   app.post('/api/sessions/:id/displays/:displayId/annotations',async (req,res)=>res.status(201).json({data:(await experience.annotate((await browser(req)),...ids(req),req.body))}));
+  app.post('/api/sessions/:id/displays/:displayId/leave',async (req,res)=>{const p=await browser(req);await experience.service.display(p,...ids(req));res.json({data:experience.receiving.leave(p,...ids(req),String(req.body?.tabId??''))});});
   app.post('/api/sessions/:id/displays/:displayId/toasts/dismiss',async (req,res)=>res.json({data:(await experience.dismiss((await browser(req)),...ids(req),req.body))}));
   app.get('/api/sessions/:id/displays/:displayId/overview',async (req,res)=>res.json({data:(await experience.overview((await browser(req)),...ids(req)))}));
   app.get('/api/sessions/:id/displays/:displayId/overview/preview',async (req,res)=>{const query=z.object({sourceDisplayId:slot,revision:z.coerce.number().int().nonnegative()}).strict().parse(req.query);res.json({data:(await experience.overviewPreview((await browser(req)),...ids(req),query.sourceDisplayId,query.revision))});});

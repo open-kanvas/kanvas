@@ -431,12 +431,44 @@ export class KanvasService implements McpService {
     const parsed = devicesViewDataSchema.safeParse(data);
     return parsed.success ? { tool: 'kanvas_publish', operation: 'show', note: 'Choose the target session and display. The view lists only this account’s own devices and windows.', view: { version: 1, template: 'devices', title: 'Devices and windows', showTitle: true, data: parsed.data } } : undefined;
   }
+  /** One canonical size per display: the largest connected screen that is in
+   * the foreground (any connected screen when none is). It changes only when
+   * that answer changes, i.e. when a viewer really joins, leaves or resizes;
+   * with nobody connected the last settled size stays. Per-viewer sizes remain
+   * on each viewer record. Returns whether the stored size changed. */
+  async settleViewport(sessionId: string, displayId: string, report?: {width?: number; height?: number; pixelRatio?: number}): Promise<boolean> {
+    return this.store.atomic(async () => {
+      const display = await this.store.get<StoredDisplay>('display', displayId);
+      if (!display || display.sessionId !== sessionId) return false;
+      const candidates: {width: number; height: number; visible: boolean; pixelRatio?: number}[] = (await this.experience.receiving.viewers(sessionId, displayId, true))
+        .filter(v => v.tabId && v.width > 0 && v.height > 0).map(v => ({ width: v.width, height: v.height, visible: v.visible !== false }));
+      if (report?.width && report.height) candidates.push({ width: report.width, height: report.height, visible: true, pixelRatio: report.pixelRatio });
+      if (!candidates.length) return false;
+      const pool = candidates.some(c => c.visible) ? candidates.filter(c => c.visible) : candidates;
+      const area = (c: {width: number; height: number}) => c.width * c.height;
+      const largest = pool.reduce((best, next) => area(next) > area(best) ? next : best);
+      // Equal-sized screens never trade places.
+      const chosen = pool.find(c => c.width === display.width && c.height === display.height && area(c) >= area(largest)) ?? largest;
+      const pixelRatio = chosen.pixelRatio ?? (chosen.width === display.width && chosen.height === display.height ? display.pixelRatio : report?.pixelRatio ?? display.pixelRatio);
+      if (chosen.width === display.width && chosen.height === display.height && pixelRatio === display.pixelRatio) return false;
+      display.width = chosen.width; display.height = chosen.height; display.pixelRatio = pixelRatio; display.viewportRevision++; display.updatedAt = now();
+      await this.store.put('display', display);
+      this.emit({ type: 'display', sessionId, displayId, revision: display.revision });
+      return true;
+    });
+  }
   async updateDisplay(principal: AuthPrincipal, sessionId: string, displayId: string, input: {width?: number; height?: number; pixelRatio?: number; held?: boolean; expectedRevision?: number}): Promise<Awaited<DisplayRecord>> {
     return this.store.atomic(async () => {
     const display = (await this.display(principal, sessionId, displayId, input.held === undefined ? 'viewer' : 'editor'));
     if (input.held !== undefined) {
       this.assertRevision(input.expectedRevision, display.revision);
       if (display.held !== input.held) { display.held = input.held; display.revision++; display.generation++; }
+    }
+    // A receiving browser only REPORTS its viewport. The display's own size is
+    // settled among all connected screens, so two viewers cannot flip it.
+    if (principal.browserId && input.held === undefined) {
+      await this.settleViewport(sessionId, displayId, input);
+      return (await this.publicDisplay(required(await this.store.get<StoredDisplay>('display', displayId))));
     }
     if (input.width !== undefined || input.height !== undefined || input.pixelRatio !== undefined) {
       for (const key of ['width', 'height', 'pixelRatio'] as const) if (input[key] !== undefined) display[key] = input[key];

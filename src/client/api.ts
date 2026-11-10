@@ -64,14 +64,14 @@ export function confirmAuth():Promise<Confirmation|undefined> {
   return promise;
 }
 function eventClientContext(){if(typeof window==='undefined'||typeof navigator==='undefined'||typeof screen==='undefined')return JSON.stringify({clientRelease:KANVAS_VERSION});return JSON.stringify({timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone,language:navigator.language,languages:navigator.languages,platform:navigator.platform,screenWidth:screen.width,screenHeight:screen.height,pixelRatio:devicePixelRatio,viewportWidth:innerWidth,viewportHeight:innerHeight,networkType:(navigator as Navigator&{connection?:{effectiveType?:string}}).connection?.effectiveType,clientRelease:KANVAS_VERSION});}
-export async function api<T>(path: string, options: { method?: string; body?: unknown; signal?: AbortSignal; headers?:Record<string,string> } = {}, recovered=false): Promise<T> {
+export async function api<T>(path: string, options: { method?: string; body?: unknown; signal?: AbortSignal; headers?:Record<string,string>; keepalive?: boolean } = {}, recovered=false): Promise<T> {
   const method=options.method??'GET';
   const authMutation=method!=='GET'&&/^\/api\/auth\/(?:login|register|logout|email\/(?:complete|consume))$/.test(path);
   if(authMutation)advanceAuthGeneration();
   const started=generation;
   let response:Response;
   try {
-    response=await fetch(path,{method,credentials:'same-origin',cache:'no-store',signal:options.signal,headers:{Accept:'application/json','X-Kanvas-Client-Context':eventClientContext(),...(options.body!==undefined?{'Content-Type':'application/json'}:{}),...(method!=='GET'&&csrfToken?{'X-Kanvas-CSRF':csrfToken}:{}),...options.headers},...(options.body!==undefined?{body:JSON.stringify(options.body)}:{})});
+    response=await fetch(path,{method,credentials:'same-origin',cache:'no-store',signal:options.signal,...(options.keepalive?{keepalive:true}:{}),headers:{Accept:'application/json','X-Kanvas-Client-Context':eventClientContext(),...(options.body!==undefined?{'Content-Type':'application/json'}:{}),...(method!=='GET'&&csrfToken?{'X-Kanvas-CSRF':csrfToken}:{}),...options.headers},...(options.body!==undefined?{body:JSON.stringify(options.body)}:{})});
   } catch(error) {
     if(error instanceof DOMException&&error.name==='AbortError')throw error;
     diagnostic({event:'request',route:diagnosticRoute(path),status:0});

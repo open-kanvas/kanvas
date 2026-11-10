@@ -12,6 +12,11 @@ export function diagnostic(e:DiagnosticEvent){
  if(last.size>100)last.clear();last.set(key,time);if(queue.length<40&&sent<240){queue.push({...parsed,clientAt:time});persist();}
  }catch{/* Observability must never break the display. */}
 }
+/** Telemetry is never posted while this page's sign-in is in doubt: right after a request that changes or ends a
+ * sign-in (login, logout, revoking browsers) and after any refused request. Without the wait, the five-second post
+ * could go out with a cookie the server had just revoked, before the page had noticed. Queued events are kept; they are
+ * dropped only when the page learns it is signed out. */
+export function pauseDiagnostics(ms=15000){pausedUntil=Math.max(pausedUntil,Date.now()+ms);}
 export function diagnosticsAuthenticated(token:string){if(csrf&&!token){queue=[];persist();}csrf=token;void flush();}
 async function flush(){
  if(!csrf||sending||!queue.length||sent>=240||Date.now()<pausedUntil)return;sending=true;const events=queue.splice(0,20);persist();sent+=events.length;

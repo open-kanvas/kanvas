@@ -168,6 +168,9 @@ export function useSession(id: string | null, displayId?: string) {
         try {
           const change = JSON.parse((event as MessageEvent<string>).data) as SessionEvent;
           if (change.sessionId !== id) return;
+          // Sent once when the server has finished setting this stream up: read again, so a publish that landed
+          // between the first read and the subscription is not missed.
+          if ((change.type as string) === 'sync') { refreshSoon(); return; }
           if(change.type==='display'||change.type==='update')diagnostic({event:'update-received',sessionId:id,displayId:change.displayId,revision:change.revision,...(change.type==='update'&&change.data&&typeof change.data==='object'&&'id' in change.data?{updateId:String(change.data.id)}:{})});
           if (change.type === 'identify') {
             const identify = (change as SessionEvent & { identify?: Record<string, unknown> }).identify ?? {};

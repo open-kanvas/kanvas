@@ -1,5 +1,5 @@
 import {KANVAS_VERSION} from '../shared/version';
-import {diagnostic,diagnosticsAuthenticated} from './frontend-diagnostics';
+import {diagnostic,diagnosticsAuthenticated,pauseDiagnostics} from './frontend-diagnostics';
 import {diagnosticRoute} from '../shared/frontend-diagnostics';
 import type { AssetRecord, DatasetSummary, DisplayRecord, InteractionRecord, Role, SessionRecord, UpdateRecord, ViewSpec } from '../shared/types';
 import { isSafeUrl } from '../shared/view-schemas';
@@ -68,6 +68,8 @@ export async function api<T>(path: string, options: { method?: string; body?: un
   const method=options.method??'GET';
   const authMutation=method!=='GET'&&/^\/api\/auth\/(?:login|register|logout|email\/(?:complete|consume))$/.test(path);
   if(authMutation)advanceAuthGeneration();
+  // Signing in or out, or revoking browsers, can end this page's own sign-in on the server before the page knows.
+  if(method!=='GET'&&path.startsWith('/api/auth/'))pauseDiagnostics();
   const started=generation;
   let response:Response;
   try {
@@ -77,6 +79,7 @@ export async function api<T>(path: string, options: { method?: string; body?: un
     diagnostic({event:'request',route:diagnosticRoute(path),status:0});
     throw new ApiError(0,'offline','Connection interrupted. Your last saved content is unchanged.');
   }
+  if(response.status===401)pauseDiagnostics();
   diagnostic({event:'request',route:diagnosticRoute(path),status:response.status});
   if(started!==generation)throw new ApiError(409,'STALE_AUTH_RESPONSE','Sign-in changed while this request was running. Refresh before continuing.');
   if(response.status===204)return undefined as T;

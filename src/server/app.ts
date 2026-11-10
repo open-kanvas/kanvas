@@ -389,6 +389,9 @@ export async function createApp(options: AppOptions = {}) {
     // Setup above crosses asynchronous registration boundaries after headers
     // are sent. The peer can disconnect before the close listener is installed.
     if (req.destroyed || res.destroyed) { await finish(); return; }
+    // The browser read the session when the headers arrived, before this stream was subscribed. Anything published
+    // in between reached nobody, so the window is told once to read again now that nothing can be missed.
+    res.write(`event: change\ndata: ${JSON.stringify({ type: 'sync', sessionId, ...(displayId ? { displayId } : {}) })}\n\n`);
     try{(await windowReceiver?.push());}catch{(await finish());}
   });
 

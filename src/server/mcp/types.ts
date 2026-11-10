@@ -21,7 +21,7 @@ export interface McpService {
   /** One finished call as names, classes and numbers; never content. */
   recordFriction?(call:import('../friction.js').FrictionCall):void;
   /** Observable state that decides which repeated blocks a response carries. */
-  responseContext?(principal:Principal,args:unknown,connectionId:string):Promise<import('./response-policy.js').ResponseContext>;
+  responseContext?(principal:Principal,args:unknown,connectionId:string,failed?:boolean):Promise<import('./response-policy.js').ResponseContext>;
   authorize(request: Request): Promise<Principal>;
   execute(name: string, args: Record<string, unknown>, principal: Principal, context?: { signal?: AbortSignal }): Promise<unknown>;
   /** Optional content-free correlation record; never receives an unauthenticated call. */

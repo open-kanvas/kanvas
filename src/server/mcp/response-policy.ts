@@ -52,7 +52,8 @@ const settled = (status: unknown) => typeof status === 'string' && ['accepted', 
 /** Pure decision: returns the structured result to send. `structured` is the
  * tool's own result; it is never mutated. */
 export function applyResponsePolicy(structured: Record<string, unknown> | undefined, input: { state: ContactState; context: ResponseContext; guidance: unknown; isError: boolean; operation?: string; sessionId?: string }): { structured?: Record<string, unknown>; extra?: Record<string, unknown> } {
-  const { state, context, guidance } = input, full = context.preference === 'full';
+  // A service that reports no preference still honours the installation default.
+  const { state, context, guidance } = input, full = (context.preference ?? (process.env.KANVAS_GUIDANCE_DEFAULT === 'full' ? 'full' : 'concise')) === 'full';
   const signature = guidanceSignature(guidance, context.mode?.current), changed = state.contact.guidance !== undefined && state.contact.guidance !== signature;
   const sendGuidance = full || state.first || changed;
   state.contact.guidance = signature;
@@ -71,7 +72,7 @@ export function applyResponsePolicy(structured: Record<string, unknown> | undefi
   if (orientation && !full && !state.first && !input.isError) {
     const needsTarget = data?.status === 'needs_target' || data?.status === 'needs_template';
     const keepViewerLink = (needsTarget || context.displayConnected === false) && orientation.viewerLink !== undefined;
-    result.orientation = { help: 'kanvas.help.getting-started.steps', ...(keepViewerLink ? { viewerLink: orientation.viewerLink } : {}), ...(input.operation === 'kanvas_session_create' && orientation.sessionContinuity !== undefined ? { sessionContinuity: orientation.sessionContinuity } : {}) };
+    result.orientation = { ...(orientation.guide !== undefined ? { guide: orientation.guide } : {}), help: 'kanvas.help.getting-started.steps', ...(keepViewerLink ? { viewerLink: orientation.viewerLink } : {}), ...(input.operation === 'kanvas_session_create' && orientation.sessionContinuity !== undefined ? { sessionContinuity: orientation.sessionContinuity } : {}) };
   }
   result = { ...result, ...additions };
   return { structured: result };

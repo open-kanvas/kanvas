@@ -160,13 +160,15 @@ function authoredRule(issue: Issue, received: unknown): string | undefined {
   if (typeof received === 'string' && received.length > 1 && message.includes(received)) return undefined;
   return /[.!?]$/.test(message) ? message : `${message}.`;
 }
+export const REPEAT_COLLAPSE_FROM = 9;
 /** Twenty-seven identical lines teach nothing the first one did not. */
 export function collapseRepeatedIssues(issues: ValidationIssue[]): ValidationIssue[] {
   const groups = new Map<string, ValidationIssue[]>();
   for (const issue of issues) { const key = JSON.stringify([issue.problem, issue.expected ?? '', issue.maximum ?? '']); groups.set(key, [...(groups.get(key) ?? []), issue]); }
   const output: ValidationIssue[] = [];
   for (const group of groups.values()) {
-    if (group.length < 3) { output.push(...group); continue; }
+    // A handful of paths is useful as it stands; a long run of the same sentence is not.
+    if (group.length < REPEAT_COLLAPSE_FROM) { output.push(...group); continue; }
     const [first, ...rest] = group;
     output.push({ ...first, problem: `${first.problem} ${group.length} fields share this problem; first: ${first.path}.`, count: group.length, alsoAt: rest.slice(0, 4).map(issue => issue.path) });
   }

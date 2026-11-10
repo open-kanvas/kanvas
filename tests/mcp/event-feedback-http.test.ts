@@ -31,7 +31,7 @@ for(const era of ['modern','legacy'] as const)it(`event workflows and navigation
     for(const action of ['pause','resume','stop'])run=await call('kanvas_control','autoplay.control',{sessionId:s.id,displayId:d.id,requestId:randomUUID(),action});expect(run.status).toBe('stopped');
     await call('kanvas_access','session.public',{sessionId:s.id,expectedRevision:0,enabled:true,confirm:true});expect(success(await h.browser().request<any>('GET',`/api/public/sessions/${s.id}`)).displays[0].view.data.text).toBe('One');
     await call('kanvas_access','session.public',{sessionId:s.id,expectedRevision:1,enabled:false,confirm:true});expect((await h.browser().request('GET',`/api/public/sessions/${s.id}`)).status).toBe(404);
-    const schemas=await call('kanvas_inspect','template.get',{template:'presentation'});expect(schemas.truncated).not.toBe(true);expect(JSON.stringify(schemas)).toContain('scoreboard');
+    const schemas=await call('kanvas_inspect','template.get',{template:'presentation',expand:'full'});expect(schemas.truncated).not.toBe(true);expect(JSON.stringify(schemas)).toContain('scoreboard');
     const report=await call('kanvas_feedback','submit',{requestId:randomUUID(),title:'General service fixture',description:'Not bound to a session'});expect(report.sessionId).toBeUndefined();
     const reports=await call('kanvas_inspect','reports.read',{});expect(reports.reports.some((r:any)=>r.id===report.id)).toBe(true);
     const failed=await client.callTool(operationRequest({name:'kanvas_control',arguments:{operation:'autoplay.control',sessionId:s.id,displayId:d.id,action:'pause',privateMarker:'MUST_NOT_BE_LOGGED'}}));expect(failed.isError).toBe(true);

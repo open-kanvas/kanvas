@@ -36,11 +36,11 @@ export function agentType(clientName?:string,userAgent?:string):string{
 /** Activity worth a line in an agent's log. Names only, no content. */
 const NOTABLE:Record<string,string>={kanvas_submit:'published a view',kanvas_session_create:'created a session',kanvas_login_decide:'decided a device sign-in',kanvas_pairing_decide:'decided a browser request',kanvas_screen_decide:'decided a screen enrollment',kanvas_feedback_submit:'filed feedback',kanvas_error_report:'filed an error report',kanvas_member_add:'added a member',kanvas_share_create:'created a share link',kanvas_session_end:'ended a session',kanvas_agents_revoke:'revoked an agent',kanvas_monitor_stream_create:'created a monitor stream',kanvas_device_lock:'locked a device',kanvas_device_unlock:'unlocked a device'};
 const identifier=z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
-export const agentsReadSchema=z.strictObject({agentId:identifier.optional().describe('One agent in full: every session it used and its recent activity log. Omit for the compact list.'),limit:z.number().int().min(1).max(100).default(50)});
-export const agentsRevokeSchema=z.strictObject({agentId:identifier,confirm:z.literal(true).describe('Only after the owner confirms this is an agent they do not recognise or no longer want connected.')});
+export const agentsReadSchema=z.strictObject({agentId:identifier.optional(),limit:z.number().int().min(1).max(100).default(50)});
+export const agentsRevokeSchema=z.strictObject({agentId:identifier,confirm:z.literal(true)});
 export const agentTools:Definition[]=[
- {name:'kanvas_agents_read',schema:agentsReadSchema,readOnly:true,description:'List the agents connected to this account, recognised from the MCP client name, version and User-Agent: type, whether active now, first and last seen, session count and most recent session, model if reported. Add agentId for one agent\'s full session list and activity log. Show the list with the agents template.'},
- {name:'kanvas_agents_revoke',schema:agentsRevokeSchema,description:'Revoke one agent\'s access to this account after the owner confirms it; that client must sign in again to reconnect. Cannot revoke the connection making this call.'},
+ {name:'kanvas_agents_read',schema:agentsReadSchema,readOnly:true,description:'List the agents connected to this account, recognised from the MCP client name and User-Agent: active now, last seen, session count. agentId returns one agent\'s sessions and activity log.'},
+ {name:'kanvas_agents_revoke',schema:agentsRevokeSchema,description:'Revoke one agent\'s access after the owner confirms it; not the connection making this call.'},
 ];
 export class Agents{
  private touched=new Map<string,number>();
@@ -104,7 +104,7 @@ export class Agents{
    agents.push({agentId:record.id,type:record.type,name:record.name,clientVersion:record.clientVersion,connectedNow:access&&Date.now()-Date.parse(record.lastSeenAt)<AGENT_ACTIVE_MS,access:access?'active':'revoked-or-expired',...(record.id===current?{thisConnection:true}:{}),lastSeenAt:record.lastSeenAt,firstSeenAt:record.firstSeenAt,sessionCount:record.sessionsTotal,...(record.lastSessionId?{lastSession:names.get(record.lastSessionId)??'(ended session)'}:{}),...(record.model?{model:record.model}:{})});
   }
   return {agents,total:own.length,connectedNowMeans:`Used within the last ${AGENT_ACTIVE_MS/60_000} minutes with access that is still valid. MCP is request and response, so there is no permanently open connection to observe.`,
-   view:{version:1,template:'agents',data:{agents:agents.map(({agentId,type,name,connectedNow,lastSeenAt,sessionCount,lastSession,model,access})=>({id:agentId,name,type,connectedNow,lastSeenAt,sessionCount,...(lastSession?{lastSession}:{}),...(model?{model}:{}),...(access!=='active'?{revoked:true}:{})}))}},
+   view:{version:1,template:'agents',data:{agents:agents.map(({agentId,name,connectedNow,lastSeenAt,sessionCount,lastSession,model,access})=>({id:agentId,name,connectedNow,lastSeenAt,sessionCount,...(lastSession?{lastSession}:{}),...(model?{model}:{}),...(access!=='active'?{revoked:true}:{})}))}},
    next:'Publish view to show the overview. Read one agentId for its full session list and log. kanvas.agents.revoke removes an agent the owner does not recognise.'};
  }
  async revoke(p:AuthPrincipal,raw:unknown){

@@ -42,7 +42,7 @@ export const jsonDataSchema=z.object({
   expandedPaths:jsonPaths.optional(),
   collapsedPaths:jsonPaths.optional(),
   query:z.string().max(200).optional().describe('Agent-controlled key/value search. Matching nodes and ancestors are shown; the complete original JSON is retained.'),
-  view:z.enum(['raw','tree']).default('raw').describe('raw (default): pretty-printed JSON text with indentation, syntax colours and line numbers; every token is the source token. tree: the collapsible tree, which is where expandedDepth, paths and query apply.'),
+  view:z.enum(['raw','tree']).default('raw').describe('raw: pretty-printed text with line numbers. tree: collapsible tree.'),
 }).strict();
 export type JsonData=z.input<typeof jsonDataSchema>;
 

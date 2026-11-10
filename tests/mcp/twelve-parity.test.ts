@@ -1,4 +1,5 @@
 import {NOV05_MAPPING} from './nov05-mapping';
+import {NOV10_MAPPING} from './nov10-mapping';
 import {NOVEMBER_MAPPING} from './november-mapping.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthPrincipal, Token } from '../../src/server/auth.js';
@@ -69,7 +70,7 @@ async function invoke(w: ParityWorld, profile: McpProfile, canonical: CanonicalF
 
 describe.sequential('twelve-tool semantic parity against real committed stores', () => {
   it('accounts independently for all original parity fixtures and separately exercised new real-client operations', () => {
-    const fixtures = [...PARITY_MAPPING,...AFTERNOON_MAPPING,...WORK_MAPPING,...DEVICE_MAPPING,...ACCOUNT_MAPPING,...CURRENT_MAPPING,...NOVEMBER_MAPPING,...NOV05_MAPPING].map(([canonical, tool, operation]) => ({ canonical, tool, operation }));
+    const fixtures = [...PARITY_MAPPING,...AFTERNOON_MAPPING,...WORK_MAPPING,...DEVICE_MAPPING,...ACCOUNT_MAPPING,...CURRENT_MAPPING,...NOVEMBER_MAPPING,...NOV05_MAPPING,...NOV10_MAPPING].map(([canonical, tool, operation]) => ({ canonical, tool, operation }));
     expect(fixtures).toHaveLength(OPERATION_ENTRIES.length);
     expect(new Set(fixtures.map(entry => entry.canonical)).size).toBe(OPERATION_ENTRIES.length);
     expect(new Set(fixtures.map(entry => entry.tool)).size).toBe(12);

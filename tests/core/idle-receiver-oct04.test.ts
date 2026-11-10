@@ -22,7 +22,7 @@ describe('idle receiver registration',()=>{
   const device=await h.runtime.service.devices.register(p,{installationId:'quota-root',provisionHome:false},'Mozilla/5.0');expect(device.home).toBeUndefined();
   expect((await h.runtime.service.sessions(p))).toHaveLength(1);expect(await h.runtime.store.get('account-entry',p.userId)).toBeUndefined();
   const window=await h.runtime.service.devices.windows.register(p,device.id,'root-tab'),stream=await h.runtime.service.devices.windows.stream(p,device.id,window.id,()=>{});await stream.push();
-  try{const topology=await h.runtime.service.topology.acrossSessions(p,{});if(!('availableWindows' in topology))throw new Error('Expected account-wide topology');expect(topology.availableWindows).toContainEqual(expect.objectContaining({windowId:window.id,connected:true,current:null}));await expect(h.runtime.service.beginSession(p,{name:'No remaining quota',requestId:'quota-begin'})).rejects.toMatchObject({code:'LIMIT_REACHED'});}finally{stream.close();}
+  try{const topology=await h.runtime.service.topology.acrossSessions(p,{});if(!('availableWindows' in topology))throw new Error('Expected account-wide topology');expect(topology.availableWindows).toContainEqual(expect.objectContaining({windowId:window.id,connected:true,current:null}));await expect(h.runtime.service.beginSession(p,{name:'No remaining quota',requestId:'quota-begin'})).rejects.toMatchObject({code:'SESSION_LIMIT_REACHED'});}finally{stream.close();}
   // Navigating an existing idle receiver to a viewer must not force Home later.
   expect((await h.runtime.service.devices.register(p,{installationId:'quota-root'},'Mozilla/5.0')).home).toBeUndefined();
   expect((await h.runtime.service.sessions(p))).toHaveLength(1);

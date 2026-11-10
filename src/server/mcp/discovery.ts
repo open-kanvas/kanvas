@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/server';
 import { CANONICAL_TOOLS, canonicalToolDefinitions } from './canonical.js';
-import { HELP_KEYWORDS, HELP_PAGES, HELP_TOPICS } from '../../shared/help.js';
+import { HELP_KEYWORDS, HELP_PAGES, HELP_PRIORITY, HELP_TOPICS } from '../../shared/help.js';
 import { GUIDE_TOPICS, guideFor } from './guide.js';
 import { TEMPLATE_IDS, type Principal, type TemplateId } from '../../shared/types.js';
 import { templateConcept } from '../../shared/template-concepts.js';
@@ -91,9 +91,13 @@ const operationExtras: Record<string, string> = {
   kanvas_display_rename: 'rename display change display name label screen',
   kanvas_display_update: 'resize display viewport width height hold freeze display size change display',
   kanvas_window_present: 'put this on that screen move window to display send to tv show on second screen point device at display',
-  kanvas_checklist_update: 'tick item check off uncheck mark done single item by id add item remove item highlight current item undo restore',
+  kanvas_checklist_update: 'tick item check off uncheck mark done single item by id add item remove item highlight current item',
   kanvas_session_state: 'current state displays revisions mode tempo manage map what can i change',
   kanvas_toast: 'notification notify toast alert message banner popup icon',
+};
+/** Words people actually use for an operation whose verb is not theirs. Search title only; the id is unchanged. */
+const operationTitles: Record<string, string> = {
+  kanvas_display_register: 'create a display, add a new display, second screen',
 };
 let operations: CatalogItem[] | undefined;
 export const CATALOG_ONLY_CANONICAL = new Set(['kanvas_help', 'kanvas_guide', 'kanvas_template_get']);
@@ -104,7 +108,7 @@ export function operationCatalog(): readonly CatalogItem[] {
     const id = operationId(tool.name), summary = short(discoveryGuidanceText(canonical.description));
     const examples = (discovery?.examples ?? []).map(args => ({ tool: 'kanvas_call', arguments: { operationId: id, arguments: structuredClone(args) } }));
     const aliases = [...new Set([tool.name, ...[...OPERATION_ENTRIES, ...DOMAIN_OPERATION_ENTRIES].filter(entry => entry.canonical === tool.name).map(entry => `${entry.tool} ${entry.operation}`)])];
-    return { id, provider: 'kanvas', title: id.slice(7).replaceAll('.', ' '), summary, example: examples.length ? () => examples[0].arguments : undefined, keywords: `${operationExtras[tool.name] ?? ''} ${aliases.join(' ')} ${discovery?.hint ?? ''}`, text: `${canonical.description} ${schemaTerms(tool.inputSchema)}`, detail: () => profileScope.run('discovery', () => ({ id, operationId: id, title: id.slice(7).replaceAll('.', ' '), requiredInputs: tool.inputSchema.required ?? [], description: discoveryGuidanceText(canonical.description), guidance: discoveryGuidanceText(discovery?.hint ?? ''), inputSchema: profileSchema(tool.inputSchema), annotations: tool.annotations, examples, exampleNotice: 'Examples are valid syntax with illustrative IDs and source data. Substitute live authorized IDs/revisions; examples never grant consent.' })) };
+    return { id, provider: 'kanvas', title: `${id.slice(7).replaceAll('.', ' ')}${operationTitles[tool.name] ? ` (${operationTitles[tool.name]})` : ''}`, summary, example: examples.length ? () => examples[0].arguments : undefined, keywords: `${operationExtras[tool.name] ?? ''} ${aliases.join(' ')} ${discovery?.hint ?? ''}`, text: `${canonical.description} ${schemaTerms(tool.inputSchema)}`, detail: () => profileScope.run('discovery', () => ({ id, operationId: id, title: id.slice(7).replaceAll('.', ' '), requiredInputs: tool.inputSchema.required ?? [], description: discoveryGuidanceText(canonical.description), guidance: discoveryGuidanceText(discovery?.hint ?? ''), inputSchema: profileSchema(tool.inputSchema), annotations: tool.annotations, examples, exampleNotice: 'Examples are valid syntax with illustrative IDs and source data. Substitute live authorized IDs/revisions; examples never grant consent.' })) };
   });
 }
 export function canonicalForOperation(id: string): string | undefined { return CANONICAL_TOOLS.find(tool => !CATALOG_ONLY_CANONICAL.has(tool.name) && operationId(tool.name) === id)?.name; }
@@ -165,9 +169,9 @@ let helps: CatalogItem[] | undefined;
 export function helpCatalog(): readonly CatalogItem[] {
   if (helps) return helps;
   const items: CatalogItem[] = [];
-  const add = (id: string, title: string, summary: string, content: unknown, keywords?: string) => {
+  const add = (id: string, title: string, summary: string, content: unknown, keywords?: string, priority?: string) => {
     const detail = { id, title, summary, content: authored(content), note: 'Static guidance. Use live authorized state and real source data; reading help never publishes.' };
-    items.push({ id, provider: 'kanvas', title, summary, ...(keywords ? { keywords } : {}), text: JSON.stringify(content), detail: () => detail });
+    items.push({ id, provider: 'kanvas', title, summary, ...(keywords ? { keywords } : {}), ...(priority ? { priority } : {}), text: JSON.stringify(content), detail: () => detail });
   };
   for (const topic of HELP_TOPICS) {
     const page = HELP_PAGES[topic];
@@ -175,7 +179,7 @@ export function helpCatalog(): readonly CatalogItem[] {
     const chunks: string[][] = []; let current: string[] = [];
     for (const step of page.steps) { if (current.length && current.join('').length + step.length > 4500) { chunks.push(current); current = []; } current.push(step); }
     if (current.length) chunks.push(current);
-    chunks.forEach((steps, i) => add(`kanvas.help.${topic}${i ? `.${i + 1}` : ''}`, `${page.title}${chunks.length > 1 ? ` — part ${i + 1}` : ''}`, page.description, { steps, ...(page.example ? { example: 'tool' in page.example ? discoveryExample(page.example) : { tool: 'kanvas_call', arguments: { operationId: 'kanvas.submit', arguments: 'version' in page.example && 'template' in page.example ? { requestId: `help-${topic}-example`, view: page.example } : Object.fromEntries(Object.entries(page.example).filter(([key]) => key !== 'operation')) } } } : {}) }, HELP_KEYWORDS[topic]));
+    chunks.forEach((steps, i) => add(`kanvas.help.${topic}${i ? `.${i + 1}` : ''}`, `${page.title}${chunks.length > 1 ? ` — part ${i + 1}` : ''}`, page.description, { steps, ...(page.example ? { example: 'tool' in page.example ? discoveryExample(page.example) : { tool: 'kanvas_call', arguments: { operationId: 'kanvas.submit', arguments: 'version' in page.example && 'template' in page.example ? { requestId: `help-${topic}-example`, view: page.example } : Object.fromEntries(Object.entries(page.example).filter(([key]) => key !== 'operation')) } } } : {}) }, HELP_KEYWORDS[topic], i === 0 ? HELP_PRIORITY[topic] : undefined));
   }
   // The authored tour page already contains this guide in full. Metadata-only
   // schemaTool/exampleNotice sections become contextual notes, not fake topics.
@@ -211,26 +215,35 @@ let templates: CatalogItem[] | undefined;
 export const VIEW_SLOT = { type: 'object', required: ['template', 'data'], properties: { template: { type: 'string', description: 'A template ID from the templates catalog.' }, data: { type: 'object', description: 'That template\'s own data.' } }, description: 'Any native view: {template, data, optional title}. Its data shape is that template\'s own; get kanvas.template.<template> for it. Ask for expand:"full" on this get to receive the complete embedded union.' } as const;
 export function collapseViewSlots<T>(schema: T): T {
   const root = structuredClone(schema) as Record<string, any>, defs: Record<string, any> = root.$defs ?? {};
-  const resolve = (node: any): any => node && typeof node === 'object' && typeof node.$ref === 'string' && node.$ref.startsWith('#/$defs/') ? defs[node.$ref.slice(8)] ?? node : node;
-  const isUnion = (node: any): boolean => { const branches = node?.anyOf ?? node?.oneOf; return Array.isArray(branches) && branches.filter(branch => typeof resolve(branch)?.properties?.template?.const === 'string').length >= 6; };
+  // Compacted schemas refer to shared definitions by $defs path or by a short local anchor that equals the definition's key.
+  const refKey = (ref: unknown): string | undefined => typeof ref !== 'string' ? undefined : ref.startsWith('#/$defs/') ? ref.slice(8) : /^#[A-Za-z0-9_]+$/.test(ref) ? ref.slice(1) : undefined;
+  const resolve = (node: any): any => { const key = node && typeof node === 'object' ? refKey(node.$ref) : undefined; return key !== undefined && Object.hasOwn(defs, key) ? defs[key] : node; };
+  const templateOf = (branch: any): unknown => branch?.properties?.template?.const ?? resolve(branch?.properties?.template)?.const ?? resolve(branch)?.properties?.template?.const;
+  const isUnion = (node: any): boolean => { const branches = node?.anyOf ?? node?.oneOf; return Array.isArray(branches) && branches.filter(branch => typeof templateOf(branch) === 'string').length >= 6; };
   const walk = (node: any): any => {
     if (Array.isArray(node)) return node.map(walk);
     if (!node || typeof node !== 'object') return node;
-    if (isUnion(node) || isUnion(resolve(node))) return { ...VIEW_SLOT, ...(typeof node.description === 'string' ? { description: `${node.description} ${VIEW_SLOT.description}` } : {}) };
+    if (isUnion(node) || (refKey(node.$ref) !== undefined && isUnion(resolve(node)))) return { ...VIEW_SLOT, ...(typeof node.description === 'string' ? { description: `${node.description} ${VIEW_SLOT.description}` } : {}) };
     return Object.fromEntries(Object.entries(node).map(([key, value]) => [key, key === '$defs' ? value : walk(value)]));
   };
+  const unions = new Set(Object.keys(defs).filter(key => isUnion(defs[key])));
   const body = walk(Object.fromEntries(Object.entries(root).filter(([key]) => key !== '$defs')));
-  for (const key of Object.keys(defs)) defs[key] = isUnion(defs[key]) ? { ...VIEW_SLOT } : walk(defs[key]);
+  for (const key of Object.keys(defs)) defs[key] = unions.has(key) ? { ...VIEW_SLOT, ...(defs[key].$anchor ? { $anchor: defs[key].$anchor } : {}) } : walk(defs[key]);
   // Keep only definitions the collapsed schema still reaches.
   const reachable = new Set<string>(), visit = (node: any): void => {
     if (Array.isArray(node)) { node.forEach(visit); return; }
     if (!node || typeof node !== 'object') return;
-    if (typeof node.$ref === 'string' && node.$ref.startsWith('#/$defs/')) { const key = node.$ref.slice(8); if (!reachable.has(key)) { reachable.add(key); visit(defs[key]); } }
+    const key = refKey(node.$ref);
+    if (key !== undefined && Object.hasOwn(defs, key) && !reachable.has(key)) { reachable.add(key); visit(defs[key]); }
     for (const value of Object.values(node)) visit(value);
   };
   visit(body);
   const kept = Object.fromEntries(Object.entries(defs).filter(([key]) => reachable.has(key)));
-  return { ...(Object.keys(kept).length ? { $defs: kept } : {}), ...body } as T;
+  const result = { ...(Object.keys(kept).length ? { $defs: kept } : {}), ...body };
+  // Never return a schema with a reference that no longer resolves: keep the complete one instead.
+  let dangling = false; const check = (node: any): void => { if (dangling) return; if (Array.isArray(node)) { node.forEach(check); return; } if (!node || typeof node !== 'object') return; if (typeof node.$ref === 'string') { const key = refKey(node.$ref); if (key === undefined ? node.$ref !== '#' : !Object.hasOwn(kept, key)) dangling = true; } Object.values(node).forEach(check); };
+  check(result);
+  return (dangling ? schema : result) as T;
 }
 /** The shape, not the schema: the smallest valid view of a template, cut down
  * from its authored sample and re-validated. Falls back to the full sample. */

@@ -75,7 +75,7 @@ const view = z.strictObject({
 });
 const config = configPatchSchema;
 /** The session's declared tempo; auto returns to the deterministic default. See help kanvas.help.modes. */
-const sessionModeSchema = z.enum(['live','presenting','ambient','signage','auto']).describe('Session tempo. live: publish proactively. presenting: stay in the deck. ambient: refresh only. signage: confirm every change. auto: deterministic default.');
+const sessionModeSchema = z.enum(['live','presenting','ambient','signage','auto']);
 
 export interface Definition {
   name: string;
@@ -176,7 +176,7 @@ const definitions: readonly Definition[] = [{name:'kanvas_satisfaction_read',des
   },
   {
     name: 'kanvas_session_create',
-    description: 'Create an authorized private screen session when needed. New to showing content? kanvas_guide introduces templates, viewer location and current displays and revisions; read kanvas_session_state before display decisions. An initial blank Main display and joinable viewerUrl are created by default; initialDisplay:false opts out. Publish quietly within that policy. A viewer separately signs in; its URL is not an access grant.',
+    description: 'Create a private session for a new topic. Returns its id, a blank Main display and its viewerUrl (initialDisplay:false for none). Optional mode sets the tempo. Link and access rules: help kanvas.help.policy-links.',
     schema: z.strictObject({ name,clientDetails:clientDetailsSchema.optional(),mode:sessionModeSchema.optional(),initialDisplay:z.boolean().default(true).describe("Create a blank branded Main display and return its viewerUrl immediately. Set false for an intentionally display-free session.") }),
   },
   {
@@ -186,8 +186,8 @@ const definitions: readonly Definition[] = [{name:'kanvas_satisfaction_read',des
   },
   {
     name: 'kanvas_session_state',
-    description: 'Read a session before a display decision: settings, configRevision, displays with revisions, mode (tempo), the manage map of read/change operations, the last 5 updates and pending interactions with counts. includeUpdates:"all" returns the complete lists.',
-    schema: z.strictObject({ sessionId: id, includeUpdates: z.enum(['recent','all']).default('recent').describe('recent (default): the last 5 updates and only pending interactions, plus counts. all: the complete lists.') }), readOnly: true,
+    description: 'Read a session before a display decision: settings, configRevision, displays and revisions, mode (tempo), the manage map of read/change operations, the last 5 updates and pending interactions with counts.',
+    schema: z.strictObject({ sessionId: id, includeUpdates: z.enum(['recent','all']).default('recent') }), readOnly: true,
   },
   {
     name: 'kanvas_session_end',
@@ -269,7 +269,7 @@ const definitions: readonly Definition[] = [{name:'kanvas_satisfaction_read',des
   {
     name: 'kanvas_config_update',
     description: 'Ask which settings scope the user intends: session (default), account (new-session defaults), team or organization (group defaults). Supply expectedRevision for that scope and groupId for team/organization. Group writes require group administration. Appearance and regional settings are supported. readingFontSize, readingZoom and readingWpm apply only to documents using the reading layout; they do not enlarge checklist, fact or other views. When asked to make the current view larger or smaller use kanvas.navigation.control with navigation:{action:zoom,scale:1.5}. Synchronization changes require owner authority. Settings do not grant access or trigger publication.',
-    schema: z.strictObject({ sessionId: id, expectedRevision: revision.optional(), config: config.default({}), mode: sessionModeSchema.optional(), scope:z.enum(['session','account','team','organization']).default('session'), groupId:id.optional() }), idempotent: true,
+    schema: z.strictObject({ sessionId: id, expectedRevision: revision.optional(), config: config.optional(), mode: sessionModeSchema.optional(), scope:z.enum(['session','account','team','organization']).default('session'), groupId:id.optional() }), idempotent: true,
   },
   {
     name: 'kanvas_dataset_import',

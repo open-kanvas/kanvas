@@ -19,7 +19,7 @@ const image = z.object({ url, alt: label }).strict().optional();
 const detail = z.object({ label, value: text }).strict();
 /** A forecast sentence or two, sized for a screen. Longer text is refused, never scrolled. */
 export const WEATHER_DESCRIPTION_MAX=400;
-const weatherDescription=z.string().min(1).max(WEATHER_DESCRIPTION_MAX).describe(`Short forecast text, at most ${WEATHER_DESCRIPTION_MAX} characters; shown on up to four lines and cut off rather than scrolled.`);
+const weatherDescription=z.string().min(1).max(WEATHER_DESCRIPTION_MAX);
 const procedureFields = { name: label, description: text.optional(), materials: z.array(text).max(100).default([]), steps: z.array(text).min(1).max(100), index: z.number().int().min(0).max(99).default(0), stage: z.enum(['intro','step','complete']).default('intro'), completion: text.optional() };
 const validStep = (v:{steps:string[];index:number}) => v.index < v.steps.length;
 const unique = <T extends { id: string }>(items: T[]) => new Set(items.map(x => x.id)).size === items.length;

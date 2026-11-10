@@ -60,7 +60,7 @@ export function resolveColour(value:string):string|undefined{
  const palette=PALETTES[match[1] as PaletteId],family=Object.hasOwn(palette.families,match[2])?palette.families[match[2]]:undefined,index=palette.shades.indexOf(match[3]);
  return family&&index>=0?family[index]:undefined;
 }
-const colourValue=z.string().min(3).max(40).refine(value=>resolveColour(value)!==undefined,'Use #rrggbb, a CSS colour name, or a palette reference such as tailwind:amber-400, radix:blue-9 or open-color:blue-6.');
+const colourValue=z.string().min(3).max(40).refine(value=>resolveColour(value)!==undefined,'Use #rrggbb, a CSS colour name, or a palette reference such as tailwind:amber-400.');
 export const NAMED_GROUPS=['reds','oranges','yellows','greens','cyans','blues','purples','pinks','browns','greys','whites'] as const;
 export type NamedGroup=typeof NAMED_GROUPS[number];
 /** Deterministic family of a CSS named colour, from its OKLCH coordinates. */
@@ -81,18 +81,36 @@ export function namedGroup(hex:string):NamedGroup{
 export const namedColours=(group:NamedGroup)=>Object.entries(CSS_NAMED).filter(([,hex])=>namedGroup(hex)===group).sort((a,b)=>hexToOklch(b[1]).l-hexToOklch(a[1]).l).map(([name,hex])=>({name,hex}));
 export const ROLE_JOBS=['App background','Subtle background','Element background','Hovered element','Selected element','Subtle border','Element border','Hovered border','Solid background','Hovered solid','Low-contrast text','High-contrast text'] as const;
 export const TONES=[0,10,20,30,40,50,60,70,80,90,95,100] as const;
-const swatch=z.object({value:colourValue,label:z.string().min(1).max(24).optional().describe('Speakable label; defaults to A, B, C...'),name:z.string().max(40).optional()}).strict();
-const base={selected:z.array(z.string().min(1).max(40)).max(8).optional().describe('Labels of the chosen swatches, marked on screen. Patch this field to mark a choice without republishing.'),note:z.string().max(120).optional()};
-export const colourDataSchema=z.discriminatedUnion('mode',[
- z.object({mode:z.literal('options'),options:z.array(swatch).min(2).max(8),...base}).strict().describe('2 to 8 labelled candidates, each as a large swatch with a small preview and its hex.'),
- z.object({mode:z.literal('variations'),base:colourValue,...base}).strict().describe('Around one colour: lighter, darker, warmer, cooler, muted, with the original marked.'),
- z.object({mode:z.literal('shades'),palette:z.enum(PALETTE_IDS).optional().describe('A shipped palette. Omit when supplying custom families.'),families:z.array(z.string().regex(/^[a-z]+$/).max(20)).max(31).optional().describe('Only these families of the palette, in this order.'),custom:z.array(z.object({name:z.string().min(1).max(24),shades:z.array(z.object({label:z.string().min(1).max(8),value:colourValue}).strict()).min(2).max(13)}).strict()).max(12).optional(),showHex:z.boolean().default(false),...base}).strict().describe('Colour families as rows and shades as columns, labelled on the axes.'),
- z.object({mode:z.literal('named'),group:z.enum(NAMED_GROUPS),...base}).strict().describe('CSS named colours, one family at a time.'),
- z.object({mode:z.literal('harmony'),base:colourValue,...base}).strict().describe('Complementary, analogous, triadic, split complementary and tetradic colours of one base, with a hue wheel.'),
- z.object({mode:z.literal('contrast'),backgrounds:z.array(colourValue).min(1).max(6),texts:z.array(colourValue).min(1).max(6),sample:z.string().min(1).max(40).default('Sample text'),...base}).strict().describe('Backgrounds by text colours with the WCAG contrast ratio and AA, large only or fail.'),
- z.object({mode:z.literal('roles'),scale:z.string().regex(/^(radix|radix-dark):[a-z]+$/).optional().describe('A shipped 12-step scale, e.g. radix:blue.'),steps:z.array(colourValue).length(12).optional(),...base}).strict().describe('A 12-step scale with each step\'s job and a small interface built only from those steps.'),
- z.object({mode:z.literal('theme'),seed:colourValue,...base}).strict().describe('One seed colour as tonal palettes (primary, secondary, tertiary, neutral, error) and a light and a dark scheme.'),
-]).superRefine((data,ctx)=>{
+const swatch=z.object({value:colourValue,label:z.string().max(24).optional(),name:z.string().max(40).optional()}).strict();
+export const COLOUR_MODES=['options','variations','shades','named','harmony','contrast','roles','theme'] as const;
+export type ColourMode=typeof COLOUR_MODES[number];
+/** Which fields each mode uses. One flat object keeps the published schema
+ * small; the rules below keep the contract exactly as strict as a union. */
+const MODE_FIELDS:Record<ColourMode,{needs:readonly string[];allows:readonly string[]}>={
+ options:{needs:['options'],allows:[]},variations:{needs:['base'],allows:[]},harmony:{needs:['base'],allows:[]},
+ shades:{needs:[],allows:['palette','families','custom']},named:{needs:['group'],allows:[]},
+ contrast:{needs:['backgrounds','texts'],allows:['sample']},roles:{needs:[],allows:['scale','steps']},theme:{needs:['seed'],allows:[]},
+};
+const MODE_SPECIFIC=['options','base','palette','families','custom','group','backgrounds','texts','sample','scale','steps','seed'] as const;
+export const colourDataSchema=z.object({
+ mode:z.enum(COLOUR_MODES).describe('options: 2-8 candidates. variations: around base. shades: palette or custom families. named: CSS names by group. harmony: from base. contrast: backgrounds by texts. roles: 12-step scale. theme: from seed.'),
+ options:z.array(swatch).min(2).max(8).optional(),
+ base:colourValue.optional(),
+ palette:z.enum(PALETTE_IDS).optional(),
+ families:z.array(z.string().max(20)).max(31).optional(),
+ custom:z.array(z.object({name:z.string().max(24),shades:z.array(swatch).min(2).max(13)}).strict()).max(12).optional(),
+ group:z.enum(NAMED_GROUPS).optional(),
+ backgrounds:z.array(colourValue).min(1).max(6).optional(),
+ texts:z.array(colourValue).min(1).max(6).optional(),
+ sample:z.string().max(40).optional(),
+ scale:z.string().regex(/^(radix|radix-dark):[a-z]+$/).optional().describe('e.g. radix:blue'),
+ steps:z.array(colourValue).length(12).optional(),
+ seed:colourValue.optional(),
+ selected:z.array(z.string().max(40)).max(8).optional().describe('Labels of chosen swatches.'),
+}).strict().superRefine((data,ctx)=>{
+ const rule=MODE_FIELDS[data.mode],present=(field:string)=>(data as Record<string,unknown>)[field]!==undefined;
+ for(const field of rule.needs)if(!present(field))ctx.addIssue({code:'custom',path:[field],message:`mode "${data.mode}" needs ${field}.`});
+ for(const field of MODE_SPECIFIC)if(present(field)&&!rule.needs.includes(field)&&!rule.allows.includes(field))ctx.addIssue({code:'custom',path:[field],message:`Not used by mode "${data.mode}".`});
  if(data.mode==='shades'){
   if(!data.palette&&!data.custom?.length)ctx.addIssue({code:'custom',path:['palette'],message:`Name a palette (${PALETTE_IDS.join(', ')}) or supply custom families.`});
   if(data.palette)for(const [index,family] of (data.families??[]).entries())if(!Object.hasOwn(PALETTES[data.palette].families,family))ctx.addIssue({code:'custom',path:['families',index],message:`Not a family of this palette. Families: ${Object.keys(PALETTES[data.palette].families).join(', ')}.`});
@@ -138,32 +156,33 @@ export function seedTheme(seedHex:string){
  const scheme=(dark:boolean)=>({background:tone('neutral',dark?10:95),surface:tone('neutral',dark?20:100),text:tone('neutral',dark?90:10),primary:tone('primary',dark?80:40),onPrimary:tone('primary',dark?20:100),secondary:tone('secondary',dark?80:40),tertiary:tone('tertiary',dark?80:40),error:tone('error',dark?80:40),outline:tone('neutral',dark?60:50)});
  return {palettes,light:scheme(false),dark:scheme(true)};
 }
-export function shadeGrid(data:Extract<ColourData,{mode:'shades'}>):{title:string;columns:string[];rows:{name:string;cells:Swatch[]}[]}{
- if(data.custom?.length&&!data.palette)return {title:'Custom',columns:data.custom[0].shades.map(s=>s.label),rows:data.custom.map(family=>({name:family.name,cells:family.shades.map(s=>({label:`${family.name} ${s.label}`,hex:resolveColour(s.value)!}))}))};
+export function shadeGrid(data:ColourData):{title:string;columns:string[];rows:{name:string;cells:Swatch[]}[]}{
+ const shadeLabel=(s:{label?:string},index:number)=>s.label??String(index+1);
+ if(data.custom?.length&&!data.palette)return {title:'Custom',columns:data.custom[0].shades.map(shadeLabel),rows:data.custom.map(family=>({name:family.name,cells:family.shades.map((s,index)=>({label:`${family.name} ${shadeLabel(s,index)}`,hex:resolveColour(s.value)!}))}))};
  const palette=PALETTES[data.palette!],names=data.families?.length?data.families:Object.keys(palette.families);
  const rows=names.map(name=>({name,cells:palette.families[name].map((hex,index)=>({label:`${name} ${palette.shades[index]}`,hex}))}));
- for(const family of data.custom??[])rows.push({name:family.name,cells:family.shades.map(s=>({label:`${family.name} ${s.label}`,hex:resolveColour(s.value)!}))});
+ for(const family of data.custom??[])rows.push({name:family.name,cells:family.shades.map((s,index)=>({label:`${family.name} ${shadeLabel(s,index)}`,hex:resolveColour(s.value)!}))});
  return {title:palette.title,columns:[...palette.shades],rows};
 }
-export const optionSwatches=(data:Extract<ColourData,{mode:'options'}>):Swatch[]=>data.options.map((option,index)=>({label:option.label??letter(index),hex:resolveColour(option.value)!,name:option.name??(HEX.test(option.value.trim())?undefined:option.value.trim().toLowerCase())}));
-export function roleSteps(data:Extract<ColourData,{mode:'roles'}>):Swatch[]{
+export const optionSwatches=(data:ColourData):Swatch[]=>(data.options??[]).map((option,index)=>({label:option.label??letter(index),hex:resolveColour(option.value)!,name:option.name??(HEX.test(option.value.trim())?undefined:option.value.trim().toLowerCase())}));
+export function roleSteps(data:ColourData):Swatch[]{
  const steps=data.steps?data.steps.map(value=>resolveColour(value)!):(()=>{const [palette,family]=data.scale!.split(':');return [...PALETTES[palette as 'radix'].families[family]];})();
  return steps.map((hex,index)=>({label:String(index+1),hex,role:ROLE_JOBS[index]}));
 }
-export function contrastMatrix(data:Extract<ColourData,{mode:'contrast'}>){
- const backgrounds=data.backgrounds.map((value,index)=>({label:letter(index),hex:resolveColour(value)!})),texts=data.texts.map((value,index)=>({label:String(index+1),hex:resolveColour(value)!}));
+export function contrastMatrix(data:ColourData){
+ const backgrounds=(data.backgrounds??[]).map((value,index)=>({label:letter(index),hex:resolveColour(value)!})),texts=(data.texts??[]).map((value,index)=>({label:String(index+1),hex:resolveColour(value)!}));
  return {backgrounds,texts,cells:backgrounds.map(background=>texts.map(text=>{const ratio=contrastRatio(background.hex,text.hex);return {label:`${background.label}${text.label}`,background:background.hex,text:text.hex,ratio:Math.round(ratio*100)/100,grade:contrastGrade(ratio)};}))};
 }
 /** Name and hex of every swatch a view shows: the token list an agent reads back. */
 export function colourTokens(data:ColourData):{name:string;hex:string}[]{
  switch(data.mode){
   case 'options':return optionSwatches(data).map(s=>({name:s.label,hex:s.hex}));
-  case 'variations':return variations(resolveColour(data.base)!).map(s=>({name:s.label,hex:s.hex}));
+  case 'variations':return variations(resolveColour(data.base!)!).map(s=>({name:s.label,hex:s.hex}));
   case 'shades':return shadeGrid(data).rows.flatMap(row=>row.cells.map(s=>({name:s.label,hex:s.hex})));
-  case 'named':return namedColours(data.group);
-  case 'harmony':return harmonies(resolveColour(data.base)!).flatMap(group=>group.swatches.filter(s=>!s.original).map(s=>({name:s.label,hex:s.hex})));
+  case 'named':return namedColours(data.group!);
+  case 'harmony':return harmonies(resolveColour(data.base!)!).flatMap(group=>group.swatches.filter(s=>!s.original).map(s=>({name:s.label,hex:s.hex})));
   case 'contrast':{const matrix=contrastMatrix(data);return [...matrix.backgrounds,...matrix.texts].map(s=>({name:s.label,hex:s.hex}));}
   case 'roles':return roleSteps(data).map(s=>({name:`step ${s.label}`,hex:s.hex}));
-  case 'theme':{const theme=seedTheme(resolveColour(data.seed)!);return Object.entries(theme.palettes).flatMap(([name,tones])=>tones.map(s=>({name:`${name} ${s.label}`,hex:s.hex})));}
+  case 'theme':{const theme=seedTheme(resolveColour(data.seed!)!);return Object.entries(theme.palettes).flatMap(([name,tones])=>tones.map(s=>({name:`${name} ${s.label}`,hex:s.hex})));}
  }
 }

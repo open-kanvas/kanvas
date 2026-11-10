@@ -167,7 +167,7 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
         const principal=current().principal,connectionId=current().request.get('mcp-session-id')??String(principal.agentId??principal.tokenId??'stateless');
         let guidance:unknown,context:ResponseContext={};
         try{guidance=await service.agentGuidance?.(principal,guidanceArgs);}catch{/* Never replace the primary result. */}
-        try{context=await service.responseContext?.(principal,guidanceArgs,connectionId)??{};}catch{/* Policy inputs are optional. */}
+        try{context=await service.responseContext?.(principal,guidanceArgs,connectionId,result.isError===true)??{};}catch{/* Policy inputs are optional. */}
         const original=result.structuredContent&&typeof result.structuredContent==='object'?result.structuredContent as Record<string,unknown>:undefined;
         const targetSession=guidanceArgs&&typeof guidanceArgs==='object'&&typeof (guidanceArgs as {sessionId?:unknown}).sessionId==='string'?(guidanceArgs as {sessionId:string}).sessionId:typeof (original?.data as {sessionId?:unknown}|undefined)?.sessionId==='string'?(original!.data as {sessionId:string}).sessionId:undefined;
         const decided=applyResponsePolicy(original,{state:contacts.observe(`${principal.userId}:${connectionId}`),context,guidance,isError:result.isError===true,operation,sessionId:targetSession});

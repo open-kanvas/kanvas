@@ -30,7 +30,7 @@ describe('two-tool authenticated HTTP contract', () => {
         expect(((listed.content as {text:string}[])[0]).text).toContain('(complete)');
         const searched = data(await client.callTool({name:'kanvas_discover',arguments:{catalog,action:'search',query:'display'}}));
         expect(searched.results.length).toBeGreaterThan(0);
-        expect(Object.keys(searched.results[0]).sort()).toEqual(['description','id']);
+        expect(Object.keys(searched.results[0]).filter((key:string)=>key!=='example').sort()).toEqual(['description','id']);
         const got=data(await client.callTool({name:'kanvas_discover',arguments:{catalog,action:'get',id:searched.results[0].id}}));
         expect(got.entry.id).toBe(searched.results[0].id);
       }

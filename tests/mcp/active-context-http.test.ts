@@ -3,6 +3,9 @@ import {Client as LegacyClient} from '@modelcontextprotocol/sdk/client/index.js'
 import {StreamableHTTPClientTransport as LegacyTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {afterEach,expect,it} from 'vitest';
 import {startHarness,type Harness} from '../core/harness';
+// 2026-11-10 (0875e953): guidance and orientation blocks are conditional by default. These tests verify the
+// content and isolation of the full blocks, which are sent on every response under the declared 'full' preference.
+process.env.KANVAS_GUIDANCE_DEFAULT='full';
 let h:Harness,client:Client|LegacyClient;
 afterEach(async()=>{await client?.close();await h?.close();});
 it.each(['modern','legacy'])('%s isolates per-call guidance context, overrides, switches and clears',async era=>{

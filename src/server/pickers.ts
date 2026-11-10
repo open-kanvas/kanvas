@@ -20,11 +20,11 @@ import {FONT_FAMILIES,FONT_LICENCES,ICON_SETS,ICON_SET_IDS,fontDisplayName,fontI
 const CDN='https://cdn.jsdelivr.net/npm/',LISTING='https://data.jsdelivr.com/v1/packages/npm/';
 export const PICKER_ICON_BYTES=64*1024,PICKER_FONT_BYTES=400*1024,PICKER_CACHE_BYTES=48*1024*1024,PICKER_TIMEOUT_MS=8000;
 const identifier=z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
-export const iconsSearchSchema=z.strictObject({query:z.string().trim().min(1).max(60).describe('A concept or part of an icon name, e.g. settings, arrow left, user.'),sets:z.array(z.enum(ICON_SET_IDS)).max(5).optional(),limit:z.number().int().min(1).max(24).default(12),sessionId:identifier.optional()});
-export const fontsListSchema=z.strictObject({category:z.enum(['sans','serif','mono','display','handwriting']).optional(),family:fontIdSchema.optional().describe('Check one family id (curated or not) and its licence.')});
+export const iconsSearchSchema=z.strictObject({query:z.string().trim().min(1).max(60),sets:z.array(z.enum(ICON_SET_IDS)).max(5).optional(),limit:z.number().int().min(1).max(24).default(12),sessionId:identifier.optional()});
+export const fontsListSchema=z.strictObject({category:z.enum(['sans','serif','mono','display','handwriting']).optional(),family:fontIdSchema.optional()});
 export const pickerTools:Definition[]=[
- {name:'kanvas_icons_search',schema:iconsSearchSchema,readOnly:true,description:'Find icons by concept across open-source sets (Lucide, Heroicons, Phosphor, Tabler, Material Symbols). Returns exact set:name ids to use in code and a ready icon-picker view to show the candidates. Kanvas serves the images itself; no URL is accepted.'},
- {name:'kanvas_fonts_list',schema:fontsListSchema,readOnly:true,description:'List the curated open-licence font families with their ids, categories and weights, or check one family id and its licence. Use the ids in a font-picker view; Kanvas serves the font files itself.'},
+ {name:'kanvas_icons_search',schema:iconsSearchSchema,readOnly:true,description:'Find icons by concept across open-source sets (Lucide, Heroicons, Phosphor, Tabler, Material Symbols). Returns exact set:name ids and a ready icon-picker view.'},
+ {name:'kanvas_fonts_list',schema:fontsListSchema,readOnly:true,description:'List curated open-licence font families with ids and weights for the font-picker template, or check one family id.'},
 ];
 interface Entry {body:Buffer;type:string;bytes:number}
 export function sanitizeSvg(source:string):string|undefined{

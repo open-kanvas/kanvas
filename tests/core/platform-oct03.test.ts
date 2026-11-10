@@ -22,7 +22,7 @@ describe('October platform feedback',()=>{
  });
  it('tiers retain session entitlements and share the fixed view cap without gaining administrator authority',async()=>{
   h=await startHarness();const a=await h.account(),p=await principal(a);
-  process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT=String((await h.runtime.service.sessionUsage(p.userId)).active+1);process.env.KANVAS_MAX_VIEWS_PER_SESSION='1';
+  process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT=String((await h.runtime.service.sessionUsage(p.userId)).active+1);/* 2026-11-10 (43bcc861): the automatic Home session no longer uses a slot. */process.env.KANVAS_MAX_VIEWS_PER_SESSION='1';
   expect(await accountTier(h.runtime.store,p.userId)).toBe('trial');
   const s=await h.runtime.service.createSession(p,'Trial'),d=await h.runtime.service.createDisplay(p,s.id,{name:'Screen',width:800,height:600});
   await expect(h.runtime.service.createSession(p,'Too many')).rejects.toMatchObject({code:'SESSION_LIMIT_REACHED'});

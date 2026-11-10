@@ -56,7 +56,7 @@ describe('two-tool discoverable catalog', () => {
     expect(response.returned).toBe(5);
     expect(response).toEqual(discoveryCatalog.query('tool', 'search', input, context));
     expect(response.nextCursor).toEqual(expect.any(String));
-    for (const item of response.results as Record<string, unknown>[]) expect(Object.keys(item).sort()).toEqual(['description', 'id']);
+    for (const item of response.results as Record<string, unknown>[]) expect(Object.keys(item).filter(key => key !== 'example').sort()).toEqual(['description', 'id']);
     const exact = discoveryCatalog.query('tool', 'get', { id: 'kanvas.checklist.show' }, context);
     expect(exact.entry).toHaveProperty('inputSchema');
     expect(exact.entry).toHaveProperty('examples');

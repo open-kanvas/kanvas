@@ -15,16 +15,16 @@ export type IconSetId=keyof typeof ICON_SETS;
 export const ICON_SET_IDS=Object.keys(ICON_SETS) as [IconSetId,...IconSetId[]];
 export const iconNameSchema=z.string().regex(/^[a-z0-9]+(?:[-_][a-z0-9]+)*$/).max(64);
 export const iconVariantSchema=z.string().regex(/^[a-z]+(?:-[a-z]+)?$/).max(24);
-export const iconRefSchema=z.object({set:z.enum(ICON_SET_IDS),name:iconNameSchema.describe('Exact icon name in that set, as returned by kanvas.icons.search.'),variant:iconVariantSchema.optional().describe('Style of that set, e.g. outline, solid, bold, duotone, filled. Omit for the set default.'),label:z.string().max(60).optional()}).strict();
+export const iconRefSchema=z.object({set:z.enum(ICON_SET_IDS),name:iconNameSchema,variant:iconVariantSchema.optional()}).strict();
 export type IconRef=z.infer<typeof iconRefSchema>;
 /** The address a browser uses. Built from validated parts only. */
 export const iconUrl=(icon:Pick<IconRef,'set'|'name'|'variant'>)=>`/api/picker/icons/${icon.set}/${icon.variant??ICON_SETS[icon.set].defaultVariant}/${icon.name}.svg`;
 export const iconId=(icon:Pick<IconRef,'set'|'name'|'variant'>)=>`${icon.set}:${icon.name}${icon.variant&&icon.variant!==ICON_SETS[icon.set].defaultVariant?`/${icon.variant}`:''}`;
 export const iconPickerDataSchema=z.object({
- mode:z.enum(['candidates','sets','variants','context']).default('candidates').describe('candidates: numbered options for one concept. sets: the same concept across sets. variants: one icon in each style of its set. context: the icons at real sizes in a button, a menu row and a list.'),
- concept:z.string().max(80).optional().describe('What the icon is for, shown as a quiet caption.'),
+ mode:z.enum(['candidates','sets','variants','context']).default('candidates'),
+ concept:z.string().max(80).optional(),
  icons:z.array(iconRefSchema).min(1).max(24),
- selected:z.number().int().min(1).max(24).optional().describe('Number of the chosen option, marked on screen.'),
+ selected:z.number().int().min(1).max(24).optional(),
 }).strict();
 export type IconPickerData=z.infer<typeof iconPickerDataSchema>;
 
@@ -63,26 +63,20 @@ export const FONT_FAMILIES={
 } as const;
 export type CuratedFontId=keyof typeof FONT_FAMILIES;
 export const FONT_LICENCES=['OFL-1.1','Apache-2.0','UFL-1.0','MIT'] as const;
-export const fontIdSchema=z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(48).describe('Family id in lower case with hyphens, e.g. inter, playfair-display. kanvas.fonts.list returns the curated ids and their weights.');
-export const fontWeightSchema=z.union([z.literal(100),z.literal(200),z.literal(300),z.literal(400),z.literal(500),z.literal(600),z.literal(700),z.literal(800),z.literal(900)]);
-export const fontRefSchema=z.object({family:fontIdSchema,weight:fontWeightSchema.default(400),label:z.string().max(60).optional()}).strict();
+export const fontIdSchema=z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(48).describe('Lower-case family id, e.g. inter.');
+export const fontWeightSchema=z.number().int().min(100).max(900).multipleOf(100);
+export const fontRefSchema=z.object({family:fontIdSchema,weight:fontWeightSchema.default(400)}).strict();
 export type FontRef=z.infer<typeof fontRefSchema>;
 export const fontUrl=(family:string,weight:number)=>`/api/picker/fonts/${family}/${weight}.woff2`;
 export const fontDisplayName=(family:string)=>Object.hasOwn(FONT_FAMILIES,family)?FONT_FAMILIES[family as CuratedFontId].name:family.split('-').map(word=>word.charAt(0).toUpperCase()+word.slice(1)).join(' ');
 /** CSS family name used only inside picker views, so it never collides with an installed font. */
 export const fontCssName=(family:string)=>`kanvas-pick-${family}`;
 export const fontPickerDataSchema=z.object({
- mode:z.enum(['samples','pairings','weights','context']).default('samples').describe('samples: the same text in each font. pairings: heading and body pairs. weights: every listed weight of one family. context: each font as a title, a paragraph and a button.'),
- text:z.string().min(1).max(160).default('The quick brown fox jumps over the lazy dog').describe('Sample text supplied by the agent or the person.'),
- body:z.string().max(400).optional().describe('Paragraph text for pairings and context.'),
- fonts:z.array(fontRefSchema).max(12).default([]),
- pairings:z.array(z.object({heading:fontRefSchema,body:fontRefSchema,label:z.string().max(60).optional()}).strict()).max(6).default([]),
- family:fontIdSchema.optional().describe('weights mode: the family whose weights are shown.'),
- weights:z.array(fontWeightSchema).max(9).optional(),
+ mode:z.enum(['samples','pairings','weights','context']).default('samples').describe('samples: the text in each font. pairings: fonts taken two at a time as heading and body. weights: each weight of the first family. context: title, paragraph and button.'),
+ text:z.string().min(1).max(160).default('The quick brown fox jumps over the lazy dog'),
+ fonts:z.array(fontRefSchema).min(1).max(12),
  selected:z.number().int().min(1).max(12).optional(),
 }).strict().superRefine((data,ctx)=>{
- if(data.mode==='pairings'&&!data.pairings.length)ctx.addIssue({code:'custom',path:['pairings'],message:'pairings mode needs at least one heading and body pair.'});
- if(data.mode==='weights'&&!data.family)ctx.addIssue({code:'custom',path:['family'],message:'weights mode needs family.'});
- if((data.mode==='samples'||data.mode==='context')&&!data.fonts.length)ctx.addIssue({code:'custom',path:['fonts'],message:'This mode needs at least one font in fonts.'});
+ if(data.mode==='pairings'&&data.fonts.length%2)ctx.addIssue({code:'custom',path:['fonts'],message:'pairings mode takes fonts two at a time: heading, then body.'});
 });
 export type FontPickerData=z.infer<typeof fontPickerDataSchema>;

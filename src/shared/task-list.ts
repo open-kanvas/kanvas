@@ -4,21 +4,20 @@ import {z} from 'zod';
  * list holds every item's full detail; what a display receives is a projection
  * that carries full detail only for the highlighted item. */
 const identifier=z.string().min(1).max(128).regex(/^[a-zA-Z0-9_.:-]+$/);
-const color=z.string().regex(/^#[0-9a-fA-F]{6}$/);
 export const TASK_LIST_MAX_ITEMS=200,TASK_DETAIL_MAX=8000;
-export const taskColumnSchema=z.object({key:z.string().regex(/^[a-zA-Z][a-zA-Z0-9_-]{0,39}$/).describe('Field name used in each item\'s fields.'),label:z.string().min(1).max(60)}).strict();
+export const taskColumnSchema=z.object({key:z.string().min(1).max(40),label:z.string().min(1).max(60)}).strict();
 export const taskItemSchema=z.object({
- id:identifier.optional().describe('Stable id. Omit and the server assigns one.'),
- number:z.number().int().min(1).max(100000).optional().describe('Stable item number people say aloud ("item 7"). Assigned by the server; it stays with the item when it moves or is sorted.'),
+ id:identifier.optional(),
+ number:z.number().int().min(1).optional(),
  title:z.string().min(1).max(300),
- summary:z.string().max(500).optional().describe('Short description, shown on at most two lines.'),
- detail:z.string().max(TASK_DETAIL_MAX).optional().describe('Full detail, e.g. the original section of an email or document. Stored; shown only for the highlighted item. Read it back with tasklist.read item.'),
- source:z.string().max(500).optional().describe('Where the item came from: a reference, link or document name.'),
+ summary:z.string().max(500).optional(),
+ detail:z.string().max(TASK_DETAIL_MAX).optional(),
+ source:z.string().max(500).optional(),
  checked:z.boolean().default(false),
- status:z.string().min(1).max(40).optional().describe('Free text. Matched case-insensitively for filter, sort and palette.'),
+ status:z.string().min(1).max(40).optional(),
  tags:z.array(z.string().min(1).max(30)).max(8).optional(),
- fields:z.record(z.string().regex(/^[a-zA-Z][a-zA-Z0-9_-]{0,39}$/),z.string().max(200)).optional().describe('Values for the extra columns, by column key.'),
- hasDetail:z.boolean().optional().describe('Set by the server on a displayed item whose stored detail is not included.'),
+ fields:z.record(z.string().max(40),z.string().max(200)).optional(),
+ hasDetail:z.boolean().optional(),
 }).strict();
 export const STATUS_PALETTES={
  traffic:{'not started':'#8a8f98','in progress':'#d9a441','blocked':'#d95757','done':'#4caf7d'},
@@ -26,18 +25,16 @@ export const STATUS_PALETTES={
  workflow:{'todo':'#8a8f98','doing':'#5b9bd5','review':'#b07fd9','done':'#4caf7d'},
 } as const;
 export type StatusPaletteName=keyof typeof STATUS_PALETTES;
-const sortSchema=z.object({by:z.string().max(40).describe('number (default order by item number), position (stored order), title, status, tag, or a column key.'),direction:z.enum(['asc','desc']).default('asc')}).strict();
-const filterSchema=z.object({status:z.array(z.string().max(40)).max(12).optional(),tags:z.array(z.string().max(30)).max(12).optional(),done:z.boolean().optional().describe('true: only done items. false: only open items.')}).strict();
+const sortSchema=z.object({by:z.string().max(40),direction:z.enum(['asc','desc']).default('asc')}).strict();
+const filterSchema=z.object({status:z.array(z.string().max(40)).max(12).optional(),tags:z.array(z.string().max(30)).max(12).optional(),done:z.boolean().optional()}).strict();
 export const taskListDataSchema=z.object({
- taskListId:identifier.optional().describe('Server-managed identity of the saved task list. Present on a shown list; omit to create a new one.'),
+ taskListId:identifier.optional(),
  taskListRevision:z.number().int().nonnegative().optional(),
- columns:z.array(taskColumnSchema).max(6).optional().describe('Extra columns after number, item, status and tags. All optional; start with none and add what the work needs.'),
- statusPalette:z.union([z.enum(['traffic','testing','workflow']),z.record(z.string().min(1).max(40),color)]).optional().describe('Colours for status pills: a ready-made palette name, or your own value-to-colour map. Any status value is allowed with or without a colour.'),
+ columns:z.array(taskColumnSchema).max(6).optional(),
+ statusPalette:z.enum(['traffic','testing','workflow']).optional(),
  items:z.array(taskItemSchema).max(TASK_LIST_MAX_ITEMS),
- highlight:identifier.optional().describe('id of the item being worked on. It is marked and expanded to show its detail.'),
+ highlight:identifier.optional(),
  sort:sortSchema.optional(),filter:filterSchema.optional(),
- doneLast:z.boolean().default(true).describe('Done items move to the bottom and are muted.'),
- showCounts:z.boolean().default(true),
 }).strict().superRefine((data,ctx)=>{
  const ids=new Set<string>(),numbers=new Set<number>();
  data.items.forEach((item,index)=>{
@@ -50,14 +47,14 @@ export type TaskItem=z.infer<typeof taskItemSchema>;
 const same=(a:string|undefined,b:string|undefined)=>(a??'').trim().toLocaleLowerCase()===(b??'').trim().toLocaleLowerCase();
 export function statusColor(palette:TaskListData['statusPalette'],status:string|undefined):string|undefined{
  if(!status||!palette)return undefined;
- const map:Record<string,string>=typeof palette==='string'?STATUS_PALETTES[palette]:palette;
+ const map:Record<string,string>=STATUS_PALETTES[palette];
  return Object.entries(map).find(([value])=>same(value,status))?.[1];
 }
 /** Deterministic filter and sort over stored items: the same function runs on
  * the server (reads) and in the browser (display). Stable; ties keep stored
- * order. Done items go last when doneLast is on. Nothing is dropped silently:
+ * order. Done items always go last. Nothing is dropped silently:
  * the caller reports how many items the filter hides. */
-export function projectTasks<T extends Pick<TaskItem,'checked'|'status'|'tags'|'title'|'number'|'fields'>>(items:readonly T[],view:{sort?:TaskListData['sort'];filter?:TaskListData['filter'];doneLast?:boolean}):{items:T[];hidden:number}{
+export function projectTasks<T extends Pick<TaskItem,'checked'|'status'|'tags'|'title'|'number'|'fields'>>(items:readonly T[],view:{sort?:TaskListData['sort'];filter?:TaskListData['filter'];doneLast?:boolean}={}):{items:T[];hidden:number}{
  const filter=view.filter;
  const kept=items.filter(item=>{
   if(filter?.done!==undefined&&Boolean(item.checked)!==filter.done)return false;

@@ -9,7 +9,7 @@ import { AppError, id, now, required, Store } from './store.js';
 
 export const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 export const opaque = () => randomBytes(32).toString('base64url');
-export interface User { id: string; username: string; displayName: string; /** false while the stored name is empty or the email itself. */ displayNameSet?: boolean; avatarUrl?: string }
+export interface User { id: string; username: string; displayName: string; avatarUrl?: string }
 export interface AuthPrincipal extends Principal { browserId?: string; receiverDeviceId?: string; scopedSessionId?: string; scopedDisplayId?: string; pairingId?: string; captureOnly?: boolean; oauthAccessId?: string; interactive?: boolean; participantId?: string }
 export interface BrowserSessionPolicy { idleDays?: number; absoluteDays?: number; renewalHours?: number; freshMinutes?: number }
 export const fullBrowser = (session: BrowserSession) => !session.scopedSessionId && !session.scopedDisplayId && !session.pairingId && !session.captureOnly && !session.receiverDeviceId;
@@ -127,11 +127,16 @@ export class Auth {
   private setBrowserCookie(response:Response,cookie:string,expiresAt:number) {
     response.cookie(this.cookieName,cookie,{httpOnly:true,secure:this.secure,sameSite:'strict',path:'/',maxAge:Math.max(0,expiresAt-Date.now())});
   }
+  /** False while the stored name is empty or is the email itself. */
+  async displayNameSet(userId: string): Promise<boolean> {
+    const row = (await this.store.db.prepare('SELECT username,display_name FROM users WHERE id=?').get(userId)) as { username: string; display_name: string } | undefined;
+    return Boolean(row) && !displayNameUnset({ displayName: row!.display_name, username: row!.username });
+  }
   async user(userId: string): Promise<Awaited<User | undefined>> {
     const row = (await this.store.db.prepare('SELECT id,username,display_name FROM users WHERE id=?').get(userId)) as Omit<DbUser,'password_hash'>|undefined;
     // The label a person is shown by is resolved here, at read time, for every
     // caller: an email address is the account identifier, never a display label.
-    return row ? { id: row.id, username: row.username, displayName: personLabel({ displayName: row.display_name, username: row.username }, 'Account'), displayNameSet: !displayNameUnset({ displayName: row.display_name, username: row.username }), avatarUrl: (await avatarUrl(this.store, row.id)) } : undefined;
+    return row ? { id: row.id, username: row.username, displayName: personLabel({ displayName: row.display_name, username: row.username }, 'Account'), avatarUrl: (await avatarUrl(this.store, row.id)) } : undefined;
   }
   async register(body: Record<string, unknown>): Promise<User> {
     if (!this.allowRegistration) throw new AppError('REGISTRATION_CLOSED', 'Account registration is disabled on this installation.', 403);

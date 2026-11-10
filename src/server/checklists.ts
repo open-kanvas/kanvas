@@ -14,25 +14,25 @@ const itemShape=checklistDataSchema.shape.items.element.shape;
 /** One entry of a by-ID update. Only id is required for an item that exists. */
 const itemChange=z.strictObject({
  id:identifier,
- text:itemShape.text.optional().describe('Required only for a NEW id.'),
+ text:itemShape.text.optional(),
  checked:z.boolean().optional(),
- detail:itemShape.detail.unwrap().nullable().optional().describe('null clears the stored note.'),
- index:z.number().int().min(0).max(99).optional().describe('Zero-based position: where a new item is inserted, or where an existing one moves. Omit to append / keep position.'),
+ detail:itemShape.detail.unwrap().nullable().optional(),
+ index:z.number().int().min(0).max(99).optional(),
 });
 export const CHECKLIST_RETAINED_REVISIONS=10;
-export const checklistReadSchema=z.strictObject({sessionId:identifier,checklistId:identifier.optional(),revision:revision.optional().describe('Read one earlier retained revision instead of the current one.'),offset:z.number().int().min(0).max(1000).default(0),limit:z.number().int().min(1).max(100).default(100)});
+export const checklistReadSchema=z.strictObject({sessionId:identifier,checklistId:identifier.optional(),revision:revision.optional(),offset:z.number().int().min(0).max(1000).default(0),limit:z.number().int().min(1).max(100).default(100)});
 export const checklistUpdateSchema=z.strictObject({...target,expectedRevision:revision.optional(),requestId:identifier,
- items:z.array(itemChange).max(100).optional().describe('BY-ID changes. patch (default): each entry changes only the fields it carries on the item with that id; items not named are untouched; a new id (text required) is added. replace: the complete new list.'),
- removeIds:z.array(identifier).max(100).optional().describe('Items to delete. Leaving an item out of items never deletes it.'),
- mode:z.enum(['patch','replace']).default('patch').describe('replace swaps the whole list and needs allowRemove:true when saved items would disappear.'),
- allowRemove:z.boolean().optional().describe('replace mode only: confirm that saved items missing from items are deleted.'),
- highlightId:identifier.nullable().optional().describe('Mark one item as the current one; null clears it.'),
- restoreRevision:revision.optional().describe('Bring back one retained earlier revision as a new revision. Not combined with items/removeIds.'),
+ items:z.array(itemChange).max(100).optional().describe('By id: only the fields sent change; a new id needs text.'),
+ removeIds:z.array(identifier).max(100).optional().describe('Ids to delete; omission never deletes.'),
+ mode:z.enum(['patch','replace']).default('patch'),
+ allowRemove:z.boolean().optional(),
+ highlightId:identifier.nullable().optional(),
+ restoreRevision:revision.optional(),
  title:z.string().max(500).optional()});
 export const checklistShowSchema=z.strictObject({...target,displayId:identifier,expectedRevision:revision.optional(),requestId:identifier});
 export const checklistTools:Definition[]=[
- {name:'kanvas_checklist_read',readOnly:true,schema:checklistReadSchema,description:'Read saved SESSION checklists; they survive replacing or clearing displays. Omit checklistId to list IDs/titles; include it for exact items, checked state, revision and the retained earlier revisions; add revision to read one of those. Large records return item windows (nextOffset).'},
- {name:'kanvas_checklist_update',schema:checklistUpdateSchema,idempotent:true,description:'Change saved checklist items BY ID; items you do not name stay exactly as they are. Tick one: items:[{id,checked:true}]. New id + text adds; removeIds deletes; highlightId marks the current item; restoreRevision undoes. The result lists added/changed/removed ids. Refreshes displays already showing it; expectedRevision is the checklist revision from read.'},
+ {name:'kanvas_checklist_read',readOnly:true,schema:checklistReadSchema,description:'Read saved SESSION checklists; they survive replacing or clearing displays. Omit checklistId to list them; include it for exact items and revision; revision reads one of the kept revisions. Large records return item windows (nextOffset).'},
+ {name:'kanvas_checklist_update',schema:checklistUpdateSchema,idempotent:true,description:'Change saved checklist items BY ID; items you do not name stay exactly as they are. Tick one: items:[{id,checked:true}]. New id + text adds; removeIds deletes; highlightId marks the current item; restoreRevision reverts. Returns added/changed/removed ids and refreshes displays showing it.'},
  {name:'kanvas_checklist_show',schema:checklistShowSchema,idempotent:true,description:'Bring a saved checklist back on ANY display in the SAME session without resupplying its items. Uses latest document state; expectedRevision is the destination display revision. Honors hold/access and requestId retries. Zoom belongs to each receiving device window, not the checklist. Re-showing the same checklist in place preserves local scroll; showing different content resets position.'},
 ];
 interface Checklist {id:string;sessionId:string;revision:number;view:ViewSpec;createdAt:string;updatedAt:string}

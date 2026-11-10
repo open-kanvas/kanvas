@@ -12,6 +12,7 @@ import { profileResourceData } from '../../src/server/mcp/profile-guidance.js';
 import { toolSuccess, toolFailure, MAX_TOOL_RESULT_BYTES } from '../../src/server/mcp/results.js';
 import { InputError } from '../../src/server/input-errors.js';
 import { harness } from './harness.js';
+import { NOV10_MAPPING } from './nov10-mapping.js';
 
 const publicTools = listToolDefinitions('twelve');
 const ajv = new Ajv2020({ strict: false, validateFormats: false, allErrors: true });
@@ -133,7 +134,9 @@ describe('twelve-tool strict published and runtime contract', () => {
     expect(NOVEMBER_MAPPING).toHaveLength(6);
     // Nov05 adds exactly three owner controls (device lock/unlock, display lockdown).
     // Preserve the same per-operation allowance, not a relaxed blanket budget.
-    expect(bytes('twelve')).toBeLessThan(153 * 1024 + (6 + 3) * 960);
+    // Nov10 adds eleven inventoried operations (NOV10_MAPPING) under the same per-operation allowance.
+    expect(NOV10_MAPPING).toHaveLength(11);
+    expect(bytes('twelve')).toBeLessThan(153 * 1024 + (6 + 3 + 11) * 960);
     // Returned schemas/examples are detached; callers cannot poison later catalogs.
     const changed = listToolDefinitions('twelve');
     (changed[0].inputSchema.examples as unknown[]).push({ poison: true });

@@ -301,7 +301,7 @@ export class KanvasService implements McpService {
     for (const work of recovery) this.schedule(work, work.recoverableInput!, work.bypassHold ?? false);
   }
   async authorize(request: Request): Promise<AuthPrincipal> { return (await this.auth.authorize(request)); }
-  async recordToolCall(principal:AuthPrincipal,event:import('./mcp/types.js').ToolInvocation){(await this.toolLog.capture(principal,event));await this.agents.observe(principal,event,event.canonical);}
+  async recordToolCall(principal:AuthPrincipal,event:import('./mcp/types.js').ToolInvocation){(await this.toolLog.capture(principal,event));if(!event.rawOnly&&event.status==='completed')await this.agents.observe(principal,event,event.canonical);}
   recordFriction(call:FrictionCall){this.friction.record(call);}
   async recordFailure(operation: string, args: Record<string, unknown>, principal: AuthPrincipal, error: unknown, phase?: DiagnosticRecord['phase'], updateId?: string): Promise<Awaited<string | undefined>> {
     const definition = MCP_TOOLS.find(tool => tool.name === operation);
@@ -344,13 +344,15 @@ export class KanvasService implements McpService {
     return value;
   }
   /** Observable facts for the response policy. Never content, never inference. */
-  async responseContext(principal:AuthPrincipal,args:unknown,connectionId:string):Promise<ResponseContext>{
+  async responseContext(principal:AuthPrincipal,args:unknown,connectionId:string,failed=false):Promise<ResponseContext>{
     const a=args&&typeof args==='object'&&!Array.isArray(args)?args as {sessionId?:unknown}:{},out:ResponseContext={};
+    // The installation default applies to every caller, also one whose grant is too narrow to read more.
+    out.preference=process.env.KANVAS_GUIDANCE_DEFAULT==='full'?'full':'concise';
     try{await this.fullAccount(principal);}catch{return out;}
-    out.preference=(await this.store.get<{preference:'concise'|'full'}>('guidance-preference',hash(`${principal.userId}:${connectionId}`)))?.preference??'concise';
-    try{const user=await this.auth.user(principal.userId);if(user&&user.displayNameSet===false)out.displayNameHint='This account has no display name yet; set one with kanvas.profile.update {displayName} so screens show a name, not an email.';}catch{/* No account detail for a narrowed grant. */}
+    out.preference=(await this.store.get<{preference:'concise'|'full'}>('guidance-preference',hash(`${principal.userId}:${connectionId}`)))?.preference??(process.env.KANVAS_GUIDANCE_DEFAULT==='full'?'full':'concise');
+    try{if(!(await this.auth.displayNameSet(principal.userId)))out.displayNameHint='This account has no display name yet; set one with kanvas.profile.update {displayName} so screens show a name, not an email.';}catch{/* No account detail for a narrowed grant. */}
     if(typeof a.sessionId==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(a.sessionId)){
-      try{await this.access(principal,a.sessionId);const online=(await this.experience.receiving.viewers(a.sessionId,undefined,true)).length>0;out.displayConnected=online;out.mode=await this.modes.observeAgent(principal,a.sessionId,online);}catch{/* An unauthorized or ended session contributes nothing. */}
+      try{await this.access(principal,a.sessionId);const online=(await this.experience.receiving.viewers(a.sessionId,undefined,true)).length>0;out.displayConnected=online;/* A failed call records nothing. */out.mode=failed?await this.modes.read(a.sessionId):await this.modes.observeAgent(principal,a.sessionId,online);}catch{/* An unauthorized or ended session contributes nothing. */}
     }
     out.manage=manageMap();
     return out;
@@ -405,8 +407,9 @@ export class KanvasService implements McpService {
       return (await this.sessionUsage(session.ownerId)).stored <= 1;
     } catch { return false; }
   }
-  /** Sessions that use a slot: owned, not archived, and not the hidden home
-   * session a device gets for itself (a person can neither see nor archive it). */
+  /** Sessions that use a slot: owned, not archived, and not the Home session
+   * every account is given automatically. The limit counts sessions a person or
+   * their agent created. */
   async sessionUsage(userId: string): Promise<{active: number; stored: number; limit: number; storedLimit: number; tier: string}> {
     const limits = await accountUsageLimits(this.store, userId), entry = new Set((await this.store.list<{sessionId?: string}>('account-entry')).flatMap(e => e.sessionId ? [e.sessionId] : []));
     const mine = (session: SessionRecord) => session.ownerId === userId && !entry.has(session.id);
@@ -1518,6 +1521,7 @@ export class KanvasService implements McpService {
       }
       case 'kanvas_config_update': {
         const {mode:requestedMode,...settings}=a as Record<string,unknown>&{mode?:SessionMode|'auto'};
+        if(settings.config===undefined&&requestedMode===undefined)throw new InputError([{path:'config',problem:'Supply config with at least one setting, or mode.'}]);
         if(requestedMode===undefined)return (await this.experience.scopedSettings(principal,settings));
         if((settings.scope??'session')!=='session')throw new InputError([{path:'mode',problem:'mode belongs to one session. Use scope "session" (the default).'}]);
         // A mode-only call changes no settings and needs no settings revision.

@@ -9,7 +9,7 @@ export function operationRequest<T extends { name: string; arguments?: Record<st
     ?? OPERATION_ENTRIES.find(entry => entry.canonical === request.name && !('operation' in args));
   if (!entry) return request;
   const { operation: _operation, ...rest } = args;
-  if (entry.canonical === 'kanvas_template_get') return { ...request, name:'kanvas_discover',arguments:{catalog:'templates',action:'get',id:`kanvas.template.${rest.template}`} };
+  if (entry.canonical === 'kanvas_template_get') return { ...request, name:'kanvas_discover',arguments:{catalog:'templates',action:'get',id:`kanvas.template.${rest.template}`,...(rest.expand?{expand:rest.expand}:{})} };
   if (entry.canonical === 'kanvas_help') return { ...request, name:'kanvas_discover',arguments:{catalog:'help',action:'get',id:`kanvas.help.${rest.topic ?? 'orientation'}`} };
   if (entry.canonical === 'kanvas_guide') return { ...request, name:'kanvas_discover',arguments:{catalog:'help',action:'search',query:rest.topic ?? 'getting started'} };
   return { ...request, name:'kanvas_call',arguments:{operationId:operationId(entry.canonical),arguments:rest} };

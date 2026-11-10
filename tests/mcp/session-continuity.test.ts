@@ -10,6 +10,9 @@ import { toolSuccess } from '../../src/server/mcp/results.js';
 import { MAX_SESSION_CONTINUITY_GUIDANCE_CHARACTERS, MAX_SESSION_CONTINUITY_RECIPE_CHARACTERS, SESSION_CONTINUITY_GUIDANCE, SESSION_CONTINUITY_RECIPE, SESSION_CONTINUITY_TOOL_GUIDANCE, sessionContinuityGuidanceFor } from '../../src/server/mcp/session-continuity.js';
 import type { SessionRecord, UpdateRecord } from '../../src/shared/types.js';
 import { fact, startHarness, type Browser, type Detail, type Harness } from '../core/harness.js';
+// 2026-11-10 (0875e953): guidance and orientation blocks are conditional by default. These tests verify the
+// content and isolation of the full blocks, which are sent on every response under the declared 'full' preference.
+process.env.KANVAS_GUIDANCE_DEFAULT='full';
 
 const entryPoints = ['kanvas_session_create', 'kanvas_sessions_list', 'kanvas_session_overview', 'kanvas_session_state'] as const;
 interface Envelope<T = unknown> { data: T; orientation?: { sessionContinuity?: string }; error?: { code: string; message: string } }

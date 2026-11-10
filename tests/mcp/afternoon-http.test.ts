@@ -22,7 +22,7 @@ it.each(['modern','legacy'] as const)('exercises every new operation through the
     const host=await connect(owner),other=await connect(guest),reader=await connect(owner,['read']);
     const call=async<T>(tool:string,operation:string,args:Record<string,unknown>={},client:Client|LegacyClient=host):Promise<T>=>{const result=await client.callTool(operationRequest({name:tool,arguments:{operation,...args}}));expect(result.isError,JSON.stringify(result.structuredContent)).not.toBe(true);seen.add(`${tool}:${operation}`);return (result.structuredContent as {data:T}).data;};
     const catalog=await host.listTools();expect(catalog.tools).toHaveLength(2);expect(catalog.tools.some(t=>t.name==='kanvas_discover')).toBe(true);
-    const composite=await host.callTool(operationRequest({name:'kanvas_inspect',arguments:{operation:'template.get',template:'presentation'}}));
+    const composite=await host.callTool(operationRequest({name:'kanvas_inspect',arguments:{operation:'template.get',template:'presentation',expand:'full'}}));
     expect(composite.isError).not.toBe(true);expect(composite.structuredContent).not.toHaveProperty('truncated');
     // Composite leaf growth may omit the illustrative example, never the complete schema.
     expect((composite.structuredContent as {data:{entry:{schema:unknown}}}).data.entry.schema).toHaveProperty('type','object');

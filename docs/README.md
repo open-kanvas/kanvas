@@ -5,6 +5,9 @@ Kanvas renders supplied content. The agent or data producer owns retrieval, reas
 - [Current screen workflows, visual help and shortcuts](feedback-oct29.md)
 - [Personal guidance and prompt library](agent-guidance.md)
 
+- [Mission: what Kanvas is for](mission.md) and [0.37.0 changes](feedback-20261110.md) with its [testing guide](feedback-20261110-testing.md)
+- [Monitor streams](integration/monitor-streams.md), [connector identity](integration/connector-identity.md), [task list](templates/task-list.md), [colour](templates/colour.md), [icon and font pickers](templates/pickers.md), [JSON raw view and tool call details](templates/tool-call-details.md)
+
 ## Start here
 
 - [Agent workflows](integration/agent-workflows.md)

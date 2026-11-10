@@ -16,13 +16,13 @@ export type FrictionKind=typeof FRICTION_KINDS[number];
 const RETRY_WINDOW_MS=120_000,FLUSH_MS=20_000,MAX_PENDING=4000,MAX_TRACKED=5000;
 interface Counter {id:string;day:string;kind:FrictionKind;subject:string;detail:string;client:string;count:number;sum:number;max:number}
 export const frictionReadSchema=z.strictObject({
- kind:z.enum(FRICTION_KINDS).describe('validation: field paths agents get wrong. retries: attempts before a publish succeeded. discovery: discover calls before a template\'s first publish. resolve: resolve outcomes. weight: response bytes per operation. fallback: loose-path outcomes.'),
+ kind:z.enum(FRICTION_KINDS),
  days:z.number().int().min(1).max(FRICTION_RETENTION_DAYS).default(7),
- client:z.string().max(240).optional().describe('Exact MCP client label, e.g. "Anthropic/ClaudeAI 1.0.0".'),
+ client:z.string().max(240).optional(),
  limit:z.number().int().min(1).max(100).default(20),
 });
 export const frictionTools:Definition[]=[
- {name:'kanvas_friction_read',schema:frictionReadSchema,readOnly:true,description:'Service administrators only. Ranked daily aggregates of where agents stumble: schema misses by field path, retries before success, discovery calls before first use, resolve outcomes and response weight, per operation or template and MCP client. Counts shapes, never content. Show the result with table or chart.'},
+ {name:'kanvas_friction_read',schema:frictionReadSchema,readOnly:true,description:'Service administrators only. Ranked daily aggregates of where agents stumble: schema misses by field path, retries, discovery calls, resolve outcomes and response weight per template or operation and client. Shapes only.'},
 ];
 const label=(value:unknown,max=120)=>String(value??'').replace(/[^A-Za-z0-9 ._:/()\[\]-]/g,'').slice(0,max);
 /** items[3].start -> items[].start. Only schema field names reach an issue path. */
@@ -74,8 +74,8 @@ export class Friction{
    if(!call.operation)return;
    const family=`${connection}:${subject}`,now=Date.now();
    if(!call.ok){
-    for(const issue of (call.issues??[]).slice(0,20))this.add('validation',subject,`${fieldShape(issue.path)} | ${problemClass(issue.problem,issue)}`,client);
-    if(!call.issues?.length&&call.status)this.add('validation',subject,`(call) | ${label(call.status,40)}`,client);
+    for(const issue of (call.issues??[]).slice(0,20))this.add('validation',subject,`${fieldShape(issue.path)} :: ${problemClass(issue.problem,issue)}`,client);
+    if(!call.issues?.length&&call.status)this.add('validation',subject,`(call) :: ${label(call.status,40)}`,client);
     const prior=this.failures.get(family);this.failures.set(family,{count:prior&&now-prior.at<RETRY_WINDOW_MS?prior.count+1:1,at:now});
     if(this.failures.size>MAX_TRACKED)this.failures.delete(this.failures.keys().next().value!);
     return;
@@ -131,7 +131,7 @@ export class Friction{
   };
   const entries=[...grouped.values()].map(entry=>{
    const base={subject:entry.subject,count:entry.count,clients:Object.fromEntries([...entry.clients].sort((x,y)=>y[1]-x[1]).slice(0,6))};
-   if(a.kind==='validation'){const [fieldPath,problem]=entry.detail.split(' | ');return {...base,fieldPath,problem};}
+   if(a.kind==='validation'){const [fieldPath,problem]=entry.detail.split(' :: ');return {...base,fieldPath,problem};}
    if(a.kind==='resolve'||a.kind==='fallback')return {...base,outcome:entry.detail||entry.subject};
    if(a.kind==='weight')return {...base,p50Bytes:percentile(entry.subject,.5),p95Bytes:percentile(entry.subject,.95),maxBytes:entry.max,meanBytes:Math.round(entry.sum/Math.max(1,entry.count))};
    return {...base,median:percentile(entry.subject,.5),p95:percentile(entry.subject,.95),max:entry.max,mean:Math.round(entry.sum/Math.max(1,entry.count)*100)/100};

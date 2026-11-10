@@ -4,7 +4,7 @@ import { feedbackSubmitSchema, errorReportSchema, reportsReadSchema, reportUpdat
 import { AppError } from './store.js';
 import { COUNTDOWN_TARGET_TIME_RULE, timerValidationRule } from '../shared/timer.js';
 
-export interface ValidationIssue { allowedFields?:string[]; hint?:string; expected?:string; received?:string; path: string; problem: string; maximum?: number; actual?: number; unit?: 'characters' | 'items' | 'bytes' }
+export interface ValidationIssue { /** How many fields share this exact problem; path is the first of them. */ count?:number; alsoAt?:string[]; allowedFields?:string[]; hint?:string; expected?:string; received?:string; path: string; problem: string; maximum?: number; actual?: number; unit?: 'characters' | 'items' | 'bytes' }
 
 // Only schema-defined property names may reach a diagnostic. Dynamic record
 // keys, received values and Zod messages can contain private source material.
@@ -64,7 +64,7 @@ export function validationIssues(error: z.ZodError, prefix = '', submitted?: unk
     return [{path:path+'.template',problem:'Unknown template name.',hint:`${suggestions.length?`Closest valid template IDs: ${suggestions.join(', ')}. `:''}Use kanvas_discover to search templates and retrieve an exact template ID.`}];
   }
 
-  return relevantIssues(error.issues).flatMap((issue): ValidationIssue[] => {
+  return collapseRepeatedIssues(relevantIssues(error.issues).flatMap((issue): ValidationIssue[] => {
     let received = submitted;
     for (const part of issue.path) received = received && typeof received === 'object' && Object.hasOwn(received, part) ? (received as Record<PropertyKey, unknown>)[part] : undefined;
     const actual = typeof received === 'string' ? (trimStrings ? received.trim() : received).length : Array.isArray(received) ? received.length : undefined;
@@ -105,9 +105,72 @@ export function validationIssues(error: z.ZodError, prefix = '', submitted?: unk
       : issue.code === 'too_small' ? `Is below the supported minimum (${String(issue.minimum)}${issue.origin === 'string' ? ' characters' : issue.origin === 'array' ? ' items' : ''}).`
       : issue.code === 'invalid_value' && issue.values.length === 1 && typeof issue.values[0] === 'boolean' ? `Must be ${String(issue.values[0])}${path === 'confirm' ? ' only after the owner confirms the intended browser' : ''}.`
       : issue.code === 'invalid_value' && issue.values.length <= 32 && issue.values.every(value => typeof value === 'string' && /^[a-zA-Z0-9_.:-]{1,80}$/.test(value)) ? `Choose one of: ${issue.values.join(', ')}.`
-      : 'Does not match the documented format or template constraints.'),
+      : formatRule(issue, names) ?? discriminatorRule(issue, schema, submitted, names) ?? authoredRule(issue, received)
+      ?? 'Does not match the documented format or template constraints.'),
+    ...(formatExpectation(issue) ? { expected: formatExpectation(issue), received: received === undefined ? 'missing' : received === null ? 'null' : Array.isArray(received) ? 'array' : typeof received } : {}),
     ...(size ?? {}),
-  }]; });
+  }]; }));
+}
+/** Expected formats are schema facts, never submitted values. */
+const FORMATS: Record<string, string> = {
+  datetime: 'ISO 8601 date-time with a UTC offset, e.g. 2026-11-10T09:00:00+01:00',
+  date: 'ISO date, e.g. 2026-11-10', time: 'ISO time, e.g. 09:00:00', duration: 'ISO 8601 duration, e.g. PT30M',
+  url: 'absolute URL', email: 'email address', uuid: 'UUID', ipv4: 'IPv4 address', ipv6: 'IPv6 address', base64: 'base64 text', json_string: 'JSON text',
+};
+function formatExpectation(issue: Issue): string | undefined {
+  if (issue.code !== 'invalid_format') return undefined;
+  const format = String((issue as { format?: unknown }).format ?? '');
+  if (FORMATS[format]) return FORMATS[format];
+  const pattern = (issue as { pattern?: unknown }).pattern;
+  return format === 'regex' && typeof pattern === 'string' && pattern.length <= 160 ? `text matching ${pattern}` : undefined;
+}
+function formatRule(issue: Issue, _names: Set<string>): string | undefined {
+  const expected = formatExpectation(issue);
+  return expected ? `Expected ${expected}.` : undefined;
+}
+/** A discriminated union with an unknown tag: name the tags that exist. */
+function discriminatorRule(issue: Issue, schema: z.ZodType | undefined, submitted: unknown, names: Set<string>): string | undefined {
+  if (issue.code !== 'invalid_union') return undefined;
+  const key = (issue as { discriminator?: unknown }).discriminator;
+  if (typeof key !== 'string' || !names.has(key)) return undefined;
+  try {
+    const selected = submitted && typeof submitted === 'object' && 'template' in submitted ? leafViewSchema.options.find(option => option.shape.template.value === (submitted as { template?: unknown }).template) : undefined;
+    let node: any = z.toJSONSchema(schema ?? selected ?? viewSchema, { unrepresentable: 'any', io: 'input' });
+    const root = node, deref = (n: any): any => typeof n?.$ref === 'string' && n.$ref.startsWith('#/$defs/') ? root.$defs?.[n.$ref.slice(8)] : n;
+    const branches = (n: any): any[] => { const d = deref(n); return (d?.oneOf ?? d?.anyOf)?.flatMap(branches) ?? [d]; };
+    let value: any = submitted;
+    // The reported path may or may not end at the tag itself.
+    const path = issue.path.at(-1) === key ? issue.path.slice(0, -1) : issue.path;
+    for (const part of path) {
+      const options = branches(node);
+      const chosen = options.find(o => Object.entries(o?.properties ?? {}).some(([k, v]: [string, any]) => v?.const !== undefined && value?.[k] === v.const)) ?? options.find(o => typeof part === 'number' ? o?.items : o?.properties?.[part as string]) ?? options[0];
+      node = typeof part === 'number' ? deref(chosen)?.items : deref(chosen)?.properties?.[part as string];
+      value = value?.[part as never];
+    }
+    const allowed = [...new Set(branches(node).flatMap(o => { const tag = o?.properties?.[key]; return typeof tag?.const === 'string' ? [tag.const] : Array.isArray(tag?.enum) ? tag.enum.filter((x: unknown) => typeof x === 'string') : []; }))];
+    return allowed.length && allowed.length <= 40 ? `${key} must be one of: ${allowed.join(', ')}.` : undefined;
+  } catch { return undefined; }
+}
+/** An authored rule sentence from the schema says what is expected. It is used
+ * only when it does not repeat the submitted value at that path. */
+function authoredRule(issue: Issue, received: unknown): string | undefined {
+  if (issue.code !== 'custom' || typeof issue.message !== 'string') return undefined;
+  const message = issue.message.trim();
+  if (message.length < 8 || message.length > 220 || message === 'Invalid input' || !/^[\x20-\x7E–’]+$/.test(message)) return undefined;
+  if (typeof received === 'string' && received.length > 1 && message.includes(received)) return undefined;
+  return /[.!?]$/.test(message) ? message : `${message}.`;
+}
+/** Twenty-seven identical lines teach nothing the first one did not. */
+export function collapseRepeatedIssues(issues: ValidationIssue[]): ValidationIssue[] {
+  const groups = new Map<string, ValidationIssue[]>();
+  for (const issue of issues) { const key = JSON.stringify([issue.problem, issue.expected ?? '', issue.maximum ?? '']); groups.set(key, [...(groups.get(key) ?? []), issue]); }
+  const output: ValidationIssue[] = [];
+  for (const group of groups.values()) {
+    if (group.length < 3) { output.push(...group); continue; }
+    const [first, ...rest] = group;
+    output.push({ ...first, problem: `${first.problem} ${group.length} fields share this problem; first: ${first.path}.`, count: group.length, alsoAt: rest.slice(0, 4).map(issue => issue.path) });
+  }
+  return output;
 }
 
 /** Contains only server-selected guidance, never the original exception text. */

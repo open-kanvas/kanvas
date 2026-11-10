@@ -5,9 +5,10 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/server';
 import { CANONICAL_TOOLS, canonicalToolDefinitions } from './canonical.js';
-import { HELP_PAGES, HELP_TOPICS } from '../../shared/help.js';
+import { HELP_KEYWORDS, HELP_PAGES, HELP_TOPICS } from '../../shared/help.js';
 import { GUIDE_TOPICS, guideFor } from './guide.js';
-import { TEMPLATE_IDS, type Principal } from '../../shared/types.js';
+import { TEMPLATE_IDS, type Principal, type TemplateId } from '../../shared/types.js';
+import { templateConcept } from '../../shared/template-concepts.js';
 import { samples, templateNames, chartVariantSamples } from '../../shared/template-examples.js';
 import { templateViewSchema } from '../../shared/view-schemas.js';
 import { TEMPLATE_DISPLAY_GUIDANCE } from '../../shared/display-guidance.js';
@@ -25,7 +26,9 @@ export interface CatalogItem extends SearchDocument {
   readonly provider: string;
   /** Provider revision invalidates cursors when a private contract changes. */
   readonly revision?: string | number;
-  readonly detail: () => Record<string, unknown>;
+  readonly detail: (options?: { expand?: 'own' | 'full' }) => Record<string, unknown>;
+  /** Minimal valid example shown inline on search hits, so the shape is known before a first attempt. */
+  readonly example?: () => unknown;
   /** Defense in depth: called before ranking, totals, exact lookup or detail. */
   readonly visible?: (context: CatalogContext) => boolean;
 }
@@ -42,9 +45,9 @@ const cursorSchema = z.string().max(512).optional();
 /** Each action accepts only its own fields: no type facet or accidental narrowing. */
 export const discoverSchema = z.discriminatedUnion('action', [
   intentResolveSchema,
-  z.strictObject({ activeContext: activeContextSchema, catalog: catalogSchema, action: z.literal('list'), cursor: cursorSchema }),
+  z.strictObject({ activeContext: activeContextSchema, catalog: catalogSchema, action: z.literal('list'), cursor: cursorSchema, prefix: z.string().max(180).regex(/^[a-z0-9][a-z0-9._-]*$/).optional().describe('Only IDs starting with this text, e.g. kanvas.display. or kanvas.template.c'), examples: z.boolean().optional().describe('Add each entry\'s minimal valid example. Larger response.') }),
   z.strictObject({ activeContext: activeContextSchema, catalog: catalogSchema, action: z.literal('search'), query: z.string().trim().min(1).max(500), limit: z.number().int().min(1).max(20).default(5), cursor: cursorSchema }),
-  z.strictObject({ activeContext: activeContextSchema, catalog: catalogSchema, action: z.literal('get'), id: idSchema }),
+  z.strictObject({ activeContext: activeContextSchema, catalog: catalogSchema, action: z.literal('get'), id: idSchema, expand: z.enum(['own', 'full']).optional().describe('Templates only. own (default): this template\'s own shape, with slots that hold another view collapsed to a reference. full: the complete embedded union of every template.') }),
 ]);
 export const useSchema = z.strictObject({ activeContext: activeContextSchema, operationId: idSchema, arguments: z.record(z.string(), z.unknown()) });
 /** Safety budget, not ordinary pagination. Whole entries only; explicit continuation. */
@@ -84,6 +87,13 @@ const operationExtras: Record<string, string> = {
   kanvas_display_request_capture: 'actual browser screenshot consent native screen share picker',
   kanvas_display_snapshot: 'server rendered image snapshot export not physical screen',
   kanvas_checklist_show: 'restore retained checklist show on another display',
+  kanvas_display_register: 'create display add display new display second screen another screen second monitor extra screen split content across screens two screens multiple displays',
+  kanvas_display_rename: 'rename display change display name label screen',
+  kanvas_display_update: 'resize display viewport width height hold freeze display size change display',
+  kanvas_window_present: 'put this on that screen move window to display send to tv show on second screen point device at display',
+  kanvas_checklist_update: 'tick item check off uncheck mark done single item by id add item remove item highlight current item undo restore',
+  kanvas_session_state: 'current state displays revisions mode tempo manage map what can i change',
+  kanvas_toast: 'notification notify toast alert message banner popup icon',
 };
 let operations: CatalogItem[] | undefined;
 export const CATALOG_ONLY_CANONICAL = new Set(['kanvas_help', 'kanvas_guide', 'kanvas_template_get']);
@@ -94,7 +104,7 @@ export function operationCatalog(): readonly CatalogItem[] {
     const id = operationId(tool.name), summary = short(discoveryGuidanceText(canonical.description));
     const examples = (discovery?.examples ?? []).map(args => ({ tool: 'kanvas_call', arguments: { operationId: id, arguments: structuredClone(args) } }));
     const aliases = [...new Set([tool.name, ...[...OPERATION_ENTRIES, ...DOMAIN_OPERATION_ENTRIES].filter(entry => entry.canonical === tool.name).map(entry => `${entry.tool} ${entry.operation}`)])];
-    return { id, provider: 'kanvas', title: id.slice(7).replaceAll('.', ' '), summary, keywords: `${operationExtras[tool.name] ?? ''} ${aliases.join(' ')} ${discovery?.hint ?? ''}`, text: `${canonical.description} ${schemaTerms(tool.inputSchema)}`, detail: () => profileScope.run('discovery', () => ({ id, operationId: id, title: id.slice(7).replaceAll('.', ' '), requiredInputs: tool.inputSchema.required ?? [], description: discoveryGuidanceText(canonical.description), guidance: discoveryGuidanceText(discovery?.hint ?? ''), inputSchema: profileSchema(tool.inputSchema), annotations: tool.annotations, examples, exampleNotice: 'Examples are valid syntax with illustrative IDs and source data. Substitute live authorized IDs/revisions; examples never grant consent.' })) };
+    return { id, provider: 'kanvas', title: id.slice(7).replaceAll('.', ' '), summary, example: examples.length ? () => examples[0].arguments : undefined, keywords: `${operationExtras[tool.name] ?? ''} ${aliases.join(' ')} ${discovery?.hint ?? ''}`, text: `${canonical.description} ${schemaTerms(tool.inputSchema)}`, detail: () => profileScope.run('discovery', () => ({ id, operationId: id, title: id.slice(7).replaceAll('.', ' '), requiredInputs: tool.inputSchema.required ?? [], description: discoveryGuidanceText(canonical.description), guidance: discoveryGuidanceText(discovery?.hint ?? ''), inputSchema: profileSchema(tool.inputSchema), annotations: tool.annotations, examples, exampleNotice: 'Examples are valid syntax with illustrative IDs and source data. Substitute live authorized IDs/revisions; examples never grant consent.' })) };
   });
 }
 export function canonicalForOperation(id: string): string | undefined { return CANONICAL_TOOLS.find(tool => !CATALOG_ONLY_CANONICAL.has(tool.name) && operationId(tool.name) === id)?.name; }
@@ -155,9 +165,9 @@ let helps: CatalogItem[] | undefined;
 export function helpCatalog(): readonly CatalogItem[] {
   if (helps) return helps;
   const items: CatalogItem[] = [];
-  const add = (id: string, title: string, summary: string, content: unknown) => {
+  const add = (id: string, title: string, summary: string, content: unknown, keywords?: string) => {
     const detail = { id, title, summary, content: authored(content), note: 'Static guidance. Use live authorized state and real source data; reading help never publishes.' };
-    items.push({ id, provider: 'kanvas', title, summary, text: JSON.stringify(content), detail: () => detail });
+    items.push({ id, provider: 'kanvas', title, summary, ...(keywords ? { keywords } : {}), text: JSON.stringify(content), detail: () => detail });
   };
   for (const topic of HELP_TOPICS) {
     const page = HELP_PAGES[topic];
@@ -165,7 +175,7 @@ export function helpCatalog(): readonly CatalogItem[] {
     const chunks: string[][] = []; let current: string[] = [];
     for (const step of page.steps) { if (current.length && current.join('').length + step.length > 4500) { chunks.push(current); current = []; } current.push(step); }
     if (current.length) chunks.push(current);
-    chunks.forEach((steps, i) => add(`kanvas.help.${topic}${i ? `.${i + 1}` : ''}`, `${page.title}${chunks.length > 1 ? ` — part ${i + 1}` : ''}`, page.description, { steps, ...(page.example ? { example: 'tool' in page.example ? discoveryExample(page.example) : { tool: 'kanvas_call', arguments: { operationId: 'kanvas.submit', arguments: 'version' in page.example && 'template' in page.example ? { requestId: `help-${topic}-example`, view: page.example } : Object.fromEntries(Object.entries(page.example).filter(([key]) => key !== 'operation')) } } } : {}) }));
+    chunks.forEach((steps, i) => add(`kanvas.help.${topic}${i ? `.${i + 1}` : ''}`, `${page.title}${chunks.length > 1 ? ` — part ${i + 1}` : ''}`, page.description, { steps, ...(page.example ? { example: 'tool' in page.example ? discoveryExample(page.example) : { tool: 'kanvas_call', arguments: { operationId: 'kanvas.submit', arguments: 'version' in page.example && 'template' in page.example ? { requestId: `help-${topic}-example`, view: page.example } : Object.fromEntries(Object.entries(page.example).filter(([key]) => key !== 'operation')) } } } : {}) }, HELP_KEYWORDS[topic]));
   }
   // The authored tour page already contains this guide in full. Metadata-only
   // schemaTool/exampleNotice sections become contextual notes, not fake topics.
@@ -196,11 +206,58 @@ export function helpCatalog(): readonly CatalogItem[] {
   return helps = items;
 }
 let templates: CatalogItem[] | undefined;
+/** A slot that can hold any other view is described by reference, not by
+ * embedding every template again. */
+export const VIEW_SLOT = { type: 'object', required: ['template', 'data'], properties: { template: { type: 'string', description: 'A template ID from the templates catalog.' }, data: { type: 'object', description: 'That template\'s own data.' } }, description: 'Any native view: {template, data, optional title}. Its data shape is that template\'s own; get kanvas.template.<template> for it. Ask for expand:"full" on this get to receive the complete embedded union.' } as const;
+export function collapseViewSlots<T>(schema: T): T {
+  const root = structuredClone(schema) as Record<string, any>, defs: Record<string, any> = root.$defs ?? {};
+  const resolve = (node: any): any => node && typeof node === 'object' && typeof node.$ref === 'string' && node.$ref.startsWith('#/$defs/') ? defs[node.$ref.slice(8)] ?? node : node;
+  const isUnion = (node: any): boolean => { const branches = node?.anyOf ?? node?.oneOf; return Array.isArray(branches) && branches.filter(branch => typeof resolve(branch)?.properties?.template?.const === 'string').length >= 6; };
+  const walk = (node: any): any => {
+    if (Array.isArray(node)) return node.map(walk);
+    if (!node || typeof node !== 'object') return node;
+    if (isUnion(node) || isUnion(resolve(node))) return { ...VIEW_SLOT, ...(typeof node.description === 'string' ? { description: `${node.description} ${VIEW_SLOT.description}` } : {}) };
+    return Object.fromEntries(Object.entries(node).map(([key, value]) => [key, key === '$defs' ? value : walk(value)]));
+  };
+  const body = walk(Object.fromEntries(Object.entries(root).filter(([key]) => key !== '$defs')));
+  for (const key of Object.keys(defs)) defs[key] = isUnion(defs[key]) ? { ...VIEW_SLOT } : walk(defs[key]);
+  // Keep only definitions the collapsed schema still reaches.
+  const reachable = new Set<string>(), visit = (node: any): void => {
+    if (Array.isArray(node)) { node.forEach(visit); return; }
+    if (!node || typeof node !== 'object') return;
+    if (typeof node.$ref === 'string' && node.$ref.startsWith('#/$defs/')) { const key = node.$ref.slice(8); if (!reachable.has(key)) { reachable.add(key); visit(defs[key]); } }
+    for (const value of Object.values(node)) visit(value);
+  };
+  visit(body);
+  const kept = Object.fromEntries(Object.entries(defs).filter(([key]) => reachable.has(key)));
+  return { ...(Object.keys(kept).length ? { $defs: kept } : {}), ...body } as T;
+}
+/** The shape, not the schema: the smallest valid view of a template, cut down
+ * from its authored sample and re-validated. Falls back to the full sample. */
+const minimal = new Map<string, unknown>();
+export function minimalExample(template: TemplateId): unknown {
+  if (minimal.has(template)) return minimal.get(template);
+  const { version: _version, ...sample } = samples[template] as unknown as Record<string, unknown>;
+  const trim = (value: unknown, keep: number): unknown => Array.isArray(value) ? value.slice(0, keep).map(item => trim(item, keep)) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, trim(item, keep)])) : value;
+  let chosen: unknown = sample;
+  if (JSON.stringify(sample).length > 420) for (const keep of [1, 2, 3]) {
+    const candidate = trim(sample, keep);
+    if (templateViewSchema(template).safeParse(candidate).success) { chosen = candidate; break; }
+  }
+  minimal.set(template, chosen);
+  return chosen;
+}
 export function templateCatalog(): readonly CatalogItem[] {
   return templates ??= TEMPLATE_IDS.map(template => {
-    const guidance = TEMPLATE_DISPLAY_GUIDANCE[template];
-    let detail: Record<string, unknown> | undefined;
-    return { id: `kanvas.template.${template}`, provider: 'kanvas', title: templateNames[template], summary: guidance.primary, keywords: template === 'chart' ? `${template} ${Object.keys(chartVariantSamples).join(' ')}` : template, text: guidance.detail, detail: () => detail ??= profileScope.run('discovery', () => ({ id: `kanvas.template.${template}`, template, title: templateNames[template], description: guidance.primary, guidance: discoveryGuidanceText(guidance.detail), relatedOperations: workflowIds(template).flatMap(id => { const operation = operationCatalog().find(item => item.id === id); return operation ? [{ id, description: operation.summary, get: { tool: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id } } }] : []; }), workflow: WORKFLOW_NOTE, submitShape: SUBMIT_SHAPE, ...(template === 'planner' ? { commitmentBoundary: PLANNER_BOUNDARY } : {}), schema: profileSchema(compactSchemaReferences(z.toJSONSchema(templateViewSchema(template), { unrepresentable: 'any', io: 'input', reused: 'ref' }))), example: samples[template], ...(template === 'chart' ? { variants: chartVariantSamples } : {}), examples: [{ tool: 'kanvas_call', arguments: { operationId: 'kanvas.submit', arguments: { requestId: 'template-example-1', view: samples[template] } } }], exampleNotice: 'Illustrative supplied data only; replace with real sources. Schema validates a complete view, not kanvas_call arguments.' })) };
+    const guidance = TEMPLATE_DISPLAY_GUIDANCE[template], concept = templateConcept(template);
+    const details = new Map<string, Record<string, unknown>>();
+    const build = (expand: 'own' | 'full') => profileScope.run('discovery', () => {
+      const full = compactSchemaReferences(z.toJSONSchema(templateViewSchema(template), { unrepresentable: 'any', io: 'input', reused: 'ref' }));
+      const schema = expand === 'full' ? full : collapseViewSlots(full);
+      const collapsed = expand !== 'full' && JSON.stringify(schema).length < JSON.stringify(full).length;
+      return { id: `kanvas.template.${template}`, template, title: templateNames[template], ...(concept ? { whenToUse: concept.when } : {}), description: guidance.primary, example: samples[template], minimalExample: minimalExample(template), guidance: discoveryGuidanceText(guidance.detail), ...(collapsed ? { nestedViews: 'Slots that hold another view are shown as a reference. Get that template for its data shape, or repeat this get with expand:"full" for the complete union.' } : {}), schema: profileSchema(schema), relatedOperations: workflowIds(template).flatMap(id => { const operation = operationCatalog().find(item => item.id === id); return operation ? [{ id, description: operation.summary, get: { tool: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id } } }] : []; }), workflow: WORKFLOW_NOTE, submitShape: SUBMIT_SHAPE, ...(template === 'planner' ? { commitmentBoundary: PLANNER_BOUNDARY } : {}), ...(template === 'chart' ? { variants: chartVariantSamples } : {}), examples: [{ tool: 'kanvas_call', arguments: { operationId: 'kanvas.submit', arguments: { requestId: 'template-example-1', view: samples[template] } } }], exampleNotice: 'Illustrative supplied data only; replace with real sources. Schema validates a complete view, not kanvas_call arguments.' };
+    });
+    return { id: `kanvas.template.${template}`, provider: 'kanvas', title: templateNames[template], summary: concept?.when ?? guidance.primary, keywords: `${template} ${concept?.also ?? ''}${template === 'chart' ? ` ${Object.keys(chartVariantSamples).join(' ')}` : ''}`, text: `${guidance.primary} ${guidance.detail}`, example: () => minimalExample(template), detail: options => { const expand = options?.expand === 'full' ? 'full' : 'own'; if (!details.has(expand)) details.set(expand, build(expand)); return details.get(expand)!; } };
   });
 }
 export const BUILTIN_PROVIDERS: readonly CatalogProvider[] = Object.freeze([
@@ -222,13 +279,14 @@ export class DiscoveryCatalog {
     return items.sort((a, b) => a.id.localeCompare(b.id, 'en'));
   }
   query(kind: CatalogKind, action: 'list' | 'search' | 'get', input: Record<string, unknown>, context: CatalogContext): Record<string, unknown> {
-    const all = this.list(kind, context);
+    const everything = this.list(kind, context);
+    const all = action === 'list' && typeof input.prefix === 'string' ? everything.filter(item => item.id.startsWith(input.prefix as string)) : everything;
     const catalog = kind === 'tool' ? 'tools' : kind === 'template' ? 'templates' : 'help';
     if (action === 'get') {
       const item = all.find(item => item.id === input.id);
       if (!item) throw new InputError([{ path: 'id', problem: 'Unknown or unavailable catalog ID. Use kanvas_discover list or search in this catalog; copy the exact ID.' }]);
       context.signal?.throwIfAborted();
-      const detail = item.detail();
+      const detail = item.detail({ expand: input.expand === 'full' ? 'full' : 'own' });
       // Never replace a large contract with a silently incomplete fragment.
       if (Buffer.byteLength(JSON.stringify(detail)) > SEARCH_RESULT_BYTES) throw new InputError([{ path: 'id', problem: 'This full catalog entry exceeds the response safety budget. No partial contract was returned; the catalog provider must split this entry into independently meaningful topics.' }]);
       return { catalog, action, entry: detail };
@@ -243,18 +301,20 @@ export class DiscoveryCatalog {
       offset = Number(match[2]);
     }
     const limit = action === 'search' ? Number(input.limit ?? 5) : ranked.length;
-    const results: { id: string; description: string }[] = [];
+    const withExamples = action === 'search' || input.examples === true;
+    const results: { id: string; description: string; example?: unknown }[] = [];
     let bytes = 0;
     for (const item of ranked.slice(offset, offset + limit)) {
       context.signal?.throwIfAborted();
-      const summary = { id: item.id, description: item.summary.replace(/\s+/g, ' ').trim() };
+      const example = withExamples ? item.example?.() : undefined;
+      const summary = { id: item.id, description: item.summary.replace(/\s+/g, ' ').trim(), ...(example !== undefined && JSON.stringify(example).length <= 1500 ? { example } : {}) };
       const size = Buffer.byteLength(JSON.stringify(summary)) + 8;
       if (size > SEARCH_RESULT_BYTES) throw new InputError([{ path: 'catalog', problem: 'A catalog summary exceeds the response safety budget; provider must supply a concise summary.' }]);
       if (results.length && bytes + size > SEARCH_RESULT_BYTES) break;
       bytes += size; results.push(summary);
     }
     const next = offset + results.length;
-    return { catalog, action, ...(action === 'search' ? { query, retrieval: 'local weighted lexical + curated concepts + typo matching' } : {}), total: ranked.length, catalogTotal: all.length, returned: results.length, offset, results, complete: next === ranked.length, nextCursor: next < ranked.length ? `v2:${binding}:${next}` : null, note: action === 'search' ? 'Ranked summaries only. Get exact IDs for full details. More matches are available when nextCursor is present.' : 'Complete visible inventory unless an explicit response-size continuation is shown. Get exact IDs for full details.' };
+    return { catalog, action, ...(action === 'search' ? { query, retrieval: 'local weighted lexical + curated concepts + typo matching' } : {}), total: ranked.length, catalogTotal: all.length, returned: results.length, offset, results, complete: next === ranked.length, nextCursor: next < ranked.length ? `v2:${binding}:${next}` : null, note: action === 'search' ? 'Ranked summaries, each with a minimal valid example where one exists (a template example is a view for kanvas.submit; an operation example is kanvas_call arguments). Get exact IDs for full details. More matches are available when nextCursor is present.' : 'Complete visible inventory unless an explicit response-size continuation is shown. Get exact IDs for full details.' };
   }
 }
 export const discoveryCatalog = new DiscoveryCatalog();
@@ -265,8 +325,8 @@ export function discoveryResult(name: string, raw: unknown, context: CatalogCont
   const kind = input.catalog === 'tools' ? 'tool' : input.catalog === 'templates' ? 'template' : 'help';
   const data = discoveryCatalog.query(kind, input.action as 'list' | 'search' | 'get', input, context);
   if (input.action === 'list') {
-    const lines = (data.results as { id: string; description: string }[]).map(item => `${item.id} — ${item.description}`);
-    const header = `${input.catalog}: ${data.returned} of ${data.total} visible entries${data.complete ? ' (complete)' : ' (INCOMPLETE: response-size safety limit)'}.`;
+    const lines = (data.results as { id: string; description: string; example?: unknown }[]).map(item => `${item.id} — ${item.description}${item.example !== undefined ? ` Example: ${JSON.stringify(item.example)}` : ''}`);
+    const header = `${input.catalog}${input.prefix ? ` (prefix ${input.prefix})` : ''}: ${data.returned} of ${data.total} visible entries${data.complete ? ' (complete)' : ' (INCOMPLETE: response-size safety limit)'}.`;
     const continuation = data.nextCursor ? `Continue with kanvas_discover catalog=${input.catalog} action=list cursor=${data.nextCursor}. No entries are omitted between pages.` : '';
     return { content: [{ type: 'text', text: [header, ...lines, continuation, 'Use kanvas_discover action=get with catalog and exact id for full detail.', ...(input.catalog==='tools'?['Resolve one intent with action:resolve and explicit context: filter/sort/highlight; navigate/scroll/zoom; patch/edit; publish/target; inspect/interaction. Recorded metrics: kanvas.activity.read and kanvas.analytics.read.']:[])].filter(Boolean).join('\n') }] };
   }

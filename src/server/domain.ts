@@ -1,4 +1,14 @@
 import {KANVAS_VERSION} from '../shared/version.js';
+import {SessionModes} from './session-mode.js';
+import {Friction,type FrictionCall} from './friction.js';
+import {Agents} from './agents.js';
+import {TaskLists} from './task-lists.js';
+import {MonitorStreams} from './monitor-streams.js';
+import {Pickers} from './pickers.js';
+import type {SessionMode} from '../shared/philosophy.js';
+import type {ResponseContext} from './mcp/response-policy.js';
+import {manageMap} from './mcp/manage-map.js';
+import {displayNameUnset} from '../shared/display-name.js';
 import {attribute,eventContext} from './raw-events.js';
 import {DevicePrivacy} from './device-privacy.js';
 import {SuggestedGuidance} from './suggested-guidance.js';
@@ -133,6 +143,12 @@ export class KanvasService implements McpService {
   readonly flashcards:Flashcards;
   readonly guidance:AgentGuidance;
   readonly checklists:Checklists;
+  readonly modes:SessionModes;
+  readonly friction:Friction;
+  readonly agents:Agents;
+  readonly taskLists:TaskLists;
+  readonly monitorStreams:MonitorStreams;
+  readonly pickers:Pickers;
   readonly customTemplates=new CustomTemplates(this);
   readonly mediaLibrary=new MediaLibrary(this);
   async customTemplateCatalog(p:AuthPrincipal){return this.customTemplates.catalog(p);}
@@ -174,6 +190,11 @@ export class KanvasService implements McpService {
     this.flashcards=new Flashcards(this);
     this.guidance=new AgentGuidance(this);
     this.checklists=new Checklists(this);
+    this.modes=new SessionModes(this);
+    this.friction=new Friction(this);this.friction.start();
+    this.agents=new Agents(this);this.taskLists=new TaskLists(this);
+    this.monitorStreams=new MonitorStreams(this);this.monitorStreams.start();
+    this.pickers=new Pickers(this);
     this.pointing=new Pointing(this);this.toolLog=new ToolLog(this);this.autoplay=new Autoplay(this);
     this.accounts=new Accounts(this);
     this.topology=new Topology(this);
@@ -279,7 +300,8 @@ export class KanvasService implements McpService {
     for (const work of recovery) this.schedule(work, work.recoverableInput!, work.bypassHold ?? false);
   }
   async authorize(request: Request): Promise<AuthPrincipal> { return (await this.auth.authorize(request)); }
-  async recordToolCall(principal:AuthPrincipal,event:import('./mcp/types.js').ToolInvocation){(await this.toolLog.capture(principal,event));}
+  async recordToolCall(principal:AuthPrincipal,event:import('./mcp/types.js').ToolInvocation){(await this.toolLog.capture(principal,event));await this.agents.observe(principal,event,event.canonical);}
+  recordFriction(call:FrictionCall){this.friction.record(call);}
   async recordFailure(operation: string, args: Record<string, unknown>, principal: AuthPrincipal, error: unknown, phase?: DiagnosticRecord['phase'], updateId?: string): Promise<Awaited<string | undefined>> {
     const definition = MCP_TOOLS.find(tool => tool.name === operation);
     if (!definition || definition.readOnly) return;
@@ -315,7 +337,35 @@ export class KanvasService implements McpService {
     if(supplied.agent&&inferred.clientName&&supplied.agent.toLowerCase()!==inferred.clientName.toLowerCase())conflicts.push('Self-reported agent differs from MCP client name; neither is verified.');
     const value:AgentConnection={id:key,sessionId,userId:principal.userId,started:old?.started??started,joinedAt:old?.joinedAt??now(),updatedAt:now(),selfReported:supplied,inferred,conflicts,verified:false};
     const event=eventContext.getStore();if(event)event.client={...event.client,selfReported:Object.fromEntries(Object.entries(supplied).filter(([key])=>['agent','model','harness','effort_or_mode','interaction_mode','device'].includes(key))),contextVerified:false};
-    await this.store.put('agent-connection',value);return value;
+    await this.store.put('agent-connection',value);
+    // A declared preference belongs to the connection, across its sessions.
+    if(selfReported.guidance)await this.store.put('guidance-preference',{id:hash(`${principal.userId}:${connection}`),userId:principal.userId,preference:selfReported.guidance,updatedAt:now()});
+    return value;
+  }
+  /** Observable facts for the response policy. Never content, never inference. */
+  async responseContext(principal:AuthPrincipal,args:unknown,connectionId:string):Promise<ResponseContext>{
+    const a=args&&typeof args==='object'&&!Array.isArray(args)?args as {sessionId?:unknown}:{},out:ResponseContext={};
+    try{await this.fullAccount(principal);}catch{return out;}
+    out.preference=(await this.store.get<{preference:'concise'|'full'}>('guidance-preference',hash(`${principal.userId}:${connectionId}`)))?.preference??'concise';
+    try{const user=await this.auth.user(principal.userId);if(user&&displayNameUnset(user))out.displayNameHint='This account has no display name yet; set one with kanvas.profile.update {displayName} so screens show a name, not an email.';}catch{/* No account detail for a narrowed grant. */}
+    if(typeof a.sessionId==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(a.sessionId)){
+      try{await this.access(principal,a.sessionId);const online=(await this.experience.receiving.viewers(a.sessionId,undefined,true)).length>0;out.displayConnected=online;out.mode=await this.modes.observeAgent(principal,a.sessionId,online);}catch{/* An unauthorized or ended session contributes nothing. */}
+    }
+    out.manage=manageMap();
+    return out;
+  }
+  /** session.state for agents: what is needed before a display decision, not the whole log. */
+  async sessionState(principal:AuthPrincipal,a:{sessionId:string;includeUpdates?:'recent'|'all'}){
+    const detail=await this.detail(principal,a.sessionId) as Awaited<ReturnType<KanvasService['detail']>>&{updates:unknown[];interactions:{status?:string}[]};
+    const mode=await this.modes.read(a.sessionId);
+    if(principal.scopedSessionId)return {...detail,mode};
+    const all=a.includeUpdates==='all',pending=detail.interactions.filter(item=>item.status==='pending');
+    return {...detail,
+      updates:all?detail.updates:detail.updates.slice(-5),
+      interactions:all?detail.interactions:pending.slice(-20),
+      counts:{updates:detail.updates.length,interactions:detail.interactions.length,pendingInteractions:pending.length,displays:detail.displays.length},
+      ...(all?{}:{more:'updates holds the last 5 and interactions only pending ones. Pass includeUpdates:"all" for the complete lists, or read kanvas.session.log / kanvas.interactions.read.'}),
+      mode,manage:manageMap()};
   }
   async agentConnections(principal:AuthPrincipal,sessionId:string){
     if(principal.scopedSessionId||principal.pairingId)return [];
@@ -1254,6 +1304,17 @@ export class KanvasService implements McpService {
       case 'kanvas_scoreboard_control':(await this.access(principal,a.sessionId,'editor'));return (await this.respond(principal,a.sessionId,a.displayId,{revision:a.expectedRevision??(await this.display(principal,a.sessionId,a.displayId,'editor')).revision,requestId:a.requestId,value:{kind:'scoreboard.adjust',sideId:a.sideId,action:a.action,...(a.score!==undefined?{score:a.score}:{})}}));
 
       case 'kanvas_diagnostics_read':return this.diagnostics.read(principal,a);
+      case 'kanvas_friction_read':return this.friction.read(principal,a);
+      case 'kanvas_agents_read':return this.agents.read(principal,a);
+      case 'kanvas_agents_revoke':return this.agents.revoke(principal,a);
+      case 'kanvas_tasklist_read':return this.taskLists.read(principal,a);
+      case 'kanvas_tasklist_update':return this.taskLists.update(principal,a);
+      case 'kanvas_tasklist_show':return this.taskLists.show(principal,a);
+      case 'kanvas_monitor_stream_create':return this.monitorStreams.create(principal,a);
+      case 'kanvas_monitor_stream_read':return this.monitorStreams.read(principal,a);
+      case 'kanvas_monitor_stream_revoke':return this.monitorStreams.revoke(principal,a);
+      case 'kanvas_icons_search':return this.pickers.searchIcons(principal,a);
+      case 'kanvas_fonts_list':return this.pickers.listFonts(principal,a);
       case 'kanvas_window_viewport':return this.devices.windows.viewport(principal,a);
       case 'kanvas_window_overview':return this.devices.windows.overview(principal,a);
       case 'kanvas_guidance_suggestions_list':return new SuggestedGuidance(this).run(principal,a,'list');
@@ -1360,9 +1421,9 @@ export class KanvasService implements McpService {
       case 'kanvas_display_rename': return (await this.renameDisplay(principal,a.sessionId,a.displayId,a.expectedRevision,a.name));
       case 'kanvas_selection_set': return (await this.setSelection(principal,a));
       case 'kanvas_sessions_list': return (await this.sessions(principal));
-      case 'kanvas_session_create': {const result=await this.createReadySession(principal,a.name,a.initialDisplay);if(a.clientDetails)await this.recordAgentContext(principal,result.id,a.clientDetails,true);return {...result,agentConnections:await this.agentConnections(principal,result.id)};}
+      case 'kanvas_session_create': {const result=await this.createReadySession(principal,a.name,a.initialDisplay);if(a.clientDetails)await this.recordAgentContext(principal,result.id,a.clientDetails,true);const mode=a.mode?await this.modes.set(principal,result.id,a.mode as SessionMode|'auto'):await this.modes.read(result.id);return {...result,mode,agentConnections:await this.agentConnections(principal,result.id)};}
       case 'kanvas_client_context_update': return this.recordAgentContext(principal,a.sessionId,a.clientDetails);
-      case 'kanvas_session_state': return (await this.detail(principal, a.sessionId));
+      case 'kanvas_session_state': return (await this.sessionState(principal, a as unknown as {sessionId:string;includeUpdates?:'recent'|'all'}));
       case 'kanvas_session_end': return (await this.end(principal, a.sessionId));
       case 'kanvas_display_register': return (await this.createDisplay(principal, a.sessionId, a as unknown as Parameters<KanvasService['createDisplay']>[2]));
       case 'kanvas_display_update': return (await this.updateDisplay(principal, a.sessionId, a.displayId, a));
@@ -1429,7 +1490,15 @@ export class KanvasService implements McpService {
         (await this.store.put('capture-asset',{id:asset.id,sessionId:a.sessionId,displayId:display.id,revision:display.revision,createdAt:now()}));
         Object.assign(result.metadata,{assetId:asset.id,assetUrl:new URL(asset.url,this.publicUrl).href,assetPath:asset.url,reusable:true});return result;
       }
-      case 'kanvas_config_update': return (await this.experience.scopedSettings(principal,a));
+      case 'kanvas_config_update': {
+        const {mode:requestedMode,...settings}=a as Record<string,unknown>&{mode?:SessionMode|'auto'};
+        if(requestedMode===undefined)return (await this.experience.scopedSettings(principal,settings));
+        if((settings.scope??'session')!=='session')throw new InputError([{path:'mode',problem:'mode belongs to one session. Use scope "session" (the default).'}]);
+        // A mode-only call changes no settings and needs no settings revision.
+        const changesSettings=settings.config&&typeof settings.config==='object'&&Object.keys(settings.config as object).length>0;
+        const result=changesSettings?await this.experience.scopedSettings(principal,settings):{sessionId:a.sessionId};
+        return {...(result as object),mode:await this.modes.set(principal,a.sessionId,requestedMode)};
+      }
       case 'kanvas_submit': { const result=await this.publication.show(principal,a as unknown as PublishInput);if(a.clientDetails&&'sessionId' in result&&typeof result.sessionId==='string')await this.recordAgentContext(principal,result.sessionId,a.clientDetails);return (a.view as ViewSpec|undefined)?.template==='settings'||a.templateHint==='settings'?{...result,settingsGuidance:{tool:'kanvas_config_update',sessionId:a.sessionId??('sessionId' in result?result.sessionId:undefined),readRevision:'Read session.state for configRevision; pass it as expectedRevision.',nextAction:'Apply user-requested changes now via settings.update with config:{style,theme,accent,readingFontSize,readingWpm,readingZoom}. This is live configuration, not static display content. Account defaults use profile preferences.update and its current revision; never change scope implicitly.'}}:result; }
       case 'kanvas_presentation_navigate': return (await this.navigatePresentation(principal, a as unknown as PresentationNavigation));
       case 'kanvas_clear': return (await this.clear(principal, a.sessionId, a.displayIds, a.requestId));
@@ -1468,6 +1537,7 @@ export class KanvasService implements McpService {
   }
   async close(): Promise<void> {
     await this.experience.receiving.close();
+    await this.friction.close();this.monitorStreams.close();
     await this.autoplay.close();
     this.diagnostics.close();await this.push.close();
     this.closed = true; for (const cancel of this.cancelWork) cancel(); await Promise.allSettled([...this.active, this.monitoring.close()]); this.events.removeAllListeners();

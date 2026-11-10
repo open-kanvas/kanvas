@@ -1,5 +1,6 @@
 import { parseDiscoveryInput } from './discovery.js';
 import { guidanceContext } from './active-context.js';
+import { applyResponsePolicy, ContactLedger, type ResponseContext } from './response-policy.js';
 import { discoveryToolDefinitions, discoveryResult, isDiscoveryTool } from './discovery.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
@@ -27,6 +28,23 @@ export type { McpMount, McpOptions, McpService, Principal, McpResourceDescriptor
 export { MCP_TOOL_NAMES } from './catalog.js';
 
 const SERVER_INFO = { name: 'kanvas', version: KANVAS_VERSION };
+/** Public, unauthenticated logo files with a release-versioned address so a
+ * client that cached an older image fetches the current one. */
+export function serverIcons(origin:string){
+  const at=(path:string)=>new URL(`${path}?v=${KANVAS_VERSION}`,origin).href;
+  return [
+    {src:at('/favicon-48.png'),mimeType:'image/png',sizes:['48x48']},
+    {src:at('/icons/kanvas-192.png'),mimeType:'image/png',sizes:['192x192']},
+    {src:at('/icons/kanvas-512.png'),mimeType:'image/png',sizes:['512x512']},
+    {src:at('/favicon.svg'),mimeType:'image/svg+xml',sizes:['any']},
+  ];
+}
+export const DEFAULT_WEBSITE_URL='https://open-kanvas.ai';
+/** Only an absolute https address is published; anything else is omitted. */
+export function serverWebsiteUrl(value:unknown=DEFAULT_WEBSITE_URL):string|undefined{
+  if(value===false||value==='')return undefined;
+  try{const url=new URL(String(value));return url.protocol==='https:'&&!url.username&&!url.password?url.href.replace(/\/$/,''):undefined;}catch{return undefined;}
+}
 const LEGACY_PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26'];
 
 interface RequestContext extends SubscriptionScope {
@@ -97,7 +115,11 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
   const allowedOrigins: string[] | undefined = options.allowedOrigins ?? app.locals.mcpAllowedOrigins;
   const metadataUrl=options.resourceMetadataUrl ?? app.locals.mcpResourceMetadataUrl;
   const challenge = metadataChallenge(metadataUrl);
-  const icons=typeof metadataUrl==='string'?[{src:new URL('/icons/kanvas-192.png?v='+KANVAS_VERSION,metadataUrl).href,mimeType:'image/png',sizes:['192x192']},{src:new URL('/favicon.svg?v='+KANVAS_VERSION,metadataUrl).href,mimeType:'image/svg+xml',sizes:['any']}]:undefined;
+  // Connector identity for clients that read MCP server information: the real
+  // release, a title, a short description, the product website and the logo in
+  // several public, versioned sizes (PNG for clients that reject SVG).
+  const icons=typeof metadataUrl==='string'?serverIcons(metadataUrl):undefined;
+  const websiteUrl=serverWebsiteUrl(options.websiteUrl ?? app.locals.mcpWebsiteUrl ?? process.env.KANVAS_WEBSITE_URL);
   const maxLegacySessions = options.maxLegacySessions ?? 256;
   const maxPerPrincipal = options.maxSessionsPerPrincipal ?? 16;
   const idleMs = options.legacySessionIdleMs ?? 30 * 60 * 1000;
@@ -107,6 +129,7 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
   const initializing = new Map<string, number>();
   const modernSubscriptions = new Map<string, number>();
   const toolDefinitions = discoveryToolDefinitions();
+  const contacts = new ContactLedger();
   let closing = false;
 
   const current = (): RequestContext => {
@@ -116,7 +139,7 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
   };
 
   const makeServer = (legacy?: LegacySession): Server => {
-    const server = new Server({ ...SERVER_INFO,title:'Kanvas',...(icons?{icons}:{}), description: profileDescription('discovery') }, {
+    const server = new Server({ ...SERVER_INFO,title:'Kanvas',...(icons?{icons}:{}),...(websiteUrl?{websiteUrl}:{}), description: profileDescription('discovery') }, {
       capabilities: { tools: {}, resources: { subscribe: true, listChanged: true } },
       instructions: profileInstructions('discovery'),
       supportedProtocolVersions: LEGACY_PROTOCOL_VERSIONS,
@@ -128,11 +151,28 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
     server.setRequestHandler('tools/call', async (request, extra) => {
       const outer=request.params.arguments??{};
       const guidanceArgs=guidanceContext(request.params.name,outer);
-      const decorate=async<T extends {content:unknown[];structuredContent?:unknown}>(result:T):Promise<T>=>{
-        let guidance:unknown;
-        try{guidance=await service.agentGuidance?.(current().principal,guidanceArgs);}catch{/* Never replace the primary result. */}
-        if(!guidance)return result;
-        const structuredContent=result.structuredContent&&typeof result.structuredContent==='object'?{...result.structuredContent,agentGuidance:guidance}:undefined;
+      // Aggregate friction counters: names, classes and sizes only.
+      const friction=(result:{structuredContent?:unknown;isError?:boolean},content:unknown[],operation:string|undefined,connectionId:string)=>{
+        try{
+          const structured=result.structuredContent&&typeof result.structuredContent==='object'?result.structuredContent as {error?:{code?:string;issues?:{path:string;problem:string}[]};data?:{status?:unknown}}:undefined;
+          const inner=request.params.name==='kanvas_call'&&outer.arguments&&typeof outer.arguments==='object'?outer.arguments as {view?:{template?:unknown};templateHint?:unknown}:undefined;
+          const template=typeof inner?.view?.template==='string'?inner.view.template:typeof inner?.templateHint==='string'?inner.templateHint:undefined;
+          const status=typeof structured?.data?.status==='string'?structured.data.status:undefined;
+          service.recordFriction?.({operation,template:template&&/^[a-z0-9-]{1,64}$/.test(template)?template:undefined,client:{name:server.getClientVersion()?.name,version:server.getClientVersion()?.version},connection:`${current().principal.userId}:${connectionId}`,
+            ok:result.isError!==true&&status!=='needs_template',issues:structured?.error?.issues,status:structured?.error?.code??status,responseBytes:operation?Buffer.byteLength(JSON.stringify(content)):undefined,
+            ...(request.params.name==='kanvas_discover'?{discovery:String(outer.action??'')}:{}),...(request.params.name==='kanvas_discover'&&outer.action==='resolve'&&status?{resolveStatus:status}:{})});
+        }catch{/* Counting never affects the call. */}
+      };
+      const decorate=async<T extends {content:unknown[];structuredContent?:unknown;isError?:boolean}>(result:T,operation?:string):Promise<T>=>{
+        const principal=current().principal,connectionId=current().request.get('mcp-session-id')??String(principal.agentId??principal.tokenId??'stateless');
+        let guidance:unknown,context:ResponseContext={};
+        try{guidance=await service.agentGuidance?.(principal,guidanceArgs);}catch{/* Never replace the primary result. */}
+        try{context=await service.responseContext?.(principal,guidanceArgs,connectionId)??{};}catch{/* Policy inputs are optional. */}
+        const original=result.structuredContent&&typeof result.structuredContent==='object'?result.structuredContent as Record<string,unknown>:undefined;
+        const targetSession=guidanceArgs&&typeof guidanceArgs==='object'&&typeof (guidanceArgs as {sessionId?:unknown}).sessionId==='string'?(guidanceArgs as {sessionId:string}).sessionId:typeof (original?.data as {sessionId?:unknown}|undefined)?.sessionId==='string'?(original!.data as {sessionId:string}).sessionId:undefined;
+        const decided=applyResponsePolicy(original,{state:contacts.observe(`${principal.userId}:${connectionId}`),context,guidance,isError:result.isError===true,operation,sessionId:targetSession});
+        if(!decided.structured&&!decided.extra){friction(result,result.content,operation,connectionId);return result;}
+        const structuredContent=decided.structured;
         let mirrored=false;
         const content=result.content.map(item=>{
           const block=item as {type?:string;text?:string};
@@ -143,7 +183,9 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
         });
         // Keep existing structured/text JSON mirrors consistent. Plain-text
         // catalog lists retain every original line and gain a separate block.
-        if(!mirrored)content.push({type:'text',text:JSON.stringify({agentGuidance:guidance})});
+        const extra=decided.extra??(structuredContent&&!mirrored?Object.fromEntries(['agentGuidance','firstContact','rhythm'].filter(key=>structuredContent[key]!==undefined).map(key=>[key,structuredContent[key]])):undefined);
+        if(!mirrored&&extra&&Object.keys(extra).length)content.push({type:'text',text:JSON.stringify(extra)});
+        friction(result,content,operation,connectionId);
         return {...result,content,...(structuredContent?{structuredContent}:{})};
       };
 
@@ -174,7 +216,7 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
         if(!call.canonicalName||!call.reference)return;
         const outer=request.params.arguments??{},raw=request.params.name==='kanvas_call'&&outer.arguments&&typeof outer.arguments==='object'?outer.arguments as Record<string,unknown>:outer,out=result as {id?:unknown;sessionId?:unknown;session?:{id?:unknown}}|undefined;
         const sessionId=typeof raw.sessionId==='string'?raw.sessionId:typeof out?.sessionId==='string'?out.sessionId:typeof out?.session?.id==='string'?out.session.id:call.canonicalName==='kanvas_session_create'&&typeof out?.id==='string'?out.id:undefined;
-        try{await service.recordToolCall?.(current().principal,{rawOnly:status==='failed'&&READ_ONLY_CANONICAL.has(call.canonicalName),displayId:typeof raw.displayId==='string'?raw.displayId:undefined,errorCode:error&&typeof error==='object'&&'code' in error&&typeof error.code==='string'&&/^[A-Z_]{1,80}$/.test(error.code)?error.code:undefined,clientContext:{...context?.inferred,contextVerified:false},id:invocationId,tool:call.reference.tool,operation:call.reference.operation,sessionId,timestamp:new Date(started).toISOString(),status,durationMs:Date.now()-started});}catch{/* Instrumentation must never change the tool result. */}
+        try{await service.recordToolCall?.(current().principal,{rawOnly:status==='failed'&&READ_ONLY_CANONICAL.has(call.canonicalName),displayId:typeof raw.displayId==='string'?raw.displayId:undefined,errorCode:error&&typeof error==='object'&&'code' in error&&typeof error.code==='string'&&/^[A-Z_]{1,80}$/.test(error.code)?error.code:undefined,canonical:call.canonicalName,clientContext:{...context?.inferred,contextVerified:false},id:invocationId,tool:call.reference.tool,operation:call.reference.operation,sessionId,timestamp:new Date(started).toISOString(),status,durationMs:Date.now()-started});}catch{/* Instrumentation must never change the tool result. */}
       };
       if (call.error) {
         const raw = request.params.name === 'kanvas_call' ? (request.params.arguments?.arguments as Record<string, unknown> | undefined) ?? {} : request.params.arguments ?? {};
@@ -182,18 +224,18 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
         try { if (mayRecordFailure) diagnosticId = await inToolContext(context, () => service.recordFailure?.(call.canonicalName!, raw, current().principal, call.error)); } catch { /* Preserve the original error. */ }
         await record('failed',undefined,call.error);
         let failure:unknown=call.error;try{if(call.canonicalName)failure=await service.argumentError?.(call.canonicalName,raw,current().principal,failure)??failure;}catch(error){failure=error;}
-        return decorate(toolFailure(failure, diagnosticId, callProfile, call.canonicalName));
+        return decorate(toolFailure(failure, diagnosticId, callProfile, call.canonicalName),call.canonicalName);
       }
       try {
         extra.mcpReq.signal.throwIfAborted();
         const result = await inToolContext(context, () => service.execute(call.canonicalName, call.args, current().principal, { signal: extra.mcpReq.signal }));
         await record('completed',result);
-        return decorate(toolSuccess(result, call.args.sessionId, call.canonicalName, callProfile, call.args));
+        return decorate(toolSuccess(result, call.args.sessionId, call.canonicalName, callProfile, call.args),call.canonicalName);
       } catch (error) {
         let diagnosticId: string | undefined;
         try { if (mayRecordFailure) diagnosticId = await inToolContext(context, () => service.recordFailure?.(call.canonicalName, call.args, current().principal, error)); } catch { /* Diagnostic failure must not replace this result. */ }
         await record('failed',undefined,error);
-        return decorate(toolFailure(error, diagnosticId, callProfile, call.canonicalName));
+        return decorate(toolFailure(error, diagnosticId, callProfile, call.canonicalName),call.canonicalName);
       }
     });
     });

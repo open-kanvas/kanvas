@@ -1,3 +1,4 @@
+import { needsTemplate, needsTemplateResult } from './needs-template.js';
 import { asyncFilter, asyncFlatMap, asyncMap } from './async-collections.js';
 import type { AuthPrincipal, Token } from './auth.js';
 import { hash } from './auth.js';
@@ -66,6 +67,8 @@ export class PublishSetup {
     return this.service.store.atomic(async () => {
     const s = this.service;
     // Preserve the old explicit branch, its exact idempotency namespace and result.
+    // Honest fallback: prose with no template and no data shape is not silently rendered as a fact.
+    if (needsTemplate(input)) { if (input.sessionId) await s.access(p, input.sessionId, 'editor'); else await s.fullAccount(p, 'publish'); s.friction?.count(p, 'needs-template', {}); return needsTemplateResult(input); }
     const extra = input.contextId || input.targetRef || input.newSession || input.sessionName || input.resolution;
     if (input.sessionId && input.displayIds && !extra) return { ...(await s.submit(p, input as SubmissionInput)) };
     (await s.fullAccount(p, 'publish'));

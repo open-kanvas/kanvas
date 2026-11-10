@@ -184,6 +184,8 @@ export async function createApp(options: AppOptions = {}) {
       next();
     } catch (error) { next(error); }
   });
+  // Reporters have no cookies and no JSON envelope: mounted ahead of both, with its own small body limit.
+  service.monitorStreams.mount(app);
   app.use(cookieParser());
   service.privacy.mount(app);
   app.use(['/api/diagnostics','/api/push'],express.json({limit:'16kb',strict:true}));
@@ -198,6 +200,7 @@ export async function createApp(options: AppOptions = {}) {
   mountAccounts(app,service.accounts,browser);
   mountTopology(app,service.topology,browser);
   mountExperience(app,service.experience,browser);
+  service.pickers.mount(app,browser,key=>limiter.take(key,600,60_000));
   mountNavigation(app,service.navigation,browser);
   mountInvitations(app,service.invitations,browser);
   mountPublicImages(app,new PublicImages(service,options.publicImageOptions),browser);

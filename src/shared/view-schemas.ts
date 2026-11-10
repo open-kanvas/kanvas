@@ -20,6 +20,10 @@ import { viewFormatSchema } from './regional.js';
 import { galleryDataSchema,boardBackgroundSchema } from './image-gallery.js';
 import { scoreboardDataSchema,standingsDataSchema,toolLogDataSchema } from './event-views.js';
 import { jsonDataSchema,topologyDataSchema } from './connection-views.js';
+import { taskListDataSchema } from './task-list.js';
+import { colourDataSchema } from './colour.js';
+import { iconPickerDataSchema, fontPickerDataSchema } from './pickers.js';
+import { toolCallDetailsDataSchema, agentsDataSchema, welcomeDataSchema } from './nov10-templates.js';
 import { tableRowStyleSchema,tableCellStyleSchema } from './table-style.js';
 import { workSchemas } from './work-views.js';
 import { selectionSchema, selectionKey } from './selection.js';
@@ -267,6 +271,13 @@ export const leafViewSchema = z.discriminatedUnion('template', [
   z.object({...base,template:z.literal('kanban'),data:venueSchemas['kanban']}).strict(),
   z.object({...base,template:z.literal('account-template'),data:customViewSchema}).strict(),
   z.object({...base,template:z.literal('json'),data:jsonDataSchema}).strict(),
+  z.object({...base,template:z.literal('task-list'),data:taskListDataSchema}).strict(),
+  z.object({...base,template:z.literal('colour'),data:colourDataSchema}).strict(),
+  z.object({...base,template:z.literal('icon-picker'),data:iconPickerDataSchema}).strict(),
+  z.object({...base,template:z.literal('font-picker'),data:fontPickerDataSchema}).strict(),
+  z.object({...base,template:z.literal('tool-call-details'),data:toolCallDetailsDataSchema}).strict(),
+  z.object({...base,template:z.literal('agents'),data:agentsDataSchema}).strict(),
+  z.object({...base,template:z.literal('welcome'),data:welcomeDataSchema}).strict(),
   z.object({...base,template:z.literal('session-topology'),data:topologyDataSchema}).strict(),
   z.object({...base,actions:z.array(actionSchema).max(0).optional().describe('Read-only message display. Use drafting for composition; sending belongs to the agent and its messaging connector.'),template:z.literal('email'),data:workSchemas['email']}).strict(),
   z.object({...base,actions:z.array(actionSchema).max(0).optional().describe('Read-only summaries; no message-open, reply, archive or send actions.'),template:z.literal('inbox'),data:workSchemas['inbox']}).strict(),

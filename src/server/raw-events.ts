@@ -22,6 +22,9 @@ export const trackedKinds=new Set(['image-diagnostic','delivery-paint','navigati
 /** Keep user mutations even where no document/audit event exists (for example uploads).
  * Route templates, never supplied paths/query strings, are used for this decision. */
 export function recordHttpOperation(category:'agent'|'account'|'api'|'page',status:number,operation=''){
+ // Monitor-stream posts are live-only: neither a success nor a rejection becomes a stored event row.
+ if(operation==='POST /in/:token')return false;
+ if(/^GET \/api\/picker\//.test(operation)&&status<500)return false;
  if(status>=400)return true;
  if(category==='account'&&new Set(['GET /api/auth/me','POST /api/auth/activity','GET /api/auth/email/status','POST /api/auth/email/connection-status']).has(operation))return false;
  if(category!=='api')return true;

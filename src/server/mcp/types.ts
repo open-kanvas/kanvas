@@ -11,13 +11,17 @@ export interface McpResourceDescriptor {
   mimeType?: string;
 }
 
-export interface ToolInvocation {rawOnly?:boolean;displayId?:string;errorCode?:string;clientContext?:Record<string,unknown>;id:string;tool:string;operation?:string;sessionId?:string;timestamp:string;status:'completed'|'failed';durationMs:number}
+export interface ToolInvocation {/** Canonical operation name, for account bookkeeping only; never stored in the tool log. */canonical?:string;rawOnly?:boolean;displayId?:string;errorCode?:string;clientContext?:Record<string,unknown>;id:string;tool:string;operation?:string;sessionId?:string;timestamp:string;status:'completed'|'failed';durationMs:number}
 /** The domain owns account, role, scope, revision, and session checks. */
 export interface McpService {
   argumentError?(name:string,args:Record<string,unknown>,principal:Principal,error:unknown):Promise<unknown>;
   customTemplateCatalog?(principal:Principal):Promise<import('./discovery.js').CatalogItem[]>;
   resolveIntent?(principal:Principal,args:unknown):Promise<unknown>;
   agentGuidance?(principal:Principal,args?:unknown):Promise<unknown>;
+  /** One finished call as names, classes and numbers; never content. */
+  recordFriction?(call:import('../friction.js').FrictionCall):void;
+  /** Observable state that decides which repeated blocks a response carries. */
+  responseContext?(principal:Principal,args:unknown,connectionId:string):Promise<import('./response-policy.js').ResponseContext>;
   authorize(request: Request): Promise<Principal>;
   execute(name: string, args: Record<string, unknown>, principal: Principal, context?: { signal?: AbortSignal }): Promise<unknown>;
   /** Optional content-free correlation record; never receives an unauthenticated call. */
@@ -37,6 +41,8 @@ export interface McpOptions {
   /** Exact origins, including scheme and port. Absent means same-origin only. */
   allowedOrigins?: string[];
   resourceMetadataUrl?: string;
+  /** Product website published in MCP server information; false or '' omits it. Defaults to KANVAS_WEBSITE_URL, then the project site. */
+  websiteUrl?: string | false;
   maxLegacySessions?: number;
   maxSessionsPerPrincipal?: number;
   maxSubscriptions?: number;

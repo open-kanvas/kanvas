@@ -83,6 +83,7 @@ export class Checklists {
    const slides:ViewSpec[]=[];for(const slide of view.data.slides as ViewSpec[])slides.push(await this.capture(sessionId,slide));view.data.slides=slides;return view;
   }
   if(view.template==='flashcards')return this.service.flashcards.capture(sessionId,view);
+  if(view.template==='task-list')return this.service.taskLists.capture(sessionId,view);
   if(view.template!=='checklist')return view;
   const data=checklistDataSchema.parse(view.data),key=data.checklistId??id();
   const previous=await this.store.get<Checklist>('checklist',key);

@@ -57,20 +57,18 @@ describe('e2ba79e1 task list: saved state, narrow operations, stable numbers',()
   await update({filter:null,sort:null});expect((await call('kanvas_tasklist_read',{sessionId:s,taskListId:listId})).items).toHaveLength(4);
   expect(projectTasks([{title:'b',checked:true,number:1},{title:'a',checked:false,number:2}] as never,{doneLast:true}).items.map(item=>item.number)).toEqual([2,1]);
  });
- it('own columns filter like status and tags; status colours and the palette can be set, changed and cleared after creation',async()=>{
+ it('own columns filter like status and tags: column=value, alternatives within a column, every column must match; own status colours are validated',async()=>{
   await update({items:[{item:3,fields:{owner:'Bo'}},{item:4,fields:{owner:'ada'}}]});
-  expect((await call('kanvas_tasklist_read',{sessionId:s,taskListId:listId,fields:{owner:['ADA']}})).items.map((r:{number:number})=>r.number)).toEqual([2,4]);
-  expect((await call('kanvas_tasklist_read',{sessionId:s,taskListId:listId,fields:{owner:['Ada','Bo']},status:['untested']})).items.map((r:{number:number})=>r.number)).toEqual([3,4]);
-  await update({filter:{fields:{owner:['bo']}}});
-  const filtered=await call('kanvas_tasklist_read',{sessionId:s,taskListId:listId});expect(filtered.items.map((r:{number:number})=>r.number)).toEqual([3]);expect(filtered.counts).toMatchObject({matching:1,hiddenByFilter:3});
-  const view=await shown() as never as {items:never[];filter:never};expect(projectTasks(view.items,view).items.map((item:{number:number})=>item.number)).toEqual([3]);
-  await update({filter:null});
-  const coloured=await update({statusColors:{waiting:'#d9a441',Shipped:'#4caf7d'}});expect(coloured.changes).toMatchObject({changed:[],removed:[]});
-  expect((await shown() as never as {statusColors:unknown;statusPalette:string})).toMatchObject({statusColors:{waiting:'#d9a441',Shipped:'#4caf7d'},statusPalette:'testing'});
-  await update({statusPalette:'workflow'});expect((await shown() as never as {statusPalette:string}).statusPalette).toBe('workflow');
-  await update({statusPalette:null,statusColors:null});const plain=await shown() as never as {statusPalette?:string;statusColors?:unknown;items:unknown[]};expect(plain.statusPalette).toBeUndefined();expect(plain.statusColors).toBeUndefined();expect(plain.items).toHaveLength(4);
-  let bad:unknown;try{await update({statusColors:{waiting:'orange'}});}catch(error){bad=error;}expect(safeError(bad).code).toBe('INVALID_ARGUMENT');
-  let many:unknown;try{await update({statusColors:Object.fromEntries(Array.from({length:17},(_,i)=>[`s${i}`,'#000000']))});}catch(error){many=error;}expect(many).toBeTruthy();
+  await update({filter:{fields:['owner=ADA']}});
+  expect((await call('kanvas_tasklist_read',{sessionId:s,taskListId:listId})).items.map((r:{number:number})=>r.number)).toEqual([2,4]);
+  await update({filter:{fields:['owner=Ada','owner = Bo'],status:['untested']}});
+  const filtered=await call('kanvas_tasklist_read',{sessionId:s,taskListId:listId});expect(filtered.items.map((r:{number:number})=>r.number)).toEqual([3,4]);expect(filtered.counts).toMatchObject({matching:2,hiddenByFilter:2});
+  const view=await shown() as never as {items:never[];filter:never};expect(projectTasks(view.items,view).items.map((item:{number:number})=>item.number)).toEqual([3,4]);
+  let bad:unknown;try{await update({filter:{fields:['owner']}});}catch(error){bad=error;}expect(bad).toBeTruthy();
+  await update({filter:null});expect((await call('kanvas_tasklist_read',{sessionId:s,taskListId:listId})).items).toHaveLength(4);
+  const list=(colors:Record<string,string>)=>validateView({template:'task-list',data:{colors,items:[{title:'One',status:'waiting'}]}} as never);
+  expect((list({waiting:'#d9a441',Shipped:'#4caf7d'}).data as {colors:unknown}).colors).toEqual({waiting:'#d9a441',Shipped:'#4caf7d'});
+  for(const wrong of [{waiting:'orange'},{'':'#000000'},{['x'.repeat(41)]:'#000000'},Object.fromEntries(Array.from({length:17},(_,i)=>[`s${i}`,'#000000']))])expect(()=>list(wrong),JSON.stringify(wrong).slice(0,60)).toThrow();
  });
  it('survives clearing the display, re-shows on another display, and stays inside its session',async()=>{
   await o.submit(s,[d],{version:1,template:'fact',data:{text:'Something else'}} as never);
@@ -121,7 +119,10 @@ describe('f4373691 monitor streams: write-only, capped, short-lived',()=>{
  });
  it('size, rate and count limits reject gracefully and nothing is written to the event history',async()=>{
   const {stream,url}=await created({maxEvents:10});
-  const events=async()=>Number((await h.runtime.store.query('SELECT count(*) n FROM events')).rows[0].n);
+  // Earlier requests of this test (signing in, creating the session) record their own event rows after their answer
+  // was sent. The count is read once it has stopped moving, before and after, so only the posts are measured.
+  const count=async()=>Number((await h.runtime.store.query('SELECT count(*) n FROM events')).rows[0].n);
+  const events=async()=>{let last=await count();for(let quiet=0;quiet<3;){await new Promise(done=>setTimeout(done,80));const next=await count();quiet=next===last?quiet+1:0;last=next;}return last;};
   const before=await events();
   expect((await post(url,'x'.repeat(STREAM_EVENT_BYTES+1),'text/plain')).status).toBe(413);
   const statuses:number[]=[];for(let i=0;i<STREAM_BURST+20;i++)statuses.push((await post(url,`{"n":${i}}`)).status);
@@ -236,11 +237,11 @@ describe('e011b35b pickers: allowlisted sources, sanitised, bounded, proxy can b
   pickers.iconify='https://icons.internal.example';
   const collections={mdi:{name:'Material Design Icons',total:7447,license:{spdx:'Apache-2.0'},palette:false},carbon:{name:'Carbon',total:2000,license:{spdx:'Apache-2.0'}},'fa6-solid':{name:'Font Awesome',total:1400,license:{spdx:'CC-BY-4.0'}},noto:{name:'Noto Emoji',total:3000,license:{spdx:'Apache-2.0'},palette:true},'gpl-set':{name:'Copyleft',total:10,license:{spdx:'GPL-3.0'}},lucide:{name:'Lucide',total:1600,license:{spdx:'ISC'}},unknown:{name:'No licence',total:5}};
   pickers.fetcher=async url=>{requested.push(url);return url.endsWith('/collections')?respond(JSON.stringify(collections),'application/json'):url.includes('/search?')?respond(JSON.stringify({icons:['mdi:cog','fa6-solid:gear','noto:gear','mdi:cog-outline','gpl-set:cog','lucide:settings','unknown:cog','mdi:../../x','carbon:settings','mdi:a:b'],total:10}),'application/json'):respond(svg,'image/svg+xml');};
-  const result=await h.runtime.service.execute('kanvas_icons_search',{query:'settings',sets:['iconify'],limit:10},p) as {icons:{id:string;set:string;collection:string;licence:string;image:string}[];sets:Record<string,{collections:Record<string,{licence:string}>}>;view:{template:string;data:{icons:unknown[]}}};
-  expect(result.icons.map(icon=>icon.id)).toEqual(['mdi:cog','mdi:cog-outline','carbon:settings']);expect(result.icons[0]).toMatchObject({set:'iconify',collection:'mdi',licence:'Apache-2.0',image:'/api/picker/icons/iconify/mdi/cog.svg'});
-  expect(Object.keys(result.sets.iconify.collections)).toEqual(['mdi','carbon']);expect(validateView(result.view as never).template).toBe('icon-picker');expect(result.view.data.icons[0]).toEqual({set:'iconify',collection:'mdi',name:'cog'});
+  const result=await h.runtime.service.execute('kanvas_icons_search',{query:'settings',sets:['iconify'],limit:10},p) as {icons:{id:string;set:string;name:string;collection:string;licence:string;image:string}[];sets:Record<string,{collections:Record<string,{licence:string}>}>;view:{template:string;data:{icons:unknown[]}}};
+  expect(result.icons.map(icon=>icon.id)).toEqual(['mdi:cog','mdi:cog-outline','carbon:settings']);expect(result.icons[0]).toMatchObject({set:'iconify',name:'mdi:cog',collection:'mdi',licence:'Apache-2.0',image:'/api/picker/icons/iconify/mdi/cog.svg'});
+  expect(Object.keys(result.sets.iconify.collections)).toEqual(['mdi','carbon']);expect(validateView(result.view as never).template).toBe('icon-picker');expect(result.view.data.icons[0]).toEqual({set:'iconify',name:'mdi:cog'});
   expect(requested).toEqual(['https://icons.internal.example/collections','https://icons.internal.example/search?query=settings&limit=64']);
-  const narrowed=await h.runtime.service.execute('kanvas_icons_search',{query:'two words',collections:['carbon','fa6-solid']},p) as {icons:{id:string}[]};expect(narrowed.icons.map(icon=>icon.id)).toEqual(['carbon:settings']);expect(requested.at(-1)).toBe('https://icons.internal.example/search?query=two%20words&limit=64&prefixes=carbon');
+  const narrowed=await h.runtime.service.execute('kanvas_icons_search',{query:'carbon,fa6-solid: two words'},p) as {icons:{id:string}[]};expect(narrowed.icons.map(icon=>icon.id)).toEqual(['carbon:settings']);expect(requested.at(-1)).toBe('https://icons.internal.example/search?query=two%20words&limit=64&prefixes=carbon');
   const before=requested.length;
   expect((await o.raw('/api/picker/icons/iconify/mdi/cog.svg')).status).toBe(200);expect(requested.slice(before)).toEqual(['https://icons.internal.example/mdi/cog.svg']);
   for(const refused of ['fa6-solid/gear','noto/gear','gpl-set/cog','lucide/settings','unknown/cog','nope/cog','mdi/..%2f..%2fx'])expect((await o.raw(`/api/picker/icons/iconify/${refused}.svg`)).status,refused).toBe(404);
@@ -295,7 +296,7 @@ describe('ebebd25c colour: published values and computed colours',()=>{
  it('every mode validates, labels are speakable, and the token list returns exact values',()=>{
   const view=(data:Record<string,unknown>)=>validateView({template:'colour',data} as never).data as never;
   expect(colourTokens(view({mode:'options',options:[{value:'tailwind:amber-400'},{value:'#4f46e5',label:'indigo'}]}))).toEqual([{name:'A',hex:'#fbbf24'},{name:'indigo',hex:'#4f46e5'}]);
-  const grid=shadeGrid(view({mode:'shades',palette:'tailwind',families:['amber','sky']}));expect(grid.columns).toHaveLength(11);expect(grid.rows.map(r=>r.name)).toEqual(['amber','sky']);expect(grid.rows[0].cells[4]).toEqual({label:'amber 400',shade:'400',hex:'#fbbf24'});expect(grid.cellLabels).toBe('none');
+  const grid=shadeGrid(view({mode:'shades',palette:'tailwind',families:['amber','sky']}));expect(grid.columns).toHaveLength(11);expect(grid.rows.map(r=>r.name)).toEqual(['amber','sky']);expect(grid.rows[0].cells[4]).toEqual({label:'amber 400',shade:'400',hex:'#fbbf24'});expect(grid.cellLabels).toBe('none');expect(shadeGrid(view({mode:'shades',palette:'tailwind',families:['amber'],hex:true})).cellLabels).toBe('hex');
   expect(shadeGrid(view({mode:'shades',palette:'tailwind'})).rows).toHaveLength(22);
   expect(roleSteps(view({mode:'roles',scale:'radix:blue'})).map(s=>s.role)[8]).toBe('Solid background');
   expect(NAMED_GROUPS.flatMap(group=>namedColours(group)).length).toBe(148);expect(namedColours('blues').some(c=>c.name==='royalblue')).toBe(true);expect(namedColours('greys').some(c=>c.name==='gray')).toBe(true);

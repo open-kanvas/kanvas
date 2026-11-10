@@ -34,11 +34,11 @@ The five core sets work on every installation. The wider catalogue (more than a 
 - Collections that repeat a core set (Lucide, Heroicons, Phosphor, Tabler, Material Symbols) are left out.
 - The same limits apply as for the CDN: no redirects, 8 second timeout, 64 KB per icon, sanitised SVG, bounded cache, signed-in browsers only.
 
-A catalogue icon is `{"set":"iconify","collection":"mdi","name":"cog-outline"}` in a view; its exact name for code is the Iconify name `mdi:cog-outline`. Against the public Iconify API on 2026-11-10 this allowlist left 126 of 276 collections; the public API was used only to check the response format, it is not a default.
+A catalogue icon is written the way Iconify writes it, `{"set":"iconify","name":"mdi:cog-outline"}`, and that name is the exact name for code. Against the public Iconify API on 2026-11-10 this allowlist left 126 of 276 collections; the public API was used only to check the response format, it is not a default.
 
 ## Operations and templates
 
-- `kanvas.icons.search {query, sets?, collections?, limit?}` returns exact ids (`set:name`, or `collection:name` for the catalogue), the available styles and a ready `icon-picker` view. With no `sets` it searches the five core sets and, where one is configured, the catalogue; `sets: ["iconify"]` or `collections: ["mdi","carbon"]` asks for the catalogue only. Lucide's published tag list makes concept words such as "weather" find `sun`.
+- `kanvas.icons.search {query, sets?, limit?}` returns exact ids (`set:name`, or `collection:name` for the catalogue), the available styles and a ready `icon-picker` view. With no `sets` it searches the five core sets and, where one is configured, the catalogue; `sets: ["iconify"]` asks for the catalogue only, and a query that starts with collection prefixes and a colon (`"mdi: settings"`, `"mdi,carbon: arrow left"`) searches only those collections. Lucide's published tag list makes concept words such as "weather" find `sun`.
 - `kanvas.fonts.list {category?}` or `{family}` returns ids, weights, whether the family is variable with its weight range, and licence.
 - `icon-picker` modes: `candidates`, `sets`, `variants` (every style of a core-set icon; a catalogue icon is one drawing), `context`.
 - `font-picker` modes: `samples`, `pairings` (fonts two at a time: heading, then body), `weights` (every weight of the first family), `context`. Sample text is supplied by the agent or the person.

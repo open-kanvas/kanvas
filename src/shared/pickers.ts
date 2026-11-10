@@ -25,20 +25,24 @@ export const iconifyCollectionSchema=z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*
 export const ICONIFY_LICENCES=['MIT','ISC','Apache-2.0','CC0-1.0','Unlicense','BSD-2-Clause','BSD-3-Clause','0BSD','MIT-0'] as const;
 /** Collections that repeat a core set under another name. */
 export const ICONIFY_CORE_DUPLICATES=/^(lucide|lucide-lab|heroicons|heroicons-outline|heroicons-solid|ph|tabler|material-symbols|material-symbols-light)$/;
-export const iconRefSchema=z.object({set:z.enum([...ICON_SET_IDS,ICONIFY_SET]),collection:iconifyCollectionSchema.optional().describe('Only with set "iconify": the collection prefix, e.g. mdi.'),name:iconNameSchema,variant:iconVariantSchema.optional()}).strict().superRefine((icon,ctx)=>{
+/** In a view a catalogue icon is written the way Iconify writes it: {"set":"iconify","name":"mdi:cog-outline"}. */
+export const iconRefNameSchema=z.string().regex(/^[a-z0-9]+(?:[-_:][a-z0-9]+)*$/).max(99);
+/** Collection prefix and icon name of a catalogue icon, or undefined when the name is not exactly prefix:name. */
+export const iconifyParts=(name:string):[string,string]|undefined=>{const parts=name.split(':');return parts.length===2&&iconifyCollectionSchema.safeParse(parts[0]).success&&iconNameSchema.safeParse(parts[1]).success?[parts[0],parts[1]]:undefined;};
+export const iconRefSchema=z.object({set:z.enum([...ICON_SET_IDS,ICONIFY_SET]),name:iconRefNameSchema,variant:iconVariantSchema.optional()}).strict().superRefine((icon,ctx)=>{
  if(icon.set===ICONIFY_SET){
-  if(!icon.collection)ctx.addIssue({code:'custom',path:['collection'],message:'An iconify icon names its collection, e.g. {"set":"iconify","collection":"mdi","name":"cog"}.'});
+  if(!iconifyParts(icon.name))ctx.addIssue({code:'custom',path:['name'],message:'An iconify icon is named collection:icon, e.g. {"set":"iconify","name":"mdi:cog-outline"}.'});
   if(icon.variant)ctx.addIssue({code:'custom',path:['variant'],message:'Catalogue icons have no variants; a style is part of the icon name or the collection.'});
- }else if(icon.collection)ctx.addIssue({code:'custom',path:['collection'],message:'collection is only used with set "iconify".'});
+ }else if(!iconNameSchema.safeParse(icon.name).success)ctx.addIssue({code:'custom',path:['name'],message:'A core-set icon name has lower-case letters, digits and hyphens only; collection:icon names need set "iconify".'});
 });
 export type IconRef=z.infer<typeof iconRefSchema>;
-type IconParts=Pick<IconRef,'set'|'name'|'variant'|'collection'>;
+type IconParts=Pick<IconRef,'set'|'name'|'variant'>;
 const core=(icon:IconParts)=>ICON_SETS[icon.set as IconSetId];
 /** The address a browser uses. Built from validated parts only. */
-export const iconUrl=(icon:IconParts)=>icon.set===ICONIFY_SET?`/api/picker/icons/${ICONIFY_SET}/${icon.collection}/${icon.name}.svg`:`/api/picker/icons/${icon.set}/${icon.variant??core(icon).defaultVariant}/${icon.name}.svg`;
+export const iconUrl=(icon:IconParts)=>icon.set===ICONIFY_SET?`/api/picker/icons/${ICONIFY_SET}/${icon.name.replace(':','/')}.svg`:`/api/picker/icons/${icon.set}/${icon.variant??core(icon).defaultVariant}/${icon.name}.svg`;
 /** The exact name an agent uses in code: set:name for a core set, the Iconify name (collection:name) for the catalogue. */
-export const iconId=(icon:IconParts)=>icon.set===ICONIFY_SET?`${icon.collection}:${icon.name}`:`${icon.set}:${icon.name}${icon.variant&&icon.variant!==core(icon).defaultVariant?`/${icon.variant}`:''}`;
-export const iconSetTitle=(icon:IconParts)=>icon.set===ICONIFY_SET?`Iconify ${icon.collection}`:core(icon).title;
+export const iconId=(icon:IconParts)=>icon.set===ICONIFY_SET?icon.name:`${icon.set}:${icon.name}${icon.variant&&icon.variant!==core(icon).defaultVariant?`/${icon.variant}`:''}`;
+export const iconSetTitle=(icon:IconParts)=>icon.set===ICONIFY_SET?`Iconify ${icon.name.split(':')[0]}`:core(icon).title;
 export const iconVariants=(icon:IconParts):string[]=>icon.set===ICONIFY_SET?[]:Object.keys(core(icon).variants);
 export const iconPickerDataSchema=z.object({
  mode:z.enum(['candidates','sets','variants','context']).default('candidates'),
@@ -97,7 +101,7 @@ export const fontDisplayName=(family:string)=>Object.hasOwn(FONT_FAMILIES,family
 /** CSS family name used only inside picker views, so it never collides with an installed font. */
 export const fontCssName=(family:string)=>`kanvas-pick-${family}`;
 export const fontPickerDataSchema=z.object({
- mode:z.enum(['samples','pairings','weights','context']).default('samples').describe('samples: the text in each font. pairings: fonts taken two at a time as heading and body. weights: each weight of the first family. context: title, paragraph and button.'),
+ mode:z.enum(['samples','pairings','weights','context']).default('samples').describe('pairings: fonts two at a time, heading then body. weights: of the first family.'),
  text:z.string().min(1).max(160).default('The quick brown fox jumps over the lazy dog'),
  fonts:z.array(fontRefSchema).min(1).max(12),
  selected:z.number().int().min(1).max(12).optional(),

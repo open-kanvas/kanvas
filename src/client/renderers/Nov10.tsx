@@ -60,7 +60,7 @@ export function TaskList({data}:{data:TaskListData}){
  return <div className="task-list" data-task-list={data.taskListId}>
   <p className="task-list-counts"><span><b>{open}</b> open</span><span><b>{done}</b> done</span>{projected.hidden>0&&<span className="task-list-hidden">{projected.hidden} hidden by filter</span>}</p>
   <div className="task-list-scroll" data-navigation-scroll tabIndex={0}><table><thead><tr><th className="task-number" scope="col">#</th><th scope="col" className="task-check" aria-label="Done"/><th scope="col">Item</th>{anyStatus&&<th scope="col">Status</th>}{anyTags&&<th scope="col">Tags</th>}{columns.map(column=><th key={column.key} scope="col">{column.label}</th>)}</tr></thead>
-   <tbody ref={body}>{projected.items.map(item=>{const current=item.id===data.highlight,colour=statusColor(data.statusPalette,item.status,data.statusColors);
+   <tbody ref={body}>{projected.items.map(item=>{const current=item.id===data.highlight,colour=statusColor(data.statusPalette,item.status,data.colors);
     return <tr key={item.id??item.number} data-task-id={item.id} data-task-number={item.number} className={`${item.checked?'is-done':''}${current?' is-current':''}`.trim()} aria-current={current?'true':undefined}>
      <td className="task-number">{item.number}</td>
      <td className="task-check"><span className="task-box" role="img" aria-label={item.checked?'Done':'Open'}>{item.checked?'✓':''}</span></td>

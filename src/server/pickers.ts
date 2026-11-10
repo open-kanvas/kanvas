@@ -40,10 +40,10 @@ export const PICKER_ICONIFY_SEARCH=64,PICKER_ICONIFY_COLLECTIONS_MS=10*60_000;
 interface IconifyCollection {title:string;licence:string;total:number}
 export const PICKER_ICON_BYTES=64*1024,PICKER_FONT_BYTES=400*1024,PICKER_CACHE_BYTES=48*1024*1024,PICKER_TIMEOUT_MS=8000;
 const identifier=z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
-export const iconsSearchSchema=z.strictObject({query:z.string().trim().min(1).max(60),sets:z.array(z.enum([...ICON_SET_IDS,ICONIFY_SET])).max(6).optional(),collections:z.array(iconifyCollectionSchema).max(10).optional().describe('Narrow the iconify catalogue to these collection prefixes, e.g. ["mdi","carbon"].'),limit:z.number().int().min(1).max(24).default(12),sessionId:identifier.optional()});
+export const iconsSearchSchema=z.strictObject({query:z.string().trim().min(1).max(60),sets:z.array(z.enum([...ICON_SET_IDS,ICONIFY_SET])).max(6).optional(),limit:z.number().int().min(1).max(24).default(12),sessionId:identifier.optional()});
 export const fontsListSchema=z.strictObject({category:z.enum(['sans','serif','mono','display','handwriting']).optional(),family:fontIdSchema.optional()});
 export const pickerTools:Definition[]=[
- {name:'kanvas_icons_search',schema:iconsSearchSchema,readOnly:true,description:'Find icons by concept across open-source sets (Lucide, Heroicons, Phosphor, Tabler, Material Symbols) and, where the installation has one, the wider iconify catalogue. Returns exact ids and a ready icon-picker view.'},
+ {name:'kanvas_icons_search',schema:iconsSearchSchema,readOnly:true,description:'Find icons by concept in open-source sets (Lucide, Heroicons, Phosphor, Tabler, Material Symbols; iconify where configured). Returns exact ids and a ready icon-picker view.'},
  {name:'kanvas_fonts_list',schema:fontsListSchema,readOnly:true,description:'List curated open-licence font families with ids and weights for the font-picker template, or check one family id.'},
 ];
 interface Entry {body:Buffer;type:string;bytes:number}
@@ -202,10 +202,12 @@ export class Pickers{
  }
  async searchIcons(p:AuthPrincipal,raw:unknown){
   const a=iconsSearchSchema.parse(raw);await this.service.fullAccount(p);
-  // Naming collections asks for the catalogue; with no sets named, every core set is searched and the catalogue too where one is configured.
-  const requested=a.sets?.length?[...new Set(a.sets)]:a.collections?.length?[ICONIFY_SET]:[...ICON_SET_IDS,...(this.iconify?[ICONIFY_SET]:[])];
+  // "mdi: settings" or "mdi,carbon: arrow left" asks the catalogue for those collections only. With no sets named,
+  // every core set is searched and the catalogue too where one is configured.
+  const scoped=/^([a-z0-9-]+(?:,[a-z0-9-]+){0,9}):\s*(\S.*)$/.exec(a.query.toLowerCase()),only=scoped?.[1].split(','),query=scoped?scoped[2]:a.query;
+  const requested=only?[ICONIFY_SET]:a.sets?.length?[...new Set(a.sets)]:[...ICON_SET_IDS,...(this.iconify?[ICONIFY_SET]:[])];
   const sets=requested.filter((set):set is IconSetId=>set!==ICONIFY_SET),wide=requested.includes(ICONIFY_SET);
-  const words=a.query.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const words=query.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
   const tags=sets.includes('lucide')?await this.lucideTags():{};
   const found:{set:IconSetId|typeof ICONIFY_SET;collection?:string;name:string;variants:string[];licence:string;score:number}[]=[],unavailable:string[]=[],reasons:string[]=[];
   for(const set of sets){
@@ -222,7 +224,7 @@ export class Pickers{
   const collections=new Map<string,IconifyCollection>();
   if(wide){
    if(!this.iconify){unavailable.push(ICONIFY_SET);reasons.push('No Iconify API is configured on this installation, so the wider catalogue is not available.');}
-   else try{(await this.catalogueSearch(a.query,a.collections)).forEach((hit,index)=>{collections.set(hit.collection,hit.info);found.push({set:ICONIFY_SET,collection:hit.collection,name:hit.name,variants:[],licence:hit.info.licence,score:1000-index});});}
+   else try{(await this.catalogueSearch(query,only)).forEach((hit,index)=>{collections.set(hit.collection,hit.info);found.push({set:ICONIFY_SET,collection:hit.collection,name:`${hit.collection}:${hit.name}`,variants:[],licence:hit.info.licence,score:1000-index});});}
    catch{unavailable.push(ICONIFY_SET);reasons.push('The Iconify catalogue could not be reached right now.');}
   }
   // Interleave sets so one large set does not crowd out the others.
@@ -232,8 +234,8 @@ export class Pickers{
   return {query:a.query,icons,total:found.length,...(unavailable.length?{unavailableSets:unavailable,unavailableReason:reasons.join(' ')}:{}),
    sets:Object.fromEntries([...sets.map(set=>[set,{title:ICON_SETS[set].title,licence:ICON_SETS[set].licence,variants:Object.keys(ICON_SETS[set].variants)}] as const),
     ...(wide&&this.iconify&&!unavailable.includes(ICONIFY_SET)?[[ICONIFY_SET,{title:'Iconify catalogue',licences:'Permissive only: '+ICONIFY_LICENCES.join(', ')+'. Single-colour collections.',collections:Object.fromEntries([...collections].map(([prefix,info])=>[prefix,{title:info.title,licence:info.licence}]))}] as const]:[])]),
-   ...(icons.length?{view:{version:1,template:'icon-picker',data:{mode:'candidates',concept:a.query,icons:icons.map(icon=>({set:icon.set,...('collection' in icon?{collection:icon.collection}:{}),name:icon.name}))}}}:{}),
-   next:'Publish view so the person can pick by number. Use the id as the exact name in code: set:name for a core set, collection:name for the iconify catalogue.'};
+   ...(icons.length?{view:{version:1,template:'icon-picker',data:{mode:'candidates',concept:a.query,icons:icons.map(icon=>({set:icon.set,name:icon.name}))}}}:{}),
+   next:'Publish view so the person can pick by number. Use the id as the exact name in code: set:name for a core set, collection:name for the iconify catalogue. Narrow the catalogue in the query: "mdi: settings".'};
  }
  async listFonts(p:AuthPrincipal,raw:unknown){
   const a=fontsListSchema.parse(raw);await this.service.fullAccount(p);

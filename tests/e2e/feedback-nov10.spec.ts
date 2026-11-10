@@ -244,28 +244,28 @@ test('new templates paint on desktop and phone without overflow or page chrome',
  for(const data of [{mode:'options',options:[{value:'tailwind:amber-400'},{value:'tailwind:sky-500'},{value:'#4f46e5'},{value:'tailwind:emerald-500'}]},{mode:'shades',palette:'tailwind'},{mode:'harmony',base:'#0090ff'},{mode:'contrast',backgrounds:['#ffffff','#111111','tailwind:amber-100'],texts:['#111111','#ffffff','tailwind:sky-700']},{mode:'roles',scale:'radix:blue'},{mode:'theme',seed:'#6750a4'},{mode:'variations',base:'tailwind:rose-500'},{mode:'named',group:'blues'},
   // ebebd25c: the agent's own families print a speakable label in every cell; hex can be asked for on any grid.
   {mode:'shades',custom:[{name:'Brand',shades:[{value:'#fef3c7',label:'lightest'},{value:'#fde68a',label:'light'},{value:'#f59e0b',label:'base'},{value:'#b45309',label:'dark'},{value:'#78350f',label:'deepest'}]},{name:'Ink',shades:[{value:'#f3f4f6'},{value:'#d1d5db'},{value:'#6b7280'},{value:'#374151'},{value:'#111827'}]}]},
-  {mode:'shades',palette:'tailwind',families:['amber','sky','rose'],cellLabels:'hex'}] as Record<string,unknown>[]){
+  {mode:'shades',palette:'tailwind',families:['amber','sky','rose'],hex:true}] as Record<string,unknown>[]){
   await publishPrepared(page,s,[d.id],view('colour',data));await fits(`.colour-view[data-colour-mode="${data.mode}"]`,`colour-${data.mode}`);
   // Labels never wrap mid-word or spill out of their swatch.
   const spill=await viewer.locator(`.viewer-candidate .colour-view[data-colour-mode="${data.mode}"]`).evaluate(root=>[...root.querySelectorAll<HTMLElement>('.colour-chip b,.colour-shade-row>b,.colour-shade-head b')].filter(el=>el.scrollWidth>el.clientWidth+1&&getComputedStyle(el).textOverflow!=='ellipsis').length);expect(spill,`colour ${data.mode} labels`).toBe(0);
-  if(data.custom||data.cellLabels){
+  if(data.custom||data.hex){
    // Every printed cell label lies inside its own cell, on one line, in a size a person can read.
    const cells=await viewer.locator('.viewer-candidate .colour-shades [role=cell]').evaluateAll(list=>list.map(cell=>{const outer=cell.getBoundingClientRect();return [...cell.querySelectorAll<HTMLElement>('b,code')].filter(label=>getComputedStyle(label).display!=='none').map(label=>{const box=label.getBoundingClientRect();return {text:label.textContent,inside:box.left>=outer.left-1&&box.right<=outer.right+1&&box.top>=outer.top-1&&box.bottom<=outer.bottom+1,oneLine:box.height<=parseFloat(getComputedStyle(label).fontSize)*1.4,size:parseFloat(getComputedStyle(label).fontSize)};});}));
    expect(cells.length).toBe(data.custom?10:33);// Hex is printed where a cell is wide enough to print it legibly; an upright phone showing eleven shades prints the shade alone.
-   const phone=info.project.name.startsWith('phone');expect(cells.map(labels=>labels.length),'every cell is labelled').toEqual(cells.map(()=>data.cellLabels==='hex'&&!phone?2:1));
+   const phone=info.project.name.startsWith('phone');expect(cells.map(labels=>labels.length),'every cell is labelled').toEqual(cells.map(()=>data.hex&&!phone?2:1));
    expect(cells.flat().filter(label=>!label.inside||!label.oneLine)).toEqual([]);
    if(data.custom){expect(cells[2][0].text).toBe('base');expect(cells[9][0].text).toBe('5');expect(Math.min(...cells.flat().map(label=>label.size)),'own shade labels are readable').toBeGreaterThanOrEqual(phone?8:11);}
    else{expect(cells[4].map(label=>label.text)).toEqual(phone?['400']:['400','#fbbf24']);expect(Math.min(...cells.flat().map(label=>label.size)),'printed labels are readable').toBeGreaterThanOrEqual(phone?8:10);}
   }
  }
  // e2ba79e1: a list's own status colours paint the pill; an own column filters on the display exactly as on the server.
- await publishPrepared(page,s,[d.id],view('task-list',{statusColors:{waiting:'#d9a441'},columns:[{key:'owner',label:'Owner'}],filter:{fields:{owner:['ada']}},items:[{title:'Sign in',status:'Waiting',fields:{owner:'Ada'}},{title:'Dismiss a toast',status:'other value',fields:{owner:'Bo'}},{title:'Reopen the app',status:'waiting',fields:{owner:'ADA'}}]}));
+ await publishPrepared(page,s,[d.id],view('task-list',{colors:{waiting:'#d9a441'},columns:[{key:'owner',label:'Owner'}],filter:{fields:['owner=ada']},items:[{title:'Sign in',status:'Waiting',fields:{owner:'Ada'}},{title:'Dismiss a toast',status:'other value',fields:{owner:'Bo'}},{title:'Reopen the app',status:'waiting',fields:{owner:'ADA'}}]}));
  await fits('.task-list','task-list-own-colours');await expect(viewer.locator('.viewer-candidate .task-list tbody tr')).toHaveCount(2);await expect(viewer.locator('.viewer-candidate .task-list-hidden')).toHaveText('1 hidden by filter');
  expect(await viewer.locator('.viewer-candidate .task-list .task-pill').first().evaluate(pill=>getComputedStyle(pill).getPropertyValue('--pill').trim())).toBe('#d9a441');
  await publishPrepared(page,s,[d.id],validateView(samples['icon-picker']));await fits('.icon-picker','icon-picker');await expect(viewer.locator('.viewer-candidate .icon-picker .picker-label').first()).toHaveText('lucide:settings');
  // e011b35b: a catalogue icon is drawn through the Kanvas server too and prints its exact Iconify name.
  const catalogue:string[]=[];viewer.on('request',request=>{const path=new URL(request.url()).pathname;if(path.startsWith('/api/picker/icons/iconify/'))catalogue.push(path);});
- await publishPrepared(page,s,[d.id],view('icon-picker',{mode:'sets',concept:'settings',icons:[{set:'lucide',name:'settings'},{set:'iconify',collection:'mdi',name:'cog-outline'},{set:'iconify',collection:'carbon',name:'settings'}]}));await fits('.icon-picker.mode-sets','icon-picker-catalogue');
+ await publishPrepared(page,s,[d.id],view('icon-picker',{mode:'sets',concept:'settings',icons:[{set:'lucide',name:'settings'},{set:'iconify',name:'mdi:cog-outline'},{set:'iconify',name:'carbon:settings'}]}));await fits('.icon-picker.mode-sets','icon-picker-catalogue');
  await expect(viewer.locator('.viewer-candidate .icon-picker .picker-label')).toHaveText(['lucide:settings','mdi:cog-outline','carbon:settings']);await expect.poll(()=>catalogue.sort()).toEqual(['/api/picker/icons/iconify/carbon/settings.svg','/api/picker/icons/iconify/mdi/cog-outline.svg']);
  await publishPrepared(page,s,[d.id],validateView(samples['font-picker']));await fits('.font-picker','font-picker');await expect(viewer.locator('.viewer-candidate .font-picker .picker-label').first()).toHaveText('Inter 400');
  await publishPrepared(page,s,[d.id],validateView(samples.agents));await fits('.agents-view','agents');

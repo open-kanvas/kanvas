@@ -39,7 +39,7 @@ const identifier=z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 export const agentsReadSchema=z.strictObject({agentId:identifier.optional(),limit:z.number().int().min(1).max(100).default(50)});
 export const agentsRevokeSchema=z.strictObject({agentId:identifier,confirm:z.literal(true)});
 export const agentTools:Definition[]=[
- {name:'kanvas_agents_read',schema:agentsReadSchema,readOnly:true,description:'List the agents connected to this account, recognised from the MCP client name and User-Agent: active now, last seen, session count. agentId returns one agent\'s sessions and activity log.'},
+ {name:'kanvas_agents_read',schema:agentsReadSchema,readOnly:true,description:'List this account\'s agents, recognised from the MCP client name and User-Agent: active now, last seen, sessions. agentId returns one agent\'s sessions and log.'},
  {name:'kanvas_agents_revoke',schema:agentsRevokeSchema,description:'Revoke one agent\'s access after the owner confirms it; not the connection making this call.'},
 ];
 export class Agents{

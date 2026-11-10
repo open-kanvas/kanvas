@@ -6,6 +6,9 @@ import {z} from 'zod';
 const identifier=z.string().min(1).max(128).regex(/^[a-zA-Z0-9_.:-]+$/);
 export const TASK_LIST_MAX_ITEMS=200,TASK_DETAIL_MAX=8000,STATUS_COLOURS_MAX=16;
 export const taskColumnSchema=z.object({key:z.string().min(1).max(40),label:z.string().min(1).max(60)}).strict();
+/** A small map of text to text: an item's own column values, and a list's own status colours. */
+const textMap=z.record(z.string(),z.string().max(200));
+const longKey=(map:Record<string,string>|undefined)=>Object.keys(map??{}).some(key=>key.length>40);
 export const taskItemSchema=z.object({
  id:identifier.optional(),
  number:z.number().int().min(1).optional(),
@@ -16,7 +19,7 @@ export const taskItemSchema=z.object({
  checked:z.boolean().default(false),
  status:z.string().min(1).max(40).optional(),
  tags:z.array(z.string().min(1).max(30)).max(8).optional(),
- fields:z.record(z.string().max(40),z.string().max(200)).optional(),
+ fields:textMap.optional(),
  hasDetail:z.boolean().optional(),
 }).strict();
 export const STATUS_PALETTES={
@@ -27,21 +30,26 @@ export const STATUS_PALETTES={
 export type StatusPaletteName=keyof typeof STATUS_PALETTES;
 const sortSchema=z.object({by:z.string().max(40),direction:z.enum(['asc','desc']).default('asc')}).strict();
 /** Values of an own column to keep, e.g. {"owner":["Anna"]}. Matching ignores case, like status and tags. */
-export const taskFieldFilterSchema=z.record(z.string().min(1).max(40),z.array(z.string().max(200)).min(1).max(12)).refine(value=>Object.keys(value).length<=6,'At most 6 columns in one filter.');
-const filterSchema=z.object({status:z.array(z.string().max(40)).max(12).optional(),tags:z.array(z.string().max(30)).max(12).optional(),fields:taskFieldFilterSchema.optional(),done:z.boolean().optional()}).strict();
+const filterValues=z.array(z.string().max(40)).max(12);
+/** A filter on an own column is plain text, column=value ("owner=Anna"): entries for the same column are
+ * alternatives, different columns must all match. Undefined when the text is not of that form. */
+export const fieldFilter=(entry:string):[string,string]|undefined=>{const at=entry.indexOf('=');return at>0&&at<entry.length-1?[entry.slice(0,at).trim(),entry.slice(at+1).trim()]:undefined;};
+const filterSchema=z.object({status:filterValues.optional(),tags:z.array(z.string().max(30)).max(12).optional(),fields:filterValues.optional(),done:z.boolean().optional()}).strict();
 export const taskListDataSchema=z.object({
  taskListId:identifier.optional(),
  taskListRevision:z.number().int().nonnegative().optional(),
  columns:z.array(taskColumnSchema).max(6).optional(),
  statusPalette:z.enum(['traffic','testing','workflow']).optional(),
- statusColors:z.record(z.string().min(1).max(40),z.string().regex(/^#[0-9a-fA-F]{6}$/)).optional().describe('Own status colours, e.g. {"waiting":"#d9a441"}.'),
+ colors:textMap.optional(),
  items:z.array(taskItemSchema).max(TASK_LIST_MAX_ITEMS),
  highlight:identifier.optional(),
  sort:sortSchema.optional(),filter:filterSchema.optional(),
 }).strict().superRefine((data,ctx)=>{
  const ids=new Set<string>(),numbers=new Set<number>();
- if(data.statusColors&&Object.keys(data.statusColors).length>STATUS_COLOURS_MAX)ctx.addIssue({code:'custom',path:['statusColors'],message:`At most ${STATUS_COLOURS_MAX} status colours.`});
+ if(data.colors&&(Object.keys(data.colors).length>STATUS_COLOURS_MAX||longKey(data.colors)||Object.entries(data.colors).some(([value,colour])=>!value.trim()||!/^#[0-9a-fA-F]{6}$/.test(colour))))ctx.addIssue({code:'custom',path:['colors'],message:`colors maps up to ${STATUS_COLOURS_MAX} status values to #rrggbb colours, e.g. {"waiting":"#d9a441"}.`});
+ for(const [index,entry] of (data.filter?.fields??[]).entries())if(!fieldFilter(entry))ctx.addIssue({code:'custom',path:['filter','fields',index],message:'A column filter is written column=value, e.g. "owner=Anna".'});
  data.items.forEach((item,index)=>{
+  if(longKey(item.fields))ctx.addIssue({code:'custom',path:['items',index,'fields'],message:'A column key has at most 40 characters.'});
   if(item.id){if(ids.has(item.id))ctx.addIssue({code:'custom',path:['items',index,'id'],message:'Task ids must be unique.'});ids.add(item.id);}
   if(item.number!==undefined){if(numbers.has(item.number))ctx.addIssue({code:'custom',path:['items',index,'number'],message:'Task numbers must be unique.'});numbers.add(item.number);}
  });
@@ -51,7 +59,7 @@ export type TaskItem=z.infer<typeof taskItemSchema>;
 const same=(a:string|undefined,b:string|undefined)=>(a??'').trim().toLocaleLowerCase()===(b??'').trim().toLocaleLowerCase();
 /** Colour of a status pill: the list's own colours first, then its ready-made
  * palette. Matching ignores case. Any other value is a neutral pill. */
-export function statusColor(palette:TaskListData['statusPalette'],status:string|undefined,own?:TaskListData['statusColors']):string|undefined{
+export function statusColor(palette:TaskListData['statusPalette'],status:string|undefined,own?:TaskListData['colors']):string|undefined{
  if(!status)return undefined;
  const custom=own?Object.entries(own).find(([value])=>same(value,status))?.[1]:undefined;
  if(custom||!palette)return custom;
@@ -68,7 +76,8 @@ export function projectTasks<T extends Pick<TaskItem,'checked'|'status'|'tags'|'
   if(filter?.done!==undefined&&Boolean(item.checked)!==filter.done)return false;
   if(filter?.status?.length&&!filter.status.some(value=>same(value,item.status)))return false;
   if(filter?.tags?.length&&!filter.tags.some(tag=>(item.tags??[]).some(own=>same(own,tag))))return false;
-  if(filter?.fields)for(const [column,values] of Object.entries(filter.fields))if(!values.some(value=>same(value,item.fields?.[column])))return false;
+  if(filter?.fields?.length){const wanted=new Map<string,string[]>();for(const entry of filter.fields){const pair=fieldFilter(entry);if(pair)wanted.set(pair[0],[...(wanted.get(pair[0])??[]),pair[1]]);}
+   for(const [column,values] of wanted)if(!values.some(value=>same(value,item.fields?.[column])))return false;}
   return true;
  });
  const indexed=kept.map((item,index)=>({item,index}));

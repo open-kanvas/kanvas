@@ -88,21 +88,23 @@ export type ColourMode=typeof COLOUR_MODES[number];
  * small; the rules below keep the contract exactly as strict as a union. */
 const MODE_FIELDS:Record<ColourMode,{needs:readonly string[];allows:readonly string[]}>={
  options:{needs:['options'],allows:[]},variations:{needs:['base'],allows:[]},harmony:{needs:['base'],allows:[]},
- shades:{needs:[],allows:['palette','families','custom','cellLabels']},named:{needs:['group'],allows:[]},
+ shades:{needs:[],allows:['palette','families','custom','hex']},named:{needs:['group'],allows:[]},
  contrast:{needs:['backgrounds','texts'],allows:['sample']},roles:{needs:[],allows:['scale','steps']},theme:{needs:['seed'],allows:[]},
 };
-const MODE_SPECIFIC=['options','base','palette','families','custom','cellLabels','group','backgrounds','texts','sample','scale','steps','seed'] as const;
+const MODE_SPECIFIC=['options','base','palette','families','custom','hex','group','backgrounds','texts','sample','scale','steps','seed'] as const;
+/** One to six colours: the two axes of the contrast matrix share this shape. */
+const colourList=z.array(colourValue).min(1).max(6);
 export const colourDataSchema=z.object({
- mode:z.enum(COLOUR_MODES).describe('options: 2-8 candidates. variations: around base. shades: palette or custom families. named: CSS names by group. harmony: from base. contrast: backgrounds by texts. roles: 12-step scale. theme: from seed.'),
+ mode:z.enum(COLOUR_MODES).describe('variations, harmony: from base. shades: palette or custom. named: group. contrast: backgrounds by texts. roles: scale or steps. theme: seed.'),
  options:z.array(swatch).min(2).max(8).optional(),
  base:colourValue.optional(),
  palette:z.enum(PALETTE_IDS).optional(),
  families:z.array(z.string().max(20)).max(31).optional(),
  custom:z.array(z.object({name:z.string().max(24),shades:z.array(swatch).min(2).max(13)}).strict()).max(12).optional(),
- cellLabels:z.enum(['none','shade','hex']).optional().describe('Shade grid: what each cell prints. shade (default for custom families) or hex (shade and value); none keeps labels on the axes (default for a built-in palette).'),
+ hex:z.boolean().optional(),
  group:z.enum(NAMED_GROUPS).optional(),
- backgrounds:z.array(colourValue).min(1).max(6).optional(),
- texts:z.array(colourValue).min(1).max(6).optional(),
+ backgrounds:colourList.optional(),
+ texts:colourList.optional(),
  sample:z.string().max(40).optional(),
  scale:z.string().regex(/^(radix|radix-dark):[a-z]+$/).optional().describe('e.g. radix:blue'),
  steps:z.array(colourValue).length(12).optional(),
@@ -165,7 +167,8 @@ export type ShadeCell=Swatch&{shade:string};
 export function shadeGrid(data:ColourData):{title:string;columns:string[];rows:{name:string;cells:ShadeCell[]}[];cellLabels:'none'|'shade'|'hex';chars:number;shadeChars:number}{
  const shadeLabel=(s:{label?:string},index:number)=>s.label??String(index+1);
  const own=(data.custom??[]).map(family=>({name:family.name,cells:family.shades.map((s,index)=>({label:`${family.name} ${shadeLabel(s,index)}`,shade:shadeLabel(s,index),hex:resolveColour(s.value)!}))}));
- const cellLabels=data.cellLabels??(own.length?'shade':'none');
+ // Own families always print their shade label in the cell; hex adds the value and also prints inside a built-in palette's cells.
+ const cellLabels:'none'|'shade'|'hex'=data.hex?'hex':own.length?'shade':'none';
  const result=(title:string,columns:string[],rows:{name:string;cells:ShadeCell[]}[])=>{const shadeChars=Math.max(1,...rows.flatMap(row=>row.cells.map(cell=>cell.shade.length)));return {title,columns,rows,cellLabels,shadeChars,chars:Math.max(cellLabels==='hex'?7:1,shadeChars)};};
  if(own.length&&!data.palette)return result('Custom',data.custom![0].shades.map(shadeLabel),own);
  const palette=PALETTES[data.palette!],names=data.families?.length?data.families:Object.keys(palette.families);

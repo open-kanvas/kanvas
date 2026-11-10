@@ -22,7 +22,7 @@ export const frictionReadSchema=z.strictObject({
  limit:z.number().int().min(1).max(100).default(20),
 });
 export const frictionTools:Definition[]=[
- {name:'kanvas_friction_read',schema:frictionReadSchema,readOnly:true,description:'Service administrators only. Ranked daily aggregates of where agents stumble: schema misses by field path, retries, discovery calls, resolve outcomes and response weight per template or operation and client. Shapes only.'},
+ {name:'kanvas_friction_read',schema:frictionReadSchema,readOnly:true,description:'Service administrators only. Daily aggregates of where agents stumble: schema misses by field path, retries, discovery calls, resolve outcomes and response weight per template or operation and client. Shapes only.'},
 ];
 const label=(value:unknown,max=120)=>String(value??'').replace(/[^A-Za-z0-9 ._:/()\[\]-]/g,'').slice(0,max);
 /** items[3].start -> items[].start. Only schema field names reach an issue path. */

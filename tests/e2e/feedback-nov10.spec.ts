@@ -8,6 +8,9 @@ import {testDatabase} from '../postgres';
 import type {ViewSpec} from '../../src/shared/types';
 
 const view=(template:string,data:Record<string,unknown>,extra:Record<string,unknown>={})=>validateView({template,data,...extra} as never) as ViewSpec;
+/** Publish and wait until this window has painted that revision: a measurement taken while the previous
+ * view is being replaced reads an element that is already detached (empty computed style, no box). */
+const shown=async(page:Page,viewer:Page,s:string,displayId:string,spec:ViewSpec)=>{await publishPrepared(page,s,[displayId],spec);const current=await waitForDisplay(page,s,displayId,x=>x.revision>0&&x.appliedRevision===x.revision);await expect(viewer.locator('.viewer-shell')).toHaveAttribute('data-rendered-revision',String(current.revision));return current;};
 const setup=async(page:Page,name:string)=>{await register(page);const s=await createSession(page,name),d=await createDisplay(page,s,'Display'),viewer=await openViewer(page,s,d.id);return {s,d,viewer};};
 const mcp=async(page:Page,baseURL:string)=>{const token=await sessionApi<{token:string}>(page,'/api/tokens','POST',{name:'Nov10 fixture',scopes:['read','publish']});const {Client,StreamableHTTPClientTransport}=await import('@modelcontextprotocol/client');const client=new Client({name:'nov10-fixture',version:'1'});await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',baseURL),{requestInit:{headers:{Authorization:'Bearer '+token.data!.token}}}));return client;};
 const use=async(client:Awaited<ReturnType<typeof mcp>>,operationId:string,args:Record<string,unknown>)=>{const result=await client.callTool({name:'kanvas_call',arguments:{operationId,arguments:args}});return {isError:result.isError===true,structured:result.structuredContent as Record<string,any>};};
@@ -40,11 +43,11 @@ test('weather text block sits low, clear of the place and time, and never scroll
   }
   await viewer.screenshot({path:info.outputPath(`weather-${label}.png`)});
  };
- await publishPrepared(page,s,[d.id],view('weather',{place:'Arendal',timeLabel:'Sat 18:00',condition:'cloudy',temperature:'7°',high:'9°',low:'3°',description:'Cloudy through the evening with a light breeze from the south-west. Some drizzle is possible after eight. Clearing slowly towards midnight.',details,forecast}));
+ await shown(page,viewer,s,d.id,view('weather',{place:'Arendal',timeLabel:'Sat 18:00',condition:'cloudy',temperature:'7°',high:'9°',low:'3°',description:'Cloudy through the evening with a light breeze from the south-west. Some drizzle is possible after eight. Clearing slowly towards midnight.',details,forecast}));
  await check('rich');
- await publishPrepared(page,s,[d.id],view('weather',{place:'Arendal',timeLabel:'Sat 18:00',condition:'cloudy',temperature:'7°',display:{description:false,details:false,timeline:false}}));
+ await shown(page,viewer,s,d.id,view('weather',{place:'Arendal',timeLabel:'Sat 18:00',condition:'cloudy',temperature:'7°',display:{description:false,details:false,timeline:false}}));
  await check('temperature-only');
- await publishPrepared(page,s,[d.id],view('weather',{place:'Arendal',condition:'rain',temperature:'-12°',high:'-9°',low:'-15°',description:'x '.repeat(190).trim(),details:Array.from({length:8},(_,i)=>({label:`Detail ${i+1}`,value:`Value ${i+1} with a longer text`})),forecast}));
+ await shown(page,viewer,s,d.id,view('weather',{place:'Arendal',condition:'rain',temperature:'-12°',high:'-9°',low:'-15°',description:'x '.repeat(190).trim(),details:Array.from({length:8},(_,i)=>({label:`Detail ${i+1}`,value:`Value ${i+1} with a longer text`})),forecast}));
  await check('maximum');
 });
 
@@ -97,6 +100,16 @@ test('dismissing a toast dismisses it for the whole account, at once and after r
   await phone.reload();await expect(phone.locator('.viewer-shell')).toBeVisible();await laptop.reload();await expect(laptop.locator('.viewer-shell')).toBeVisible();
   const fresh=await openViewer(page,s,d.id);
   for(const window of [laptop,phone,fresh]){await expect(window.locator('.viewer-toast').filter({hasText:'Plain notice'})).toHaveCount(1,{timeout:8000});await expect(window.locator('.viewer-toast').filter({hasText:'New mail'})).toHaveCount(0);}
+  // Found in the complete run of 2026-11-10: an answer the server computed just before a dismissal was saved listed the
+  // notification again, so it flashed back on the window where it had just been closed. Slow answers make that certain here.
+  for(const text of ['First of two','Second of two'])expect((await use(client,'kanvas.toast',{sessionId:s,displayIds:[d.id],text,sticky:true})).isError).toBe(false);
+  for(const text of ['First of two','Second of two'])await expect(laptop.locator('.viewer-toast').filter({hasText:text})).toHaveCount(1,{timeout:8000});
+  await laptop.route('**/observe',async route=>{const response=await route.fetch();await new Promise(done=>setTimeout(done,500));await route.fulfill({response});});
+  await laptop.evaluate(()=>{const back:string[]=[];(window as unknown as {toastsBack:string[]}).toastsBack=back;new MutationObserver(records=>{for(const record of records)for(const node of record.addedNodes)if(node instanceof HTMLElement&&/of two/.test(node.textContent??''))back.push(node.textContent??'');}).observe(document.body,{childList:true,subtree:true});});
+  for(const text of ['First of two','Second of two'])await laptop.locator('.viewer-toast').filter({hasText:text}).getByRole('button',{name:'Dismiss notification'}).click();
+  await laptop.waitForTimeout(3000);
+  expect(await laptop.evaluate(()=>(window as unknown as {toastsBack:string[]}).toastsBack)).toEqual([]);
+  await expect(laptop.locator('.viewer-toast').filter({hasText:'of two'})).toHaveCount(0);await laptop.unroute('**/observe');
  }finally{await client.close();await phoneContext.close();}
 });
 
@@ -165,7 +178,8 @@ test('procedure shows content and nothing to click unless controls are asked for
 test('diagram zoom enlarges, text scale grows the whole diagram, a small diagram fills the screen (32b32d20)',async({page},info)=>{
  const {s,d,viewer}=await setup(page,'Diagram zoom');
  const nodes=Array.from({length:6},(_,i)=>({id:`n${i}`,label:`Service ${i+1}`,detail:'Handles one job',type:'service'})),edges=Array.from({length:5},(_,i)=>({from:`n${i}`,to:`n${i+1}`}));
- const width=async()=>(await viewer.locator('.viewer-candidate .relationship-diagram').boundingBox())!.width;
+ // While one view replaces another the diagram is briefly absent; a poll then reads 0 and tries again.
+ const width=async()=>(await viewer.locator('.viewer-candidate .relationship-diagram').boundingBox().catch(()=>null))?.width??0;
  await publishPrepared(page,s,[d.id],view('architecture',{layout:'left-right',nodes,edges}));await expect(viewer.locator('.viewer-candidate .relationship-diagram')).toBeVisible();await waitForDisplay(page,s,d.id,x=>x.appliedRevision===x.revision);
  const fitted=await width();
  const store=new Store(testDatabase(process.env.KANVAS_E2E_RUN_ID!));let tab:string;try{await store.ready;await expect.poll(async()=>(await store.list<{displayId:string;tabId:string}>('viewer',s)).some(v=>v.displayId===d.id),{timeout:10000}).toBe(true);tab=(await store.list<{displayId:string;tabId:string}>('viewer',s)).find(v=>v.displayId===d.id)!.tabId;}finally{await store.close();}
@@ -177,10 +191,10 @@ test('diagram zoom enlarges, text scale grows the whole diagram, a small diagram
  await viewer.screenshot({path:info.outputPath('architecture-zoomed.png')});
  expect((await sessionApi(page,`/api/sessions/${s}/displays/${d.id}/navigation`,'POST',{tabId:tab,requestId:randomUUID(),expectedRevision:revision,navigation:{action:'zoom',scale:1}})).status).toBe(200);
  await expect.poll(async()=>Math.abs((await width())/fitted-1)).toBeLessThan(.05);
- await publishPrepared(page,s,[d.id],view('architecture',{layout:'left-right',textScale:1.8,nodes,edges}));
+ await shown(page,viewer,s,d.id,view('architecture',{layout:'left-right',textScale:1.8,nodes,edges}));
  await expect.poll(async()=>(await width())/fitted,{timeout:8000}).toBeGreaterThan(1.6);
  // Two nodes on a large screen: enlarged beyond natural size so labels read from a distance.
- if(!info.project.name.startsWith('phone')){await publishPrepared(page,s,[d.id],view('architecture',{layout:'left-right',nodes:nodes.slice(0,2),edges:edges.slice(0,1)}));await expect.poll(async()=>Number(await viewer.locator('.viewer-candidate .diagram-scroll').getAttribute('data-diagram-scale')),{timeout:8000}).toBeGreaterThan(1.2);}
+ if(!info.project.name.startsWith('phone')){await shown(page,viewer,s,d.id,view('architecture',{layout:'left-right',nodes:nodes.slice(0,2),edges:edges.slice(0,1)}));await expect.poll(async()=>Number(await viewer.locator('.viewer-candidate .diagram-scroll').getAttribute('data-diagram-scale')),{timeout:8000}).toBeGreaterThan(1.2);}
 });
 
 test('choropleth scale stays inside a short landscape screen (b2640923)',async({page},info)=>{
@@ -213,10 +227,12 @@ test('planner weather points are one row with icon first and no empty values; to
 test('new templates paint on desktop and phone without overflow or page chrome',async({page,diagnostics},info)=>{
  const {s,d,viewer}=await setup(page,'New templates');
  // Picker assets come from the Kanvas server only; the test supplies them so no outside network is needed.
- await viewer.route('**/api/picker/icons/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>'}));
+ // The console page beside the viewer draws the same view, so the answers are given to every page of the test.
+ await viewer.context().route('**/api/picker/icons/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>'}));
  // Font files are not fetched from outside in tests: the three requests are answered as unavailable, and expected.
- await viewer.route('**/api/picker/fonts/**',route=>route.fulfill({status:404,contentType:'application/json',body:'{}'}));
- for(const path of ['/api/picker/fonts/inter/400.woff2','/api/picker/fonts/playfair-display/700.woff2','/api/picker/fonts/jetbrains-mono/400.woff2'])diagnostics.allowHttp(viewer,path,404);
+ await viewer.context().route('**/api/picker/fonts/**',route=>route.fulfill({status:404,contentType:'application/json',body:'{}'}));
+ // All three sample families publish a variable edition, so each is asked for as one file (e011b35b).
+ for(const path of ['/api/picker/fonts/inter/variable.woff2','/api/picker/fonts/playfair-display/variable.woff2','/api/picker/fonts/jetbrains-mono/variable.woff2'])for(const window of [viewer,page])diagnostics.allowHttp(window,path,404);
  const external:string[]=[];viewer.on('request',request=>{const url=new URL(request.url());if(!['127.0.0.1','localhost'].includes(url.hostname)&&!['data:','blob:','about:'].includes(url.protocol))external.push(request.url());});
  const fits=async(selector:string,label:string)=>{const root=viewer.locator(`.viewer-candidate ${selector}`);await expect(root,label).toBeVisible();const shell=(await viewer.locator('.viewer-shell').boundingBox())!,box=(await root.boundingBox())!;expect(inside(box,shell,2),`${label} inside the screen`).toBe(true);expect(await viewer.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1&&document.documentElement.scrollHeight<=innerHeight+1),`${label}: page does not scroll`).toBe(true);await expect(viewer.locator(`.viewer-candidate ${selector} button, .viewer-candidate ${selector} input, .viewer-candidate ${selector} nav`),`${label}: no controls`).toHaveCount(0);await viewer.screenshot({path:info.outputPath(`${label}.png`)});};
  await publishPrepared(page,s,[d.id],view('json',{json:'{"exact":9007199254740993,"items":[{"id":"t4","checked":true}],"note":"raw is the default"}'}));await fits('.json-raw','json-raw');await expect(viewer.locator('.viewer-candidate .json-raw li')).toHaveCount(10);await expect(viewer.locator('.viewer-candidate .json-raw')).toContainText('9007199254740993');
@@ -225,16 +241,49 @@ test('new templates paint on desktop and phone without overflow or page chrome',
  const panes=await viewer.locator('.viewer-candidate .tool-call-pane').evaluateAll(list=>list.map(pane=>pane.getBoundingClientRect()).map(r=>({x:r.x,y:r.y})));
  if(info.project.name.startsWith('phone'))expect(panes[1].y).toBeGreaterThan(panes[0].y+20);else expect(panes[1].x).toBeGreaterThan(panes[0].x+100);
  await publishPrepared(page,s,[d.id],validateView(samples['task-list']));await fits('.task-list','task-list');await expect(viewer.locator('.viewer-candidate .task-list tr.is-current .task-detail')).toBeVisible();
- for(const data of [{mode:'options',options:[{value:'tailwind:amber-400'},{value:'tailwind:sky-500'},{value:'#4f46e5'},{value:'tailwind:emerald-500'}]},{mode:'shades',palette:'tailwind'},{mode:'harmony',base:'#0090ff'},{mode:'contrast',backgrounds:['#ffffff','#111111','tailwind:amber-100'],texts:['#111111','#ffffff','tailwind:sky-700']},{mode:'roles',scale:'radix:blue'},{mode:'theme',seed:'#6750a4'},{mode:'variations',base:'tailwind:rose-500'},{mode:'named',group:'blues'}]){
+ for(const data of [{mode:'options',options:[{value:'tailwind:amber-400'},{value:'tailwind:sky-500'},{value:'#4f46e5'},{value:'tailwind:emerald-500'}]},{mode:'shades',palette:'tailwind'},{mode:'harmony',base:'#0090ff'},{mode:'contrast',backgrounds:['#ffffff','#111111','tailwind:amber-100'],texts:['#111111','#ffffff','tailwind:sky-700']},{mode:'roles',scale:'radix:blue'},{mode:'theme',seed:'#6750a4'},{mode:'variations',base:'tailwind:rose-500'},{mode:'named',group:'blues'},
+  // ebebd25c: the agent's own families print a speakable label in every cell; hex can be asked for on any grid.
+  {mode:'shades',custom:[{name:'Brand',shades:[{value:'#fef3c7',label:'lightest'},{value:'#fde68a',label:'light'},{value:'#f59e0b',label:'base'},{value:'#b45309',label:'dark'},{value:'#78350f',label:'deepest'}]},{name:'Ink',shades:[{value:'#f3f4f6'},{value:'#d1d5db'},{value:'#6b7280'},{value:'#374151'},{value:'#111827'}]}]},
+  {mode:'shades',palette:'tailwind',families:['amber','sky','rose'],cellLabels:'hex'}] as Record<string,unknown>[]){
   await publishPrepared(page,s,[d.id],view('colour',data));await fits(`.colour-view[data-colour-mode="${data.mode}"]`,`colour-${data.mode}`);
   // Labels never wrap mid-word or spill out of their swatch.
   const spill=await viewer.locator(`.viewer-candidate .colour-view[data-colour-mode="${data.mode}"]`).evaluate(root=>[...root.querySelectorAll<HTMLElement>('.colour-chip b,.colour-shade-row>b,.colour-shade-head b')].filter(el=>el.scrollWidth>el.clientWidth+1&&getComputedStyle(el).textOverflow!=='ellipsis').length);expect(spill,`colour ${data.mode} labels`).toBe(0);
+  if(data.custom||data.cellLabels){
+   // Every printed cell label lies inside its own cell, on one line, in a size a person can read.
+   const cells=await viewer.locator('.viewer-candidate .colour-shades [role=cell]').evaluateAll(list=>list.map(cell=>{const outer=cell.getBoundingClientRect();return [...cell.querySelectorAll<HTMLElement>('b,code')].filter(label=>getComputedStyle(label).display!=='none').map(label=>{const box=label.getBoundingClientRect();return {text:label.textContent,inside:box.left>=outer.left-1&&box.right<=outer.right+1&&box.top>=outer.top-1&&box.bottom<=outer.bottom+1,oneLine:box.height<=parseFloat(getComputedStyle(label).fontSize)*1.4,size:parseFloat(getComputedStyle(label).fontSize)};});}));
+   expect(cells.length).toBe(data.custom?10:33);// Hex is printed where a cell is wide enough to print it legibly; an upright phone showing eleven shades prints the shade alone.
+   const phone=info.project.name.startsWith('phone');expect(cells.map(labels=>labels.length),'every cell is labelled').toEqual(cells.map(()=>data.cellLabels==='hex'&&!phone?2:1));
+   expect(cells.flat().filter(label=>!label.inside||!label.oneLine)).toEqual([]);
+   if(data.custom){expect(cells[2][0].text).toBe('base');expect(cells[9][0].text).toBe('5');expect(Math.min(...cells.flat().map(label=>label.size)),'own shade labels are readable').toBeGreaterThanOrEqual(phone?8:11);}
+   else{expect(cells[4].map(label=>label.text)).toEqual(phone?['400']:['400','#fbbf24']);expect(Math.min(...cells.flat().map(label=>label.size)),'printed labels are readable').toBeGreaterThanOrEqual(phone?8:10);}
+  }
  }
+ // e2ba79e1: a list's own status colours paint the pill; an own column filters on the display exactly as on the server.
+ await publishPrepared(page,s,[d.id],view('task-list',{statusColors:{waiting:'#d9a441'},columns:[{key:'owner',label:'Owner'}],filter:{fields:{owner:['ada']}},items:[{title:'Sign in',status:'Waiting',fields:{owner:'Ada'}},{title:'Dismiss a toast',status:'other value',fields:{owner:'Bo'}},{title:'Reopen the app',status:'waiting',fields:{owner:'ADA'}}]}));
+ await fits('.task-list','task-list-own-colours');await expect(viewer.locator('.viewer-candidate .task-list tbody tr')).toHaveCount(2);await expect(viewer.locator('.viewer-candidate .task-list-hidden')).toHaveText('1 hidden by filter');
+ expect(await viewer.locator('.viewer-candidate .task-list .task-pill').first().evaluate(pill=>getComputedStyle(pill).getPropertyValue('--pill').trim())).toBe('#d9a441');
  await publishPrepared(page,s,[d.id],validateView(samples['icon-picker']));await fits('.icon-picker','icon-picker');await expect(viewer.locator('.viewer-candidate .icon-picker .picker-label').first()).toHaveText('lucide:settings');
+ // e011b35b: a catalogue icon is drawn through the Kanvas server too and prints its exact Iconify name.
+ const catalogue:string[]=[];viewer.on('request',request=>{const path=new URL(request.url()).pathname;if(path.startsWith('/api/picker/icons/iconify/'))catalogue.push(path);});
+ await publishPrepared(page,s,[d.id],view('icon-picker',{mode:'sets',concept:'settings',icons:[{set:'lucide',name:'settings'},{set:'iconify',collection:'mdi',name:'cog-outline'},{set:'iconify',collection:'carbon',name:'settings'}]}));await fits('.icon-picker.mode-sets','icon-picker-catalogue');
+ await expect(viewer.locator('.viewer-candidate .icon-picker .picker-label')).toHaveText(['lucide:settings','mdi:cog-outline','carbon:settings']);await expect.poll(()=>catalogue.sort()).toEqual(['/api/picker/icons/iconify/carbon/settings.svg','/api/picker/icons/iconify/mdi/cog-outline.svg']);
  await publishPrepared(page,s,[d.id],validateView(samples['font-picker']));await fits('.font-picker','font-picker');await expect(viewer.locator('.viewer-candidate .font-picker .picker-label').first()).toHaveText('Inter 400');
  await publishPrepared(page,s,[d.id],validateView(samples.agents));await fits('.agents-view','agents');
  await publishPrepared(page,s,[d.id],validateView(samples.welcome));await fits('.welcome-view','welcome');await expect(viewer.locator('.viewer-candidate .welcome-view li')).toHaveCount(3);
  expect(external,'viewers contact only the Kanvas server').toEqual([]);
+});
+
+test('the session overview names the agent that created a session, and only that session (d630abcc)',async({page,baseURL})=>{
+ await register(page);const client=await mcp(page,baseURL!);
+ try{
+  // One session made by the connected agent and one made by hand.
+  const created=await use(client,'kanvas.session.create',{name:'Made by an agent'});expect(created.isError,JSON.stringify(created.structured)).toBe(false);
+  await createSession(page,'Made by hand');
+  await page.goto('/');
+  const card=(name:string)=>page.locator('.overview-session').filter({has:page.getByRole('link',{name,exact:true})});
+  await expect(card('Made by an agent').locator('.overview-created-by')).toHaveText('Created by nov10-fixture');
+  await expect(card('Made by hand')).toBeVisible();await expect(card('Made by hand').locator('.overview-created-by')).toHaveCount(0);
+ }finally{await client.close();}
 });
 
 test('custom HTML follows the theme through tokens; older HTML keeps its page (2444dc0d)',async({page},info)=>{

@@ -22,6 +22,9 @@ import type {Definition} from './mcp/canonical.js';
  * text from outside: Kanvas stores and returns it, never interprets it. */
 export const STREAM_EVENT_BYTES=4096,STREAM_MAX_EVENTS=500,STREAM_RETENTION_MINUTES=60,STREAM_DEFAULT_TTL_MINUTES=60,STREAM_MAX_TTL_MINUTES=24*60;
 export const STREAM_BURST=60,STREAM_REFILL_PER_SECOND=5,STREAMS_PER_SESSION=10,STREAMS_PER_ACCOUNT=30;
+/** Everything buffered by every stream of every account together. The per-stream and per-account limits bound one
+ * owner; this bounds the process. Beyond it a post is refused, never queued. */
+export const STREAM_TOTAL_BYTES=64*1024*1024;
 export const STREAM_INGEST_ROUTE='/in/:token';
 interface Stream {id:string;sessionId:string;ownerId:string;name:string;tokenHash:string;createdAt:string;expiresAt:number;revokedAt?:string;maxEvents:number;retentionMinutes:number}
 export interface StreamEvent {seq:number;receivedAt:string;source?:string;text?:string;data?:unknown;bytes:number}
@@ -41,11 +44,16 @@ export class MonitorStreams{
  /** token hash -> stream, so a POST costs no database read on the hot path. */
  private byToken=new Map<string,Stream>();
  private loaded=false;
+ private totalBytes=0;
+ /** Bytes held right now across all streams; for tests and diagnostics. */
+ get bufferedBytes(){return this.totalBytes;}
+ totalLimit=STREAM_TOTAL_BYTES;
+ private forget(streamId:string){const b=this.buffers.get(streamId);if(!b)return;for(const event of b.events)this.totalBytes-=event.bytes;this.buffers.delete(streamId);}
  private sweeper?:ReturnType<typeof setInterval>;
  constructor(private service:KanvasService){}
  private get store(){return this.service.store;}
  start(){this.sweeper??=setInterval(()=>void this.sweep().catch(()=>{}),30_000);this.sweeper.unref();}
- close(){if(this.sweeper)clearInterval(this.sweeper);this.sweeper=undefined;this.buffers.clear();this.byToken.clear();}
+ close(){if(this.sweeper)clearInterval(this.sweeper);this.sweeper=undefined;this.buffers.clear();this.byToken.clear();this.totalBytes=0;}
  private async load(){
   if(this.loaded)return;this.loaded=true;
   for(const stream of await this.store.list<Stream>('monitor-stream'))if(!stream.revokedAt&&stream.expiresAt>Date.now())this.byToken.set(stream.tokenHash,stream);
@@ -54,13 +62,13 @@ export class MonitorStreams{
  private trim(stream:Stream,b:Buffer_){
   const cutoff=Date.now()-stream.retentionMinutes*60_000;
   let drop=0;while(drop<b.events.length&&(b.events.length-drop>stream.maxEvents||Date.parse(b.events[drop].receivedAt)<cutoff))drop++;
-  if(drop){b.events.splice(0,drop);b.dropped+=drop;}
+  if(drop){for(const event of b.events.splice(0,drop))this.totalBytes-=event.bytes;b.dropped+=drop;}
  }
  /** Expired and revoked streams lose their buffered events; their metadata row is removed. */
  private async sweep(){
   await this.load();
   for(const [token,stream] of this.byToken){
-   if(stream.revokedAt||stream.expiresAt<=Date.now()){this.byToken.delete(token);this.buffers.delete(stream.id);try{await this.store.delete('monitor-stream',stream.id);}catch{/* Retried on the next sweep. */}}
+   if(stream.revokedAt||stream.expiresAt<=Date.now()){this.byToken.delete(token);this.forget(stream.id);try{await this.store.delete('monitor-stream',stream.id);}catch{/* Retried on the next sweep. */}}
    else{const b=this.buffers.get(stream.id);if(b)this.trim(stream,b);}
   }
  }
@@ -77,12 +85,14 @@ export class MonitorStreams{
   b.tokens-=1;
   if(body.length>STREAM_EVENT_BYTES){b.rejected++;return {status:413,body:{accepted:false,reason:`An event is at most ${STREAM_EVENT_BYTES} bytes.`}};}
   if(!body.length)return {status:400,body:{accepted:false,reason:'Send a small JSON object or plain text.'}};
+  // The process-wide bound: first let this stream shed what it no longer needs, then refuse rather than grow.
+  if(this.totalBytes+body.length>this.totalLimit){this.trim(stream,b);if(this.totalBytes+body.length>this.totalLimit){b.rejected++;return {status:503,body:{accepted:false,reason:'Kanvas is holding as many live events as it can right now. Try again later.'},retryAfter:30};}}
   const raw=body.toString('utf8');let data:unknown,text:string|undefined,source:string|undefined;
   if(/json/i.test(contentType??'')||/^\s*[{[]/.test(raw)){try{data=JSON.parse(raw);}catch{data=undefined;}}
   if(data!==undefined&&data!==null&&typeof data==='object'){const fields=data as Record<string,unknown>;source=clean(fields.source,80)??clean(fields.name,80);}
   else{data=undefined;text=clean(raw,STREAM_EVENT_BYTES);}
   const event:StreamEvent={seq:++b.seq,receivedAt:new Date(time).toISOString(),...(source?{source}:{}),...(data!==undefined?{data}:{text:text??''}),bytes:body.length};
-  b.events.push(event);b.received++;b.lastAt=event.receivedAt;this.trim(stream,b);
+  b.events.push(event);this.totalBytes+=event.bytes;b.received++;b.lastAt=event.receivedAt;this.trim(stream,b);
   return {status:202,body:{accepted:true}};
  }
  private publicStream(stream:Stream){
@@ -137,7 +147,7 @@ export class MonitorStreams{
   return this.store.atomic(async()=>{
    const stream=await this.owned(p,a.sessionId,a.streamId);
    if(!stream.revokedAt){stream.revokedAt=now();await this.store.put('monitor-stream',stream);}
-   this.store.afterCommit(()=>{this.byToken.delete(stream.tokenHash);this.buffers.delete(stream.id);});
+   this.store.afterCommit(()=>{this.byToken.delete(stream.tokenHash);this.forget(stream.id);});
    return {streamId:stream.id,revoked:true,revokedAt:stream.revokedAt,note:'The address no longer accepts events and the buffered events are deleted.'};
   });
  }

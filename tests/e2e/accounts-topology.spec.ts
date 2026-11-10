@@ -19,10 +19,11 @@ async function groupRequest(page:Page,path:string,method='GET',body?:unknown){
   return page.evaluate(async({path,method,body})=>{const me=await(await fetch('/api/auth/me',{credentials:'same-origin'})).json();const r=await fetch(path,{method,credentials:'same-origin',headers:{'Content-Type':'application/json','X-Kanvas-CSRF':me.data.csrfToken},...(body===undefined?{}:{body:JSON.stringify(body)})});const result=await r.json();return {status:r.status,data:result.data,code:result.error?.code};},{path,method,body});
 }
 
+// 2026-11-10 (06ee64d1): raw text is the default JSON view; this test is about the tree, so it asks for it.
 test('JSON is compact and agent-driven, retaining exact tokens and duplicate keys without chrome',async({page},info)=>{
   await register(page);const s=await createSession(page,'Structured JSON'),d=await createDisplay(page,s,'JSON explorer'),v=await openViewer(page,s,d.id);
   const source='{"large":9007199254740993,"decimal":1.2300,"same":1,"same":2,"nested":{"escaped/key":{"__proto__":"inert"}},"rows":['+Array.from({length:70},(_,i)=>'{"id":'+i+',"text":"Exact row '+i+'"}').join(',')+']}';
-  const show=async(options:Record<string,unknown>)=>{await publishPrepared(page,s,[d.id],{version:1,template:'json',data:{json:source,...options}});const current=await waitForDisplay(page,s,d.id,x=>x.appliedRevision===x.revision&&x.revision>0);await expect(v.locator('.viewer-shell')).toHaveAttribute('data-rendered-revision',String(current.revision));return current;};
+  const show=async(options:Record<string,unknown>)=>{await publishPrepared(page,s,[d.id],{version:1,template:'json',data:{json:source,view:'tree',...options}});const current=await waitForDisplay(page,s,d.id,x=>x.appliedRevision===x.revision&&x.revision>0);await expect(v.locator('.viewer-shell')).toHaveAttribute('data-rendered-revision',String(current.revision));return current;};
   await show({expandedDepth:1});await expect(v.locator('.json-tree')).toContainText('9007199254740993');await expect(v.locator('.json-tree')).toContainText('1.2300');expect(await v.locator('.json-key').filter({hasText:/^same$/}).count()).toBe(2);
   await expect(v.locator('.json-explorer input,.json-explorer button,.json-detail,.json-toolbar')).toHaveCount(0);
   const row=await v.getByRole('treeitem').first().boundingBox();expect(row!.height).toBeLessThanOrEqual(28);
@@ -48,7 +49,9 @@ test('profile, personal appearance, independent groups and live group grants wor
     await page.getByLabel('Linked organizations').selectOption([{label:'Research North'},{label:'Research South'}]);await page.getByLabel('Default style',{exact:true}).selectOption('iris');await page.getByLabel('Brand palette (optional)').fill('#176d72, #ead3b0');await page.getByRole('button',{name:'Save group settings'}).click();
     await expect.poll(async()=>{const r=await groupRequest(page,'/api/groups');return r.data.groups.find((g:any)=>g.name==='Cross-org team')?.organizationIds.length;}).toBe(2);
     // Saving reloads the revision-keyed editor; wait for that UI transaction before filling its next form.
-    await expect(page.getByRole('button',{name:'Save group settings'})).toBeEnabled();
+    // 2026-11-10: this line failed once on the phone in two complete runs and never alone. The assertion is unchanged; when
+    // it fails it now also says, without any page content, what the page shows instead of the editor.
+    await expect(page.getByRole('button',{name:'Save group settings'})).toBeEnabled().catch(async(error:Error)=>{const state=await page.evaluate(()=>({privacyStage:document.querySelector('.device-privacy-screen')?.getAttribute('data-privacy-stage')??null,editor:Boolean(document.querySelector('.account-group-detail')),openingGroup:Boolean(document.body.textContent?.includes('Opening group')),chooseGroup:Boolean(document.body.textContent?.includes('Choose a group to manage')),alerts:document.querySelectorAll('[role=alert]').length,path:location.pathname})).catch(()=>'page unavailable');throw new Error(`${error.message}\nPage state when the editor was missing: ${JSON.stringify(state)}`);});
     await page.getByLabel('Member email or username').fill(person.username);await page.getByRole('button',{name:'Add member',exact:true}).click();await expect(page.locator('.account-member-list')).toContainText(person.username);await photo(page,info,'cross-organization-team');
     const group=(await groupRequest(page,'/api/groups')).data.groups.find((g:any)=>g.name==='Cross-org team');
     const noAccess=await sessionApi(peer,'/api/sessions/'+s);diagnostics.allowHttp(peer,'/api/sessions/'+s,404);expect(noAccess.status).toBe(404);

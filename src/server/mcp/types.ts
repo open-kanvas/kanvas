@@ -11,7 +11,7 @@ export interface McpResourceDescriptor {
   mimeType?: string;
 }
 
-export interface ToolInvocation {/** Canonical operation name, for account bookkeeping only; never stored in the tool log. */canonical?:string;rawOnly?:boolean;displayId?:string;errorCode?:string;clientContext?:Record<string,unknown>;id:string;tool:string;operation?:string;sessionId?:string;timestamp:string;status:'completed'|'failed';durationMs:number}
+export interface ToolInvocation {/** Canonical operation name, for account bookkeeping only; never stored in the tool log. */canonical?:string;/** The call itself made its session (a first publish with no session). Account bookkeeping only. */createdSession?:boolean;rawOnly?:boolean;displayId?:string;errorCode?:string;clientContext?:Record<string,unknown>;id:string;tool:string;operation?:string;sessionId?:string;timestamp:string;status:'completed'|'failed';durationMs:number}
 /** The domain owns account, role, scope, revision, and session checks. */
 export interface McpService {
   argumentError?(name:string,args:Record<string,unknown>,principal:Principal,error:unknown):Promise<unknown>;

@@ -4,7 +4,7 @@ import {z} from 'zod';
  * list holds every item's full detail; what a display receives is a projection
  * that carries full detail only for the highlighted item. */
 const identifier=z.string().min(1).max(128).regex(/^[a-zA-Z0-9_.:-]+$/);
-export const TASK_LIST_MAX_ITEMS=200,TASK_DETAIL_MAX=8000;
+export const TASK_LIST_MAX_ITEMS=200,TASK_DETAIL_MAX=8000,STATUS_COLOURS_MAX=16;
 export const taskColumnSchema=z.object({key:z.string().min(1).max(40),label:z.string().min(1).max(60)}).strict();
 export const taskItemSchema=z.object({
  id:identifier.optional(),
@@ -26,17 +26,21 @@ export const STATUS_PALETTES={
 } as const;
 export type StatusPaletteName=keyof typeof STATUS_PALETTES;
 const sortSchema=z.object({by:z.string().max(40),direction:z.enum(['asc','desc']).default('asc')}).strict();
-const filterSchema=z.object({status:z.array(z.string().max(40)).max(12).optional(),tags:z.array(z.string().max(30)).max(12).optional(),done:z.boolean().optional()}).strict();
+/** Values of an own column to keep, e.g. {"owner":["Anna"]}. Matching ignores case, like status and tags. */
+export const taskFieldFilterSchema=z.record(z.string().min(1).max(40),z.array(z.string().max(200)).min(1).max(12)).refine(value=>Object.keys(value).length<=6,'At most 6 columns in one filter.');
+const filterSchema=z.object({status:z.array(z.string().max(40)).max(12).optional(),tags:z.array(z.string().max(30)).max(12).optional(),fields:taskFieldFilterSchema.optional(),done:z.boolean().optional()}).strict();
 export const taskListDataSchema=z.object({
  taskListId:identifier.optional(),
  taskListRevision:z.number().int().nonnegative().optional(),
  columns:z.array(taskColumnSchema).max(6).optional(),
  statusPalette:z.enum(['traffic','testing','workflow']).optional(),
+ statusColors:z.record(z.string().min(1).max(40),z.string().regex(/^#[0-9a-fA-F]{6}$/)).optional().describe('Own status colours, e.g. {"waiting":"#d9a441"}.'),
  items:z.array(taskItemSchema).max(TASK_LIST_MAX_ITEMS),
  highlight:identifier.optional(),
  sort:sortSchema.optional(),filter:filterSchema.optional(),
 }).strict().superRefine((data,ctx)=>{
  const ids=new Set<string>(),numbers=new Set<number>();
+ if(data.statusColors&&Object.keys(data.statusColors).length>STATUS_COLOURS_MAX)ctx.addIssue({code:'custom',path:['statusColors'],message:`At most ${STATUS_COLOURS_MAX} status colours.`});
  data.items.forEach((item,index)=>{
   if(item.id){if(ids.has(item.id))ctx.addIssue({code:'custom',path:['items',index,'id'],message:'Task ids must be unique.'});ids.add(item.id);}
   if(item.number!==undefined){if(numbers.has(item.number))ctx.addIssue({code:'custom',path:['items',index,'number'],message:'Task numbers must be unique.'});numbers.add(item.number);}
@@ -45,8 +49,12 @@ export const taskListDataSchema=z.object({
 export type TaskListData=z.infer<typeof taskListDataSchema>;
 export type TaskItem=z.infer<typeof taskItemSchema>;
 const same=(a:string|undefined,b:string|undefined)=>(a??'').trim().toLocaleLowerCase()===(b??'').trim().toLocaleLowerCase();
-export function statusColor(palette:TaskListData['statusPalette'],status:string|undefined):string|undefined{
- if(!status||!palette)return undefined;
+/** Colour of a status pill: the list's own colours first, then its ready-made
+ * palette. Matching ignores case. Any other value is a neutral pill. */
+export function statusColor(palette:TaskListData['statusPalette'],status:string|undefined,own?:TaskListData['statusColors']):string|undefined{
+ if(!status)return undefined;
+ const custom=own?Object.entries(own).find(([value])=>same(value,status))?.[1]:undefined;
+ if(custom||!palette)return custom;
  const map:Record<string,string>=STATUS_PALETTES[palette];
  return Object.entries(map).find(([value])=>same(value,status))?.[1];
 }
@@ -60,6 +68,7 @@ export function projectTasks<T extends Pick<TaskItem,'checked'|'status'|'tags'|'
   if(filter?.done!==undefined&&Boolean(item.checked)!==filter.done)return false;
   if(filter?.status?.length&&!filter.status.some(value=>same(value,item.status)))return false;
   if(filter?.tags?.length&&!filter.tags.some(tag=>(item.tags??[]).some(own=>same(own,tag))))return false;
+  if(filter?.fields)for(const [column,values] of Object.entries(filter.fields))if(!values.some(value=>same(value,item.fields?.[column])))return false;
   return true;
  });
  const indexed=kept.map((item,index)=>({item,index}));

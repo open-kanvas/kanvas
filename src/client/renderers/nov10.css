@@ -67,7 +67,13 @@
 .colour-shade-head,.colour-shade-row{display:grid;grid-template-columns:minmax(6ch,9ch) repeat(var(--columns),minmax(0,1fr));gap:clamp(1px,.25cqw,4px);min-height:0}
 .colour-shade-head b,.colour-shade-row>b{font-weight:500;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;align-self:center}
 .colour-shade-head b{text-align:center}
-.colour-shades i{min-height:0;border-radius:clamp(2px,.3cqw,6px);display:grid;place-items:center;font-style:normal;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.72em;overflow:hidden}
+.colour-shades i{min-height:0;border-radius:clamp(2px,.3cqw,6px);display:grid;place-items:center;place-content:center;font-style:normal;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.72em;overflow:hidden;container-type:size}
+/* A printed cell label is sized from its own cell and the longest label in the grid, so it never overflows or wraps. */
+.colour-shades i>b,.colour-shades i>code{display:block;font:inherit;font-weight:600;line-height:1.05;white-space:nowrap;background:none;padding:0;color:inherit;font-size:min(22px,calc(90cqw/var(--chars,3)/.62),62cqh)}
+.colour-shades.cells-hex i>b{font-size:min(22px,calc(90cqw/var(--chars,7)/.62),38cqh)}
+.colour-shades.cells-hex i>code{font-weight:400;opacity:.9;font-size:min(17px,calc(90cqw/7/.62),30cqh)}
+/* A cell too narrow for a legible seven-character value prints its shade only; the value stays in the cell's name and the stored view. */
+@container (max-width:40px){.colour-shades.cells-hex i>code{display:none}.colour-shades.cells-hex i>b{font-size:min(22px,calc(90cqw/var(--shade-chars,3)/.62),62cqh)}}
 .colour-harmony{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2.4fr);gap:3cqw;align-items:center}
 .colour-wheel{justify-self:center;width:min(100%,60cqh);aspect-ratio:1;border-radius:50%;background:conic-gradient(from 90deg in oklch,oklch(.7 .16 0),oklch(.7 .16 60),oklch(.7 .16 120),oklch(.7 .16 180),oklch(.7 .16 240),oklch(.7 .16 300),oklch(.7 .16 360));position:relative}
 .colour-wheel:after{content:'';position:absolute;inset:26%;border-radius:50%;background:var(--surface)}

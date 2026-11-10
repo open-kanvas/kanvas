@@ -5,8 +5,12 @@ import {validateView} from '../../src/shared/view-schemas.js';
 import {samples} from '../../src/shared/template-examples.js';
 import {projectTasks} from '../../src/shared/task-list.js';
 import {STREAM_BURST,STREAM_EVENT_BYTES,STREAM_MAX_EVENTS} from '../../src/server/monitor-streams.js';
-import {sanitizeSvg,PICKER_CACHE_BYTES} from '../../src/server/pickers.js';
-import {ICON_SETS,iconUrl,iconId,fontUrl} from '../../src/shared/pickers.js';
+import {sanitizeSvg,iconifyBase,PICKER_CACHE_BYTES} from '../../src/server/pickers.js';
+import {precachePickers} from '../../scripts/picker-precache.js';
+import {mkdtemp,readFile,readdir,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {FONT_FAMILIES,ICON_SETS,iconUrl,iconId,fontUrl} from '../../src/shared/pickers.js';
 import {colourTokens,contrastGrade,contrastRatio,harmonies,hexToOklch,namedColours,NAMED_GROUPS,oklchToHex,resolveColour,roleSteps,seedTheme,shadeGrid,variations} from '../../src/shared/colour.js';
 import {CSS_NAMED,OPEN_COLOR,RADIX_DARK,RADIX_LIGHT,TAILWIND} from '../../src/shared/colour-palettes.js';
 import {jsonPathLine,prettyJson,jsonDataSchema} from '../../src/shared/connection-views.js';
@@ -52,6 +56,21 @@ describe('e2ba79e1 task list: saved state, narrow operations, stable numbers',()
   expect((await call('kanvas_tasklist_read',{sessionId:s,taskListId:listId,tags:['auth'],sort:{by:'number',direction:'asc'}})).items.map((r:{number:number})=>r.number)).toEqual([1,4]);
   await update({filter:null,sort:null});expect((await call('kanvas_tasklist_read',{sessionId:s,taskListId:listId})).items).toHaveLength(4);
   expect(projectTasks([{title:'b',checked:true,number:1},{title:'a',checked:false,number:2}] as never,{doneLast:true}).items.map(item=>item.number)).toEqual([2,1]);
+ });
+ it('own columns filter like status and tags; status colours and the palette can be set, changed and cleared after creation',async()=>{
+  await update({items:[{item:3,fields:{owner:'Bo'}},{item:4,fields:{owner:'ada'}}]});
+  expect((await call('kanvas_tasklist_read',{sessionId:s,taskListId:listId,fields:{owner:['ADA']}})).items.map((r:{number:number})=>r.number)).toEqual([2,4]);
+  expect((await call('kanvas_tasklist_read',{sessionId:s,taskListId:listId,fields:{owner:['Ada','Bo']},status:['untested']})).items.map((r:{number:number})=>r.number)).toEqual([3,4]);
+  await update({filter:{fields:{owner:['bo']}}});
+  const filtered=await call('kanvas_tasklist_read',{sessionId:s,taskListId:listId});expect(filtered.items.map((r:{number:number})=>r.number)).toEqual([3]);expect(filtered.counts).toMatchObject({matching:1,hiddenByFilter:3});
+  const view=await shown() as never as {items:never[];filter:never};expect(projectTasks(view.items,view).items.map((item:{number:number})=>item.number)).toEqual([3]);
+  await update({filter:null});
+  const coloured=await update({statusColors:{waiting:'#d9a441',Shipped:'#4caf7d'}});expect(coloured.changes).toMatchObject({changed:[],removed:[]});
+  expect((await shown() as never as {statusColors:unknown;statusPalette:string})).toMatchObject({statusColors:{waiting:'#d9a441',Shipped:'#4caf7d'},statusPalette:'testing'});
+  await update({statusPalette:'workflow'});expect((await shown() as never as {statusPalette:string}).statusPalette).toBe('workflow');
+  await update({statusPalette:null,statusColors:null});const plain=await shown() as never as {statusPalette?:string;statusColors?:unknown;items:unknown[]};expect(plain.statusPalette).toBeUndefined();expect(plain.statusColors).toBeUndefined();expect(plain.items).toHaveLength(4);
+  let bad:unknown;try{await update({statusColors:{waiting:'orange'}});}catch(error){bad=error;}expect(safeError(bad).code).toBe('INVALID_ARGUMENT');
+  let many:unknown;try{await update({statusColors:Object.fromEntries(Array.from({length:17},(_,i)=>[`s${i}`,'#000000']))});}catch(error){many=error;}expect(many).toBeTruthy();
  });
  it('survives clearing the display, re-shows on another display, and stays inside its session',async()=>{
   await o.submit(s,[d],{version:1,template:'fact',data:{text:'Something else'}} as never);
@@ -113,6 +132,14 @@ describe('f4373691 monitor streams: write-only, capped, short-lived',()=>{
   expect(await events()).toBe(before);
   expect(recordHttpOperation('page',202,'POST /in/:token')).toBe(false);expect(recordHttpOperation('page',429,'POST /in/:token')).toBe(false);expect(recordHttpOperation('api',200,'POST /api/sessions/:id/assets')).toBe(true);
  });
+ it('all streams together stay inside one process-wide bound: beyond it a post is refused, nothing grows, and ending a stream gives the room back',async()=>{
+  const {stream,url}=await created(),streams=h.runtime.service.monitorStreams;
+  expect((await post(url,'x'.repeat(1000))).status).toBe(202);expect(streams.bufferedBytes).toBe(1000);
+  streams.totalLimit=1500;
+  const refused=await post(url,'y'.repeat(1000));expect(refused.status).toBe(503);expect(refused.headers.get('retry-after')).toBe('30');expect(await refused.json()).toMatchObject({accepted:false});expect(streams.bufferedBytes).toBe(1000);
+  expect((await post(url,'z'.repeat(400))).status).toBe(202);expect(streams.bufferedBytes).toBe(1400);
+  await call('kanvas_monitor_stream_revoke',{sessionId:s,streamId:stream.streamId});expect(streams.bufferedBytes).toBe(0);
+ });
  it('revocation and expiry stop the address and delete the buffered events; other accounts cannot read',async()=>{
   const {stream,url}=await created();await post(url,'{"a":1}');
   const other=await h.account();
@@ -158,7 +185,7 @@ describe('e011b35b pickers: allowlisted sources, sanitised, bounded, proxy can b
   expect(requested.slice(1)).toEqual(['https://cdn.jsdelivr.net/npm/@fontsource/inter@5/package.json','https://cdn.jsdelivr.net/npm/@fontsource/inter@5/files/inter-latin-400-normal.woff2']);
   for(const [family,weight] of [['../x',400],['inter',450],['Inter',400],['a.b',400]] as const)expect(await pickers.font(family,weight)).toBeUndefined();
   expect(requested).toHaveLength(3);expect(requested.every(url=>url.startsWith('https://cdn.jsdelivr.net/npm/'))).toBe(true);
-  expect(iconUrl({set:'lucide',name:'settings'})).toBe('/api/picker/icons/lucide/outline/settings.svg');expect(iconId({set:'phosphor',name:'gear',variant:'bold'})).toBe('phosphor:gear/bold');expect(fontUrl('inter',700)).toBe('/api/picker/fonts/inter/700.woff2');
+  expect(iconUrl({set:'lucide',name:'settings'})).toBe('/api/picker/icons/lucide/outline/settings.svg');expect(iconId({set:'phosphor',name:'gear',variant:'bold'})).toBe('phosphor:gear/bold');expect(fontUrl('lato',700)).toBe('/api/picker/fonts/lato/700.woff2');expect(fontUrl('inter',700)).toBe('/api/picker/fonts/inter/variable.woff2');
  });
  it('unsafe, oversized or mislabelled responses are not served; a closed licence is refused; the cache is bounded',async()=>{
   const pickers=h.runtime.service.pickers;
@@ -186,7 +213,64 @@ describe('e011b35b pickers: allowlisted sources, sanitised, bounded, proxy can b
   const anonymous=await h.browser().raw('/api/picker/icons/lucide/outline/settings.svg');expect(anonymous.status).toBe(401);
   const served=await o.raw('/api/picker/icons/lucide/outline/settings.svg');expect(served.status).toBe(200);expect(served.headers.get('content-type')).toMatch(/^image\/svg\+xml/);expect(served.headers.get('x-content-type-options')).toBe('nosniff');expect(served.headers.get('content-security-policy')).toMatch(/default-src 'none'/);
   expect((await o.raw('/api/picker/icons/lucide/outline/..%2f..%2fsecret.svg')).status).toBe(404);
-  const fonts=await h.runtime.service.execute('kanvas_fonts_list',{category:'mono'},p) as {families:{id:string}[];view:unknown};expect(fonts.families.map(f=>f.id)).toEqual(['jetbrains-mono','fira-code','ibm-plex-mono','source-code-pro']);expect(validateView(fonts.view as never).template).toBe('font-picker');
+  const fonts=await h.runtime.service.execute('kanvas_fonts_list',{category:'mono'},p) as {families:{id:string;variable:boolean;weightRange?:number[]}[];view:unknown};expect(fonts.families.map(f=>f.id)).toEqual(['jetbrains-mono','fira-code','ibm-plex-mono','source-code-pro']);expect(validateView(fonts.view as never).template).toBe('font-picker');
+  expect(fonts.families.map(f=>f.variable)).toEqual([true,true,false,true]);expect(fonts.families[0].weightRange).toEqual([100,800]);
+ });
+ it('variable fonts: one file per curated variable family from its own package; static families and unknown ids never get one',async()=>{
+  const pickers=h.runtime.service.pickers,requested:string[]=[];
+  pickers.fetcher=async url=>{requested.push(url);return url.endsWith('package.json')?respond(JSON.stringify({license:'OFL-1.1'}),'application/json'):respond(woff2,'font/woff2');};
+  expect((await pickers.font('inter','variable'))?.type).toBe('font/woff2');
+  expect(requested).toEqual(['https://cdn.jsdelivr.net/npm/@fontsource-variable/inter@5/package.json','https://cdn.jsdelivr.net/npm/@fontsource-variable/inter@5/files/inter-latin-wght-normal.woff2']);
+  for(const family of ['lato','poppins','not-curated','../x'])expect(await pickers.font(family,'variable'),family).toBeUndefined();
+  expect(requested).toHaveLength(2);
+  expect((await o.raw('/api/picker/fonts/inter/variable.woff2')).status).toBe(200);expect((await o.raw('/api/picker/fonts/lato/variable.woff2')).status).toBe(404);expect((await o.raw('/api/picker/fonts/inter/variable.ttf')).status).toBe(404);expect((await h.browser().raw('/api/picker/fonts/inter/variable.woff2')).status).toBe(401);
+  // 21 of the 28 curated families publish a variable edition; each range is whole hundreds inside 100 to 900.
+  const variable=Object.values(FONT_FAMILIES).filter(font=>font.variable);expect(variable).toHaveLength(21);expect(Object.keys(FONT_FAMILIES)).toHaveLength(28);
+  for(const font of variable){expect(font.variable![0]).toBeGreaterThanOrEqual(100);expect(font.variable![1]).toBeLessThanOrEqual(900);expect(font.weights).toEqual(Array.from({length:(font.variable![1]-font.variable![0])/100+1},(_,i)=>font.variable![0]+i*100));}
+ });
+ it('the wider catalogue exists only where the operator configured an Iconify API; only permissive single-colour collections are listed or served',async()=>{
+  const pickers=h.runtime.service.pickers as unknown as {iconify?:string;fetcher:(url:string)=>Promise<Response>},requested:string[]=[];
+  const none=await h.runtime.service.execute('kanvas_icons_search',{query:'settings',sets:['iconify']},p) as {icons:unknown[];unavailableSets:string[];unavailableReason:string};
+  expect(none.icons).toEqual([]);expect(none.unavailableSets).toEqual(['iconify']);expect(none.unavailableReason).toMatch(/No Iconify API is configured/);
+  expect((await o.raw('/api/picker/icons/iconify/mdi/cog.svg')).status).toBe(404);
+  pickers.iconify='https://icons.internal.example';
+  const collections={mdi:{name:'Material Design Icons',total:7447,license:{spdx:'Apache-2.0'},palette:false},carbon:{name:'Carbon',total:2000,license:{spdx:'Apache-2.0'}},'fa6-solid':{name:'Font Awesome',total:1400,license:{spdx:'CC-BY-4.0'}},noto:{name:'Noto Emoji',total:3000,license:{spdx:'Apache-2.0'},palette:true},'gpl-set':{name:'Copyleft',total:10,license:{spdx:'GPL-3.0'}},lucide:{name:'Lucide',total:1600,license:{spdx:'ISC'}},unknown:{name:'No licence',total:5}};
+  pickers.fetcher=async url=>{requested.push(url);return url.endsWith('/collections')?respond(JSON.stringify(collections),'application/json'):url.includes('/search?')?respond(JSON.stringify({icons:['mdi:cog','fa6-solid:gear','noto:gear','mdi:cog-outline','gpl-set:cog','lucide:settings','unknown:cog','mdi:../../x','carbon:settings','mdi:a:b'],total:10}),'application/json'):respond(svg,'image/svg+xml');};
+  const result=await h.runtime.service.execute('kanvas_icons_search',{query:'settings',sets:['iconify'],limit:10},p) as {icons:{id:string;set:string;collection:string;licence:string;image:string}[];sets:Record<string,{collections:Record<string,{licence:string}>}>;view:{template:string;data:{icons:unknown[]}}};
+  expect(result.icons.map(icon=>icon.id)).toEqual(['mdi:cog','mdi:cog-outline','carbon:settings']);expect(result.icons[0]).toMatchObject({set:'iconify',collection:'mdi',licence:'Apache-2.0',image:'/api/picker/icons/iconify/mdi/cog.svg'});
+  expect(Object.keys(result.sets.iconify.collections)).toEqual(['mdi','carbon']);expect(validateView(result.view as never).template).toBe('icon-picker');expect(result.view.data.icons[0]).toEqual({set:'iconify',collection:'mdi',name:'cog'});
+  expect(requested).toEqual(['https://icons.internal.example/collections','https://icons.internal.example/search?query=settings&limit=64']);
+  const narrowed=await h.runtime.service.execute('kanvas_icons_search',{query:'two words',collections:['carbon','fa6-solid']},p) as {icons:{id:string}[]};expect(narrowed.icons.map(icon=>icon.id)).toEqual(['carbon:settings']);expect(requested.at(-1)).toBe('https://icons.internal.example/search?query=two%20words&limit=64&prefixes=carbon');
+  const before=requested.length;
+  expect((await o.raw('/api/picker/icons/iconify/mdi/cog.svg')).status).toBe(200);expect(requested.slice(before)).toEqual(['https://icons.internal.example/mdi/cog.svg']);
+  for(const refused of ['fa6-solid/gear','noto/gear','gpl-set/cog','lucide/settings','unknown/cog','nope/cog','mdi/..%2f..%2fx'])expect((await o.raw(`/api/picker/icons/iconify/${refused}.svg`)).status,refused).toBe(404);
+  expect(requested.slice(before)).toHaveLength(1);expect((await h.browser().raw('/api/picker/icons/iconify/mdi/cog.svg')).status).toBe(401);
+  pickers.fetcher=async url=>url.endsWith('.svg')?respond('<svg xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="a"/></defs><path fill="url(#a)" d="M0 0"/></svg>','image/svg+xml'):respond(JSON.stringify(collections),'application/json');
+  expect((await o.raw('/api/picker/icons/iconify/mdi/gradient.svg')).status).toBe(404);
+  for(const [value,expected] of [['https://icons.example/',  'https://icons.example'],['http://127.0.0.1:3000/iconify/','http://127.0.0.1:3000/iconify'],['ftp://icons.example',undefined],['https://user:pw@icons.example',undefined],['https://icons.example/?x=1',undefined],['not a url',undefined],['',undefined],[undefined,undefined]] as const)expect(iconifyBase(value),String(value)).toBe(expected);
+ });
+ it('offline: a directory filled by the pre-cache script serves fonts, icons and search with the proxy off and no request leaves the server',async()=>{
+  const directory=await mkdtemp(join(tmpdir(),'kanvas-picker-precache-')),fetched:string[]=[];
+  try{
+   const report=await precachePickers({directory,icons:['lucide'],concurrency:4,fetcher:async url=>{fetched.push(url);
+    if(url.includes('data.jsdelivr.com'))return respond(JSON.stringify({files:[{name:'/icons/settings.svg'},{name:'/icons/sun.svg'},{name:'/icons/unsafe.svg'},{name:'/package.json'}]}),'application/json');
+    if(url.endsWith('tags.json'))return respond(JSON.stringify({sun:['weather']}),'application/json');
+    if(url.endsWith('package.json'))return respond(JSON.stringify({license:url.includes('/lobster@')?'Proprietary':'OFL-1.1'}),'application/json');
+    if(url.endsWith('.woff2'))return url.includes('pacifico')?respond('<html>missing</html>','text/html'):respond(woff2,'font/woff2');
+    return url.endsWith('unsafe.svg')?respond('<svg><script>1</script></svg>','image/svg+xml'):respond(svg,'image/svg+xml');}});
+   expect(fetched.every(url=>url.startsWith('https://cdn.jsdelivr.net/npm/')||url.startsWith('https://data.jsdelivr.com/v1/packages/npm/'))).toBe(true);
+   expect(report.icons.lucide).toMatchObject({files:2,skipped:1});expect(report.fonts.families).toBe(26);expect(report.fonts.skipped.join('|')).toMatch(/lobster: no open licence declared/);expect(report.fonts.skipped.join('|')).toMatch(/pacifico 400/);
+   expect(JSON.parse(await readFile(join(directory,'icons/lucide/index.json'),'utf8'))).toEqual(['icons/settings.svg','icons/sun.svg']);
+   expect(await readdir(join(directory,'fonts/inter'))).toEqual(['LICENCE.txt','inter-latin-wght-normal.woff2']);expect((await readdir(join(directory,'fonts/lato'))).sort()).toEqual(['LICENCE.txt','lato-latin-100-normal.woff2','lato-latin-300-normal.woff2','lato-latin-400-normal.woff2','lato-latin-700-normal.woff2','lato-latin-900-normal.woff2']);
+   const pickers=h.runtime.service.pickers as unknown as {proxy:boolean;precache?:string;fetcher:(url:string)=>Promise<Response>};let outbound=0;
+   pickers.proxy=false;pickers.precache=directory;pickers.fetcher=async()=>{outbound++;return respond(svg,'image/svg+xml');};
+   expect((await o.raw('/api/picker/icons/lucide/outline/settings.svg')).status).toBe(200);expect((await o.raw('/api/picker/icons/lucide/outline/unsafe.svg')).status).toBe(404);expect((await o.raw('/api/picker/icons/tabler/outline/settings.svg')).status).toBe(404);
+   expect((await o.raw('/api/picker/fonts/inter/variable.woff2')).status).toBe(200);expect((await o.raw('/api/picker/fonts/lato/700.woff2')).status).toBe(200);expect((await o.raw('/api/picker/fonts/lobster/400.woff2')).status).toBe(404);
+   const search=await h.runtime.service.execute('kanvas_icons_search',{query:'weather'},p) as {icons:{id:string}[];unavailableSets:string[];unavailableReason:string};
+   expect(search.icons.map(icon=>icon.id)).toEqual(['lucide:sun']);expect(search.unavailableSets.sort()).toEqual(['heroicons','material','phosphor','tabler']);expect(search.unavailableReason).toMatch(/disabled/);
+   expect((await h.runtime.service.execute('kanvas_fonts_list',{family:'inter'},p) as {available:boolean;licence:string;variable:boolean}).available).toBe(true);
+   expect(outbound).toBe(0);
+  }finally{await rm(directory,{recursive:true,force:true});}
  });
 });
 
@@ -211,7 +295,7 @@ describe('ebebd25c colour: published values and computed colours',()=>{
  it('every mode validates, labels are speakable, and the token list returns exact values',()=>{
   const view=(data:Record<string,unknown>)=>validateView({template:'colour',data} as never).data as never;
   expect(colourTokens(view({mode:'options',options:[{value:'tailwind:amber-400'},{value:'#4f46e5',label:'indigo'}]}))).toEqual([{name:'A',hex:'#fbbf24'},{name:'indigo',hex:'#4f46e5'}]);
-  const grid=shadeGrid(view({mode:'shades',palette:'tailwind',families:['amber','sky']}));expect(grid.columns).toHaveLength(11);expect(grid.rows.map(r=>r.name)).toEqual(['amber','sky']);expect(grid.rows[0].cells[4]).toEqual({label:'amber 400',hex:'#fbbf24'});
+  const grid=shadeGrid(view({mode:'shades',palette:'tailwind',families:['amber','sky']}));expect(grid.columns).toHaveLength(11);expect(grid.rows.map(r=>r.name)).toEqual(['amber','sky']);expect(grid.rows[0].cells[4]).toEqual({label:'amber 400',shade:'400',hex:'#fbbf24'});expect(grid.cellLabels).toBe('none');
   expect(shadeGrid(view({mode:'shades',palette:'tailwind'})).rows).toHaveLength(22);
   expect(roleSteps(view({mode:'roles',scale:'radix:blue'})).map(s=>s.role)[8]).toBe('Solid background');
   expect(NAMED_GROUPS.flatMap(group=>namedColours(group)).length).toBe(148);expect(namedColours('blues').some(c=>c.name==='royalblue')).toBe(true);expect(namedColours('greys').some(c=>c.name==='gray')).toBe(true);

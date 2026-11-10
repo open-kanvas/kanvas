@@ -9,7 +9,8 @@ import {WEATHER_FIT_STEPS} from '../../src/client/renderers/Weather';
 import {WEATHER_DESCRIPTION_MAX} from '../../src/shared/extended-templates';
 import {validateView} from '../../src/shared/view-schemas';
 import {ToastIcon} from '../../src/client/toast-icons';
-import {TOAST_TYPES} from '../../src/shared/viewer-experience';
+import {TOAST_TYPES,toastsToShow,type ToastRecord} from '../../src/shared/viewer-experience';
+import {statusColor} from '../../src/shared/task-list';
 import {Agents,Colour,FontPicker,IconPicker,JsonRaw,JsonView,TaskList,ToolCallDetails,Welcome,themeTokenCss} from '../../src/client/renderers/Nov10';
 import {samples} from '../../src/shared/template-examples';
 import {geographyCodes} from '../../src/shared/geography/codes';
@@ -56,6 +57,20 @@ describe('template fixes',()=>{
   expect(()=>validateView({template:'weather',data:{condition:'cloudy',description:'x'.repeat(401)}} as never)).toThrow();
   expect(validateView({template:'weather',data:{condition:'cloudy',description:'x'.repeat(400),details:Array.from({length:8},(_,i)=>({label:`L${i}`,value:'v'}))}} as never).data.details).toHaveLength(8);
  });
+ it('1559c2fd: an answer computed before a dismissal was saved cannot bring the notification back on this window',()=>{
+  const toast=(id:string,extra:Partial<ToastRecord>={}):ToastRecord=>({id,sessionId:'s',displayId:'d',text:id,severity:'info',sticky:true,createdAt:new Date().toISOString(),expiresAt:new Date(Date.now()+60_000).toISOString(),...extra});
+  const stale=[toast('a'),toast('b'),toast('c',{groupId:'g'}),toast('old',{expiresAt:new Date(Date.now()-1).toISOString()})];
+  expect(toastsToShow(stale,new Set()).map(t=>t.id)).toEqual(['a','b','c']);
+  expect(toastsToShow(stale,new Set(['b'])).map(t=>t.id)).toEqual(['a','c']);
+  expect(toastsToShow(stale,new Set(['b','g'])).map(t=>t.id)).toEqual(['a']);
+ });
+ it('e2ba79e1: a list may bring its own status colours; they win over a ready-made palette and any value stays allowed',()=>{
+  expect(statusColor('testing','Passed')).toBe('#4caf7d');expect(statusColor(undefined,'waiting')).toBeUndefined();
+  expect(statusColor(undefined,'Waiting',{waiting:'#d9a441'})).toBe('#d9a441');expect(statusColor('testing','passed',{PASSED:'#112233'})).toBe('#112233');expect(statusColor('testing','unknown value',{waiting:'#d9a441'})).toBeUndefined();
+  const list=(statusColors:Record<string,string>)=>validateView({template:'task-list',data:{statusColors,items:[{title:'One',status:'waiting'}]}} as never);
+  expect(renderToStaticMarkup(<TaskList data={{...list({waiting:'#d9a441'}).data,items:[{number:1,title:'One',status:'waiting',checked:false}]} as never}/>)).toContain('#d9a441');
+  expect(()=>list({waiting:'orange'})).toThrow();expect(()=>list(Object.fromEntries(Array.from({length:17},(_,i)=>[`s${i}`,'#000000'])))).toThrow();
+ });
  it('e6ae1605: nine generic pictograms; diagrams may fill a large screen',()=>{
   for(const type of TOAST_TYPES)expect(renderToStaticMarkup(<ToastIcon type={type}/>)).toContain(`data-toast-icon="${type}"`);
   expect(DIAGRAM_MAX_FILL).toBeGreaterThan(1);
@@ -97,8 +112,28 @@ describe('new template renderers',()=>{
   expect(icons).toContain('/api/picker/icons/lucide/outline/settings.svg');expect(icons).toContain('lucide:settings');expect(icons).toContain('heroicons:cog-6-tooth');expect(icons).not.toMatch(/https?:\/\//);
   const variants=renderToStaticMarkup(<IconPicker data={{mode:'variants',icons:[{set:'phosphor',name:'gear'}]}}/>);expect((variants.match(/picker-number/g)??[]).length).toBe(6);expect(variants).toContain('phosphor:gear/bold');
   const fonts=renderToStaticMarkup(<FontPicker data={data('font-picker')}/>);
-  expect(fonts).toContain('/api/picker/fonts/inter/400.woff2');expect(fonts).toContain('Inter 400');expect(fonts).toContain('Playfair Display 700');expect(fonts).not.toMatch(/https?:\/\//);
+  // Inter and Playfair Display publish a variable file: one face covers the whole weight range. JetBrains Mono too.
+  expect(fonts).toContain('font-weight:100 900;font-style:normal;font-display:swap;src:url(/api/picker/fonts/inter/variable.woff2)');expect(fonts).not.toContain('/api/picker/fonts/inter/400.woff2');expect(fonts).toContain('Inter 400');expect(fonts).toContain('Playfair Display 700');expect(fonts).not.toMatch(/https?:\/\//);
   const weights=renderToStaticMarkup(<FontPicker data={validateView({template:'font-picker',data:{mode:'weights',fonts:[{family:'lato'}]}} as never).data as never}/>);expect((weights.match(/data-font-weight=/g)??[]).length).toBe(5);
+  // Lato has no variable edition: one file per weight. A variable family shows its whole range from one file.
+  expect(weights).toContain('font-weight:300;font-style:normal;font-display:swap;src:url(/api/picker/fonts/lato/300.woff2)');
+  const range=renderToStaticMarkup(<FontPicker data={validateView({template:'font-picker',data:{mode:'weights',fonts:[{family:'merriweather'}]}} as never).data as never}/>);expect((range.match(/data-font-weight=/g)??[]).length).toBe(7);expect((range.match(/@font-face/g)??[]).length).toBe(1);expect(range).toContain('font-weight:300 900');
+ });
+ it('e011b35b: a catalogue icon names its collection, is drawn from the Kanvas server and prints its exact Iconify name',()=>{
+  const catalogue=validateView({template:'icon-picker',data:{mode:'sets',concept:'settings',icons:[{set:'lucide',name:'settings'},{set:'iconify',collection:'mdi',name:'cog-outline'}]}} as never).data as never;
+  const markup=renderToStaticMarkup(<IconPicker data={catalogue}/>);
+  expect(markup).toContain('/api/picker/icons/iconify/mdi/cog-outline.svg');expect(markup).toContain('data-icon-id="mdi:cog-outline"');expect(markup).toContain('>mdi:cog-outline</code>');expect(markup).toContain('Iconify mdi');expect(markup).not.toMatch(/https?:\/\//);
+  const one=renderToStaticMarkup(<IconPicker data={{mode:'variants',icons:[{set:'iconify',collection:'mdi',name:'cog'}]}}/>);expect((one.match(/picker-number/g)??[]).length).toBe(1);
+  for(const bad of [{set:'iconify',name:'cog'},{set:'iconify',collection:'mdi',name:'cog',variant:'bold'},{set:'lucide',collection:'mdi',name:'cog'},{set:'iconify',collection:'https://evil.example',name:'cog'},{set:'iconify',collection:'mdi/../x',name:'cog'}])expect(()=>validateView({template:'icon-picker',data:{icons:[bad]}} as never),JSON.stringify(bad)).toThrow();
+ });
+ it('ebebd25c: a grid of the agent\'s own families prints a speakable label in every cell; a built-in palette keeps labels on the axes unless asked',()=>{
+  const view=(input:Record<string,unknown>)=>renderToStaticMarkup(<Colour data={validateView({template:'colour',data:input} as never).data as never}/>);
+  const own=view({mode:'shades',custom:[{name:'Brand',shades:[{value:'#fde68a',label:'light'},{value:'#f59e0b',label:'base'},{value:'#78350f',label:'deep'}]},{name:'Ink',shades:[{value:'#e5e7eb'},{value:'#6b7280'},{value:'#111827'}]}]});
+  expect(own).toContain('data-cell-labels="shade"');expect(own).toMatch(/data-colour-label="Brand base"[^>]*aria-label="Brand base #f59e0b"[^>]*><b>base<\/b><\/i>/);expect(own).toMatch(/data-colour-label="Ink 3"[^>]*><b>3<\/b><\/i>/);expect(own).toContain('--chars:5');expect((own.match(/role="cell"[^>]*><b>/g)??[]).length).toBe(6);
+  const hex=view({mode:'shades',cellLabels:'hex',custom:[{name:'Brand',shades:[{value:'#fde68a'},{value:'#f59e0b'}]}]});expect(hex).toMatch(/<b>2<\/b><code>#f59e0b<\/code>/);expect(hex).toContain('--chars:7');
+  const builtIn=view({mode:'shades',palette:'tailwind',families:['amber']});expect(builtIn).toContain('data-cell-labels="none"');expect(builtIn).not.toMatch(/role="cell"[^>]*><b>/);expect(builtIn).toMatch(/aria-label="amber 400 #fbbf24"/);
+  expect(view({mode:'shades',palette:'tailwind',families:['amber'],cellLabels:'shade'})).toMatch(/data-colour-label="amber 400"[^>]*><b>400<\/b>/);
+  expect(()=>validateView({template:'colour',data:{mode:'options',options:[{value:'#000000'},{value:'#ffffff'}],cellLabels:'hex'}} as never)).toThrow();
  });
  it('agents overview is compact; welcome is one line and three things to say',()=>{
   const agents=renderToStaticMarkup(<Agents data={data('agents')} serverNow="2026-11-10T09:01:00+01:00"/>);

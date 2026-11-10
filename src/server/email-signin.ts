@@ -48,7 +48,7 @@ export function mountEmailSignin(app:Express,auth:Auth,origin:string,mailer?:Sig
   const pendingKey=(req:import('express').Request)=>typeof req.cookies?.[pendingCookie]==='string'?hash(req.cookies[pendingCookie]):undefined;
   const buckets=new Map<string,{count:number;expiresAt:number}>();
   const limit=(key:string,max:number)=>{const time=Date.now();for(const [k,v] of buckets)if(v.expiresAt<time)buckets.delete(k);if(buckets.size>10000)throw new AppError('RATE_LIMIT','Sign-in is busy. Try again later.',429);const b=buckets.get(key)??{count:0,expiresAt:time+15*60000};b.count++;buckets.set(key,b);if(b.count>max)throw new AppError('RATE_LIMIT','Too many sign-in attempts. Try again later.',429);};
-  app.get('/api/auth/options',(_req,res)=>res.json({data:{emailSignin:Boolean(mailer),allowRegistration:auth.allowRegistration,passwordSignin:false}}));
+  app.get('/api/auth/options',(_req,res)=>res.json({data:{emailSignin:Boolean(mailer),...(mailer?.sender?{emailSender:mailer.sender}:{}),allowRegistration:auth.allowRegistration,passwordSignin:false}}));
   const requestLink=async(raw:unknown,rateKey:string,linkOrigin=origin,pendingId?:string)=>{
     if(!mailer)throw new AppError('EMAIL_UNAVAILABLE','Email sign-in is not configured on this installation.',503);
     const a=z.object({email:emailSchema,returnTo:z.string().max(300).default('/start'),acceptedLegalVersion:z.literal(LEGAL_VERSION).optional(),authorizationRequestId:z.string().regex(/^[A-Za-z0-9_-]+$/).max(128).optional()}).strict().parse(raw);

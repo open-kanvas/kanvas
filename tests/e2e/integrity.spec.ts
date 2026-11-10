@@ -259,7 +259,12 @@ test('a stalled image reaches a bounded explicit placeholder and a late load can
     // Images allow thirty seconds for anonymous fallback before the accepted
     // degraded-image policy acknowledges an explicit unavailable surface.
     await viewer.clock.fastForward(30_000 + 50);
-    await expect(viewer.locator('.viewer-candidate .media-unavailable')).toBeVisible();
+    // 2026-11-10: failed once on the phone late in a complete run and never alone. The assertion is unchanged; a failure
+    // now also reports, without page content, what the window shows instead of the placeholder.
+    await expect(viewer.locator('.viewer-candidate .media-unavailable')).toBeVisible().catch(async (error: Error) => {
+      const state = await viewer.evaluate(() => ({ privacyStage: document.querySelector('.device-privacy-screen')?.getAttribute('data-privacy-stage') ?? null, candidate: Boolean(document.querySelector('.viewer-candidate')), loading: Boolean(document.body.textContent?.includes('Loading media')), renderedRevision: document.querySelector('.viewer-shell')?.getAttribute('data-rendered-revision') ?? null, clock: Date.now() })).catch(() => 'page unavailable');
+      throw new Error(`${error.message}\nWindow state when the placeholder was missing: ${JSON.stringify(state)}`);
+    });
     await expect(viewer.locator('.viewer-candidate .media-unavailable')).toContainText('Stalled image');
     release(); await viewer.clock.runFor(200);
     const current = await waitForDisplay(page, sessionId, display.id, d => d.revision > 0 && d.appliedRevision === d.revision);

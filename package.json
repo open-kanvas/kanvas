@@ -17,6 +17,7 @@
     "test:all": "npm test && npm run build && npm run test:e2e",
     "backup": "node dist/server/backup-postgres.js",
     "create-user": "node dist/server/create-user.js",
+    "picker-precache": "node dist/server/picker-precache.js",
     "check:all": "tsc --noEmit",
     "migrate:sqlite": "node dist/server/migrate-sqlite.js",
     "test:postgres": "vitest run tests/core/postgresql.test.ts tests/core/postgresql-app.test.ts"

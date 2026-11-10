@@ -88,10 +88,10 @@ export type ColourMode=typeof COLOUR_MODES[number];
  * small; the rules below keep the contract exactly as strict as a union. */
 const MODE_FIELDS:Record<ColourMode,{needs:readonly string[];allows:readonly string[]}>={
  options:{needs:['options'],allows:[]},variations:{needs:['base'],allows:[]},harmony:{needs:['base'],allows:[]},
- shades:{needs:[],allows:['palette','families','custom']},named:{needs:['group'],allows:[]},
+ shades:{needs:[],allows:['palette','families','custom','cellLabels']},named:{needs:['group'],allows:[]},
  contrast:{needs:['backgrounds','texts'],allows:['sample']},roles:{needs:[],allows:['scale','steps']},theme:{needs:['seed'],allows:[]},
 };
-const MODE_SPECIFIC=['options','base','palette','families','custom','group','backgrounds','texts','sample','scale','steps','seed'] as const;
+const MODE_SPECIFIC=['options','base','palette','families','custom','cellLabels','group','backgrounds','texts','sample','scale','steps','seed'] as const;
 export const colourDataSchema=z.object({
  mode:z.enum(COLOUR_MODES).describe('options: 2-8 candidates. variations: around base. shades: palette or custom families. named: CSS names by group. harmony: from base. contrast: backgrounds by texts. roles: 12-step scale. theme: from seed.'),
  options:z.array(swatch).min(2).max(8).optional(),
@@ -99,6 +99,7 @@ export const colourDataSchema=z.object({
  palette:z.enum(PALETTE_IDS).optional(),
  families:z.array(z.string().max(20)).max(31).optional(),
  custom:z.array(z.object({name:z.string().max(24),shades:z.array(swatch).min(2).max(13)}).strict()).max(12).optional(),
+ cellLabels:z.enum(['none','shade','hex']).optional().describe('Shade grid: what each cell prints. shade (default for custom families) or hex (shade and value); none keeps labels on the axes (default for a built-in palette).'),
  group:z.enum(NAMED_GROUPS).optional(),
  backgrounds:z.array(colourValue).min(1).max(6).optional(),
  texts:z.array(colourValue).min(1).max(6).optional(),
@@ -156,13 +157,20 @@ export function seedTheme(seedHex:string){
  const scheme=(dark:boolean)=>({background:tone('neutral',dark?10:95),surface:tone('neutral',dark?20:100),text:tone('neutral',dark?90:10),primary:tone('primary',dark?80:40),onPrimary:tone('primary',dark?20:100),secondary:tone('secondary',dark?80:40),tertiary:tone('tertiary',dark?80:40),error:tone('error',dark?80:40),outline:tone('neutral',dark?60:50)});
  return {palettes,light:scheme(false),dark:scheme(true)};
 }
-export function shadeGrid(data:ColourData):{title:string;columns:string[];rows:{name:string;cells:Swatch[]}[]}{
+/** A shade grid. Every cell knows its own shade label, so a grid of the
+ * agent's own families can print a speakable label in each cell: custom
+ * families need not share one set of column names. A built-in palette has the
+ * same shades in every row and is labelled on the axes unless asked otherwise. */
+export type ShadeCell=Swatch&{shade:string};
+export function shadeGrid(data:ColourData):{title:string;columns:string[];rows:{name:string;cells:ShadeCell[]}[];cellLabels:'none'|'shade'|'hex';chars:number;shadeChars:number}{
  const shadeLabel=(s:{label?:string},index:number)=>s.label??String(index+1);
- if(data.custom?.length&&!data.palette)return {title:'Custom',columns:data.custom[0].shades.map(shadeLabel),rows:data.custom.map(family=>({name:family.name,cells:family.shades.map((s,index)=>({label:`${family.name} ${shadeLabel(s,index)}`,hex:resolveColour(s.value)!}))}))};
+ const own=(data.custom??[]).map(family=>({name:family.name,cells:family.shades.map((s,index)=>({label:`${family.name} ${shadeLabel(s,index)}`,shade:shadeLabel(s,index),hex:resolveColour(s.value)!}))}));
+ const cellLabels=data.cellLabels??(own.length?'shade':'none');
+ const result=(title:string,columns:string[],rows:{name:string;cells:ShadeCell[]}[])=>{const shadeChars=Math.max(1,...rows.flatMap(row=>row.cells.map(cell=>cell.shade.length)));return {title,columns,rows,cellLabels,shadeChars,chars:Math.max(cellLabels==='hex'?7:1,shadeChars)};};
+ if(own.length&&!data.palette)return result('Custom',data.custom![0].shades.map(shadeLabel),own);
  const palette=PALETTES[data.palette!],names=data.families?.length?data.families:Object.keys(palette.families);
- const rows=names.map(name=>({name,cells:palette.families[name].map((hex,index)=>({label:`${name} ${palette.shades[index]}`,hex}))}));
- for(const family of data.custom??[])rows.push({name:family.name,cells:family.shades.map((s,index)=>({label:`${family.name} ${shadeLabel(s,index)}`,hex:resolveColour(s.value)!}))});
- return {title:palette.title,columns:[...palette.shades],rows};
+ const rows:{name:string;cells:ShadeCell[]}[]=names.map(name=>({name,cells:palette.families[name].map((hex,index)=>({label:`${name} ${palette.shades[index]}`,shade:palette.shades[index],hex}))}));
+ return result(palette.title,[...palette.shades],[...rows,...own]);
 }
 export const optionSwatches=(data:ColourData):Swatch[]=>(data.options??[]).map((option,index)=>({label:option.label??letter(index),hex:resolveColour(option.value)!,name:option.name??(HEX.test(option.value.trim())?undefined:option.value.trim().toLowerCase())}));
 export function roleSteps(data:ColourData):Swatch[]{

@@ -50,7 +50,7 @@
  .tool-detail tbody th,.tool-detail tbody td{display:block;padding:0;border:0;min-width:0;width:auto}
  .tool-detail tbody th{grid-column:1;grid-row:1;font-size:1.08em;min-width:0}
  .tool-detail .parameter-need{grid-column:2;grid-row:1;justify-self:end;width:auto}
- .tool-detail .parameter-type{grid-column:1/-1;white-space:normal;overflow-wrap:anywhere;word-break:normal;color:var(--muted);font-size:.9em;min-width:0}
+ .tool-detail .parameter-type{grid-column:1/-1;width:auto;white-space:normal;overflow-wrap:anywhere;word-break:normal;color:var(--muted);font-size:.9em;min-width:0}
  .tool-detail .parameter-description,.tool-detail td:last-child{grid-column:1/-1;min-width:0}
 }
 /* The same layout when the page itself is narrow, whatever container it sits in. */
@@ -63,6 +63,6 @@
  .tool-detail tbody th,.tool-detail tbody td{display:block;padding:0;border:0;min-width:0;width:auto}
  .tool-detail tbody th{grid-column:1;grid-row:1;font-size:1.08em;min-width:0}
  .tool-detail .parameter-need{grid-column:2;grid-row:1;justify-self:end;width:auto}
- .tool-detail .parameter-type{grid-column:1/-1;white-space:normal;overflow-wrap:anywhere;word-break:normal;color:var(--muted);font-size:.9em;min-width:0}
+ .tool-detail .parameter-type{grid-column:1/-1;width:auto;white-space:normal;overflow-wrap:anywhere;word-break:normal;color:var(--muted);font-size:.9em;min-width:0}
  .tool-detail .parameter-description,.tool-detail td:last-child{grid-column:1/-1;min-width:0}
 }

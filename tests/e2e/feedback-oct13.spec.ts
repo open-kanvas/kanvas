@@ -27,8 +27,8 @@ test('flashcards are voice-first, visually graded and preserve agent-controlled 
 });
 
 test('email form has centered primary action, sender guidance and centered device code',async({page})=>{
- await page.route('**/api/auth/options',route=>route.fulfill({json:{data:{emailSignin:true,allowRegistration:true}}}));
- await page.route('**/api/auth/email/request',route=>route.fulfill({json:{data:{code:'123456',device:'Test browser',expiresAt:Date.now()+600000}}}));
+ await page.route('**/api/auth/options',route=>route.fulfill({json:{data:{emailSignin:true,emailSender:'kanvas@open-kanvas.ai',allowRegistration:true}}}));
+ await page.route('**/api/auth/email/request',route=>route.fulfill({json:{data:{code:'123456',device:'Test browser',expiresAt:Date.now()+600000,sender:'kanvas@open-kanvas.ai'}}}));
  await page.route('**/api/auth/email/status',route=>route.fulfill({json:{data:{status:'pending'}}}));
  await page.goto('/start');await expect(page.locator('.login-letters')).toHaveAttribute('aria-label',/^Sign-in code [A-Z]{6}$/);await page.getByRole('button',{name:'Have a keyboard? Sign in with email instead',exact:true}).click();await page.getByLabel('Email address').fill('test@example.invalid');
  const button=page.getByRole('button',{name:'Email a sign-in link'});await expect(button).toBeVisible();
@@ -37,6 +37,8 @@ test('email form has centered primary action, sender guidance and centered devic
  expect(await button.evaluate(e=>getComputedStyle(e).color)).toBe('rgb(255, 255, 255)');
  await expect(page.getByText('Check your spam folder',{exact:false})).toContainText('kanvas@open-kanvas.ai');
  await button.click();await expect(page.locator('.email-match-code')).toHaveText('123456');
+ // 2026-11-10 (aef9fccb): the address is the configured sender, named before the request and on the waiting step, as selectable text.
+ await expect(page.locator('[role=status] [data-email-sender]')).toHaveText('kanvas@open-kanvas.ai');expect(await page.locator('[role=status] [data-email-sender]').evaluate(e=>getComputedStyle(e).userSelect)).not.toBe('none');
  expect(await page.locator('.email-match-code').evaluate(e=>getComputedStyle(e).textAlign)).toBe('center');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
 });

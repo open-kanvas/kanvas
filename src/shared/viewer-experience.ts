@@ -39,3 +39,9 @@ export function toastBuiltInIcon(toast:{icon?:string;type?:ToastType;severity?:s
 export interface ToastRecord {groupId?:string;type?:ToastType;severityStated?:boolean;title?:string;description?:string;icon?:string;time?:string;confirmationWords?:string;confirmation?:boolean;ownerId?:string;id:string;sessionId:string;displayId:string;text:string;severity:'info'|'success'|'warning';createdAt:string;expiresAt:string;sticky:boolean}
 /** Lifecycle records remain available for delivery, but must not cover a reading screen for their whole retention period. */
 export function toastVisibleUntil(toast:ToastRecord){return toast.ownerId&&!toast.confirmation?Math.min(Date.parse(toast.expiresAt),Date.parse(toast.createdAt)+(toast.severity==='warning'?15_000:8_000)):Date.parse(toast.expiresAt);}
+/** What a window shows from a server answer. An answer computed just before a
+ * dismissal was saved can still list the dismissed notification; it must not
+ * bring it back on the window where the person already closed it. */
+export function toastsToShow(toasts:readonly ToastRecord[],dismissedHere:ReadonlySet<string>,now=Date.now()):ToastRecord[]{
+ return toasts.filter(t=>toastVisibleUntil(t)>now&&!dismissedHere.has(t.id)&&!(t.groupId&&dismissedHere.has(t.groupId)));
+}

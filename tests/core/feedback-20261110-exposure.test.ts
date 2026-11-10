@@ -258,7 +258,7 @@ describe('server behaviour behind the exposure reports',()=>{
   await h.runtime.auth.issueToken(p.userId,'Phone agent',['read','publish']);
   const stored=(await h.runtime.store.list<{id:string;agentId:string;userId:string;name:string}>('token')).find(token=>token.userId===p.userId&&token.name==='Phone agent')!;
   const claude=await agentPrincipal('Claude agent'),codex={userId:p.userId,agentId:stored.agentId,tokenId:stored.id};
-  const invoke=(principal:typeof claude,canonical:string,clientName:string,userAgent:string,sessionId?:string)=>h.runtime.service.recordToolCall(principal,{id:randomUUID(),tool:'kanvas_call',operation:canonical,canonical,sessionId,timestamp:new Date().toISOString(),status:'completed',durationMs:5,clientContext:{clientName,clientVersion:'1.0.0',userAgent}});
+  const invoke=(principal:typeof claude,canonical:string,clientName:string,userAgent:string,sessionId?:string,createdSession?:boolean)=>h.runtime.service.recordToolCall(principal,{id:randomUUID(),tool:'kanvas_call',operation:canonical,canonical,sessionId,...(createdSession?{createdSession}:{}),timestamp:new Date().toISOString(),status:'completed',durationMs:5,clientContext:{clientName,clientVersion:'1.0.0',userAgent}});
   await invoke(claude,'kanvas_session_create','Anthropic/ClaudeAI','Claude-User',s);await invoke(claude,'kanvas_submit','Anthropic/ClaudeAI','Claude-User',s);
   await invoke(codex,'kanvas_submit','openai-mcp (Codex)','openai-mcp/1.0.0',s);
   const list=await call('kanvas_agents_read',{},claude);
@@ -266,6 +266,17 @@ describe('server behaviour behind the exposure reports',()=>{
   const mine=list.agents.find((a:{thisConnection?:boolean})=>a.thisConnection);expect(mine).toMatchObject({name:'Claude.ai',connectedNow:true,sessionCount:1,lastSession:'Acceptance session'});
   expect(validateView(list.view).template).toBe('agents');
   const detail=await call('kanvas_agents_read',{agentId:mine.agentId},claude);expect(detail.agent.sessions[0]).toMatchObject({sessionId:s,created:true});expect(detail.agent.log.map((l:{kind:string})=>l.kind)).toEqual(['published a view','created a session']);
+  // Session overview names the creating agent from the connection. Another agent that merely publishes into the
+  // session moments later did not create it; a first publish whose result says it made the session did.
+  const {accountOverview}=await import('../../src/server/account-overview.js');
+  const overview=async(id:string)=>(await accountOverview(h.runtime.service,p)).sessions.find((x:{id:string})=>x.id===id) as {createdBy?:string};
+  expect(await overview(s)).toMatchObject({createdBy:'Claude.ai'});
+  const byHand=(await o.session()).id;
+  await invoke(codex,'kanvas_submit','openai-mcp (Codex)','openai-mcp/1.0.0',byHand);
+  expect((await overview(byHand)).createdBy).toBeUndefined();
+  const implicit=(await o.session()).id;
+  await invoke(codex,'kanvas_submit','openai-mcp (Codex)','openai-mcp/1.0.0',implicit,true);
+  expect(await overview(implicit)).toMatchObject({createdBy:'Codex'});
   // Another account sees none of this.
   const other=await h.account();expect((await call('kanvas_agents_read',{}, {userId:other.user!.id})).agents).toEqual([]);
   await expect(call('kanvas_agents_read',{agentId:mine.agentId},{userId:other.user!.id})).rejects.toMatchObject({code:'NOT_FOUND'});

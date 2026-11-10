@@ -3,7 +3,7 @@ import {jsonPathLine,prettyJson,type JsonData} from '../../shared/connection-vie
 import {TOOL_CALL_LINES,type AgentsData,type ToolCallDetailsData,type WelcomeData} from '../../shared/nov10-templates';
 import {projectTasks,statusColor,type TaskListData} from '../../shared/task-list';
 import {contrastMatrix,harmonies,hexToOklch,namedColours,optionSwatches,readableOn,resolveColour,roleSteps,seedTheme,shadeGrid,variations,type ColourData,type Swatch} from '../../shared/colour';
-import {ICON_SETS,fontCssName,fontDisplayName,fontUrl,iconId,iconUrl,FONT_FAMILIES,type FontPickerData,type FontRef,type IconPickerData,type IconRef} from '../../shared/pickers';
+import {fontCssName,fontDisplayName,fontUrl,fontVariableRange,iconId,iconSetTitle,iconUrl,iconVariants,FONT_FAMILIES,type FontPickerData,type FontRef,type IconPickerData,type IconRef} from '../../shared/pickers';
 import {HUMAN_INVITATION} from '../../shared/philosophy';
 import {highlightLine} from './Code';
 import {JsonExplorer} from './JsonExplorer';
@@ -60,7 +60,7 @@ export function TaskList({data}:{data:TaskListData}){
  return <div className="task-list" data-task-list={data.taskListId}>
   <p className="task-list-counts"><span><b>{open}</b> open</span><span><b>{done}</b> done</span>{projected.hidden>0&&<span className="task-list-hidden">{projected.hidden} hidden by filter</span>}</p>
   <div className="task-list-scroll" data-navigation-scroll tabIndex={0}><table><thead><tr><th className="task-number" scope="col">#</th><th scope="col" className="task-check" aria-label="Done"/><th scope="col">Item</th>{anyStatus&&<th scope="col">Status</th>}{anyTags&&<th scope="col">Tags</th>}{columns.map(column=><th key={column.key} scope="col">{column.label}</th>)}</tr></thead>
-   <tbody ref={body}>{projected.items.map(item=>{const current=item.id===data.highlight,colour=statusColor(data.statusPalette,item.status);
+   <tbody ref={body}>{projected.items.map(item=>{const current=item.id===data.highlight,colour=statusColor(data.statusPalette,item.status,data.statusColors);
     return <tr key={item.id??item.number} data-task-id={item.id} data-task-number={item.number} className={`${item.checked?'is-done':''}${current?' is-current':''}`.trim()} aria-current={current?'true':undefined}>
      <td className="task-number">{item.number}</td>
      <td className="task-check"><span className="task-box" role="img" aria-label={item.checked?'Done':'Open'}>{item.checked?'✓':''}</span></td>
@@ -84,9 +84,9 @@ export function Colour({data}:{data:ColourData}){
  switch(data.mode){
   case 'options':{const swatches=optionSwatches(data);content=<div className="colour-options" style={{'--count':swatches.length} as CSSProperties}>{swatches.map(s=><Chip key={s.label} swatch={s} large selected={picked(s.label)}><span className="colour-preview" aria-hidden="true"><i className="colour-preview-bar" style={{background:s.hex}}/><em style={{color:s.hex}}>Heading</em><u style={{background:s.hex,color:readableOn(s.hex)}}>Button</u></span></Chip>)}</div>;break;}
   case 'variations':content=<div className="colour-options" style={{'--count':7} as CSSProperties}>{variations(resolveColour(data.base!)!).map(s=><Chip key={s.label} swatch={s} large selected={picked(s.label)}/>)}</div>;break;
-  case 'shades':{const grid=shadeGrid(data);content=<div className="colour-shades" style={{'--columns':grid.columns.length,'--rows':grid.rows.length} as CSSProperties} role="table" aria-label={grid.title}>
+  case 'shades':{const grid=shadeGrid(data);content=<div className={`colour-shades cells-${grid.cellLabels}`} data-cell-labels={grid.cellLabels} style={{'--columns':grid.columns.length,'--rows':grid.rows.length,'--chars':grid.chars,'--shade-chars':grid.shadeChars} as CSSProperties} role="table" aria-label={grid.title}>
    <div className="colour-shade-head" role="row"><span/>{grid.columns.map(column=><b key={column} role="columnheader">{column}</b>)}</div>
-   {grid.rows.map(row=><div key={row.name} className="colour-shade-row" role="row"><b role="rowheader">{row.name}</b>{row.cells.map(cell=><i key={cell.label} role="cell" className={picked(cell.label)?'is-selected':undefined} style={{background:cell.hex,color:readableOn(cell.hex)}} data-colour={cell.hex} data-colour-label={cell.label} title={`${cell.label} ${cell.hex}`}/>)}</div>)}</div>;break;}
+   {grid.rows.map(row=><div key={row.name} className="colour-shade-row" role="row"><b role="rowheader">{row.name}</b>{row.cells.map(cell=><i key={cell.label} role="cell" className={picked(cell.label)?'is-selected':undefined} style={{background:cell.hex,color:readableOn(cell.hex)}} data-colour={cell.hex} data-colour-label={cell.label} aria-label={`${cell.label} ${cell.hex}`} title={`${cell.label} ${cell.hex}`}>{grid.cellLabels!=='none'&&<b>{cell.shade}</b>}{grid.cellLabels==='hex'&&<code>{cell.hex}</code>}</i>)}</div>)}</div>;break;}
   case 'named':{const names=namedColours(data.group!);content=<div className="colour-named" style={{'--count':names.length} as CSSProperties}>{names.map(c=><Chip key={c.name} swatch={{label:c.name,hex:c.hex}} selected={picked(c.name)}/>)}</div>;break;}
   case 'harmony':{const base=resolveColour(data.base!)!,groups=harmonies(base),hue=hexToOklch(base).h;content=<div className="colour-harmony"><div className="colour-wheel" aria-label={`Hue wheel, base at ${Math.round(hue)} degrees`} role="img"><i style={{transform:`rotate(${hue}deg)`}}><b style={{background:base}}/></i></div>
    <div className="colour-harmony-groups">{groups.map(group=><section key={group.name}><h3>{group.name}</h3><div>{group.swatches.map(s=><Chip key={s.label} swatch={s} selected={picked(s.label)}/>)}</div></section>)}</div></div>;break;}
@@ -102,25 +102,28 @@ export function Colour({data}:{data:ColourData}){
 }
 
 const iconStyle=(icon:IconRef):CSSProperties=>({WebkitMaskImage:`url(${iconUrl(icon)})`,maskImage:`url(${iconUrl(icon)})`});
-function IconGlyph({icon,size}:{icon:IconRef;size?:string}){return <i className="picker-icon" role="img" aria-label={`${ICON_SETS[icon.set].title} ${icon.name}`} style={{...iconStyle(icon),...(size?{width:size,height:size}:{})}}/>;}
+function IconGlyph({icon,size}:{icon:IconRef;size?:string}){return <i className="picker-icon" role="img" aria-label={`${iconSetTitle(icon)} ${icon.name}`} style={{...iconStyle(icon),...(size?{width:size,height:size}:{})}}/>;}
 export function IconPicker({data}:{data:IconPickerData}){
- const variants=data.mode==='variants'?Object.keys(ICON_SETS[data.icons[0].set].variants).map(variant=>({...data.icons[0],variant})):data.icons;
+ // A core set has style variants; a catalogue icon is one drawing, so it is shown as it is.
+ const styles=data.mode==='variants'?iconVariants(data.icons[0]):[];
+ const variants:IconRef[]=styles.length?styles.map(variant=>({...data.icons[0],variant})):data.mode==='variants'?[data.icons[0]]:data.icons;
  return <div className={`picker icon-picker mode-${data.mode}`} data-picker-mode={data.mode}>{data.concept&&<p className="picker-concept">{data.concept}</p>}
   <ol className="picker-grid" style={{'--count':variants.length} as CSSProperties}>{variants.map((icon,index)=><li key={index} className={data.selected===index+1?'is-selected':undefined} data-icon-id={iconId(icon)}>
    <b className="picker-number">{index+1}</b>
    {data.mode==='context'?<div className="picker-context"><span className="picker-button"><IconGlyph icon={icon} size="1.1em"/>Button</span><span className="picker-menu"><IconGlyph icon={icon} size="1em"/>Menu item</span><span className="picker-list"><IconGlyph icon={icon} size="1.6em"/>List row</span></div>:<IconGlyph icon={icon}/>}
-   <code className="picker-label">{iconId(icon)}</code>{data.mode==='sets'&&<small>{ICON_SETS[icon.set].title}</small>}{data.mode==='variants'&&<small>{icon.variant}</small>}</li>)}</ol>
+   <code className="picker-label">{iconId(icon)}</code>{data.mode==='sets'&&<small>{iconSetTitle(icon)}</small>}{data.mode==='variants'&&icon.variant&&<small>{icon.variant}</small>}</li>)}</ol>
  </div>;
 }
 const face=(font:FontRef):CSSProperties=>({fontFamily:`"${fontCssName(font.family)}", system-ui, sans-serif`,fontWeight:font.weight});
 const fontLabel=(font:FontRef)=>`${fontDisplayName(font.family)} ${font.weight}`;
 export function FontPicker({data}:{data:FontPickerData}){
  const family=data.fonts[0].family;
- const weights=data.mode==='weights'?(Object.hasOwn(FONT_FAMILIES,family)?[...FONT_FAMILIES[family as keyof typeof FONT_FAMILIES].weights]:[400,700]).map(weight=>({family,weight})):[];
+ const weights=data.mode==='weights'?(Object.hasOwn(FONT_FAMILIES,family)?[...FONT_FAMILIES[family].weights]:[400,700]).map(weight=>({family,weight})):[];
  const pairings=data.mode==='pairings'?Array.from({length:Math.floor(data.fonts.length/2)},(_,i)=>({heading:data.fonts[i*2],body:data.fonts[i*2+1]})):[];
  const used=[...data.fonts,...weights];
  // Same-origin font files only; names are validated ids, never free text.
- const css=[...new Map(used.map(font=>[`${font.family}:${font.weight}`,font])).values()].map(font=>`@font-face{font-family:"${fontCssName(font.family)}";font-weight:${font.weight};font-style:normal;font-display:swap;src:url(${fontUrl(font.family,font.weight)}) format("woff2")}`).join('');
+ // A variable family is one file for its whole weight range; a static family is one file per weight.
+ const css=[...new Map(used.map(font=>[fontVariableRange(font.family)?font.family:`${font.family}:${font.weight}`,font])).values()].map(font=>{const range=fontVariableRange(font.family);return `@font-face{font-family:"${fontCssName(font.family)}";font-weight:${range?`${range[0]} ${range[1]}`:font.weight};font-style:normal;font-display:swap;src:url(${fontUrl(font.family,font.weight)}) format("woff2")}`;}).join('');
  const rows=data.mode==='weights'?weights:data.fonts,body='Kanvas is your agent’s screen. The detail is already visible, so your words get shorter.';
  return <div className={`picker font-picker mode-${data.mode}`} data-picker-mode={data.mode}><style>{css}</style>
   {data.mode==='pairings'?<ol className="picker-grid font-pairings" style={{'--count':pairings.length} as CSSProperties}>{pairings.map((pair,index)=><li key={index} className={data.selected===index+1?'is-selected':undefined}><b className="picker-number">{index+1}</b><h3 style={face(pair.heading)}>{data.text}</h3><p style={face(pair.body)}>{body}</p><code className="picker-label">{`${fontLabel(pair.heading)} + ${fontLabel(pair.body)}`}</code></li>)}</ol>

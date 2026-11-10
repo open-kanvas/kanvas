@@ -61,11 +61,13 @@ export class Agents{
     const record:AgentRecord=saved?{...saved}:{id:key,userId:p.userId,tokenId:p.tokenId,type,name:type,firstSeenAt:at,lastSeenAt:at,sessions:[],sessionsTotal:0,log:[]};
     record.type=type;record.name=type==='Custom agent'&&clientName?clientName.slice(0,80):type;record.clientName=clientName;record.clientVersion=context?.clientVersion?.slice(0,120)??saved?.clientVersion;record.userAgent=userAgent;record.lastSeenAt=at;record.tokenId=p.tokenId??record.tokenId;
     let sessionId=call.sessionId;
+    // A first publish with no session makes one: the publish result says so, and that connection created it too.
+    const made=canonical==='kanvas_session_create'||call.createdSession===true;
     if(sessionId){try{await this.service.access(p,sessionId);}catch{sessionId=undefined;}}
     if(sessionId){
      const known=record.sessions.find(s=>s.sessionId===sessionId);
-     if(known)known.lastAt=at;else{record.sessions.push({sessionId,firstAt:at,lastAt:at,...(canonical==='kanvas_session_create'?{created:true}:{})});record.sessionsTotal++;}
-     if(known&&canonical==='kanvas_session_create')known.created=true;
+     if(known)known.lastAt=at;else{record.sessions.push({sessionId,firstAt:at,lastAt:at,...(made?{created:true}:{})});record.sessionsTotal++;}
+     if(known&&made)known.created=true;
      record.sessions=record.sessions.sort((a,b)=>a.lastAt.localeCompare(b.lastAt)).slice(-MAX_SESSIONS);record.lastSessionId=sessionId;
      const reported=(await this.store.list<AgentConnection>('agent-connection',sessionId)).filter(c=>c.userId===p.userId).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt))[0]?.selfReported.model;
      if(reported)record.model=reported.slice(0,120);
@@ -119,10 +121,12 @@ export class Agents{
    return {agentId:record.id,name:record.name,revoked:true,revokedAt:record.revokedAt,note:'That client must sign in and be approved again to reconnect. Sessions and their content are unchanged.'};
   });
  }
- /** Which agent created each session, for session overviews. Account-scoped. */
+ /** Which agent created each session, for session overviews. Account-scoped:
+  * only this account's own agent records are read, so a shared session shows
+  * a creator only to the account whose agent made it. */
  async creators(p:AuthPrincipal):Promise<Map<string,{agentId:string;name:string}>>{
-  const out=new Map<string,{agentId:string;name:string}>();
-  for(const record of (await this.store.list<AgentRecord>('account-agent')).filter(r=>r.userId===p.userId))for(const s of record.sessions)if(s.created)out.set(s.sessionId,{agentId:record.id,name:record.name});
+  const out=new Map<string,{agentId:string;name:string;at:string}>();
+  for(const record of (await this.store.list<AgentRecord>('account-agent')).filter(r=>r.userId===p.userId))for(const s of record.sessions){const prior=out.get(s.sessionId);if(s.created&&(!prior||s.firstAt<prior.at))out.set(s.sessionId,{agentId:record.id,name:record.name,at:s.firstAt});}
   return out;
  }
 }

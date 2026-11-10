@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: { index:'src/server/index.ts', 'backup-postgres':'scripts/backup-postgres.ts', 'migrate-sqlite':'scripts/migrate-sqlite.ts', 'create-user':'scripts/create-user.ts' },
+  entry: { index:'src/server/index.ts', 'backup-postgres':'scripts/backup-postgres.ts', 'migrate-sqlite':'scripts/migrate-sqlite.ts', 'create-user':'scripts/create-user.ts', 'picker-precache':'scripts/picker-precache.ts' },
   format: ['esm'],
   platform: 'node',
   target: 'node24',

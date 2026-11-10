@@ -16,15 +16,31 @@ The server builds every outbound address itself from a fixed host (`cdn.jsdelivr
 | Tabler | @tabler/icons 3.51.0 | MIT | outline, filled |
 | Material Symbols | @material-symbols/svg-400 0.48.3 | Apache-2.0 | outlined, rounded, sharp, each also filled |
 
-Fonts come from the `@fontsource/<family>` packages (major version 5), Latin subset including Nordic letters. 28 curated families are listed by `kanvas.fonts.list`. Any other family id may be named; the server reads that package's declared licence first and serves it only when it is OFL-1.1, Apache-2.0, UFL-1.0 or MIT.
+Fonts come from the `@fontsource-variable/<family>` and `@fontsource/<family>` packages (major version 5), Latin subset including Nordic letters. 28 curated families are listed by `kanvas.fonts.list`.
 
-Licences and paths above were checked against the published packages on 2026-11-10. A broader Iconify catalogue and variable font files are not part of this release.
+**Variable fonts.** 21 of the 28 curated families publish a variable edition: one file covers the family's whole weight range, so a weights view or a pairing costs one request per family. They are Inter, Roboto, Open Sans, Montserrat, DM Sans, Work Sans, Source Sans 3, Nunito, Playfair Display, Merriweather, Lora, Source Serif 4, EB Garamond, Libre Baskerville, JetBrains Mono, Fira Code, Source Code Pro, Oswald, Space Grotesk, Caveat and Dancing Script. The other seven (Lato, Poppins, IBM Plex Mono, Bebas Neue, Archivo Black, Pacifico, Lobster) are published as static weights only and are served one weight per file; that is how those typefaces exist, not a Kanvas limit. `kanvas.fonts.list` marks each family `variable` with its `weightRange`.
+
+Any other family id may be named as a static weight; the server reads that package's declared licence first and serves it only when it is OFL-1.1, Apache-2.0, UFL-1.0 or MIT.
+
+Licences, paths and weight ranges above were checked against the published packages on 2026-11-10.
+
+## The wider catalogue (Iconify)
+
+The five core sets work on every installation. The wider catalogue (more than a hundred further open-source collections) is served through an **Iconify API that the operator runs** ([iconify/api](https://github.com/iconify/api) is the open-source server). Set `KANVAS_ICONIFY_API` to its base address, for example `http://127.0.0.1:3000`. It is unset by default; then the catalogue does not exist on that installation and `kanvas.icons.search` says so when it is asked for.
+
+- The address is installation configuration. A view, an agent or a browser can name a collection prefix and an icon name, both strictly patterned; never a host or a path.
+- Only collections whose declared licence is MIT, ISC, Apache-2.0, CC0-1.0, Unlicense, BSD-2-Clause, BSD-3-Clause, 0BSD or MIT-0 are listed or served. Attribution-required (CC BY), share-alike, copyleft and non-commercial collections are refused, as are collections without a declared licence. The licence is read from the API's own `/collections` answer, refreshed every ten minutes.
+- Multi-colour collections (emoji, logos, flags) are left out: the picker draws an icon as one shape in the current colour. An icon that needs gradients or references is refused by the same SVG sanitiser as every other icon.
+- Collections that repeat a core set (Lucide, Heroicons, Phosphor, Tabler, Material Symbols) are left out.
+- The same limits apply as for the CDN: no redirects, 8 second timeout, 64 KB per icon, sanitised SVG, bounded cache, signed-in browsers only.
+
+A catalogue icon is `{"set":"iconify","collection":"mdi","name":"cog-outline"}` in a view; its exact name for code is the Iconify name `mdi:cog-outline`. Against the public Iconify API on 2026-11-10 this allowlist left 126 of 276 collections; the public API was used only to check the response format, it is not a default.
 
 ## Operations and templates
 
-- `kanvas.icons.search {query, sets?, limit?}` returns exact `set:name` ids, the available styles and a ready `icon-picker` view. Lucide's published tag list makes concept words such as "weather" find `sun`.
-- `kanvas.fonts.list {category?}` or `{family}` returns ids, weights and licence.
-- `icon-picker` modes: `candidates`, `sets`, `variants`, `context`.
+- `kanvas.icons.search {query, sets?, collections?, limit?}` returns exact ids (`set:name`, or `collection:name` for the catalogue), the available styles and a ready `icon-picker` view. With no `sets` it searches the five core sets and, where one is configured, the catalogue; `sets: ["iconify"]` or `collections: ["mdi","carbon"]` asks for the catalogue only. Lucide's published tag list makes concept words such as "weather" find `sun`.
+- `kanvas.fonts.list {category?}` or `{family}` returns ids, weights, whether the family is variable with its weight range, and licence.
+- `icon-picker` modes: `candidates`, `sets`, `variants` (every style of a core-set icon; a catalogue icon is one drawing), `context`.
 - `font-picker` modes: `samples`, `pairings` (fonts two at a time: heading, then body), `weights` (every weight of the first family), `context`. Sample text is supplied by the agent or the person.
 
 ## Self-hosting without the proxy
@@ -35,8 +51,19 @@ Set `KANVAS_PICKER_PROXY=false` to make no outbound requests. Then only files un
 <dir>/icons/<set>/<package path>          e.g. icons/lucide/icons/settings.svg
 <dir>/icons/<set>/index.json              JSON array of the package's file paths, for search
 <dir>/icons/lucide/tags.json              optional
-<dir>/fonts/<family>/<family>-latin-<weight>-normal.woff2
+<dir>/fonts/<family>/<family>-latin-<weight>-normal.woff2   static families
 <dir>/fonts/<family>/LICENCE.txt          one line: OFL-1.1, Apache-2.0, UFL-1.0 or MIT
+<dir>/fonts/<family>/<family>-latin-wght-normal.woff2   variable families
 ```
 
-With the proxy off and nothing pre-cached, search answers that the sets are unavailable instead of failing. A script that fills this directory is not shipped in this release.
+With the proxy off and nothing pre-cached, search answers that the sets are unavailable instead of failing.
+
+### Filling the directory
+
+```
+npm run picker-precache -- <dir>                       # the 28 curated families (46 files, about 1.3 MB)
+npm run picker-precache -- <dir> --icons=lucide,heroicons
+npm run picker-precache -- <dir> --icons=all --variants=all --concurrency=8
+```
+
+Run it once where the package CDN can be reached (it uses the same allowlist, pinned versions, size limits, SVG sanitiser, font signature and licence check as the server) and copy the directory, or run it on the server before switching the proxy off. Fonts are always the curated set: one variable file where the family has one, otherwise each static weight, plus the licence line. Icons are stored only for the sets named; by default each set's default style, with `--variants=all` every style (all five sets in every style is roughly 45,000 small files). The stored `index.json` lists only what was stored, so an offline search never offers an icon it cannot draw. `KANVAS_ICONIFY_API` is independent of `KANVAS_PICKER_PROXY`: an Iconify API you run yourself is not a third party.

@@ -15,11 +15,31 @@ export type IconSetId=keyof typeof ICON_SETS;
 export const ICON_SET_IDS=Object.keys(ICON_SETS) as [IconSetId,...IconSetId[]];
 export const iconNameSchema=z.string().regex(/^[a-z0-9]+(?:[-_][a-z0-9]+)*$/).max(64);
 export const iconVariantSchema=z.string().regex(/^[a-z]+(?:-[a-z]+)?$/).max(24);
-export const iconRefSchema=z.object({set:z.enum(ICON_SET_IDS),name:iconNameSchema,variant:iconVariantSchema.optional()}).strict();
+/** The broader catalogue: any permissively licensed, single-colour collection
+ * of an Iconify API the operator runs. A reference names a collection prefix
+ * and an icon; the server address is configuration, never part of a view. */
+export const ICONIFY_SET='iconify';
+export const iconifyCollectionSchema=z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(40);
+/** Licences a catalogue collection may carry. Attribution-required (CC-BY),
+ * copyleft and non-commercial collections are never served. */
+export const ICONIFY_LICENCES=['MIT','ISC','Apache-2.0','CC0-1.0','Unlicense','BSD-2-Clause','BSD-3-Clause','0BSD','MIT-0'] as const;
+/** Collections that repeat a core set under another name. */
+export const ICONIFY_CORE_DUPLICATES=/^(lucide|lucide-lab|heroicons|heroicons-outline|heroicons-solid|ph|tabler|material-symbols|material-symbols-light)$/;
+export const iconRefSchema=z.object({set:z.enum([...ICON_SET_IDS,ICONIFY_SET]),collection:iconifyCollectionSchema.optional().describe('Only with set "iconify": the collection prefix, e.g. mdi.'),name:iconNameSchema,variant:iconVariantSchema.optional()}).strict().superRefine((icon,ctx)=>{
+ if(icon.set===ICONIFY_SET){
+  if(!icon.collection)ctx.addIssue({code:'custom',path:['collection'],message:'An iconify icon names its collection, e.g. {"set":"iconify","collection":"mdi","name":"cog"}.'});
+  if(icon.variant)ctx.addIssue({code:'custom',path:['variant'],message:'Catalogue icons have no variants; a style is part of the icon name or the collection.'});
+ }else if(icon.collection)ctx.addIssue({code:'custom',path:['collection'],message:'collection is only used with set "iconify".'});
+});
 export type IconRef=z.infer<typeof iconRefSchema>;
+type IconParts=Pick<IconRef,'set'|'name'|'variant'|'collection'>;
+const core=(icon:IconParts)=>ICON_SETS[icon.set as IconSetId];
 /** The address a browser uses. Built from validated parts only. */
-export const iconUrl=(icon:Pick<IconRef,'set'|'name'|'variant'>)=>`/api/picker/icons/${icon.set}/${icon.variant??ICON_SETS[icon.set].defaultVariant}/${icon.name}.svg`;
-export const iconId=(icon:Pick<IconRef,'set'|'name'|'variant'>)=>`${icon.set}:${icon.name}${icon.variant&&icon.variant!==ICON_SETS[icon.set].defaultVariant?`/${icon.variant}`:''}`;
+export const iconUrl=(icon:IconParts)=>icon.set===ICONIFY_SET?`/api/picker/icons/${ICONIFY_SET}/${icon.collection}/${icon.name}.svg`:`/api/picker/icons/${icon.set}/${icon.variant??core(icon).defaultVariant}/${icon.name}.svg`;
+/** The exact name an agent uses in code: set:name for a core set, the Iconify name (collection:name) for the catalogue. */
+export const iconId=(icon:IconParts)=>icon.set===ICONIFY_SET?`${icon.collection}:${icon.name}`:`${icon.set}:${icon.name}${icon.variant&&icon.variant!==core(icon).defaultVariant?`/${icon.variant}`:''}`;
+export const iconSetTitle=(icon:IconParts)=>icon.set===ICONIFY_SET?`Iconify ${icon.collection}`:core(icon).title;
+export const iconVariants=(icon:IconParts):string[]=>icon.set===ICONIFY_SET?[]:Object.keys(core(icon).variants);
 export const iconPickerDataSchema=z.object({
  mode:z.enum(['candidates','sets','variants','context']).default('candidates'),
  concept:z.string().max(80).optional(),
@@ -30,45 +50,50 @@ export type IconPickerData=z.infer<typeof iconPickerDataSchema>;
 
 /** Curated starter families: open licences (OFL-1.1 or Apache-2.0), Latin
  * subset including Nordic letters. Any other open-licence family id from the
- * same source may be named; the server checks its licence before serving. */
-export const FONT_FAMILIES={
- inter:{name:'Inter',category:'sans',weights:[100,200,300,400,500,600,700,800,900]},
- roboto:{name:'Roboto',category:'sans',weights:[100,300,400,500,700,900]},
- 'open-sans':{name:'Open Sans',category:'sans',weights:[300,400,500,600,700,800]},
+ * same source may be named; the server checks its licence before serving.
+ * `variable` is the weight axis of the family's variable font file: one file
+ * serves every weight in the range. Families without it are published as
+ * static files only and are served one weight per file. */
+export const FONT_FAMILIES:Record<string,{readonly name:string;readonly category:'sans'|'serif'|'mono'|'display'|'handwriting';readonly weights:readonly number[];readonly variable?:readonly [number,number]}>={
+ inter:{name:'Inter',category:'sans',weights:[100,200,300,400,500,600,700,800,900],variable:[100,900]},
+ roboto:{name:'Roboto',category:'sans',weights:[100,200,300,400,500,600,700,800,900],variable:[100,900]},
+ 'open-sans':{name:'Open Sans',category:'sans',weights:[300,400,500,600,700,800],variable:[300,800]},
  lato:{name:'Lato',category:'sans',weights:[100,300,400,700,900]},
- montserrat:{name:'Montserrat',category:'sans',weights:[100,200,300,400,500,600,700,800,900]},
+ montserrat:{name:'Montserrat',category:'sans',weights:[100,200,300,400,500,600,700,800,900],variable:[100,900]},
  poppins:{name:'Poppins',category:'sans',weights:[100,200,300,400,500,600,700,800,900]},
- 'dm-sans':{name:'DM Sans',category:'sans',weights:[400,500,700]},
- 'work-sans':{name:'Work Sans',category:'sans',weights:[100,200,300,400,500,600,700,800,900]},
- 'source-sans-3':{name:'Source Sans 3',category:'sans',weights:[200,300,400,500,600,700,800,900]},
- nunito:{name:'Nunito',category:'sans',weights:[200,300,400,500,600,700,800,900]},
- 'playfair-display':{name:'Playfair Display',category:'serif',weights:[400,500,600,700,800,900]},
- merriweather:{name:'Merriweather',category:'serif',weights:[300,400,700,900]},
- lora:{name:'Lora',category:'serif',weights:[400,500,600,700]},
- 'source-serif-4':{name:'Source Serif 4',category:'serif',weights:[200,300,400,500,600,700,800,900]},
- 'eb-garamond':{name:'EB Garamond',category:'serif',weights:[400,500,600,700,800]},
- 'libre-baskerville':{name:'Libre Baskerville',category:'serif',weights:[400,700]},
- 'jetbrains-mono':{name:'JetBrains Mono',category:'mono',weights:[100,200,300,400,500,600,700,800]},
- 'fira-code':{name:'Fira Code',category:'mono',weights:[300,400,500,600,700]},
+ 'dm-sans':{name:'DM Sans',category:'sans',weights:[100,200,300,400,500,600,700,800,900],variable:[100,900]},
+ 'work-sans':{name:'Work Sans',category:'sans',weights:[100,200,300,400,500,600,700,800,900],variable:[100,900]},
+ 'source-sans-3':{name:'Source Sans 3',category:'sans',weights:[200,300,400,500,600,700,800,900],variable:[200,900]},
+ nunito:{name:'Nunito',category:'sans',weights:[200,300,400,500,600,700,800,900],variable:[200,900]},
+ 'playfair-display':{name:'Playfair Display',category:'serif',weights:[400,500,600,700,800,900],variable:[400,900]},
+ merriweather:{name:'Merriweather',category:'serif',weights:[300,400,500,600,700,800,900],variable:[300,900]},
+ lora:{name:'Lora',category:'serif',weights:[400,500,600,700],variable:[400,700]},
+ 'source-serif-4':{name:'Source Serif 4',category:'serif',weights:[200,300,400,500,600,700,800,900],variable:[200,900]},
+ 'eb-garamond':{name:'EB Garamond',category:'serif',weights:[400,500,600,700,800],variable:[400,800]},
+ 'libre-baskerville':{name:'Libre Baskerville',category:'serif',weights:[400,500,600,700],variable:[400,700]},
+ 'jetbrains-mono':{name:'JetBrains Mono',category:'mono',weights:[100,200,300,400,500,600,700,800],variable:[100,800]},
+ 'fira-code':{name:'Fira Code',category:'mono',weights:[300,400,500,600,700],variable:[300,700]},
  'ibm-plex-mono':{name:'IBM Plex Mono',category:'mono',weights:[100,200,300,400,500,600,700]},
- 'source-code-pro':{name:'Source Code Pro',category:'mono',weights:[200,300,400,500,600,700,800,900]},
+ 'source-code-pro':{name:'Source Code Pro',category:'mono',weights:[200,300,400,500,600,700,800,900],variable:[200,900]},
  'bebas-neue':{name:'Bebas Neue',category:'display',weights:[400]},
- oswald:{name:'Oswald',category:'display',weights:[200,300,400,500,600,700]},
- 'space-grotesk':{name:'Space Grotesk',category:'display',weights:[300,400,500,600,700]},
+ oswald:{name:'Oswald',category:'display',weights:[200,300,400,500,600,700],variable:[200,700]},
+ 'space-grotesk':{name:'Space Grotesk',category:'display',weights:[300,400,500,600,700],variable:[300,700]},
  'archivo-black':{name:'Archivo Black',category:'display',weights:[400]},
- caveat:{name:'Caveat',category:'handwriting',weights:[400,500,600,700]},
- 'dancing-script':{name:'Dancing Script',category:'handwriting',weights:[400,500,600,700]},
+ caveat:{name:'Caveat',category:'handwriting',weights:[400,500,600,700],variable:[400,700]},
+ 'dancing-script':{name:'Dancing Script',category:'handwriting',weights:[400,500,600,700],variable:[400,700]},
  pacifico:{name:'Pacifico',category:'handwriting',weights:[400]},
  lobster:{name:'Lobster',category:'handwriting',weights:[400]},
-} as const;
-export type CuratedFontId=keyof typeof FONT_FAMILIES;
+};
+export type CuratedFontId=string;
 export const FONT_LICENCES=['OFL-1.1','Apache-2.0','UFL-1.0','MIT'] as const;
 export const fontIdSchema=z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(48).describe('Lower-case family id, e.g. inter.');
 export const fontWeightSchema=z.number().int().min(100).max(900).multipleOf(100);
 export const fontRefSchema=z.object({family:fontIdSchema,weight:fontWeightSchema.default(400)}).strict();
 export type FontRef=z.infer<typeof fontRefSchema>;
-export const fontUrl=(family:string,weight:number)=>`/api/picker/fonts/${family}/${weight}.woff2`;
-export const fontDisplayName=(family:string)=>Object.hasOwn(FONT_FAMILIES,family)?FONT_FAMILIES[family as CuratedFontId].name:family.split('-').map(word=>word.charAt(0).toUpperCase()+word.slice(1)).join(' ');
+/** Weight axis of a curated variable family, or undefined for static families and families outside the curated list. */
+export const fontVariableRange=(family:string):readonly [number,number]|undefined=>Object.hasOwn(FONT_FAMILIES,family)?FONT_FAMILIES[family].variable:undefined;
+export const fontUrl=(family:string,weight:number)=>fontVariableRange(family)?`/api/picker/fonts/${family}/variable.woff2`:`/api/picker/fonts/${family}/${weight}.woff2`;
+export const fontDisplayName=(family:string)=>Object.hasOwn(FONT_FAMILIES,family)?FONT_FAMILIES[family].name:family.split('-').map(word=>word.charAt(0).toUpperCase()+word.slice(1)).join(' ');
 /** CSS family name used only inside picker views, so it never collides with an installed font. */
 export const fontCssName=(family:string)=>`kanvas-pick-${family}`;
 export const fontPickerDataSchema=z.object({

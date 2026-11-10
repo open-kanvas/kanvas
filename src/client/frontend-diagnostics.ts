@@ -12,14 +12,15 @@ export function diagnostic(e:DiagnosticEvent){
  if(last.size>100)last.clear();last.set(key,time);if(queue.length<40&&sent<240){queue.push({...parsed,clientAt:time});persist();}
  }catch{/* Observability must never break the display. */}
 }
-/** Telemetry is never posted while this page's sign-in is in doubt: right after a request that changes or ends a
- * sign-in (login, logout, revoking browsers) and after any refused request. Without the wait, the five-second post
- * could go out with a cookie the server had just revoked, before the page had noticed. Queued events are kept; they are
- * dropped only when the page learns it is signed out. */
-export function pauseDiagnostics(ms=15000){pausedUntil=Math.max(pausedUntil,Date.now()+ms);}
-export function diagnosticsAuthenticated(token:string){if(csrf&&!token){queue=[];persist();}csrf=token;void flush();}
+/** Telemetry is never posted while this page's sign-in is in doubt: right after a request that can end it (signing
+ * out, revoking browsers) and after any refused request. Without the wait, the five-second post could go out with a
+ * cookie the server had just revoked, before the page had noticed. Queued events are kept. The wait ends early when
+ * the sign-in is confirmed; the events are dropped when the page learns it is signed out. */
+let doubtUntil=0;
+export function pauseDiagnostics(ms=15000){doubtUntil=Math.max(doubtUntil,Date.now()+ms);}
+export function diagnosticsAuthenticated(token:string){if(csrf&&!token){queue=[];persist();}if(token)doubtUntil=0;csrf=token;void flush();}
 async function flush(){
- if(!csrf||sending||!queue.length||sent>=240||Date.now()<pausedUntil)return;sending=true;const events=queue.splice(0,20);persist();sent+=events.length;
+ if(!csrf||sending||!queue.length||sent>=240||Date.now()<pausedUntil||Date.now()<doubtUntil)return;sending=true;const events=queue.splice(0,20);persist();sent+=events.length;
  try{const response=await fetch('/api/diagnostics',{method:'POST',credentials:'same-origin',keepalive:true,headers:{'Content-Type':'application/json','X-Kanvas-CSRF':csrf},body:JSON.stringify({clientRelease:KANVAS_VERSION,supportRef:supportReference,windowId:viewerTabId(),events}),signal:AbortSignal.timeout(5000)});if(response.ok){const body=await response.json();if(body?.data?.rateLimited===true){const delay=body.data.retryAfterMs;pausedUntil=Date.now()+(typeof delay==='number'&&Number.isFinite(delay)?Math.max(1000,Math.min(60000,delay)):60000);}}}catch{/* No retries/flooding when the service is unavailable. */}finally{sending=false;}
 }
 export function initializeDiagnostics(){

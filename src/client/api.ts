@@ -68,8 +68,8 @@ export async function api<T>(path: string, options: { method?: string; body?: un
   const method=options.method??'GET';
   const authMutation=method!=='GET'&&/^\/api\/auth\/(?:login|register|logout|email\/(?:complete|consume))$/.test(path);
   if(authMutation)advanceAuthGeneration();
-  // Signing in or out, or revoking browsers, can end this page's own sign-in on the server before the page knows.
-  if(method!=='GET'&&path.startsWith('/api/auth/'))pauseDiagnostics();
+  // Signing out or revoking browsers can end this page's own sign-in on the server before the page knows.
+  if(method!=='GET'&&(path==='/api/auth/logout'||path==='/api/auth/sessions/revoke'))pauseDiagnostics();
   const started=generation;
   let response:Response;
   try {

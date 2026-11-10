@@ -26,11 +26,14 @@ describe('Client authentication recovery',()=>{
   fetchMock.mockResolvedValue(response(401));await expect(client.api('/api/data')).rejects.toMatchObject({status:401});expect(events).toHaveLength(1);expect((events[0] as CustomEvent).detail.state).toBeNull();expect(fetchMock).toHaveBeenCalledTimes(2);
   await expect(client.api('/api/auth/options')).rejects.toMatchObject({status:401});expect(fetchMock).toHaveBeenCalledTimes(3);
  });
- it('telemetry waits whenever the sign-in is in doubt: after a request that changes or ends it, and after any refusal',async()=>{
+ it('telemetry waits only when the sign-in is in doubt: after signing out or revoking browsers, and after any refusal',async()=>{
   // 2026-11-10: a complete browser run caught the five-second telemetry post going out with a cookie the server had
-  // just revoked (POST /api/diagnostics 401 after "sign out this browser").
+  // just revoked (POST /api/diagnostics 401 after "sign out this browser"). Ordinary requests, signing in and the
+  // frequent activity ping must not hold telemetry back (a first version of this fix did, and a browser test caught it).
   fetchMock.mockImplementation(async(path:string)=>path==='/api/auth/me'?response(200,state):response(200,{ok:true}));
-  paused.count=0;await client.api('/api/sessions');await client.api('/api/sessions/s/displays',{method:'POST',body:{}});await client.api('/api/auth/sessions');expect(paused.count).toBe(0);
+  paused.count=0;
+  for(const [path,method] of [['/api/sessions','GET'],['/api/sessions/s/displays','POST'],['/api/auth/sessions','GET'],['/api/auth/activity','POST'],['/api/auth/register','POST'],['/api/auth/login','POST'],['/api/auth/email/request','POST']] as const)await client.api(path,method==='GET'?{}:{method,body:{}});
+  expect(paused.count).toBe(0);
   await client.api('/api/auth/sessions/revoke',{method:'POST',body:{}});expect(paused.count).toBe(1);
   await client.api('/api/auth/logout',{method:'POST'});expect(paused.count).toBe(2);
   fetchMock.mockImplementation(async(path:string)=>path==='/api/auth/me'?response(200,state):response(401));

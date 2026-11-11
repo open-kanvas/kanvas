@@ -115,7 +115,7 @@ describe('two-tool discoverable catalog', () => {
     const result = discoveryCatalog.query('template', 'search', { query: 'display', limit: 5 }, context);
     expect(result.results).toHaveLength(5);
     expect(result).not.toHaveProperty('truncated');
-  }, 30000);
+  }, 60000); // 2026-11-10: was 30 s; 21.9 to 26.4 s in complete runs with the 0.37.0 catalog. Assertions unchanged.
   it('chunks all help and guide topics without publishing or returning the whole manual', () => {
     const ids = helpCatalog().map(item => item.id);
     for (const topic of HELP_TOPICS) expect(ids.some(id => id.startsWith(`kanvas.help.${topic}`)), topic).toBe(true);

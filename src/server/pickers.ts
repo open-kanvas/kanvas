@@ -30,6 +30,26 @@ export const iconSource=(set:IconSetId,variant:string,name:string)=>{const defin
 export const iconListingSource=(set:IconSetId)=>({url:`${LISTING}${ICON_SETS[set].package}@${ICON_SETS[set].version}?structure=flat`,local:join('icons',set,'index.json')});
 export const lucideTagsSource=()=>({url:`${CDN}${ICON_SETS.lucide.package}@${ICON_SETS.lucide.version}/tags.json`,local:join('icons','lucide','tags.json')});
 export const fontSource=(family:string,weight:number|'variable')=>{const scope=weight==='variable'?'@fontsource-variable':'@fontsource',file=weight==='variable'?`${family}-latin-wght-normal.woff2`:`${family}-latin-${weight}-normal.woff2`;return {url:`${CDN}${scope}/${family}@5/files/${file}`,local:join('fonts',family,file),licenceUrl:`${CDN}${scope}/${family}@5/package.json`,licenceLocal:join('fonts',family,'LICENCE.txt')};};
+/** Reads a response body without ever holding more than maxBytes of it. A declared length above the limit is refused
+ * before reading. The body is then read chunk by chunk and the stream is cancelled the moment the limit is passed, so
+ * a chunked answer without a length, or one whose declared length is untrue, cannot make the server buffer more than
+ * the limit plus one chunk. Undefined means "too large". */
+export async function readCapped(response:globalThis.Response,maxBytes:number):Promise<Buffer|undefined>{
+ const declared=Number(response.headers.get('content-length')??0);
+ if(declared>maxBytes){await response.body?.cancel().catch(()=>{});return undefined;}
+ if(!response.body)return Buffer.alloc(0);
+ const reader=response.body.getReader(),chunks:Uint8Array[]=[];let total=0;
+ try{
+  for(;;){
+   const {done,value}=await reader.read();
+   if(done)break;
+   total+=value.byteLength;
+   if(total>maxBytes){await reader.cancel().catch(()=>{});return undefined;}
+   chunks.push(value);
+  }
+ }catch(error){await reader.cancel().catch(()=>{});throw error;}
+ return Buffer.concat(chunks,total);
+}
 export const isWoff2=(body:Buffer|undefined):body is Buffer=>Boolean(body&&body.length>=8&&body.subarray(0,4).toString('latin1')==='wOF2');
 /** The operator's Iconify API base address, or undefined when it is unset or not a plain http(s) address. */
 export function iconifyBase(value:string|undefined):string|undefined{
@@ -96,10 +116,8 @@ export class Pickers{
   try{
    const response=await this.fetcher(url,controller.signal);
    if(!response.ok||response.redirected){await response.body?.cancel();return undefined;}
-   const declared=Number(response.headers.get('content-length')??0);
-   if(declared>maxBytes){await response.body?.cancel();return undefined;}
-   const body=Buffer.from(await response.arrayBuffer());
-   return body.length<=maxBytes?body:undefined;
+   // The timer stays armed while the body is read: a slow body is cut off by the same deadline as a slow answer.
+   return await readCapped(response,maxBytes);
   }catch{return undefined;}finally{clearTimeout(timer);}
  }
  /** Permissively licensed, single-colour collections of the operator's Iconify API. Refreshed every ten minutes; a failure is not remembered. */

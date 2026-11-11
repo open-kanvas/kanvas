@@ -5,7 +5,7 @@ import {validateView} from '../../src/shared/view-schemas.js';
 import {samples} from '../../src/shared/template-examples.js';
 import {projectTasks} from '../../src/shared/task-list.js';
 import {STREAM_BURST,STREAM_EVENT_BYTES,STREAM_MAX_EVENTS} from '../../src/server/monitor-streams.js';
-import {sanitizeSvg,iconifyBase,PICKER_CACHE_BYTES} from '../../src/server/pickers.js';
+import {sanitizeSvg,iconifyBase,readCapped,PICKER_CACHE_BYTES,PICKER_ICON_BYTES,PICKER_FONT_BYTES} from '../../src/server/pickers.js';
 import {precachePickers} from '../../scripts/picker-precache.js';
 import {mkdtemp,readFile,readdir,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
@@ -196,6 +196,37 @@ describe('e011b35b pickers: allowlisted sources, sanitised, bounded, proxy can b
   pickers.fetcher=async url=>url.endsWith('package.json')?respond(JSON.stringify({license:'OFL-1.1'}),'application/json'):respond('<html>not a font</html>','text/html');expect(await pickers.font('lato',400)).toBeUndefined();
   pickers.fetcher=async()=>{throw new Error('network down');};expect(await pickers.icon('lucide','outline','wifi')).toBeUndefined();
   expect(PICKER_CACHE_BYTES).toBeLessThanOrEqual(64*1024*1024);
+ });
+ it('the size limit is enforced while the body arrives: an oversized chunked answer with no length is cancelled early and the rest is never read',async()=>{
+  // Parent review 2026-11-11: the limit used to be checked after the whole body had been buffered.
+  const chunked=(chunks:number,chunkBytes:number,headers:Record<string,string>={},first?:Uint8Array)=>{
+   const state={pulled:0,cancelled:false};
+   const body=new ReadableStream<Uint8Array>({pull(controller){if(state.pulled>=chunks){controller.close();return;}const chunk=state.pulled===0&&first?first:new Uint8Array(chunkBytes).fill(120);state.pulled++;controller.enqueue(chunk);},cancel(){state.cancelled=true;}},{highWaterMark:0});
+   return {state,response:new Response(body,{status:200,headers})};
+  };
+  // 1000 chunks of 16 KiB (16 MB) against the 64 KiB icon limit, no Content-Length.
+  const big=chunked(1000,16*1024);expect(big.response.headers.get('content-length')).toBeNull();
+  expect(await readCapped(big.response,PICKER_ICON_BYTES)).toBeUndefined();
+  expect(big.state.cancelled).toBe(true);expect(big.state.pulled).toBeLessThanOrEqual(6);
+  // A declared length that is untrue does not help either.
+  const lying=chunked(1000,16*1024,{'content-length':'100'});expect(await readCapped(lying.response,PICKER_ICON_BYTES)).toBeUndefined();expect(lying.state.cancelled).toBe(true);expect(lying.state.pulled).toBeLessThanOrEqual(6);
+  // A declared length above the limit is refused without reading anything.
+  const declared=chunked(10,1024,{'content-length':String(PICKER_ICON_BYTES+1)});expect(await readCapped(declared.response,PICKER_ICON_BYTES)).toBeUndefined();expect(declared.state.pulled).toBe(0);expect(declared.state.cancelled).toBe(true);
+  // Under the limit, chunked and without a length, the exact bytes come back; exactly at the limit is still allowed.
+  const small=chunked(3,1000);const read=await readCapped(small.response,PICKER_ICON_BYTES);expect(read?.length).toBe(3000);expect(read!.every(byte=>byte===120)).toBe(true);expect(small.state.cancelled).toBe(false);
+  expect((await readCapped(chunked(4,16*1024).response,PICKER_ICON_BYTES))?.length).toBe(PICKER_ICON_BYTES);expect(await readCapped(chunked(5,16*1024).response,PICKER_ICON_BYTES)).toBeUndefined();
+  // Through the server's own fetch path: icon, font and catalogue requests all stop early, and a small chunked icon is served.
+  const pickers=h.runtime.service.pickers as unknown as {iconify?:string;fetcher:(url:string,signal:AbortSignal)=>Promise<Response>;icon:(set:string,variant:string,name:string)=>Promise<{bytes:number}|undefined>;font:(family:string,weight:number)=>Promise<unknown>};
+  let last=chunked(0,0);
+  pickers.fetcher=async url=>{if(url.endsWith('package.json'))return respond(JSON.stringify({license:'OFL-1.1'}),'application/json');last=chunked(1000,16*1024);return last.response;};
+  expect(await pickers.icon('lucide','outline','huge')).toBeUndefined();expect(last.state.cancelled).toBe(true);expect(last.state.pulled).toBeLessThanOrEqual(6);
+  expect(await pickers.font('lato',400)).toBeUndefined();expect(last.state.cancelled).toBe(true);expect(last.state.pulled).toBeLessThanOrEqual(Math.ceil(PICKER_FONT_BYTES/(16*1024))+2);
+  const encoded=new TextEncoder().encode(svg);pickers.fetcher=async()=>{last=chunked(1,encoded.length,{},encoded);return last.response;};
+  expect((await pickers.icon('lucide','outline','small-chunked'))?.bytes).toBe(svg.length);expect(last.state.cancelled).toBe(false);
+  // Redirects are still refused and the deadline still applies while a body trickles in.
+  pickers.fetcher=async()=>Object.defineProperty(respond(svg,'image/svg+xml'),'redirected',{value:true});expect(await pickers.icon('lucide','outline','redirected')).toBeUndefined();
+  pickers.fetcher=async(_url,signal)=>new Response(new ReadableStream<Uint8Array>({start(controller){signal.addEventListener('abort',()=>controller.error(new Error('aborted')));}}),{status:200});
+  const controller=new AbortController();const stalled=readCapped(await pickers.fetcher('x',controller.signal),PICKER_ICON_BYTES);controller.abort();await expect(stalled).rejects.toBeTruthy();
  });
  it('with the proxy switched off nothing is fetched and the answer says why',async()=>{
   const pickers=h.runtime.service.pickers as unknown as {proxy:boolean;fetcher:(url:string)=>Promise<Response>};let fetched=0;

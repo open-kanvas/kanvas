@@ -17,7 +17,7 @@ import {mkdir,rename,writeFile} from 'node:fs/promises';
 import {dirname,join,resolve,sep} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {FONT_FAMILIES,FONT_LICENCES,ICON_SETS,ICON_SET_IDS,iconNameSchema,type IconSetId} from '../src/shared/pickers.js';
-import {PICKER_FONT_BYTES,PICKER_ICON_BYTES,PICKER_CDN,PICKER_LISTING,fontSource,iconListingSource,iconSource,isWoff2,lucideTagsSource,sanitizeSvg} from '../src/server/pickers.js';
+import {PICKER_FONT_BYTES,PICKER_ICON_BYTES,PICKER_CDN,PICKER_LISTING,fontSource,iconListingSource,iconSource,isWoff2,lucideTagsSource,readCapped,sanitizeSvg} from '../src/server/pickers.js';
 
 export interface PrecacheOptions {
  directory:string;
@@ -40,7 +40,7 @@ export async function precachePickers(options:PrecacheOptions):Promise<PrecacheR
    try{
     const response=await fetcher(url,controller.signal);
     if(response.status===404){await response.body?.cancel();return undefined;}
-    if(response.ok&&!response.redirected){const body=Buffer.from(await response.arrayBuffer());return body.length<=maxBytes?body:undefined;}
+    if(response.ok&&!response.redirected)return await readCapped(response,maxBytes);
     await response.body?.cancel();
    }catch{/* retried below */}finally{clearTimeout(timer);}
    await new Promise(done=>setTimeout(done,300*2**attempt));

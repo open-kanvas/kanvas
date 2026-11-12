@@ -322,6 +322,13 @@ function SankeyPlot({ data, width, height, inspect, details }: PlotProps) {
 
 export function regionGeometry(region: NonNullable<ChartData['regions']>[number]):ChartGeometry { return region.geometry ?? (boundaries as unknown as Record<string,{geometry:ChartGeometry}>)[geographyCodes[region.countryCode!.toUpperCase()]]?.geometry ?? {type:'Polygon',coordinates:[]}; }
 function geometryRings(geometry: ChartGeometry): [number, number][][] { return geometry.type === 'Polygon' ? geometry.coordinates : geometry.coordinates.flat(); }
+/** Map height that leaves room for everything drawn under and over it: the
+ * colour scale, the attribution line and any notes. On short landscape screens
+ * the map gives way so the legend is never pushed below the viewport. */
+export function choroplethPlotHeight(available: number, shown: { warning?: boolean; dots?: boolean; scale?: boolean } = {}): number {
+  const reserved = 26 + (shown.scale === false ? 0 : 34) + (shown.warning ? 34 : 0) + (shown.dots ? 24 : 0);
+  return Math.max(110, Math.min(available - reserved, 640));
+}
 export function choroplethPaths(data: ChartData, width: number, height: number): { id: string; path: string }[] {
   const entries=(data.regions??[]).map(region=>({region,rings:geometryRings(regionGeometry(region)),point:region.geometry?undefined:geographyPoints[geographyCodes[region.countryCode!.toUpperCase()]]}));
   const coordinates=entries.flatMap(e=>e.point?[e.point]:e.rings.flat());if(!coordinates.length)return [];
@@ -333,7 +340,7 @@ export function choroplethPaths(data: ChartData, width: number, height: number):
 
 function ChoroplethPlot({ data, width, height, inspect, uid, details }: PlotProps) {
   const pretty = useAxisNumber();
-  const excluded=(data.regions??[]).filter(r=>!r.geometry&&!geographyCodes[r.countryCode!.toUpperCase()]), regions=(data.regions??[]).filter(r=>!excluded.includes(r)), plotHeight = Math.max(310, Math.min(height - 55, 640)), paths = useMemo(() => choroplethPaths(data, width, plotHeight), [data, width, plotHeight]);
+  const excluded=(data.regions??[]).filter(r=>!r.geometry&&!geographyCodes[r.countryCode!.toUpperCase()]), regions=(data.regions??[]).filter(r=>!excluded.includes(r)), plotHeight = choroplethPlotHeight(height, { warning: excluded.length > 0, dots: regions.some(r=>!r.geometry&&Boolean(geographyPoints[geographyCodes[r.countryCode!.toUpperCase()]])), scale: regions.some(r => number(r.value)) }), paths = useMemo(() => choroplethPaths(data, width, plotHeight), [data, width, plotHeight]);
   const values = regions.flatMap(region => number(region.value) ? [region.value] : []), min = Math.min(...values), max = Math.max(...values), magnitude = Math.max(Math.abs(min), Math.abs(max));
   const fill = (value: number) => min < 0 && max > 0 ? value < 0 ? falling : 'var(--accent)' : 'var(--accent)';
   const opacity = (value: number) => min < 0 && max > 0 ? .22 + .73 * Math.abs(value) / magnitude : min === max ? .76 : .2 + .75 * ((value - min) / (max - min));

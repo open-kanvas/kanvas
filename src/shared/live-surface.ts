@@ -34,8 +34,8 @@ export function liveSurfaceOptions(view: SurfaceView, container?: SurfaceView): 
 export type LiveSurfaceMode = 'focus' | 'reading' | 'media' | 'interactive';
 export interface LiveSurfaceLayout { mode: LiveSurfaceMode; fullBleed: boolean }
 
-const mediaTemplates = new Set<string>(['split-screen','traffic-demo','satisfaction','signage','molecule','menu','menu-board','todays-special','opening-hours','back-at','closed-sign','hiring','sale-poster','health-notice','custom-sign','image-gallery','website','iframe', 'image', 'map', 'whiteboard', 'video', 'html', 'weather', 'presentation', 'now-playing']);
-const readingTemplates = new Set<string>(['database-schema','keyboard-shortcuts','standings','tool-call-log','email','inbox','chat','cards','bookmarks','tool-inventory','tool-detail','developer','operations','code-workspace','list', 'table', 'comparison', 'code', 'transcription', 'translation', 'schedule', 'timeline', 'itinerary', 'menu', 'leaderboard', 'notifications', 'drafting']);
+const mediaTemplates = new Set<string>(['colour','icon-picker','font-picker','welcome','split-screen','traffic-demo','satisfaction','signage','molecule','menu','menu-board','todays-special','opening-hours','back-at','closed-sign','hiring','sale-poster','health-notice','custom-sign','image-gallery','website','iframe', 'image', 'map', 'whiteboard', 'video', 'html', 'weather', 'presentation', 'now-playing']);
+const readingTemplates = new Set<string>(['task-list','tool-call-details','agents','database-schema','keyboard-shortcuts','standings','tool-call-log','email','inbox','chat','cards','bookmarks','tool-inventory','tool-detail','developer','operations','code-workspace','list', 'table', 'comparison', 'code', 'transcription', 'translation', 'schedule', 'timeline', 'itinerary', 'menu', 'leaderboard', 'notifications', 'drafting']);
 const interactiveTemplates = new Set<string>(['json', 'session-topology', 'form', 'poll', 'qa', 'overview', 'settings', 'procedure', 'join']);
 
 /** A reading surface is not a failed fit. Exact long data gets a bounded, readable

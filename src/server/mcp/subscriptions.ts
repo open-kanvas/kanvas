@@ -70,6 +70,8 @@ export class ScopedSubscription {
   }
 
   private onDomainEvent(event: SessionEvent): void {
+    // Overlay notifications are browser-only hints; they change no agent-readable resource.
+    if (event.type === 'toast') return;
     if (!this.active) return;
     for (const uri of eventResourceUris(event)) {
       if (this.scope.watchedUris.has(uri)) this.pending.add(uri);

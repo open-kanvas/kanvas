@@ -26,7 +26,7 @@ test('zoom fills the physical viewport, reading stays readable, and actual DOM i
 test('root honors account theme and previews every returned display; signage and chord pages are real',async({page})=>{
  await register(page);const s=await createSession(page,'Multi display'),d=await createDisplay(page,s,'Chords'),other=await createDisplay(page,s,'Menu');
  await page.evaluate(async()=>{const auth=(await(await fetch('/api/auth/me')).json()).data;const pref=(await(await fetch('/api/preferences')).json()).data;await fetch('/api/preferences',{method:'PATCH',headers:{'Content-Type':'application/json','X-Kanvas-CSRF':auth.csrfToken},body:JSON.stringify({expectedRevision:pref.revision,config:{theme:'dark'}})});});
- const song=await publishPrepared(page,s,[d.id],{version:1,template:'sing-along',data:{pages:[{lines:[{lyrics:'First verse',chords:[{at:0,chord:'C'}]}]},{lines:[{lyrics:'Second verse',chords:[{at:0,chord:'G'}]}]}]}});
+ const song=await publishPrepared(page,s,[d.id],{version:1,template:'sing-along',showControls:true,data:{pages:[{lines:[{lyrics:'First verse',chords:[{at:0,chord:'C'}]}]},{lines:[{lyrics:'Second verse',chords:[{at:0,chord:'G'}]}]}]}});
  await publishPrepared(page,s,[other.id],{version:1,template:'menu-board',data:{columns:2,sectionColor:'#ffffff',accent:'#ff8c00',sections:[{name:'Coffee',items:Array.from({length:16},(_,i)=>({name:`Coffee ${i+1}`,price:4}))}]}});
  await page.goto('/');await expect(page.locator('main.account-overview')).toHaveClass(/theme-dark/);const card=page.locator('.overview-session').filter({has:page.getByRole('heading',{name:'Multi display'})});await expect(card.locator('.overview-preview')).toHaveCount(3);
  await page.goto(`/view/${s}/${d.id}`);await expect(page.locator('.song-lines')).toContainText('First verse');await page.getByRole('button',{name:'Next page',exact:true}).click();await expect(page.locator('.song-lines')).toContainText('Second verse');
@@ -59,9 +59,10 @@ test('live registry catalogs fit without controls and device metadata stays read
  const result=await sessionApi<any>(page,`/api/sessions/${s}/catalog`,'POST',{displayIds:[d.id],requestId:crypto.randomUUID(),catalog:'operations'});expect(result.status).toBe(200);
  await page.goto(`/view/${s}/${d.id}`);// Historical153 was already stale at main490b8f9(166 canonical minus3 catalog-only helpers). B1 adds window.viewport,
  // November5 adds device.lock/device.unlock/display.lockdown:175 canonical minus3 catalog-only helpers =172 visible.
- const labels=page.locator('.viewer-candidate .catalog-list span');await expect(labels).toHaveCount(172);
+ // November 10 adds eleven operations (NOV10_MAPPING): 186 canonical minus 3 catalog-only helpers = 183 visible.
+ const labels=page.locator('.viewer-candidate .catalog-list span');await expect(labels).toHaveCount(183);
  const catalogView=(await sessionDetail(page,s)).displays.find(x=>x.id===d.id)!.view!;
- expect(catalogView.template).toBe('catalog-list');expect(catalogView.data.items).toHaveLength(172);
+ expect(catalogView.template).toBe('catalog-list');expect(catalogView.data.items).toHaveLength(183);
  expect(catalogView.data.items).toEqual(expect.arrayContaining(['window.viewport','guidance.suggestions.list','guidance.suggestions.save','guidance.suggestions.delete','guidance.suggestions.import','satisfaction.read','device.lock','device.unlock','display.lockdown']));
  await expect(labels).toHaveText(catalogView.data.items as string[]);
  const bounds=await page.locator('.viewer-candidate .catalog-list').evaluate(root=>{const r=root.getBoundingClientRect();return [...root.querySelectorAll('span')].every(el=>{const b=el.getBoundingClientRect();return b.right<=r.right+1&&b.bottom<=r.bottom+1;});});expect(bounds).toBe(true);await expect(page.locator('.catalog-list button,.catalog-list a,.catalog-list input')).toHaveCount(0);

@@ -419,7 +419,7 @@ export async function verifySuccessfulFixture(name: CanonicalFixture, w: ParityW
     case 'kanvas_pin_recall': expect(result).toMatchObject({status:'prepared'}); break;
     case 'kanvas_pin_remove': expect(result).toMatchObject({removed:true}); expect((await w.store.list('view-pin'))).toHaveLength(0); break;
     case 'kanvas_pins_read': expect(result).toHaveLength(1); break;
-    case 'kanvas_procedure_control': expect(result).toMatchObject({ interaction: { status: 'pending', value: { action: 'start' } } }); expect(current.revision).toBe(w.before.revision + 1); expect(current.view?.template).toBe('procedure'); break;
+    case 'kanvas_procedure_control': expect(result).toMatchObject({ interaction: { status: 'acknowledged', source: 'agent', value: { action: 'start' } } }); expect(current.revision).toBe(w.before.revision + 1); expect(current.view?.template).toBe('procedure'); break;
     case 'kanvas_config_update': expect((await w.session())).toMatchObject({ configRevision: 1, config: { theme: 'light', readingFontSize:28 } }); expect(current).toEqual(w.before); break;
     case 'kanvas_preferences_update': expect(result).toMatchObject({ revision: 1, config: { theme: 'light', } }); expect((await w.store.get('preferences', w.principal.userId))).toMatchObject({ revision: 1 }); expect((await w.session()).config.theme).not.toBe('light'); break;
     case 'kanvas_dataset_import': expect(result).toMatchObject({ rows: EXACT_ROWS, source: EXACT_SOURCE }); expect((await w.store.list<DatasetRecord>('dataset'))[0].rows).toEqual(EXACT_ROWS); expect((await w.store.list('dataset-summary'))).toHaveLength(1); break;

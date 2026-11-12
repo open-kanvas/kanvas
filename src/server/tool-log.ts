@@ -19,7 +19,7 @@ export class ToolLog {
     const ownerKey=sessionId??`account:${p.userId}`;
     await rawEvent(this.service.store,'tool.call',{userId:p.userId,principal:p.tokenId?`token:${p.tokenId}`:`user:${p.userId}`,sessionId,displayId:invocation.displayId,operation:invocation.operation??invocation.tool,status:invocation.status,durationMs:invocation.durationMs,client:invocation.clientContext,properties:{tool:invocation.tool,...(invocation.errorCode?{errorCode:invocation.errorCode}:{})}});
     if(invocation.rawOnly)return;
-    const {rawOnly:_rawOnly,sessionId:_requestedSession,clientContext:_clientContext,displayId:_displayId,errorCode:_errorCode,...metadata}=invocation;
+    const {canonical:_canonical,rawOnly:_rawOnly,sessionId:_requestedSession,clientContext:_clientContext,displayId:_displayId,errorCode:_errorCode,...metadata}=invocation;
     const event:ToolCall={...metadata,...(sessionId?{sessionId}:{}),integration:'KANVAS',source:'automatic'};
     (await this.service.store.put('tool-log-event',{id:hash(`${ownerKey}:main:${event.id}`),sessionId:ownerKey,channel:'main',event}));
 

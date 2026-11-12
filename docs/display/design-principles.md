@@ -2,6 +2,12 @@
 
 This is the standing product reference for developing or changing KANVAS templates. Read it before choosing layout or interaction. It applies to the full-screen visual surface, not the separate account-management application.
 
+Agents see these principles as help `kanvas.help.design-philosophy` and, in compact form, in the `html` template guidance. They are the **default** when the person has not asked for something specific; an explicit request always wins. The purpose behind them is the [mission](../mission.md).
+
+**Navigation and editing happen through the agent. Templates render content and intrinsic responses only; never navigation chrome.** On-screen navigation of the agent's content (procedure and recipe steps, itinerary day picker, sing-along pages) appears only when the view sets `showControls: true`. Intrinsic responses stay: a poll's choices, a form's fields, satisfaction faces, a question input.
+
+Custom HTML can follow the person's theme through tokens: `--kanvas-bg`, `--kanvas-fg`, `--kanvas-muted`, `--kanvas-accent`, `--kanvas-line`, `--kanvas-panel`, `--kanvas-font`. A view that references a token gets the themed page; older views keep their fixed dark page.
+
 ## A visual companion to the conversation
 
 KANVAS is primarily **agent- and voice-driven**. People should understand the displayed answer at a glance without operating another application. The agent chooses the data, focus, grouping, expansion, filtering and view variant through explicit parameters or a new publication.

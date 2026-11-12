@@ -10,6 +10,9 @@ import { TEMPLATE_IDS, type SessionRecord, type DisplayRecord, type UpdateRecord
 import { GUIDE_TOPICS } from '../../src/server/mcp/guide.js';
 import { MCP_TOOLS } from '../../src/server/mcp/catalog.js';
 import { fact, startHarness, success, type Harness, type Browser } from './harness.js';
+// 2026-11-10 (0875e953): guidance and orientation blocks are conditional by default. These tests verify the
+// content and isolation of the full blocks, which are sent on every response under the declared 'full' preference.
+process.env.KANVAS_GUIDANCE_DEFAULT='full';
 
 interface Result { isError?:boolean; structuredContent?:{ data?:unknown; truncated?:boolean; orientation?:Record<string,unknown>; error?:{code:string;message:string;schemaTool?:string;topic?:string;issues?:{path:string;maximum?:number;actual?:number;unit?:string}[]} } }
 function value<T>(r:Result):T {expect(r.isError).not.toBe(true);expect(r.structuredContent?.truncated).not.toBe(true);return r.structuredContent!.data as T;}

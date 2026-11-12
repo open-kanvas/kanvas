@@ -5,7 +5,7 @@ const image=z.string().url().refine(v=>/^https:\/\//i.test(v),'Use an HTTPS imag
 const point=z.number().finite().min(0).max(1);
 export const diagramNodeSchema=z.object({id,label:z.string().min(1).max(80),detail:z.string().max(160).optional(),parentId:id.optional(),icon:z.enum(['person','team','engineering','sales','support','service','database','api','queue','cache','external','client','load-balancer']).optional(),image:image.optional(),shape:z.enum(['box','decision','terminal']).default('box'),color:color.optional(),x:point.optional(),y:point.optional()}).strict();
 const edge=z.object({from:id,to:id,label:z.string().max(60).optional(),directed:z.boolean().default(true)}).strict();
-const graph=z.object({nodes:z.array(diagramNodeSchema).min(1).max(60),edges:z.array(edge).max(120).default([]),layout:z.enum(['top-down','left-right','circular']).default('top-down')}).strict();
+const graph=z.object({nodes:z.array(diagramNodeSchema).min(1).max(60),edges:z.array(edge).max(120).default([]),layout:z.enum(['top-down','left-right','circular']).default('top-down'),textScale:z.number().min(.5).max(3).optional().describe('Text size multiplier; boxes and spacing grow with it.')}).strict();
 function validate(data:z.infer<typeof graph>,ctx:z.RefinementCtx,hierarchy=false){
   const ids=new Set<string>();data.nodes.forEach((node,i)=>{if(ids.has(node.id))ctx.addIssue({code:'custom',path:['nodes',i,'id'],message:'Use unique node ids'});ids.add(node.id);if((node.x===undefined)!==(node.y===undefined))ctx.addIssue({code:'custom',path:['nodes',i],message:'Supply both x and y, or neither'});});
   data.edges.forEach((e,i)=>{if(!ids.has(e.from)||!ids.has(e.to))ctx.addIssue({code:'custom',path:['edges',i],message:'Edges reference supplied node ids'});});

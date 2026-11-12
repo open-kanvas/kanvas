@@ -10,16 +10,25 @@ import { AppError, id, now } from './store.js';
 import { profileImageSchema, type AccountProfile } from '../shared/accounts.js';
 import { saveAccountImage } from './account-images.js';
 
-export type SigninMailer = (email:string,link:string,signup?:boolean)=>Promise<void>;
+/** sender is the bare address the configured From header delivers from, shown to
+ * the person so they can find or allow the message. It comes from the mail
+ * configuration only; a mailer without it simply shows no address. */
+export type SigninMailer = ((email:string,link:string,signup?:boolean)=>Promise<void>)&{sender?:string};
+/** "Kanvas <kanvas@example.org>" or a bare address -> the address, else undefined. */
+export function mailSenderAddress(from:string|undefined):string|undefined{
+  const match=/<\s*([^<>\s]+@[^<>\s]+)\s*>\s*$/.exec(from??'')??/^\s*([^<>\s]+@[^<>\s]+)\s*$/.exec(from??'');
+  const address=match?.[1];
+  return address&&address.length<=254&&/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(address)?address:undefined;
+}
 export function resendSigninMailer(credentialFile:string,from:string):SigninMailer {
-  return async(email,link,signup)=>{
+  return Object.assign(async(email:string,link:string,signup?:boolean)=>{
     const credential=(await readFile(credentialFile,'utf8')).trim();
     if(!credential)throw new Error('Mail delivery is not configured.');
     const response=await fetch('https://api.resend.com/emails',{method:'POST',redirect:'error',signal:AbortSignal.timeout(12000),headers:{Authorization:`Bearer ${credential}`,'Content-Type':'application/json'},body:JSON.stringify({from,to:[email],...authEmail(link,signup)})});
     if(!response.ok)throw new Error('Sign-in email could not be sent.');
     // No provider response, email link or credential is logged.
     await response.body?.cancel();
-  };
+  },{sender:mailSenderAddress(from)});
 }
 interface Challenge {id:string;email:string;returnTo:string;expiresAt:number;createdAt:string;pendingId?:string}
 interface PendingSignin {id:string;code:string;device:string;createdAt:string;expiresAt:number;status:'pending'|'approved'|'denied'|'transferred';userId?:string;returnTo?:string}
@@ -39,7 +48,7 @@ export function mountEmailSignin(app:Express,auth:Auth,origin:string,mailer?:Sig
   const pendingKey=(req:import('express').Request)=>typeof req.cookies?.[pendingCookie]==='string'?hash(req.cookies[pendingCookie]):undefined;
   const buckets=new Map<string,{count:number;expiresAt:number}>();
   const limit=(key:string,max:number)=>{const time=Date.now();for(const [k,v] of buckets)if(v.expiresAt<time)buckets.delete(k);if(buckets.size>10000)throw new AppError('RATE_LIMIT','Sign-in is busy. Try again later.',429);const b=buckets.get(key)??{count:0,expiresAt:time+15*60000};b.count++;buckets.set(key,b);if(b.count>max)throw new AppError('RATE_LIMIT','Too many sign-in attempts. Try again later.',429);};
-  app.get('/api/auth/options',(_req,res)=>res.json({data:{emailSignin:Boolean(mailer),allowRegistration:auth.allowRegistration,passwordSignin:false}}));
+  app.get('/api/auth/options',(_req,res)=>res.json({data:{emailSignin:Boolean(mailer),...(mailer?.sender?{emailSender:mailer.sender}:{}),allowRegistration:auth.allowRegistration,passwordSignin:false}}));
   const requestLink=async(raw:unknown,rateKey:string,linkOrigin=origin,pendingId?:string)=>{
     if(!mailer)throw new AppError('EMAIL_UNAVAILABLE','Email sign-in is not configured on this installation.',503);
     const a=z.object({email:emailSchema,returnTo:z.string().max(300).default('/start'),acceptedLegalVersion:z.literal(LEGAL_VERSION).optional(),authorizationRequestId:z.string().regex(/^[A-Za-z0-9_-]+$/).max(128).optional()}).strict().parse(raw);
@@ -63,7 +72,7 @@ export function mountEmailSignin(app:Express,auth:Auth,origin:string,mailer?:Sig
       for(const old of await auth.store.list<PendingSignin>('email-pending'))if(old.expiresAt<=Date.now()||old.id===previous){await auth.store.delete('email-pending',old.id);for(const challenge of await auth.store.list<Challenge>('email-challenge'))if(challenge.pendingId===old.id)await auth.store.delete('email-challenge',challenge.id);}
       await auth.store.put('email-pending',pending);
     });
-    res.cookie(pendingCookie,secret,cookieOptions);res.json({data:{...result,code:pending.code,device:pending.device,expiresAt:pending.expiresAt}});
+    res.cookie(pendingCookie,secret,cookieOptions);res.json({data:{...result,code:pending.code,device:pending.device,expiresAt:pending.expiresAt,...(mailer?.sender?{sender:mailer.sender}:{})}});
   });
   app.get('/api/auth/email/status',async(req,res)=>{
     const key=pendingKey(req),pending=key?await auth.store.get<PendingSignin>('email-pending',key):undefined;

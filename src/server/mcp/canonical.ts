@@ -23,6 +23,11 @@ import { homeTools } from './home-tools.js';
 import { selectionSchema } from '../../shared/selection.js';
 import { invitationTools } from './invitation-tools.js';
 import { z } from 'zod';
+import { taskListTools } from '../task-lists.js';
+import { agentTools } from '../agents.js';
+import { frictionTools } from '../friction.js';
+import { monitorStreamTools } from '../monitor-streams.js';
+import { pickerTools } from '../pickers.js';
 import { helpInputSchema } from '../../shared/help.js';
 import { navigationInputSchema, navigationReadSchema, pinSaveSchema, pinRecallSchema, pinRemoveSchema } from '../../shared/navigation.js';
 import { experienceTools } from './experience-tools.js';
@@ -69,6 +74,8 @@ const view = z.strictObject({
   actions: z.array(actionSchema).max(8).optional(),
 });
 const config = configPatchSchema;
+/** The session's declared tempo; auto returns to the deterministic default. See help kanvas.help.modes. */
+const sessionModeSchema = z.enum(['live','presenting','ambient','signage','auto']);
 
 export interface Definition {
   name: string;
@@ -91,7 +98,7 @@ const exactlyOne = (left: string, right: string) => ({
 const definitions: readonly Definition[] = [{name:'kanvas_satisfaction_read',description:'Editor-only aggregate satisfaction face taps by session, optional display/survey and explicit ISO time range [from,to), at most366days. Returns counts1–5 and total, no personal identities. Three-face mode uses1/3/5; repeat taps are not unique visitors. No mutation.',schema:satisfactionReadSchema,readOnly:true},...venueTools,...customTools,...mediaTools,
  {name:'kanvas_archive_list',description:'List your recoverable archived sessions, displays and retained views. Hidden from normal lists; retained indefinitely. Session grant restrictions still apply.',schema:archiveListSchema,readOnly:true},
  {name:'kanvas_archive_manage',description:'Owner-only archive (default) or restore of a session, display or retained view ID from display history. Archive is reversible. Permanent removal requires request-delete: show a warning and three random phonetic words on the current confirmationSessionId/confirmationDisplayId for 120 seconds. Batch views use targetIds (1–100 distinct IDs in one session), with one exact-target-bound confirmation. Then confirm-delete with challengeId and words explicitly supplied by the human. Never read/guess the words or infer approval. Shared items are deleted for everyone.',schema:archiveSchema,destructive:true},
-  ...browserAuthTools,...inviteEmailTools,...guidanceTools,...suggestedGuidanceTools,...diagnosticTools,...flashcardTools,...checklistTools,...eventTools, ...experienceTools, ...invitationTools, ...workTools, ...accountTools, ...documentTools, ...plannerTools, ...syncTools, ...homeTools,
+  ...browserAuthTools,...inviteEmailTools,...guidanceTools,...suggestedGuidanceTools,...diagnosticTools,...flashcardTools,...checklistTools,...taskListTools,...agentTools,...frictionTools,...monitorStreamTools,...pickerTools,...eventTools, ...experienceTools, ...invitationTools, ...workTools, ...accountTools, ...documentTools, ...plannerTools, ...syncTools, ...homeTools,
   {name:'kanvas_help_visual',description:'Retrieve a reusable single-screen documentation view from a maintained help topic. Read-only. Includes pageCount; choose successive zero-based pages. Keyboard shortcuts share native definitions.',schema:visualHelpSchema,readOnly:true},
   {name:'kanvas_help_show',description:'Show a predefined focused help view on authorized displays, using normal publication guards and receipts. Discover visual-help and keyboard-shortcuts topics; traditional docs remain available.',schema:showHelpSchema,idempotent:true},
   {name:'kanvas_help',description:'Kanvas Help: focused task guidance and canonical public documentation. Read-only; never publishes or changes a display. General orientation offers a few choices; pass a topic and optional question for a specific how-to.',schema:helpInputSchema,readOnly:true},
@@ -148,7 +155,7 @@ const definitions: readonly Definition[] = [{name:'kanvas_satisfaction_read',des
   },
   {
     name: 'kanvas_feedback_submit',
-    description: `Offer after errors, workarounds or confusion; file only on request or consent, without private content or credentials. Do not nag. Save detailed product feedback or an improvement suggestion. Description: 1–${REPORT_DESCRIPTION_MAX} characters, title: 1–160; stored record at most ${REPORT_CREATE_BYTES} UTF-8 JSON bytes. Over-limit errors name the field, maximum and submitted size; do not retry unchanged. kanvas_guide feedback explains limits. Category: usability, feature, quality or other (bugs use kanvas_error_report). Returns a durable private report ID/status/revision. Reuse requestId only for an identical retry. No credentials, private payloads or raw logs. Separate from viewer interactions; filing does not change code or send messages.`,
+    description: `Offer after errors, workarounds or confusion; file only on request or consent, without private content or credentials. Do not nag. Save detailed product feedback or an improvement suggestion. Description: 1–${REPORT_DESCRIPTION_MAX} characters, title: 1–160; stored record at most ${REPORT_CREATE_BYTES} UTF-8 JSON bytes. Over-limit errors name the field, maximum and submitted size; do not retry unchanged. kanvas_guide feedback explains limits. There is no category field. Bugs are filed with kanvas_error_report instead. Returns a durable private report ID/status/revision. Reuse requestId only for an identical retry. No credentials, private payloads or raw logs. Separate from viewer interactions; filing does not change code or send messages.`,
     schema: feedbackSubmitSchema, jsonSchemaExtras: {anyOf:[{required:['sessionId']},{not:{anyOf:[{required:['displayId']},{required:['updateId']}]}}]}, idempotent: true,
   },
   {
@@ -169,8 +176,8 @@ const definitions: readonly Definition[] = [{name:'kanvas_satisfaction_read',des
   },
   {
     name: 'kanvas_session_create',
-    description: 'Create an authorized private screen session when needed. New to showing content? kanvas_guide introduces templates, viewer location and current displays and revisions; read kanvas_session_state before display decisions. An initial blank Main display and joinable viewerUrl are created by default; initialDisplay:false opts out. Publish quietly within that policy. A viewer separately signs in; its URL is not an access grant.',
-    schema: z.strictObject({ name,clientDetails:clientDetailsSchema.optional(),initialDisplay:z.boolean().default(true).describe("Create a blank branded Main display and return its viewerUrl immediately. Set false for an intentionally display-free session.") }),
+    description: 'Create a private session for a new topic. Returns its id, a blank Main display and its viewerUrl (initialDisplay:false for none). Optional mode sets the tempo. Link and access rules: help kanvas.help.policy-links.',
+    schema: z.strictObject({ name,clientDetails:clientDetailsSchema.optional(),mode:sessionModeSchema.optional(),initialDisplay:z.boolean().default(true).describe("Create a blank branded Main display and return its viewerUrl immediately. Set false for an intentionally display-free session.") }),
   },
   {
     name: 'kanvas_sessions_list',
@@ -179,8 +186,8 @@ const definitions: readonly Definition[] = [{name:'kanvas_satisfaction_read',des
   },
   {
     name: 'kanvas_session_state',
-    description: 'Read current session settings, configRevision, displays, revisions, updates and accessible metadata. Read before changing an existing display; viewer location/timezone requires consented kanvas_viewers_read.',
-    schema: z.strictObject({ sessionId: id }), readOnly: true,
+    description: 'Read a session before a display decision: settings, configRevision, displays and revisions, mode (tempo), the manage map of read/change operations, the last 5 updates and pending interactions with counts.',
+    schema: z.strictObject({ sessionId: id, includeUpdates: z.enum(['recent','all']).default('recent') }), readOnly: true,
   },
   {
     name: 'kanvas_session_end',
@@ -262,7 +269,7 @@ const definitions: readonly Definition[] = [{name:'kanvas_satisfaction_read',des
   {
     name: 'kanvas_config_update',
     description: 'Ask which settings scope the user intends: session (default), account (new-session defaults), team or organization (group defaults). Supply expectedRevision for that scope and groupId for team/organization. Group writes require group administration. Appearance and regional settings are supported. readingFontSize, readingZoom and readingWpm apply only to documents using the reading layout; they do not enlarge checklist, fact or other views. When asked to make the current view larger or smaller use kanvas.navigation.control with navigation:{action:zoom,scale:1.5}. Synchronization changes require owner authority. Settings do not grant access or trigger publication.',
-    schema: z.strictObject({ sessionId: id, expectedRevision: revision.optional(), config, scope:z.enum(['session','account','team','organization']).default('session'), groupId:id.optional() }), idempotent: true,
+    schema: z.strictObject({ sessionId: id, expectedRevision: revision.optional(), config: config.optional(), mode: sessionModeSchema.optional(), scope:z.enum(['session','account','team','organization']).default('session'), groupId:id.optional() }), idempotent: true,
   },
   {
     name: 'kanvas_dataset_import',

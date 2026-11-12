@@ -258,8 +258,20 @@ test('a stalled image reaches a bounded explicit placeholder and a late load can
     await expect(viewer.getByText('Loading media…', { exact: true })).toBeVisible();
     // Images allow thirty seconds for anonymous fallback before the accepted
     // degraded-image policy acknowledges an explicit unavailable surface.
+    // 2026-11-11: this failed twice on the phone, late in complete runs. The page checks the privacy lock once a
+    // second with a four-second limit on the same (here: test-controlled) clock. A 30-second jump taken while one of
+    // those checks was in flight ended it as "no answer", so the page hid and rebuilt its content, and the rebuilt
+    // image started a fresh 30-second wait. Shown both ways by a temporary spec (evidence browser-c3-evidence1). The
+    // jump is now taken right after a check has been answered, when none is in flight; the next one starts a second
+    // later. What the test asserts is unchanged.
+    await viewer.waitForResponse(response => new URL(response.url()).pathname === '/api/device-privacy/status' && response.ok());
     await viewer.clock.fastForward(30_000 + 50);
-    await expect(viewer.locator('.viewer-candidate .media-unavailable')).toBeVisible();
+    // 2026-11-10: failed once on the phone late in a complete run and never alone. The assertion is unchanged; a failure
+    // now also reports, without page content, what the window shows instead of the placeholder.
+    await expect(viewer.locator('.viewer-candidate .media-unavailable')).toBeVisible().catch(async (error: Error) => {
+      const state = await viewer.evaluate(() => ({ privacyStage: document.querySelector('.device-privacy-screen')?.getAttribute('data-privacy-stage') ?? null, candidate: Boolean(document.querySelector('.viewer-candidate')), loading: Boolean(document.body.textContent?.includes('Loading media')), renderedRevision: document.querySelector('.viewer-shell')?.getAttribute('data-rendered-revision') ?? null, clock: Date.now() })).catch(() => 'page unavailable');
+      throw new Error(`${error.message}\nWindow state when the placeholder was missing: ${JSON.stringify(state)}`);
+    });
     await expect(viewer.locator('.viewer-candidate .media-unavailable')).toContainText('Stalled image');
     release(); await viewer.clock.runFor(200);
     const current = await waitForDisplay(page, sessionId, display.id, d => d.revision > 0 && d.appliedRevision === d.revision);

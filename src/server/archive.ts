@@ -80,6 +80,8 @@ export class Archive {
        target.archivedAt=now();await store.put(kind,target);
      }
    }else{
+     // Restoring a session takes a slot again, exactly like creating one.
+     if(a.resource==='session'&&target.archivedAt)await this.service.assertSessionSlot((target as unknown as {ownerId:string}).ownerId);
      delete target.archivedAt;await store.put(kind,target);
      if(a.resource==='view'){
        const timeline=await store.get<{id:string;sessionId:string;entries:string[];cursor:number}>('display-timeline',target.displayId!,true);

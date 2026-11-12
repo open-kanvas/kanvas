@@ -104,8 +104,14 @@ test('checklist follows newly completed progress but respects deliberate scrolli
  };
  await patch(0,20);await expect.poll(()=>list.evaluate(e=>e.scrollTop)).toBeGreaterThan(0);
  await list.evaluate(e=>{e.scrollTop=0;e.dispatchEvent(new WheelEvent('wheel',{deltaY:-100,bubbles:true}));});
- await patch(20,30);await expect(list.locator('li').nth(29)).toHaveClass(/checked/);
+ // 2026-11-10 (47f4f4c5, d0e13f12): while the reader is scrolling by hand a change to an item still in view moves
+ // nothing; an item that is completely out of sight is always fetched ("always be brought into view").
+ const one=await sessionApi(page,`/api/sessions/${s}/displays/${d.id}/patch`,'POST',{requestId:crypto.randomUUID(),operations:[{op:'checklist',itemId:'step0',action:'update',value:{checked:false}}]});expect(one.status,JSON.stringify(one)).toBe(200);
+ await expect(list.locator('li').nth(0)).not.toHaveClass(/checked/);await page.waitForTimeout(1500);
  expect(await list.evaluate(e=>e.scrollTop)).toBeLessThan(2);
+ await list.evaluate(e=>{e.dispatchEvent(new WheelEvent('wheel',{deltaY:-100,bubbles:true}));});
+ await patch(60,61);await expect(list.locator('li').nth(60)).toHaveClass(/checked/);
+ await expect.poll(()=>list.evaluate(e=>e.scrollTop)).toBeGreaterThan(100);
 });
 
 test('reviewed sign artwork loads with direction/prohibition layers and remains region-aware',async({page},info)=>{

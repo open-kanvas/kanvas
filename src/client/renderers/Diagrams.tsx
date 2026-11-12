@@ -21,6 +21,8 @@ const diagramSymbols:Record<string,string>={
 };
 function DiagramSymbol({name}:{name:string}){return <svg className="diagram-symbol" x="-108" y="-12" width="24" height="24" viewBox="0 0 24 24" role="img" aria-label={name}><title>{name}</title><path d={diagramSymbols[name==='person'?'client':name]??diagramSymbols.service}/></svg>;}
 
+/** Largest factor a small diagram is enlarged by to fill its screen. */
+export const DIAGRAM_MAX_FILL=2.5;
 export function DiagramRenderer({view}:RendererProps){
   const navigation=useNavigation(),zoom=navigation?.state.focus?.zoom??1;
   const root=useRef<HTMLDivElement>(null),[size,setSize]=useState({width:660,height:400});
@@ -28,9 +30,16 @@ export function DiagramRenderer({view}:RendererProps){
   const marker=useId().replace(/:/g,''),schema=view.template==='architecture'?architectureDataSchema:view.template==='org-chart'?orgChartDataSchema:view.template==='network'?networkDataSchema:flowchartDataSchema,parsed=schema.safeParse(view.data);
   if(!parsed.success)return <p>This diagram could not be shown.</p>;
   const natural=diagramLayout(parsed.data,view.template==='org-chart',Infinity);
-  const fit=view.template==='flowchart'?fitFlowchart(parsed.data,size.width,size.height):{...natural,scale:Math.min(1,Math.max(1,size.width)/natural.width,Math.max(1,size.height)/natural.height)};
-  const layout=fit,focusing=Boolean(navigation?.state.focus),scale=focusing?Math.max(1,fit.scale*zoom):fit.scale;
-  return <div ref={root} className={`diagram-scroll${!focusing?' diagram-fit':''}`} data-navigation-scroll tabIndex={0} role="region" aria-label={`${view.template} diagram`}><svg className="relationship-diagram" viewBox={`0 0 ${layout.width} ${layout.height}`} style={{width:layout.width*scale,height:layout.height*scale}} role="img" aria-label={view.title??`${view.template}: ${layout.nodes.map(n=>n.label).join(', ')}`}><defs><marker id={marker} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="var(--muted)"/></marker></defs>
+  // Window zoom is applied by zooming the surface, which also shrinks this
+  // container. Fit against the UNZOOMED viewport so zoom really enlarges the
+  // diagram (and scrolls) instead of being cancelled by a re-fit.
+  const windowZoom=navigation?.state.scale??1,textScale=(parsed.data as {textScale?:number}).textScale??1;
+  const viewportWidth=Math.max(1,size.width*windowZoom),viewportHeight=Math.max(1,size.height*windowZoom);
+  // A small diagram fills a large screen (up to DIAGRAM_MAX_FILL) so it reads from across a room.
+  const fit=view.template==='flowchart'?fitFlowchart(parsed.data,viewportWidth,viewportHeight):{...natural,scale:Math.min(DIAGRAM_MAX_FILL,viewportWidth/natural.width,viewportHeight/natural.height)};
+  const enlarged=windowZoom>1.001||textScale>1.001;
+  const layout=fit,focusing=Boolean(navigation?.state.focus),scale=focusing?Math.max(1,fit.scale*zoom)*textScale:fit.scale*textScale;
+  return <div ref={root} className={`diagram-scroll${!focusing&&!enlarged?' diagram-fit':''}`} data-diagram-scale={Math.round(scale*windowZoom*1000)/1000} data-navigation-scroll tabIndex={0} role="region" aria-label={`${view.template} diagram`}><svg className="relationship-diagram" viewBox={`0 0 ${layout.width} ${layout.height}`} style={{width:layout.width*scale,height:layout.height*scale}} role="img" aria-label={view.title??`${view.template}: ${layout.nodes.map(n=>n.label).join(', ')}`}><defs><marker id={marker} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="var(--muted)"/></marker></defs>
     {layout.edges.map((edge,i)=>{const a=layout.nodes.find(n=>n.id===edge.from)!,b=layout.nodes.find(n=>n.id===edge.to)!;if(!a||!b)return null;
       const dx=b.x-a.x,dy=b.y-a.y,sa=1/Math.max(Math.abs(dx)/116,Math.abs(dy)/(a.height/2),1),sb=1/Math.max(Math.abs(dx)/116,Math.abs(dy)/(b.height/2),1);
       const sx=a.x+dx*sa,sy=a.y+dy*sa,ex=b.x-dx*sb,ey=b.y-dy*sb;

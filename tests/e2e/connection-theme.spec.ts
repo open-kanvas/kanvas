@@ -49,12 +49,18 @@ test('JSON and topology remain readable in light and dark receiving themes and l
     for(const theme of ['light','dark'] as const){
       const detail=await sessionDetail(page,s);
       expect((await sessionApi(page,'/api/sessions/'+s+'/config','PATCH',{expectedRevision:detail.session.configRevision,config:{theme}})).status).toBe(200);
-      await publishPrepared(page,s,[d.id],{version:1,template:'json',data:{json:'{"exact":9007199254740993.001,"text":"Readable source","enabled":true,"empty":null}',expandedDepth:2}});
+      await publishPrepared(page,s,[d.id],{version:1,template:'json',data:{json:'{"exact":9007199254740993.001,"text":"Readable source","enabled":true,"empty":null}',view:'tree',expandedDepth:2}});
       const jsonDisplay=await waitForDisplay(page,s,d.id,x=>x.appliedRevision===x.revision&&x.revision>0);
       await expect(v.locator('.viewer-shell')).toHaveAttribute('data-render-status','ready');
       await expect(v.locator('.viewer-shell')).toHaveAttribute('data-rendered-revision',String(jsonDisplay.revision));
       await expect(v.locator('.viewer-shell')).toHaveClass(new RegExp('theme-'+theme));
       await readable(v.locator('.json-key,.json-value,.json-separator'));
+      // 2026-11-10 (06ee64d1): raw text is now the default JSON view; both views must be readable in both themes.
+      await publishPrepared(page,s,[d.id],{version:1,template:'json',data:{json:'{"exact":9007199254740993.001,"text":"Readable source","enabled":true,"empty":null}'}});
+      const rawDisplay=await waitForDisplay(page,s,d.id,x=>x.appliedRevision===x.revision&&x.revision>jsonDisplay.revision);
+      await expect(v.locator('.viewer-shell')).toHaveAttribute('data-rendered-revision',String(rawDisplay.revision));
+      await expect(v.locator('.json-raw')).toContainText('9007199254740993.001');
+      await readable(v.locator('.json-raw li code,.json-raw li code span'));
       await capture(v,folder+'/'+info.project.name+'-'+theme+'-json.png');
       await publishPrepared(page,s,[d.id],{version:1,template:'session-topology',data:{layout:'map',includeLocation:true,expectedCountries:['NO']}});
       const mapDisplay=await waitForDisplay(page,s,d.id,x=>x.appliedRevision===x.revision&&x.revision>0);

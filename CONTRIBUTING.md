@@ -2,6 +2,17 @@
 
 Draft for maintainer review before public release.
 
+## The yardstick: ask this before accepting any change
+
+Kanvas is your agent's screen: a light visual surface with no intelligence inside. The [mission](docs/mission.md) is the measure for every change, including feedback items. Before accepting one, ask:
+
+1. Does it serve the surface rather than add an application?
+2. At which tempo (live, kept-up, static), and does it fit that tempo?
+3. Does it reduce time to clarity for the agent or the person, or at least not increase it?
+4. Does it keep intelligence on the agent side?
+
+A change that fails the first or the last question is out of scope however useful it looks. The same four questions head the feedback review process: write the answers next to each item you implement.
+
 Use Node.js 24+, npm and an isolated PostgreSQL instance. Do not use customer or production data in tests, screenshots, fixtures or reports. Keep credentials and local configuration outside git.
 
 ## Development and checks

@@ -20,6 +20,10 @@ import { viewFormatSchema } from './regional.js';
 import { galleryDataSchema,boardBackgroundSchema } from './image-gallery.js';
 import { scoreboardDataSchema,standingsDataSchema,toolLogDataSchema } from './event-views.js';
 import { jsonDataSchema,topologyDataSchema } from './connection-views.js';
+import { taskListDataSchema } from './task-list.js';
+import { colourDataSchema } from './colour.js';
+import { iconPickerDataSchema, fontPickerDataSchema } from './pickers.js';
+import { toolCallDetailsDataSchema, agentsDataSchema, welcomeDataSchema } from './nov10-templates.js';
 import { tableRowStyleSchema,tableCellStyleSchema } from './table-style.js';
 import { workSchemas } from './work-views.js';
 import { selectionSchema, selectionKey } from './selection.js';
@@ -123,7 +127,7 @@ export const comparisonDataSchema = z.object({
   for (const item of data.items) if (Object.keys(item.values).some((key) => !data.criteria.includes(key)) || data.criteria.some((key) => !(key in item.values))) ctx.addIssue({ code: 'custom', message: 'All alternatives must use the same criteria' });
 });
 const uniqueIds = <T extends { id: string }>(values: T[]) => new Set(values.map((v) => v.id)).size === values.length;
-export const checklistDataSchema = z.object({ checklistId:identifier.optional().describe('Server-managed persistent checklist identity. Keep it to update the same checklist; omit to create a new checklist.'),checklistRevision:z.number().int().nonnegative().optional().describe('Current document revision. Stale copies cannot overwrite a newer checklist.'), items: z.array(z.object({ id: identifier, text: z.string().min(1).max(1000), checked: z.boolean().default(false), detail: short.optional() }).strict()).max(100).refine(uniqueIds, 'Checklist IDs must be unique') }).strict();
+export const checklistDataSchema = z.object({ checklistId:identifier.optional().describe('Server-managed persistent checklist identity. Keep it to update the same checklist; omit to create a new checklist.'),checklistRevision:z.number().int().nonnegative().optional().describe('Current document revision. Stale copies cannot overwrite a newer checklist.'), highlight:identifier.optional().describe('ID of the one item to mark as current.'), items: z.array(z.object({ id: identifier, text: z.string().min(1).max(1000), checked: z.boolean().default(false), detail: short.optional() }).strict()).max(100).refine(uniqueIds, 'Checklist IDs must be unique') }).strict().refine(data=>!data.highlight||data.items.some(item=>item.id===data.highlight),{path:['highlight'],message:'highlight must be the id of an item in this checklist.'});
 const coordinates = z.object({ lat: finite.min(-90).max(90), lng: finite.min(-180).max(180) }).strict();
 const color = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 const geometry = z.object({ name: short.optional(), coordinates: z.array(coordinates).min(2).max(5000), color: color.optional() }).strict();
@@ -267,6 +271,13 @@ export const leafViewSchema = z.discriminatedUnion('template', [
   z.object({...base,template:z.literal('kanban'),data:venueSchemas['kanban']}).strict(),
   z.object({...base,template:z.literal('account-template'),data:customViewSchema}).strict(),
   z.object({...base,template:z.literal('json'),data:jsonDataSchema}).strict(),
+  z.object({...base,template:z.literal('task-list'),data:taskListDataSchema}).strict(),
+  z.object({...base,template:z.literal('colour'),data:colourDataSchema}).strict(),
+  z.object({...base,template:z.literal('icon-picker'),data:iconPickerDataSchema}).strict(),
+  z.object({...base,template:z.literal('font-picker'),data:fontPickerDataSchema}).strict(),
+  z.object({...base,template:z.literal('tool-call-details'),data:toolCallDetailsDataSchema}).strict(),
+  z.object({...base,template:z.literal('agents'),data:agentsDataSchema}).strict(),
+  z.object({...base,template:z.literal('welcome'),data:welcomeDataSchema}).strict(),
   z.object({...base,template:z.literal('session-topology'),data:topologyDataSchema}).strict(),
   z.object({...base,actions:z.array(actionSchema).max(0).optional().describe('Read-only message display. Use drafting for composition; sending belongs to the agent and its messaging connector.'),template:z.literal('email'),data:workSchemas['email']}).strict(),
   z.object({...base,actions:z.array(actionSchema).max(0).optional().describe('Read-only summaries; no message-open, reply, archive or send actions.'),template:z.literal('inbox'),data:workSchemas['inbox']}).strict(),

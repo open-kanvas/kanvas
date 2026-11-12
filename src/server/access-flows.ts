@@ -436,10 +436,11 @@ export function mountAccessFlows(app: Express, options: AccessFlowOptions): () =
       response_types_supported: ['code'], response_modes_supported: ['query'], grant_types_supported: ['authorization_code', 'refresh_token', DEVICE_GRANT],
       token_endpoint_auth_methods_supported: ['none'], scopes_supported: SCOPES,
       code_challenge_methods_supported: ['S256'], authorization_response_iss_parameter_supported: true,
+      ...(process.env.KANVAS_WEBSITE_URL!==''?{service_documentation: process.env.KANVAS_WEBSITE_URL||'https://open-kanvas.ai'}:{}),
     });
   }));
   app.get(['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp'], protocol((_request, response) => {
-    response.json({ resource, authorization_servers: [issuer], scopes_supported: SCOPES, bearer_methods_supported: ['header'], resource_name: 'KANVAS MCP' });
+    response.json({ resource, authorization_servers: [issuer], scopes_supported: SCOPES, bearer_methods_supported: ['header'], resource_name: 'KANVAS MCP', ...(process.env.KANVAS_WEBSITE_URL!==''?{resource_documentation: process.env.KANVAS_WEBSITE_URL||'https://open-kanvas.ai'}:{}) });
   }));
   app.post('/oauth/register', protocol(async (request, response) => {
     (await rate(request, 'oauth-register', 20, 60 * 60_000));

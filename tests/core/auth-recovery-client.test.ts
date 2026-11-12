@@ -1,5 +1,6 @@
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
-vi.mock('../../src/client/frontend-diagnostics',()=>({diagnostic:()=>{},diagnosticsAuthenticated:()=>{}}));
+const paused=vi.hoisted(()=>({count:0}));
+vi.mock('../../src/client/frontend-diagnostics',()=>({diagnostic:()=>{},diagnosticsAuthenticated:()=>{},pauseDiagnostics:()=>{paused.count++;}}));
 const response=(status:number,data?:unknown,code='UNAUTHORIZED')=>new Response(JSON.stringify(status<300?{data}:{error:{code,message:'test failure'}}),{status,headers:{'content-type':'application/json'}});
 const state={user:{id:'user',username:'test',displayName:'Test'},csrfToken:'fresh-csrf',browserSessionId:'public-session'};
 let client:typeof import('../../src/client/api');let fetchMock:ReturnType<typeof vi.fn>;let events:Event[];
@@ -24,6 +25,19 @@ describe('Client authentication recovery',()=>{
  it('clears only after confirmed auth 401 and does not recursively revalidate auth endpoints',async()=>{
   fetchMock.mockResolvedValue(response(401));await expect(client.api('/api/data')).rejects.toMatchObject({status:401});expect(events).toHaveLength(1);expect((events[0] as CustomEvent).detail.state).toBeNull();expect(fetchMock).toHaveBeenCalledTimes(2);
   await expect(client.api('/api/auth/options')).rejects.toMatchObject({status:401});expect(fetchMock).toHaveBeenCalledTimes(3);
+ });
+ it('telemetry waits only when the sign-in is in doubt: after signing out or revoking browsers, and after any refusal',async()=>{
+  // 2026-11-10: a complete browser run caught the five-second telemetry post going out with a cookie the server had
+  // just revoked (POST /api/diagnostics 401 after "sign out this browser"). Ordinary requests, signing in and the
+  // frequent activity ping must not hold telemetry back (a first version of this fix did, and a browser test caught it).
+  fetchMock.mockImplementation(async(path:string)=>path==='/api/auth/me'?response(200,state):response(200,{ok:true}));
+  paused.count=0;
+  for(const [path,method] of [['/api/sessions','GET'],['/api/sessions/s/displays','POST'],['/api/auth/sessions','GET'],['/api/auth/activity','POST'],['/api/auth/register','POST'],['/api/auth/login','POST'],['/api/auth/email/request','POST']] as const)await client.api(path,method==='GET'?{}:{method,body:{}});
+  expect(paused.count).toBe(0);
+  await client.api('/api/auth/sessions/revoke',{method:'POST',body:{}});expect(paused.count).toBe(1);
+  await client.api('/api/auth/logout',{method:'POST'});expect(paused.count).toBe(2);
+  fetchMock.mockImplementation(async(path:string)=>path==='/api/auth/me'?response(200,state):response(401));
+  await expect(client.api('/api/account/notices')).rejects.toBeTruthy();expect(paused.count).toBeGreaterThanOrEqual(3);
  });
  it('ignores an old in-flight auth 401 after a new login generation',async()=>{
   let finish!:(value:Response)=>void;fetchMock.mockImplementation(()=>new Promise< Response>(resolve=>{finish=resolve;}));const pending=client.confirmAuth();client.advanceAuthGeneration();finish(response(401));expect(await pending).toBeUndefined();expect(events).toHaveLength(0);

@@ -76,7 +76,7 @@ describe('October4 persistent account and session feedback',()=>{
   h=await startHarness();const a=await h.account(),p=await principal(a),s=await a.session(),d=await a.display(s.id),e=await a.display(s.id);
   await a.submit(s.id,[d.id,e.id],view);const first=await h.runtime.service.display(p,s.id,d.id),second=await h.runtime.service.display(p,s.id,e.id);expect(first.view!.data.checklistId).toBe(second.view!.data.checklistId);
   const key=String(first.view!.data.checklistId),items=Array.from({length:70},(_,i)=>({id:`item${i}`,text:'x'.repeat(900),checked:i%2===0}));
-  await h.runtime.service.checklists.update(p,{sessionId:s.id,checklistId:key,expectedRevision:0,requestId:'large',items});
+  await h.runtime.service.checklists.update(p,{sessionId:s.id,checklistId:key,expectedRevision:0,requestId:'large',mode:'replace',allowRemove:true,items});
   const page:any=await h.runtime.service.checklists.read(p,{sessionId:s.id,checklistId:key});expect(page.view).toBeUndefined();expect(page.nextOffset).toBeGreaterThan(0);expect(Buffer.byteLength(JSON.stringify(page))).toBeLessThan(44000);
   const rest:any=await h.runtime.service.checklists.read(p,{sessionId:s.id,checklistId:key,offset:page.nextOffset});expect([...page.items,...rest.items]).toEqual(items);
   const http:any=success(await a.request('GET',`/api/sessions/${s.id}/checklists/${key}?offset=${page.nextOffset}`));expect(http.items).toEqual(rest.items);

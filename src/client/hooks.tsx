@@ -168,6 +168,9 @@ export function useSession(id: string | null, displayId?: string) {
         try {
           const change = JSON.parse((event as MessageEvent<string>).data) as SessionEvent;
           if (change.sessionId !== id) return;
+          // Sent once when the server has finished setting this stream up: read again, so a publish that landed
+          // between the first read and the subscription is not missed.
+          if ((change.type as string) === 'sync') { refreshSoon(); return; }
           if(change.type==='display'||change.type==='update')diagnostic({event:'update-received',sessionId:id,displayId:change.displayId,revision:change.revision,...(change.type==='update'&&change.data&&typeof change.data==='object'&&'id' in change.data?{updateId:String(change.data.id)}:{})});
           if (change.type === 'identify') {
             const identify = (change as SessionEvent & { identify?: Record<string, unknown> }).identify ?? {};
@@ -175,6 +178,8 @@ export function useSession(id: string | null, displayId?: string) {
             return;
           }
           window.dispatchEvent(new CustomEvent('kanvas:session-change', { detail: { sessionId: change.sessionId, displayId: change.displayId, type: change.type } }));
+          // Overlay notifications change no session detail; the receiving window re-reads them itself.
+          if (change.type === 'toast') return;
           if (change.type === 'ended') {
             ended.current = true; streamOpen.current = false; setDetail(null); setConnection('closed'); setError('This session has ended.'); source.close(); return;
           }
@@ -202,13 +207,17 @@ export function useSession(id: string | null, displayId?: string) {
     // Registration can finish after the first content connection. Reconnect
     // once so the same authenticated stream also owns this window receiver.
     const onDeviceRegistered=()=>{if(displayId)connect();};
+    // A window that is really closing says so, so its leave is announced promptly;
+    // every other dropped stream is treated by the server as a reconnect in progress.
+    const onPageHide=(event:PageTransitionEvent)=>{if(displayId&&!event.persisted&&!disposed)void api(`${sessionPath(id)}/displays/${encodeURIComponent(displayId)}/leave`,{method:'POST',body:{tabId:viewerTabId()},keepalive:true}).catch(()=>{});};
+    window.addEventListener('pagehide',onPageHide);
     window.addEventListener('kanvas:device-registered',onDeviceRegistered);
     if (navigator.onLine) { connect(); void reload(); } else onOffline();
     return () => {
       disposed = true; generation.current += 1; streamOpen.current = false; eventSource?.close(); clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('offline', onOffline); window.removeEventListener('online', onOnline);
-      window.removeEventListener('kanvas:device-registered',onDeviceRegistered);
+      window.removeEventListener('kanvas:device-registered',onDeviceRegistered);window.removeEventListener('pagehide',onPageHide);
     };
   }, [id, displayId, reload]);
   const reconnect = () => { if (navigator.onLine) setEpoch(value => value + 1); else setConnection('offline'); };

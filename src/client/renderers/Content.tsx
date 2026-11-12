@@ -1,10 +1,11 @@
+import { useNavigation } from './Navigation';
 import { cellEmphasis, type Emphasis } from '../../shared/emphasis';
 import { useRegional } from './Regional';
-import { useChecklistColumns } from './checklist-layout';
+import { checklistFocus, checklistScrollDelta, useChecklistColumns } from './checklist-layout';
 import './checklist.css';
 import { regionalNumber, regionalDate, regionalDateTime } from '../../shared/regional';
 import { useReading, ReadingControls } from './Reading';
-import { useEffect, useState, useRef, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useState, useRef, type CSSProperties, type ReactNode } from 'react';
 import { api, displayPath, errorMessage, safeUrl, sourceLabel } from '../api';
 import { useMediaResource } from './readiness';
 import { Icon } from '../icons';
@@ -87,28 +88,46 @@ export function ComparisonRenderer({ data }: { data: { commentary?:Record<string
     {data.items.some(i => i.cons?.length) && <tr><th scope="row">Trade-offs</th>{data.items.map((item, i) => <td key={i}><ul>{item.cons?.map((con, j) => <li key={j}>{con}</li>)}</ul></td>)}{data.commentary && <td/>}</tr>}</tbody></table></div></div>;
 }
 
-export interface ChecklistData { items: { id: string; text: string; checked?: boolean; detail?: string }[] }
+export interface ChecklistData { highlight?: string; items: { id: string; text: string; checked?: boolean; detail?: string }[] }
 export function ChecklistRenderer({ data, editable, onEdit, revision, actionable, onRespond, showControls = false }: { showControls?: boolean; data: ChecklistData; editable?: boolean; revision?: number; onEdit?: (data: Record<string, unknown>, expectedRevision: number) => Promise<number>; actionable?: boolean; onRespond?: (value: Record<string, unknown>) => Promise<unknown> }) {
   const [pending, setPending] = useState<string | null>(null), [error, setError] = useState<string | null>(null);
-  const listRef = useRef<HTMLUListElement>(null);
+  const listRef = useRef<HTMLUListElement>(null),navigation=useNavigation();
   const columns = useChecklistColumns(listRef, data.items);
-  const previousItems=useRef(data.items),manualUntil=useRef(0);
-  useEffect(()=>{const root=listRef.current;if(!root)return;const pause=()=>{manualUntil.current=Date.now()+15000;};
+  const previousItems=useRef(data.items),previousHighlight=useRef<string|undefined>(undefined),manualUntil=useRef(0),mounted=useRef(false);
+  useEffect(()=>{const root=listRef.current;if(!root)return;const pause=()=>{manualUntil.current=Date.now()+6000;};
     root.addEventListener('wheel',pause,{passive:true});root.addEventListener('touchstart',pause,{passive:true});root.addEventListener('pointerdown',pause);root.addEventListener('keydown',pause);
     return()=>{root.removeEventListener('wheel',pause);root.removeEventListener('touchstart',pause);root.removeEventListener('pointerdown',pause);root.removeEventListener('keydown',pause);};
   },[]);
-  useEffect(()=>{const before=previousItems.current;previousItems.current=data.items;
-    if(Date.now()<manualUntil.current||!before.some(old=>!old.checked&&data.items.some(item=>item.id===old.id&&item.checked)))return;
-    const index=data.items.findIndex(item=>!item.checked),root=listRef.current,target=root?.children[index] as HTMLElement|undefined;
-    if(!root||!target||root.scrollHeight<=root.clientHeight)return;
-    const box=root.getBoundingClientRect(),item=target.getBoundingClientRect();
-    if(item.bottom>box.bottom-24||item.top<box.top)root.scrollBy({top:item.top-box.top-root.clientHeight*.55,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
-  },[data.items]);
+  // Follow the item an update is about (ticked, edited, added or highlighted),
+  // whoever made it: an agent's saved update or a tap. Nothing changed means
+  // nothing moves, so the reader keeps their place.
+  useLayoutEffect(()=>{const before=previousItems.current,first=!mounted.current;previousItems.current=data.items;mounted.current=true;
+    const focus=first?data.highlight:checklistFocus(before,data.items,previousHighlight.current,data.highlight);previousHighlight.current=data.highlight;
+    const root=listRef.current;if(!focus||!root||root.closest('.is-preview'))return;
+    root.dataset.checklistFocus=focus;
+    const instant=first||matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // The navigation layer restores its own stored position shortly after a refresh, so the item is
+    // brought into view now and checked again once that has settled. The last pass also records the
+    // position with the navigation layer, where this window may navigate, so later refreshes keep it.
+    const follow=(record:boolean)=>{
+      const target=[...root.children].find(child=>(child as HTMLElement).dataset.itemId===focus) as HTMLElement|undefined;
+      if(!target||root.scrollHeight<=root.clientHeight+1)return;
+      const box=root.getBoundingClientRect(),item=target.getBoundingClientRect();
+      const delta=checklistScrollDelta({top:box.top,height:root.clientHeight},{top:item.top,bottom:item.bottom},Date.now()<manualUntil.current);
+      if(delta===undefined)return;
+      const range=root.scrollHeight-root.clientHeight;
+      root.scrollBy({top:delta,behavior:instant?'instant':'smooth'});
+      if(record&&navigation?.canNavigate&&range>0)navigation.send({action:'scroll',y:Math.min(1,Math.max(0,(root.scrollTop+(instant?0:delta))/range))});
+    };
+    follow(false);
+    const timers=[setTimeout(()=>follow(false),350),setTimeout(()=>follow(true),1200)];
+    return()=>timers.forEach(clearTimeout);
+  },[data.items,data.highlight,columns]);
   const canToggle = Boolean(actionable && onRespond || editable && onEdit && revision !== undefined);
   const done = data.items.filter(item => item.checked).length;
   const toggle = async (id: string) => { if (!canToggle || pending) return; const item = data.items.find(item => item.id === id); if (!item) return; setPending(id); setError(null); try { if (actionable && onRespond) await onRespond({ kind: 'checklist.toggle', itemId: id, checked: !item.checked }); else if (onEdit && revision !== undefined) await onEdit({ ...data, items: data.items.map(item => item.id === id ? { ...item, checked: !item.checked } : item) }, revision); } catch (e) { setError(errorMessage(e)); } finally { setPending(null); } };
   return <div className="checklist-content checklist-adaptive"><div className="checklist-summary"><span><b>{done}</b> / {data.items.length}</span><span>{done === data.items.length && done > 0 ? 'All done.' : 'Completed'}</span></div><div className="checklist-progress" role="progressbar" aria-label="Checklist completion" aria-valuenow={done} aria-valuemin={0} aria-valuemax={data.items.length}><i style={{ width: `${data.items.length ? done / data.items.length * 100 : 0}%` }} /></div>
-    <ul ref={listRef} style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }} data-navigation-scroll tabIndex={0} aria-label="Checklist items">{data.items.map(item => <li key={item.id} className={item.checked ? 'checked' : ''}><button className="checklist-checkbox" role="checkbox" aria-checked={Boolean(item.checked)} aria-label={item.text} disabled={!canToggle || Boolean(pending)} onClick={() => void toggle(item.id)}>{pending === item.id ? <span className="spinner" /> : item.checked ? <Icon name="check" size={24} /> : null}</button><div><span>{item.text}</span>{item.detail && (showControls ? <details className="supplementary-details"><summary>Details</summary><p>{item.detail}</p></details> : <p className="checklist-detail">{item.detail}</p>)}</div></li>)}</ul>{!canToggle && <p className="participation-hint">View-only checklist</p>}{error && <p className="inline-error" role="alert">{error}</p>}
+    <ul ref={listRef} style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }} data-navigation-scroll tabIndex={0} aria-label="Checklist items">{data.items.map(item => <li key={item.id} data-item-id={item.id} className={`${item.checked ? 'checked' : ''}${item.id === data.highlight ? ' is-current' : ''}`.trim()} aria-current={item.id === data.highlight ? 'true' : undefined}><button className="checklist-checkbox" role="checkbox" aria-checked={Boolean(item.checked)} aria-label={item.text} disabled={!canToggle || Boolean(pending)} onClick={() => void toggle(item.id)}>{pending === item.id ? <span className="spinner" /> : item.checked ? <Icon name="check" size={24} /> : null}</button><div><span>{item.text}</span>{item.detail && (showControls ? <details className="supplementary-details"><summary>Details</summary><p>{item.detail}</p></details> : <p className="checklist-detail">{item.detail}</p>)}</div></li>)}</ul>{!canToggle && <p className="participation-hint">View-only checklist</p>}{error && <p className="inline-error" role="alert">{error}</p>}
   </div>;
 }
 

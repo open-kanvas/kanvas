@@ -56,7 +56,11 @@ test('content-aware cards/bookmarks fit the viewport, keep per-item new tabs and
 test('parameter types stay whole, generic chat context is readable and messages have no reply controls',async({page,baseURL},info)=>{
   const a=await setup(page,info,baseURL!);try{
     await a.show({version:1,template:'tool-detail',data:{name:'source.read',parameters:['string','integer','object'].map((type,i)=>({name:`field_${i}`,type,required:true,description:'A supplied parameter description.'}))}});
-    const cells=a.v.locator('td.parameter-type');expect(await cells.evaluateAll(els=>els.every(e=>getComputedStyle(e).whiteSpace==='nowrap'&&e.scrollWidth<=e.clientWidth+1))).toBe(true);await photo(a.v,info,'parameter-types');
+    // 2026-11-10 (7e7fb1b1): on a narrow screen each parameter is a card and its type has a line of its own that may wrap
+    // when a type is longer than the card. The contract this test protects is unchanged: a type is never split inside a
+    // word and never overflows. Wide screens keep the one-line column.
+    const cells=a.v.locator('td.parameter-type');await expect(cells).toHaveCount(3);
+    expect(await cells.evaluateAll(els=>els.map(e=>{const range=document.createRange();range.selectNodeContents(e);const style=getComputedStyle(e);return {text:e.textContent,lines:new Set([...range.getClientRects()].map(r=>Math.round(r.top))).size,overflows:e.scrollWidth>e.clientWidth+1,layout:style.display==='table-cell'?`column ${style.whiteSpace}`:'card'};}))).toEqual(['string','integer','object'].map(text=>({text,lines:1,overflows:false,layout:info.project.name.startsWith('phone')?'card':'column nowrap'})));await photo(a.v,info,'parameter-types');
     await a.show({version:1,template:'chat',data:{contextLabel:'Research workspace',conversationLabel:'#release-review',participants:['Ada','Bo','Casey'],messages:[{id:'first',sender:'Ada',text:'Preserve the exact value 1.2300.'},{id:'second',sender:'Bo',text:'The agent handles replies in the real messaging system.'}]}});
     await expect(a.v.locator('.chat-context')).toContainText('Research workspace');await expect(a.v.locator('.chat-context')).toContainText('#release-review');await expect(a.v.getByLabel('Conversation participants')).toContainText('Ada · Bo · Casey');await expect(a.v.locator('.render-actions,input,textarea')).toHaveCount(0);await photo(a.v,info,'chat-context');
   }finally{await a.client.close();}

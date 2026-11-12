@@ -1,5 +1,17 @@
 # Free usage limits
 
+## Limit messages and what counts (0.37.0)
+
+A limit answer says which limit was reached, how much is used and what can be done. Agents receive `code`, `message` and a structured `limit {code, limit, used, resource, tier, whatYouCanDo, contact, paidPlans:false}`; the browser API returns the same.
+
+- `SESSION_LIMIT_REACHED`: "You've reached the free limit of {limit} sessions on this account, so a new session can't be created. You can keep using your existing sessions, or archive one you no longer need to free up a slot. Need more? Paid plans aren't available yet. Email {contact} to request a higher limit."
+- `VIEW_LIMIT_REACHED`: the same pattern for the per-session view limit.
+- `SESSION_STORAGE_LIMIT_REACHED`: the total of stored sessions, archived ones included, is five times the session limit; permanently deleting an archived session frees space.
+
+The numbers come from the values that enforce the limit (`KANVAS_MAX_SESSIONS_PER_ACCOUNT`, the fixed view cap); the contact address is `KANVAS_LIMIT_CONTACT` (default kanvas@open-kanvas.ai). When paid plans exist only the last sentence changes.
+
+A session uses a slot when it is owned by the account and not archived. Two things changed with this release: **archived sessions no longer use a slot** (restoring one takes a slot again and is refused at the limit), and the **Home session every account is given automatically is no longer counted**; the limit counts the sessions a person or their agent created. Before this release Home used one of the ten slots, so an account could create nine sessions of its own. That matches the report of a limit reached with nine sessions; it was derived from the code, not confirmed against the reporting account's data. The paragraphs below describe the earlier counting where they say archived sessions count; the view limit still counts archived views.
+
 Accounts default to the trial quota tier; operators may assign free or admin quota entitlements. Neither label grants administrator authority. There is no payment or self-service upgrade flow yet. Read your actual tier and limits with kanvas_call with operationId:"kanvas.account.details" and arguments:{…}. Deployment administrators may set `KANVAS_MAX_SESSIONS_PER_ACCOUNT` (trial default10, positive integer up to100000). Retained views have a fixed1000-per-session cap across all tiers; the retired `KANVAS_MAX_VIEWS_PER_SESSION` override no longer applies.
 
 Session limits count all owned sessions, including ended/archived sessions. View limits count retained nonempty view revisions plus pending publications, including archived views. An existing over-limit account/session remains accessible; only new creation/publication is blocked. Edits that create a new retained revision also consume a view slot; changing ordinary session configuration does not. History navigation, presentation/procedure navigation and display-sync positioning consume no publication slots. There is no per-display count/byte eviction. Publishing after history navigation preserves the forward branch. Archives remain until explicitly restored or permanently removed. A limit response is conversational and does not overwrite a display. Start a new session when the fixed view limit is reached. Free/admin session entitlements do not bypass that view cap or grant administrator authority.

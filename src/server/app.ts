@@ -1,3 +1,4 @@
+import { LimitError } from './limit-errors.js';
 import {eventContext} from './raw-events.js';
 import {eventIngress} from './event-ingress.js';
 import {mountDeviceLogin} from './device-login.js';
@@ -184,6 +185,8 @@ export async function createApp(options: AppOptions = {}) {
       next();
     } catch (error) { next(error); }
   });
+  // Reporters have no cookies and no JSON envelope: mounted ahead of both, with its own small body limit.
+  service.monitorStreams.mount(app);
   app.use(cookieParser());
   service.privacy.mount(app);
   app.use(['/api/diagnostics','/api/push'],express.json({limit:'16kb',strict:true}));
@@ -198,6 +201,7 @@ export async function createApp(options: AppOptions = {}) {
   mountAccounts(app,service.accounts,browser);
   mountTopology(app,service.topology,browser);
   mountExperience(app,service.experience,browser);
+  service.pickers.mount(app,browser,key=>limiter.take(key,600,60_000));
   mountNavigation(app,service.navigation,browser);
   mountInvitations(app,service.invitations,browser);
   mountPublicImages(app,new PublicImages(service,options.publicImageOptions),browser);
@@ -375,7 +379,7 @@ export async function createApp(options: AppOptions = {}) {
       if (closed || event.sessionId !== sessionId) return;
       if (event.type === 'ended') { res.write(`event: change\ndata: ${JSON.stringify({ type: 'ended', sessionId })}\n\n`); (await finish()); return; }
       try { (await service.access(principal, sessionId)); if (displayId) (await service.display(principal, sessionId, displayId)); } catch { (await finish()); return; }
-      if (principal.scopedDisplayId && (event.displayId && event.displayId !== displayId || !['display', 'config', 'update', 'membership', 'identify'].includes(event.type))) return;
+      if (principal.scopedDisplayId && (event.displayId && event.displayId !== displayId || !['display', 'config', 'update', 'membership', 'identify', 'toast'].includes(event.type))) return;
       const safe = { type: event.type, sessionId, ...(event.displayId ? { displayId: event.displayId } : {}), ...(event.revision !== undefined ? { revision: event.revision } : {}), ...(event.type === 'identify' && event.data && typeof event.data === 'object' ? { identify: event.data } : {}) };
       if (!res.write(`event: change\ndata: ${JSON.stringify(safe)}\n\n`)) (await finish());
     });
@@ -385,6 +389,9 @@ export async function createApp(options: AppOptions = {}) {
     // Setup above crosses asynchronous registration boundaries after headers
     // are sent. The peer can disconnect before the close listener is installed.
     if (req.destroyed || res.destroyed) { await finish(); return; }
+    // The browser read the session when the headers arrived, before this stream was subscribed. Anything published
+    // in between reached nobody, so the window is told once to read again now that nothing can be missed.
+    res.write(`event: change\ndata: ${JSON.stringify({ type: 'sync', sessionId, ...(displayId ? { displayId } : {}) })}\n\n`);
     try{(await windowReceiver?.push());}catch{(await finish());}
   });
 
@@ -408,7 +415,7 @@ export async function createApp(options: AppOptions = {}) {
     if (res.headersSent) { res.end(); return; }
     const errorType = error && typeof error === 'object' && 'type' in error ? error.type : undefined;
     const known = error instanceof AppError ? error : error instanceof z.ZodError ? new AppError('INVALID_REQUEST', 'Request fields do not match the supported format.') : error instanceof RenderingError ? new AppError(error.code, safeRenderingError(error).message) : errorType === 'entity.too.large' ? new AppError('PAYLOAD_TOO_LARGE', 'Request exceeds the supported size limit.', 413) : errorType === 'entity.parse.failed' ? new AppError('INVALID_JSON', 'The request contains invalid JSON.') : new AppError('INTERNAL_ERROR', 'The request could not be completed.', 500);
-    res.status(known.status).json({ error: { code: known.code, message: known.message.slice(0, 700), ...('currentRevision' in known&&Number.isSafeInteger(known.currentRevision)?{currentRevision:known.currentRevision}:{}), ...(error instanceof InputError ? { issues: error.issues, ...error.guidance } : error instanceof z.ZodError ? { issues: validationIssues(error) } : {}) } });
+    res.status(known.status).json({ error: { code: known.code, message: known.message.slice(0, 700), ...('currentRevision' in known&&Number.isSafeInteger(known.currentRevision)?{currentRevision:known.currentRevision}:{}), ...(known instanceof LimitError?{limit:known.limitDetails}:{}), ...(error instanceof InputError ? { issues: error.issues, ...error.guidance } : error instanceof z.ZodError ? { issues: validationIssues(error) } : {}) } });
   });
   let closing = false;
   return { app, store, auth, service, async close() { if (closing) return; closing = true; await closePublic();await closeDevices();await closeAccess(); await Promise.allSettled([...streams].map(close=>Promise.resolve(close()))); await mcp.close(); await service.close(); (await store.close()); } };

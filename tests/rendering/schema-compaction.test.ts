@@ -31,7 +31,10 @@ it('compacted presentation schema preserves valid leaves and rejection boundarie
     // Common action bounds may be lifted, but source-record branches must stay action-free.
     for(const count of [0,1,8,9]){const candidate=deck({...sample,actions:Array.from({length:count},(_,i)=>({id:`a${i}`,label:'Action',kind:'button'}))});expect(converted(candidate),`${sample.template} action count ${count}`).toBe(original(candidate));}
   }
-},20_000); // Two AJV compiles plus exhaustive equivalence for the expanded catalog.
+},60_000); // Two AJV compiles plus exhaustive equivalence for the expanded catalog.
+// 2026-11-10: the time allowance was 20 s. With the 0.37.0 catalog this test took 15.2 to 17.7 s in five complete runs
+// on the two-core qualification machine and 21.7 s in a sixth, which failed on the clock alone. The work grows with
+// every template; the assertions are unchanged.
 
 it('schema reference rewriting never touches literal source/default objects',()=>{
   const literal={$ref:'#/$defs/example',properties:{x:{$ref:'#/$defs/example'}}};

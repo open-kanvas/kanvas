@@ -6,6 +6,9 @@ import { KANVAS_INSTRUCTIONS, guideFor, orientationFor } from '../../src/server/
 import { toolSuccess } from '../../src/server/mcp/results.js';
 import { FIRST_DISPLAY_LINK_GUIDANCE, MAX_VIEWER_LINK_GUIDANCE_CHARACTERS, VIEWER_LINK_TOOL_GUIDANCE, viewerLinkGuidanceFor } from '../../src/server/mcp/viewer-link-guidance.js';
 import { harness } from './harness.js';
+// 2026-11-10 (0875e953): guidance and orientation blocks are conditional by default. These tests verify the
+// content and isolation of the full blocks, which are sent on every response under the declared 'full' preference.
+process.env.KANVAS_GUIDANCE_DEFAULT='full';
 
 const entryPoints = ['kanvas_session_create', 'kanvas_display_register', 'kanvas_submit', 'kanvas_address_get'] as const;
 let server: Awaited<ReturnType<typeof harness>> | undefined;

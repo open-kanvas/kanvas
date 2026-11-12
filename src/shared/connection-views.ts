@@ -42,5 +42,45 @@ export const jsonDataSchema=z.object({
   expandedPaths:jsonPaths.optional(),
   collapsedPaths:jsonPaths.optional(),
   query:z.string().max(200).optional().describe('Agent-controlled key/value search. Matching nodes and ancestors are shown; the complete original JSON is retained.'),
+  view:z.enum(['raw','tree']).default('raw').describe('raw: pretty-printed text with line numbers. tree: collapsible tree.'),
 }).strict();
 export type JsonData=z.input<typeof jsonDataSchema>;
+
+/** Re-indent JSON source without parsing its values: every string, number and
+ * literal is copied token for token, so large integers and exact decimals
+ * survive. Only whitespace between tokens changes. Input must be valid JSON. */
+export function prettyJson(source:string,indent=2):string{
+ let out='',depth=0,i=0;const pad=()=>'\n'+' '.repeat(depth*indent);
+ const length=source.length;
+ while(i<length){
+  const c=source[i];
+  if(c==='"'){let j=i+1;while(j<length&&source[j]!=='"'){if(source[j]==='\\')j++;j++;}out+=source.slice(i,j+1);i=j+1;continue;}
+  if(c==='{'||c==='['){let j=i+1;while(j<length&&/\s/.test(source[j]))j++;const close=c==='{'?'}':']';if(source[j]===close){out+=c+close;i=j+1;continue;}depth++;out+=c+pad();i++;continue;}
+  if(c==='}'||c===']'){depth=Math.max(0,depth-1);out+=pad()+c;i++;continue;}
+  if(c===','){out+=','+pad();i++;continue;}
+  if(c===':'){out+=': ';i++;continue;}
+  if(/\s/.test(c)){i++;continue;}
+  let j=i;while(j<length&&!/[\s,:{}\[\]"]/.test(source[j]))j++;
+  out+=source.slice(i,j);i=j;
+ }
+ return out;
+}
+/** Line (1-based) on which a JSON path starts in prettyJson output, for
+ * highlighting. Paths look like $.items[0].start or $["odd key"]. */
+export function jsonPathLine(pretty:string,path:string):number|undefined{
+ if(path==='$')return 1;
+ const parts:(string|number)[]=[],frames:{array:boolean;index:number;named:boolean}[]=[];
+ const render=(extra?:string|number)=>'$'+[...parts,...(extra===undefined?[]:[extra])].map(part=>typeof part==='number'?`[${part}]`:/^[A-Za-z_$][\w$-]*$/.test(part)?`.${part}`:`[${JSON.stringify(part)}]`).join('');
+ const lines=pretty.split('\n');
+ for(let n=0;n<lines.length;n++){
+  const line=lines[n].trim().replace(/,$/,'');
+  if(line==='}'||line===']'){const frame=frames.pop();if(frame?.named)parts.pop();continue;}
+  const top=frames[frames.length-1];
+  let part:string|number|undefined,rest=line;
+  if(top&&!top.array){const key=/^("(?:[^"\\]|\\.)*")\s*:\s*([\s\S]*)$/.exec(line);if(!key)continue;try{part=JSON.parse(key[1]) as string;}catch{continue;}rest=key[2];}
+  else if(top)part=top.index++;
+  if(part!==undefined&&render(part)===path)return n+1;
+  if(rest==='{'||rest==='['){frames.push({array:rest==='[',index:0,named:part!==undefined});if(part!==undefined)parts.push(part);}
+ }
+ return undefined;
+}

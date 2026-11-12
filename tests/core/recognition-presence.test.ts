@@ -32,7 +32,7 @@ describe('NATO recognition, owner notices and actual receiving browsers',()=>{
     denied(await waiting.request('GET','/api/auth/me'),[401]);
   },12000);
   it('counts signed-in and paired SSE viewers separately from approval history, deduplicates reconnects, and excludes revoked streams',async()=>{
-    const {owner,s,d}=await setup(),viewer=await h.account();success(await owner.request('POST',`/api/sessions/${s}/members`,{username:viewer.user!.username,role:'viewer'}));
+    const {owner,s,d}=await setup(),viewer=await h.account();h.runtime.service.experience.receiving.graceMs=300;success(await owner.request('POST',`/api/sessions/${s}/members`,{username:viewer.user!.username,role:'viewer'}));
     const paired=h.browser(),pair=success(await request(paired,s,d));success(await owner.request('POST',`/api/pairings/${pair.id}/decision`,{approve:true}));success(await paired.request('GET',`/api/pairings/${pair.id}/status`));paired.csrf=success(await paired.request<{csrfToken:string}>('GET','/api/auth/me')).csrfToken;
     const list=async()=>success(await owner.request<ViewerPresence[]>('GET',`/api/sessions/${s}/viewers`));expect((await list()).filter(x=>x.connected)).toHaveLength(0);
     const a=new AbortController(),b=new AbortController(),c=new AbortController();
@@ -79,6 +79,7 @@ describe('NATO recognition, owner notices and actual receiving browsers',()=>{
   it('drains a disconnect already in progress before closing its store', async () => {
     const { owner, s, d } = await setup();
     const presence = h.runtime.service.experience.receiving;
+    presence.graceMs = 300;
     const connection = await presence.connect({ userId: owner.user!.id }, s, d, 'shutdown-tab', 'Synthetic browser');
     let entered!: () => void, release!: () => void;
     const started = new Promise<void>(resolve => { entered = resolve; });

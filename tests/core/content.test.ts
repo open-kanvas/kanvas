@@ -26,7 +26,7 @@ describe('persistent source data and protected media over HTTP', () => {
     const result = await owner.submit(session.id, [display.id], view);
     const rendered = result.detail.displays[0].view!;
     expect(rendered.data.unit).toBe('NOK');
-    expect(rendered.source).toEqual(source);
+    expect(rendered).not.toHaveProperty('source');
     expect(rendered.data.series).toEqual([{ name: 'amount', points: [
       { x: '2026-09-01', y: 1.23, rawX: '2026-09-01', rawY: '1.2300', sourceRows: [0] },
       { x: '2026-09-02', y: null, rawX: '2026-09-02', rawY: null, sourceRows: [1] },

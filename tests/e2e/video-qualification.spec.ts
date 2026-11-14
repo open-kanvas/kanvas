@@ -48,12 +48,12 @@ test('video source controls and requested titles keep native transport unobstruc
   const base: ViewSpec = {
     version: 1, template: 'video',
     title: 'A supplied video with a longer title that remains readable when the receiving screen is narrow.',
-    source: { title: 'Locally supplied synthetic acceptance clip' },
+    
     data: { url: uploaded.data!.url, muted: true, loop: true },
   };
-  const variants: Array<{ name: string; showTitle?: boolean; showSource?: boolean; showControls?: boolean }> = [
-    { name: 'default' }, { name: 'title', showTitle: true }, { name: 'source', showSource: true },
-    { name: 'explicit', showTitle: true, showSource: true, showControls: true },
+  const variants: Array<{ name: string; showTitle?: boolean; showControls?: boolean }> = [
+    { name: 'default' }, { name: 'title', showTitle: true },
+    { name: 'explicit', showTitle: true, showControls: true },
   ];
   // The second phone width reproduces a title line extending under the menu.
   const widths = info.project.name.startsWith('phone') ? [390, 443] : [1440];
@@ -96,14 +96,7 @@ test('video source controls and requested titles keep native transport unobstruc
       }
       expect(geometry.menu.width).toBeGreaterThanOrEqual(44); expect(geometry.menu.height).toBeGreaterThanOrEqual(44);
       for (const line of geometry.titleLines) expect(separate(line, geometry.menu), 'Requested title text clears the display menu').toBe(true);
-      if (flags.showSource) {
-        await expect(surface.locator('.view-qualification')).toHaveCount(0);
-        await expect(surface.locator('.view-information .illustrative-label')).toHaveCount(0);
-        expect(geometry.information!.y).toBeGreaterThanOrEqual(geometry.video.y + geometry.video.height);
-        await viewer.getByLabel('About this view', { exact: true }).click();
-        await expect(viewer.getByRole('region', { name: 'View information', exact: true })).toBeInViewport({ ratio: 1 });
-        await viewer.getByRole('button', { name: 'Close view information', exact: true }).click();
-      } else await expect(surface.locator('.view-qualification')).toHaveCount(0);
+      await expect(surface.locator('.view-qualification,.view-information')).toHaveCount(0);
 
       if (flags.showTitle) await expect(surface.locator('.view-heading h1')).toHaveText(base.title!);
       else await expect(surface.locator('.view-heading')).toHaveCount(0);

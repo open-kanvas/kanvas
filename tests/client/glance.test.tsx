@@ -36,11 +36,12 @@ describe('glanceable focus, source fidelity and meaningful headings',()=>{
     expect(TEMPLATE_DISPLAY_GUIDANCE.form.reference).toBe(true);
     expect(TEMPLATE_DISPLAY_GUIDANCE.weather.reference).toBe(false);
   });
-  it('presents one source disclosure for a slide without losing its deck or leaf attribution',()=>{
-    const view=validateView({version:1,template:'presentation',title:'Original deck',showSource:true,source:{title:'Deck source',illustrative:true},data:{slides:[{version:1,template:'fact',title:'Current slide',data:{text:'One idea'},source:{title:'Leaf source',locator:'Page 2'}}]}});
+  it('draws no source disclosure for a deck or its slides and refuses the removed fields (0.38.0)',()=>{
+    expect(()=>validateView({version:1,template:'presentation',title:'Original deck',showSource:true,data:{slides:[{version:1,template:'fact',data:{text:'One idea'}}]}})).toThrow();
+    expect(()=>validateView({version:1,template:'presentation',title:'Original deck',data:{slides:[{version:1,template:'fact',data:{text:'One idea'},source:{title:'Leaf source',locator:'Page 2'}}]}})).toThrow();
+    const view=validateView({version:1,template:'presentation',title:'Original deck',data:{slides:[{version:1,template:'fact',title:'Current slide',data:{text:'One idea'}}]}});
     const html=renderToStaticMarkup(<Renderer view={view}/>);
-    expect(html.match(/aria-label="About this view"/g)).toHaveLength(1);expect(html).not.toContain('Illustrative data');
-    for(const text of ['Original deck','Current slide','Deck source','Leaf source','Page 2'])expect(html).toContain(text);
+    expect(html).not.toContain('About this view');expect(html).not.toContain('view-information');expect(html).toContain('One idea');
   });
 });
 

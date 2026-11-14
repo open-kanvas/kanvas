@@ -20,6 +20,7 @@ export interface McpService {
   agentGuidance?(principal:Principal,args?:unknown):Promise<unknown>;
   /** One finished call as names, classes and numbers; never content. */
   recordFriction?(call:import('../friction.js').FrictionCall):void;
+  pointingEvents?(principal:Principal,connectionId:string,sessionId?:string):Promise<Record<string,unknown>|undefined>;
   /** Observable state that decides which repeated blocks a response carries. */
   responseContext?(principal:Principal,args:unknown,connectionId:string,failed?:boolean):Promise<import('./response-policy.js').ResponseContext>;
   authorize(request: Request): Promise<Principal>;

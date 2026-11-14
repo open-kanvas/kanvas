@@ -1,4 +1,7 @@
 import {derivedViewLabel} from '../shared/view-label.js';
+import {iconUrl,parseIconId} from '../shared/pickers.js';
+/** An icon id from kanvas.icons.search becomes the address this server serves it at; anything else is kept as given. */
+const toastIcon=(icon:string|undefined)=>{const ref=icon?parseIconId(icon):undefined;return ref?iconUrl(ref):icon;};
 import { instrumentDataSchema } from '../shared/instrument.js';
 import { captionDataSchema, sequenceStatus } from '../shared/local-sequence.js';
 import {inspectionOptionsSchema,type InspectionOptions} from '../shared/dom-inspection.js';
@@ -203,7 +206,7 @@ export class Experience {
     const existing=(await this.store.list<ToastRecord>('toast',a.sessionId));for(const old of existing)if(Date.parse(old.expiresAt)<=Date.now())(await this.store.delete('toast',old.id));
     if(existing.filter(x=>Date.parse(x.expiresAt)>Date.now()).length+a.displayIds.length>100)throw new AppError('LIMIT_REACHED','Dismiss existing notifications before sending more.',429);
     const groupId=a.displayIds.length>1?id():undefined;
-    const records=a.displayIds.map(displayId=>({id:id(),...(groupId?{groupId}:{}),sessionId:a.sessionId,displayId,text:a.text??a.description??'',title:a.title,description:a.description,icon:a.icon,...(a.type?{type:a.type}:{}),time:a.time,severity:a.severity??'info',...(a.severity?{severityStated:true}:{}),sticky:a.sticky??false,createdAt:now(),expiresAt:new Date(Date.now()+(a.sticky?86400000:a.durationMs??6000)).toISOString()}));for(const x of records){(await this.store.put('toast',x));this.service.emit({type:'toast',sessionId:a.sessionId,displayId:x.displayId});}return {notifications:records,note:'Overlay only. View revision/history unchanged; sticky items expire after 24 hours. Dismissing one on any screen dismisses it for that whole account, on every device.'};
+    const records=a.displayIds.map(displayId=>({id:id(),...(groupId?{groupId}:{}),sessionId:a.sessionId,displayId,text:a.text??a.description??'',title:a.title,description:a.description,icon:toastIcon(a.icon),...(a.type?{type:a.type}:{}),time:a.time,severity:a.severity??'info',...(a.severity?{severityStated:true}:{}),sticky:a.sticky??false,createdAt:now(),expiresAt:new Date(Date.now()+(a.sticky?86400000:a.durationMs??6000)).toISOString()}));for(const x of records){(await this.store.put('toast',x));this.service.emit({type:'toast',sessionId:a.sessionId,displayId:x.displayId});}return {notifications:records,note:'Overlay only. View revision/history unchanged; sticky items expire after 24 hours. Dismissing one on any screen dismisses it for that whole account, on every device.'};
 
     });
   }

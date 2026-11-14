@@ -624,8 +624,7 @@ export class Monitoring {
     const value = job.config.metric === 'latency' ? response.latencyMs : job.config.metric === 'http-status' ? response.statusCode : state;
     const detail = `HTTP ${response.statusCode} · ${response.latencyMs} ms`;
     return { version: 1, template: job.config.template, ...(job.config.title ? { title: job.config.title } : {}),
-      data: job.config.template === 'fact' ? { text: String(value), subtitle: `${label} · ${detail}` } : { value, label, ...(job.config.metric === 'latency' ? { unit: 'ms' } : {}), comparison: detail },
-      source: { url: job.config.url, title: 'Public endpoint observation from KANVAS', timestamp: time } };
+      data: job.config.template === 'fact' ? { text: String(value), subtitle: `${label} · ${detail}` } : { value, label, ...(job.config.metric === 'latency' ? { unit: 'ms' } : {}), comparison: detail } };
   }
 
   private async commitSample(claim: MonitoringJob, response: MonitoringFetchResult, data?: Record<string, unknown>): Promise<Awaited<void>> {
@@ -637,11 +636,11 @@ export class Monitoring {
       const time = iso(this.clock()), oldAsset = job.currentAssetId;
       let view: ViewSpec;
       if (job.config.mode === 'uptime') view = this.uptime(job, response, time);
-      else if (job.config.mode === 'json') view = { version: 1, template: job.config.template, ...(job.config.title ? { title: job.config.title } : {}), data: data!, source: { url: job.config.url, title: 'Polled public JSON source', timestamp: time } };
+      else if (job.config.mode === 'json') view = { version: 1, template: job.config.template, ...(job.config.title ? { title: job.config.title } : {}), data: data! };
       else {
         const asset = (await this.hooks.storeImage!(job, { bytes: response.body, mimeType: response.mimeType }));
         job.currentAssetId = asset.id;
-        view = { version: 1, template: 'image', ...(job.config.title ? { title: job.config.title } : {}), data: { images: [{ url: asset.url, alt: job.config.alt, ...(job.config.caption ? { caption: job.config.caption } : {}) }] }, source: { url: job.config.url, title: 'Polled public snapshot', timestamp: time } };
+        view = { version: 1, template: 'image', ...(job.config.title ? { title: job.config.title } : {}), data: { images: [{ url: asset.url, alt: job.config.alt, ...(job.config.caption ? { caption: job.config.caption } : {}) }] } };
       }
       view = (await this.hooks.validate(job.owner, job.sessionId, view));
       const health: MonitoringHealth = { jobId: job.id, status: 'healthy', checkedAt: time, lastSuccessAt: time,

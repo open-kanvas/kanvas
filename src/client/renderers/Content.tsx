@@ -18,10 +18,10 @@ export function FactRenderer({ data, retainOriginal = true, showControls = false
     <div className="fact-primary" lang={data.language}>{data.language && data.original && <span className="content-eyebrow">{data.language}</span>}<p className={`fact-text ${data.text.length > 200 ? 'fact-long' : data.text.length < 60 ? 'fact-short' : ''}`}>{data.text}</p>{data.subtitle && <p className="fact-subtitle">{data.subtitle}</p>}{!!data.items?.length && (showControls ? <details className="supplementary-details fact-details"><summary>Supporting details · {data.items.length}</summary><ul className="fact-items">{data.items.map((item, i) => <li key={i}>{item}</li>)}</ul></details> : <ul className="fact-items">{data.items.map((item, i) => <li key={i}>{item}</li>)}</ul>)}</div>
   </div>;
 }
-export function NumberRenderer({ data, showSource = false }: { showSource?: boolean; data: { value: string | number; label?: string; unit?: string; comparison?: string; summary?: DatasetSummary } }) {
+export function NumberRenderer({ data }: { data: { value: string | number; label?: string; unit?: string; comparison?: string; summary?: DatasetSummary } }) {
   const regional=useRegional();
   const value=regional.numberLocale?regionalNumber(data.value,regional):typeof data.value==='number'?new Intl.NumberFormat(undefined,{maximumSignificantDigits:21}).format(data.value):data.value;
-  return <div className="number-content">{data.label && <p className="number-label">{data.label}</p>}<div className="number-value" style={{ '--value-length': Math.max(3, value.length) } as React.CSSProperties}><span>{value}</span>{data.unit && <span className="number-unit">{data.unit}</span>}</div>{data.comparison && <p className="number-comparison">{data.comparison}</p>}{showSource && data.summary && <p className="content-summary">{summaryText(data.summary)}</p>}</div>;
+  return <div className="number-content">{data.label && <p className="number-label">{data.label}</p>}<div className="number-value" style={{ '--value-length': Math.max(3, value.length) } as React.CSSProperties}><span>{value}</span>{data.unit && <span className="number-unit">{data.unit}</span>}</div>{data.comparison && <p className="number-comparison">{data.comparison}</p>}</div>;
 }
 
 // Keep existing Content imports compatible for documents, profiles and image callers.
@@ -58,7 +58,7 @@ function useLiveEmbed(url: string | undefined, sessionId?: string, displayId?: s
   return state;
 }
 
-export function WebRenderer({ data, showSource = false, showControls = false, showCaption = false, sessionId, displayId, revision, preview = false }: { showSource?: boolean; showControls?: boolean; showCaption?: boolean; sessionId?: string; displayId?: string; revision?: number; preview?: boolean; data: { url: string; title?: string; text?: string; embed?: boolean; snapshotUrl?: string; retrievedAt?: string } }) {
+export function WebRenderer({ data, showControls = false, showCaption = false, sessionId, displayId, revision, preview = false }: { showControls?: boolean; showCaption?: boolean; sessionId?: string; displayId?: string; revision?: number; preview?: boolean; data: { url: string; title?: string; text?: string; embed?: boolean; snapshotUrl?: string; retrievedAt?: string } }) {
   const url = safeUrl(data.url, true), publisherEmbed = data.embed ? safeEmbedUrl(data.url) : undefined;
   // Any other https page with embed:true is framed live only when its own headers allow it.
   const liveCandidate = data.embed && !publisherEmbed && url && /^https:\/\//i.test(url) ? url : undefined;
@@ -68,10 +68,9 @@ export function WebRenderer({ data, showSource = false, showControls = false, sh
   const host = url ? sourceLabel(url) : 'Source';
   const hasContent = Boolean(embed || data.snapshotUrl || data.text || data.title);
   return <div className={`web-content ${embed ? 'web-embedded' : ''}`}>
-    {showSource && <div className="source-identity"><span className="source-domain">{host}</span></div>}
     {(hasContent || liveCandidate) && <p className="web-trust-label">{publisherEmbed ? 'Publisher embed · visible content unverified' : liveEmbed ? 'Live website · the site’s own interactive page; content not verified by Kanvas' : <>{liveCandidate && <strong>{live.status === 'checking' ? 'Checking whether this website allows live embedding…' : live.status === 'preview' ? 'Live website embed · shown live on the display.' : live.reason ?? 'Live embedding is unavailable.'}</strong>}{liveCandidate && (data.snapshotUrl || data.text || data.title) ? ' ' : null}{data.snapshotUrl ? 'Supplied snapshot · not independently verified' : (data.text || data.title) ? 'Supplied summary · not a fetched excerpt' : null}</>}</p>}
     {embed ? <div className="embed-frame">{liveEmbed ? <iframe title={data.title ?? `Live page from ${host}`} src={liveEmbed} sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox" referrerPolicy="no-referrer" /> : <EmbeddedContent title={data.title ?? `Embedded content from ${host}`} url={embed} />}</div> : data.snapshotUrl ? <figure className="web-snapshot"><MediaImage entry={{ url: data.snapshotUrl, alt: data.title ?? `Supplied image of ${host}` }} />{showCaption && data.retrievedAt && <figcaption>Supplied capture time: {data.retrievedAt} · unverified</figcaption>}</figure> : <div className="web-excerpt">{data.title && <h2>{data.title}</h2>}{data.text && <p>{data.text}</p>}</div>}
-    {url && (!hasContent || url.startsWith('/api/assets/') || showSource || showControls) && <a className="source-link" href={url} target="_blank" rel="noopener noreferrer">Open original <Icon name="external" size={16} /></a>}
+    {url && (!hasContent || url.startsWith('/api/assets/') || showControls) && <a className="source-link" href={url} target="_blank" rel="noopener noreferrer">Open original <Icon name="external" size={16} /></a>}
   </div>;
 }
 
@@ -136,7 +135,7 @@ export function highlightedText(text: string, highlights: NonNullable<DocumentDa
   const boundaries = [...new Set([0, text.length, ...highlights.flatMap(h => [Math.max(0, h.start), Math.min(text.length, h.end)])])].filter(n => n >= 0 && n <= text.length).sort((a, b) => a - b);
   return boundaries.slice(0, -1).map((start, i) => { const end = boundaries[i + 1], active = highlights.filter(h => h.start <= start && h.end >= end); return active.length ? <mark key={start} title={active.map(h => h.label).filter(Boolean).join(' · ') || undefined}>{text.slice(start, end)}</mark> : <span key={start}>{text.slice(start, end)}</span>; });
 }
-export function DocumentRenderer({ data, preview = false, showCaption = false, showSource = false, showControls = false }: { preview?:boolean; data: DocumentData; showCaption?: boolean; showSource?: boolean; showControls?: boolean }) {
+export function DocumentRenderer({ data, preview = false, showCaption = false, showControls = false }: { preview?:boolean; data: DocumentData; showCaption?: boolean; showControls?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const reading = data.layout === 'reading' || data.layout !== 'excerpt' && ((data.text?.length ?? 0) > 900 || (data.text?.split(/\n\s*\n/).length ?? 0) >= 3 || Boolean(data.headings?.length));
   const scroll=useRef<HTMLDivElement>(null),{reading:reader,pixelsPerSecond,pause}=useReading(scroll,reading&&!preview);
@@ -151,7 +150,7 @@ export function DocumentRenderer({ data, preview = false, showCaption = false, s
     for(const heading of [...(data.headings??[])].sort((a,b)=>a.start-b.start)) { paragraphs(cursor,heading.start); const Tag=`h${heading.level}` as 'h2'|'h3'|'h4'; blocks.push(<Tag key={`h-${heading.start}`}>{range(heading.start,heading.end)}</Tag>);cursor=heading.end; }
     paragraphs(cursor,data.text.length);
   }
-  return <div className="document-shell"><div ref={scroll} data-navigation-scroll data-reading-wpm={reader.wpm} data-reading-pixels-per-second={pixelsPerSecond} data-reading-playing={reader.playing} onWheel={pause} onTouchStart={pause} style={{'--reading-font-size':`${reader.fontSize}px`,'--reading-zoom':reader.zoom} as CSSProperties} className={`document-content ${reading?'document-reading':''}`} role="region" aria-label={reading?'Document reader':'Document excerpt'} tabIndex={reading?0:undefined}>{showSource && <div className="document-location">{data.quote !== false && <span className="content-eyebrow">{reading ? 'Supplied document' : 'Exact excerpt'}</span>}{showSource && data.page !== undefined && <span>Page {data.page}</span>}{showSource && data.section && <span>{data.section}</span>}</div>}
+  return <div className="document-shell"><div ref={scroll} data-navigation-scroll data-reading-wpm={reader.wpm} data-reading-pixels-per-second={pixelsPerSecond} data-reading-playing={reader.playing} onWheel={pause} onTouchStart={pause} style={{'--reading-font-size':`${reader.fontSize}px`,'--reading-zoom':reader.zoom} as CSSProperties} className={`document-content ${reading?'document-reading':''}`} role="region" aria-label={reading?'Document reader':'Document excerpt'} tabIndex={reading?0:undefined}>{showCaption && (data.page !== undefined || data.section) && <div className="document-location">{data.quote !== false && <span className="content-eyebrow">{reading ? 'Supplied document' : 'Exact excerpt'}</span>}{data.page !== undefined && <span>Page {data.page}</span>}{data.section && <span>{data.section}</span>}</div>}
     {data.text && (reading ? <article className="document-article">{blocks}</article> : data.quote === false ? <p className="document-excerpt">{highlightedText(data.text, data.highlights ?? [])}</p> : <blockquote className="document-excerpt">{highlightedText(data.text, data.highlights ?? [])}</blockquote>)}
     {!!data.images?.length && <div className="document-crops">{data.images.map((entry, i) => <figure key={i}><MediaImage entry={entry} />{showCaption && entry.caption && <figcaption>{entry.caption}</figcaption>}</figure>)}</div>}
     {data.context && <div className="document-context">{showControls && <button onClick={() => setExpanded(!expanded)} aria-expanded={expanded}>{expanded ? 'Less context' : 'More context'} <Icon name={expanded ? 'minus' : 'plus'} size={16} /></button>}{(!showControls || expanded) && <p>{data.context}</p>}</div>}

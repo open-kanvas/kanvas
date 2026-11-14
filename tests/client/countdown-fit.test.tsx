@@ -51,8 +51,8 @@ describe('countdown time and meaningful state', () => {
     const defaultHtml = renderToStaticMarkup(<Renderer view={view} />);
     expect(defaultHtml).toContain('Main timer'); expect(defaultHtml).not.toContain('class="view-heading"');
     expect(defaultHtml).not.toContain('<details');
-    const optedIn = renderToStaticMarkup(<Renderer view={{ ...view, showTitle: true, showSource: true, showControls: true }} />);
-    expect(optedIn).toContain('class="view-heading"'); expect(optedIn).toContain('Stored source'); expect(optedIn).toContain('Timer details');
+    const optedIn = renderToStaticMarkup(<Renderer view={{ ...view, showTitle: true, showControls: true }} />);
+    expect(optedIn).toContain('class="view-heading"'); expect(optedIn).not.toContain('view-information'); expect(optedIn).toContain('Timer details');
   });
 });
 

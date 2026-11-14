@@ -291,7 +291,7 @@ describe('server behaviour behind the exposure reports',()=>{
   const icons=serverIcons('https://kanvas.example');
   expect(icons.map(icon=>icon.sizes[0])).toEqual(['48x48','192x192','512x512','any']);expect(icons.every(icon=>icon.src.startsWith('https://kanvas.example/')&&icon.src.endsWith(`?v=${KANVAS_VERSION}`))).toBe(true);expect(icons.filter(icon=>icon.mimeType==='image/png')).toHaveLength(3);
   expect(serverWebsiteUrl(undefined)).toBe(DEFAULT_WEBSITE_URL);expect(serverWebsiteUrl('https://example.org/')).toBe('https://example.org');expect(serverWebsiteUrl('')).toBeUndefined();expect(serverWebsiteUrl(false)).toBeUndefined();expect(serverWebsiteUrl('http://insecure.example')).toBeUndefined();expect(serverWebsiteUrl('javascript:alert(1)')).toBeUndefined();
-  expect(KANVAS_VERSION).toBe('0.37.0');
+  expect(KANVAS_VERSION).toBe('0.38.0');
   expect(mailSenderAddress('KANVAS <noreply@example.com>')).toBe('noreply@example.com');expect(mailSenderAddress('kanvas@open-kanvas.ai')).toBe('kanvas@open-kanvas.ai');expect(mailSenderAddress('not an address')).toBeUndefined();expect(mailSenderAddress(undefined)).toBeUndefined();
  });
 });

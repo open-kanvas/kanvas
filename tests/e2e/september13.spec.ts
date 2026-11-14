@@ -27,13 +27,13 @@ test('weather gives conditions and explicit highs/lows the surface, with full de
   const external:string[]=[];viewer.on('request',r=>{if(new URL(r.url()).origin!==new URL(page.url()).origin)external.push(new URL(r.url()).host);});
   const original=validateView({version:1,template:'weather',title:'Arendal, Norway Tomorrow',data:{place:'Arendal, Norway',temperature:'19C / 12C',condition:'rain',period:'day',description:'Morning rain and drizzle clearing later, light winds.'}});
   await show(page,viewer,s,d.id,original);await expect(viewer.locator('.weather-scene')).toBeVisible();await expect(viewer.locator('.weather-temperature')).toHaveText('19C / 12C');await expect(viewer.locator('.weather-temperature')).toBeInViewport();await photo(viewer,info,'weather-reported-payload');
-  const explicit=validateView({version:1,template:'weather',showControls:true,showSource:true,data:{place:'Arendal, Norway',timeLabel:'Tomorrow',high:'19°C',low:'12°C',condition:'rain',description:'Morning rain, clearer later.',forecast:[{time:'08:00',temperature:'12.00°C',condition:'rain'},{time:'14:00',temperature:'19.00°C',condition:'partly-cloudy'}],details:[{label:'Wind',value:'4.000 m/s'}]},source:{title:'Synthetic acceptance forecast'}});
+  const explicit=validateView({version:1,template:'weather',showControls:true,data:{place:'Arendal, Norway',timeLabel:'Tomorrow',high:'19°C',low:'12°C',condition:'rain',description:'Morning rain, clearer later.',forecast:[{time:'08:00',temperature:'12.00°C',condition:'rain'},{time:'14:00',temperature:'19.00°C',condition:'partly-cloudy'}],details:[{label:'Wind',value:'4.000 m/s'}]}});
   await show(page,viewer,s,d.id,explicit);
   await expect(viewer.locator('.weather-scene')).toBeInViewport();
   await expect(viewer.locator('.weather-scene-reading')).toContainText('High 19°C');await expect(viewer.locator('.weather-scene-reading')).toContainText('Low 12°C');await expect(viewer.locator('.weather-temperature')).toHaveCount(0);
   await expect(viewer.getByText('4.000 m/s',{exact:true})).toBeVisible();await photo(viewer,info,'weather-range');
   await viewer.getByRole('button',{name:/14:00/}).click();await expect(viewer.locator('.weather-scene-reading')).toContainText('19.00°C');await expect(viewer.locator('.weather-scene-reading')).not.toContainText('4.000 m/s');
-  await viewer.getByLabel('About this view',{exact:true}).click();await expect(viewer.getByRole('region',{name:'View information'})).toContainText('Synthetic acceptance forecast');await viewer.getByRole('button',{name:'Close view information',exact:true}).click();
+  await expect(viewer.getByLabel('About this view',{exact:true})).toHaveCount(0);await expect(viewer.locator('.view-information')).toHaveCount(0);
   expect(external).toEqual([]);expect((await sessionDetail(page,s)).displays.find(item => item.id === d.id)!.view?.data).toEqual(explicit.data);
 });
 
@@ -48,14 +48,13 @@ test('weather variants stay recognizable and legible on the actual receiving scr
 
 test('quiet surfaces keep requested source information and exact supporting text available',async({page},info)=>{
   const {s,d,viewer}=await setup(page),text='Bring a raincoat.';
-  const view=validateView({version:1,template:'fact',showControls:true,showSource:true,title:'A redundant generated heading',data:{text,subtitle:'Morning rain; clearer later.',items:['Exact source 9007199254740993.0000','No claims are omitted from the saved source.']},source:{title:'Original supplied source',url:'https://example.com/source'}});
+  const view=validateView({version:1,template:'fact',showControls:true,title:'A redundant generated heading',data:{text,subtitle:'Morning rain; clearer later.',items:['Exact source 9007199254740993.0000','No claims are omitted from the saved source.']}});
   await show(page,viewer,s,d.id,view);await expect(viewer.locator('.view-heading')).toHaveCount(0);await expect(viewer.locator('.fact-text')).toHaveText(text);
-  const information=viewer.locator('.view-information>summary');await expect(information).not.toContainText('Illustrative data');await expect(information).toBeInViewport();expect(await information.evaluate(x=>parseFloat(getComputedStyle(x).fontSize))).toBeGreaterThanOrEqual(16);
-  await expect(information.locator('.illustrative-label')).toHaveCount(0);await expect(information).toContainText('Source & info');
+  await expect(viewer.locator('.view-information')).toHaveCount(0);await expect(viewer.getByText('Source & info')).toHaveCount(0);
   await expect(viewer.getByText('Exact source 9007199254740993.0000',{exact:true})).not.toBeVisible();
   await viewer.getByText('Supporting details · 2',{exact:true}).click();await expect(viewer.getByText('Exact source 9007199254740993.0000',{exact:true})).toBeVisible();
-  await information.click();await expect(viewer.getByRole('region',{name:'View information'})).toContainText('A redundant generated heading');await expect(viewer.getByRole('link',{name:'Original supplied source ↗',exact:true})).toHaveAttribute('href','https://example.com/source');await photo(viewer,info,'source-information');
-  await viewer.keyboard.press('Escape');await show(page,viewer,s,d.id,{...view,showTitle:true});await expect(viewer.locator('.view-heading h1')).toHaveText('A redundant generated heading');
+  await photo(viewer,info,'no-source-information');
+  await show(page,viewer,s,d.id,{...view,showTitle:true});await expect(viewer.locator('.view-heading h1')).toHaveText('A redundant generated heading');
   expect((await sessionDetail(page,s)).displays.find(item => item.id === d.id)!.view?.data).toEqual(view.data);
 });
 
@@ -80,6 +79,8 @@ test('all current templates retain a settled full-screen visual without default 
   let {landscape,video,qr}=await loadAssets();
   const audit:unknown[]=[];
   for(const template of TEMPLATE_IDS){
+    // A monitor-stream view needs a real stream of the session; its live rendering is covered in feedback-nov14.spec.ts.
+    if(template==='monitor-stream')continue;
     // Bound each visual fixture session while covering every real template; the product cap is1000.
     if(audit.length>0&&audit.length%40===0){await viewer.close();s=await createSession(page,'Remaining template acceptance');d=await createDisplay(page,s,'Remaining source templates');viewer=await openViewer(page,s,d.id);await prepareViewer();({landscape,video,qr}=await loadAssets());}
     const input=structuredClone(samples[template]);

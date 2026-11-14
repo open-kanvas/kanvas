@@ -13,7 +13,7 @@ test('advanced chart scales, numbered keys and extremal bubbles remain legible o
   const directory = info.outputPath('visuals');
   await mkdir(directory, { recursive: true });
   const viewports = info.project.name.startsWith('phone') ? [{ width: 390, height: 844 }, { width: 443, height: 823 }] : [{ width: 1440, height: 900 }];
-  const extrema = validateView({ version: 1, template: 'chart', source: { title: 'Supplied sample' }, data: { kind: 'bubble', xLabel: 'Supplied X', yLabel: 'Supplied Y', series: [{ name: 'Four supplied corners', points: [
+  const extrema = validateView({ version: 1, template: 'chart', data: { kind: 'bubble', xLabel: 'Supplied X', yLabel: 'Supplied Y', series: [{ name: 'Four supplied corners', points: [
     { x: 0, y: 0, size: 9, rawX: '0.000', rawY: '0.00000000000000000' },
     { x: 0, y: 10, size: 9 }, { x: 10, y: 0, size: 9 }, { x: 10, y: 10, size: 9 },
   ] }] } });
@@ -109,7 +109,7 @@ test('ordinary inner scrolling reaches full trailing chart labels and unobscured
     }
   }
   // The reader clearance is conditional on an actual visible qualification.
-  const ordinary = validateView({ ...structuredClone(advancedChartExamples.treemap), source: undefined });
+  const ordinary = validateView(structuredClone(advancedChartExamples.treemap));
   const prior = (await sessionDetail(page, sessionId)).displays.find(item => item.id === display.id)!.revision;
   await publishPrepared(page, sessionId, [display.id], ordinary);
   await waitForDisplay(page, sessionId, display.id, item => item.revision > prior && item.appliedRevision === item.revision);

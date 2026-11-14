@@ -65,6 +65,7 @@ export async function mountPublicSessions(app:Express,service:KanvasService,brow
     const asset=(await service.store.get<AssetRecord>('asset',assetId));if(!asset||asset.sessionId!==session.id||!refs.has(assetId))throw new AppError('NOT_FOUND','This published asset is unavailable.',404);
     const row=required((await service.store.db.prepare('SELECT bytes FROM assets WHERE id=?').get(assetId)));if(asset.mimeType==='image/svg+xml')res.set('Content-Security-Policy',"default-src 'none'; sandbox");res.set('Content-Type',asset.mimeType).send(Buffer.from(row.bytes as Uint8Array));
   }));
+  app.get('/api/public/sessions/:id/displays/:displayId/monitor-stream',async (req,res)=>res.set('Cache-Control','no-store').json({data:(await service.monitorStreams.publicDisplay(String(req.params.id),String(req.params.displayId),req.query,listener=>res.on('close',listener)))}));
   const streams=new Set<()=>void>();
   app.get('/api/public/sessions/:id/events',async (req,res)=>{
     const sessionId=String(req.params.id);(await publicSession(service,sessionId));
@@ -72,7 +73,7 @@ export async function mountPublicSessions(app:Express,service:KanvasService,brow
     res.status(200).set({'Content-Type':'text/event-stream','Cache-Control':'no-store','Connection':'keep-alive','X-Accel-Buffering':'no'});res.flushHeaders();res.write(': connected\n\n');
     let closed=false;const end=()=>{if(closed)return;closed=true;clearInterval(timer);off();streams.delete(end);res.end();};
     const push=async ()=>{try{(await publicSession(service,sessionId));if(!res.write('event: change\ndata: {}\n\n'))end();}catch{res.write('event: revoked\ndata: {}\n\n');end();}};
-    const off=service.onEvent(async event=>{if(event.sessionId===sessionId&&event.type!=='identify')(await push());});const timer=setInterval(push,15000);timer.unref();streams.add(end);req.on('close',end);
+    const off=service.onEvent(async event=>{if(event.sessionId===sessionId&&event.type!=='identify'&&event.type!=='pointing')(await push());});const timer=setInterval(push,15000);timer.unref();streams.add(end);req.on('close',end);
   });
   return ()=>{for(const close of streams)close();};
 }

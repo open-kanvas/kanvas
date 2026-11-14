@@ -120,7 +120,7 @@ describe('passive artwork and track presentation', () => {
   it('retains every explicitly supplied state and only exposes observation metadata when requested', () => {
     for (const state of ['playing', 'paused', 'stopped'] as const) {
       const snapshot = view({ state, observedAt: '2026-09-14T01:23:45+02:00' });
-      const html = renderToStaticMarkup(<NowPlayingRenderer view={{ ...snapshot, showSource: true, showControls: true }} actionable />);
+      const html = renderToStaticMarkup(<NowPlayingRenderer view={{ ...snapshot, showCaption: true, showControls: true }} actionable />);
       expect(html).toContain(`data-state="${state}"`); expect(html).toContain('dateTime="2026-09-14T01:23:45+02:00"');
       expect(html).not.toMatch(/<button|<audio|<video|<input|<iframe/);
     }

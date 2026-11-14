@@ -39,7 +39,7 @@ export function ImageGallery({data}:{data:GalleryData}){
       return <figure key={`${i}:${entry.url}`} hidden={focused!==null?focused!==i:data.mode==='carousel'&&i!==index} data-image-index={i}>
         {entry.showTitle&&entry.title&&<h2>{entry.title}</h2>}
         <div ref={node=>{frames.current[i]=node;}} className="gallery-image-frame" data-image-index={i} role={enlarge?'button':undefined} tabIndex={enlarge?0:undefined} aria-label={enlarge?`Enlarge ${entry.alt||entry.title||`image ${i+1}`}`:undefined} onClick={()=>{if(enlarge)setFocused(i);}} onKeyDown={e=>{if(enlarge&&['Enter',' '].includes(e.key)){e.preventDefault();e.stopPropagation();setFocused(i);}}}><MediaImage entry={entry}/></div>
-        {(entry.showCaption&&entry.caption||entry.showSource&&entry.source)&&<figcaption>{entry.showCaption&&entry.caption&&<p>{entry.caption}</p>}{entry.showSource&&entry.source&&(entry.source.url&&safeUrl(entry.source.url)?<a href={safeUrl(entry.source.url)} rel="noreferrer" target="_blank">{entry.source.title}</a>:<span>{entry.source.title}</span>)}</figcaption>}
+        {entry.showCaption&&entry.caption&&<figcaption><p>{entry.caption}</p></figcaption>}
       </figure>;
     })}</div>
     {data.mode==='carousel'&&data.images.length>1&&<nav aria-label="Image navigation"><button disabled={index===0||nav?.canNavigate===false} onClick={()=>move('previous')} aria-label="Previous image">←</button><span>{index+1} / {data.images.length}</span><button disabled={index===data.images.length-1||nav?.canNavigate===false} onClick={()=>move('next')} aria-label="Next image">→</button></nav>}

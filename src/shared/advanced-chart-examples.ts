@@ -1,7 +1,7 @@
 import type { AdvancedChartKind } from './chart-contract.js';
 import type { ViewSpec } from './types.js';
 
-const example = (title: string, data: Record<string, unknown>, sourceTitle = 'Illustrative supplied observations'): ViewSpec => ({ version: 1, template: 'chart', title, data, source: { title: sourceTitle } });
+const example = (title: string, data: Record<string, unknown>, _sampleNote?: string): ViewSpec => ({ version: 1, template: 'chart', title, data });
 const financial = [{ x: '2026-09-01', y: 108, open: 101, high: 111, low: 98, close: 108 }, { x: '2026-09-02', y: 104, open: 108, high: 112, low: 102, close: 104 }, { x: '2026-09-03', y: 113, open: 104, high: 116, low: 103, close: 113 }, { x: '2026-09-04', y: 113, open: 113, high: 118, low: 110, close: 113 }];
 const proportions = [{ x: 'Product development', y: 42 }, { x: 'Customer support', y: 26 }, { x: 'Operations', y: 20 }, { x: 'Research', y: 12 }];
 

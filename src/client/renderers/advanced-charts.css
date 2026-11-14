@@ -71,3 +71,13 @@
 .advanced-gauge{justify-content:center;min-height:100%;height:auto}
 .advanced-gauge-value{margin-top:0}
 .render-surface.template-chart.is-live:has(> .view-qualification) .advanced-hierarchy{padding-bottom:0}
+
+/* 2026-11-14 (4b998939). Pie and donut choose their own arrangement from the measured area, so a pane that is
+   wider than tall puts the key beside the plot and neither a pane nor a phone scrolls the chart. */
+.advanced-plot-with-key[data-key-layout]{height:100%;min-height:0;box-sizing:border-box;overflow:hidden}
+.advanced-plot-with-key[data-key-layout]>svg{flex:none}
+.advanced-plot-with-key[data-key-layout]>ul{min-height:0;max-height:100%;overflow:auto;scrollbar-width:thin}
+.advanced-plot-with-key[data-key-layout="side"]{flex-direction:row;align-items:center;justify-content:center;gap:18px}
+.advanced-plot-with-key[data-key-layout="side"]>ul{flex:1 1 0;width:auto;min-width:120px}
+.advanced-plot-with-key[data-key-layout="stacked"]{flex-direction:column;align-items:center;justify-content:center;gap:8px}
+.advanced-plot-with-key[data-key-layout="stacked"]>ul{flex:0 1 auto;width:100%}

@@ -70,15 +70,16 @@ describe('quiet complete table surface', () => {
     const html = renderToStaticMarkup(<TableRenderer data={data} showControls />);
     expect(html).not.toContain('aria-label="Filter table"'); expect(html).not.toContain('aria-label="Sort by Tool"'); expect(html).not.toContain('table-toolbar');
   });
-  it('does not invent an empty source/info affordance, even when source display is requested', () => {
-    const view = validateView({ version: 1, template: 'table', showSource: true, data });
+  it('has no source/info affordance and refuses the removed flag', () => {
+    expect(() => validateView({ version: 1, template: 'table', showSource: true, data })).toThrow();
+    const view = validateView({ version: 1, template: 'table', data });
     const html = renderToStaticMarkup(<Renderer view={view} />);
     expect(html).not.toContain('view-information'); expect(html).not.toContain('table-source-summary'); expect(html).not.toContain('About this view');
   });
-  it('shows only actual supplied summaries and only with showSource', () => {
+  it('keeps a supplied dataset summary in the data and never draws it (0.38.0)', () => {
     const input = { ...data, summary: { sourceRows: 70, displayedRows: 51, excludedRows: 19, precisionNote: 'Original cells retained.' } };
-    const quiet = renderToStaticMarkup(<TableRenderer data={input} />), explicit = renderToStaticMarkup(<TableRenderer data={input} showSource />);
-    expect(quiet).not.toContain('70 source rows'); expect(explicit).toContain('51 shown from 70 source rows'); expect(explicit).toContain('19 rows excluded'); expect(explicit).toContain('Original cells retained.');
+    const quiet = renderToStaticMarkup(<TableRenderer data={input} />), explicit = renderToStaticMarkup(<TableRenderer data={input} showControls />);
+    expect(quiet).not.toContain('70 source rows'); expect(explicit).not.toContain('70 source rows'); expect(explicit).not.toContain('table-source-summary'); expect(input.summary.sourceRows).toBe(70);
   });
 });
 

@@ -27,8 +27,8 @@ const canonical = (value: unknown): string => JSON.stringify(value, (_key, item:
 const digest = (value: unknown) => createHash('sha256').update(canonical(value)).digest('hex');
 const identity = (principal: AuthPrincipal) => principal.tokenId ? `token:${principal.tokenId}` : `user:${principal.participantId ?? principal.userId}`;
 const timer = (data: Record<string, unknown> = { endsAt: iso(origin + 42125) }): ViewSpec => ({
-  version: 1, template: 'countdown', title: 'Retained timer metadata', showTitle: false, showSource: false,
-  data: { label: 'Workshop time', ...data }, source: { title: 'Supplied event', url: 'https://example.com/event' },
+  version: 1, template: 'countdown', title: 'Retained timer metadata', showTitle: false, 
+  data: { label: 'Workshop time', ...data },
   actions: [{ id: 'next', label: 'Continue workshop', kind: 'button' }],
 });
 const poll = (): ViewSpec => ({ version: 1, template: 'poll', data: { question: 'A retained question', revealResults: true, options: [{ id: 'a', label: 'Alpha' }, { id: 'b', label: 'Beta' }] } });

@@ -7,8 +7,8 @@ import { parseDataset } from '../../src/server/rendering/datasets.js';
 const render = (fields: Record<string, unknown>) => createInterpreter().interpret({ ...input(), submission: { requestId:'source',sessionId:'session-1',displayIds:['display-1'],...fields } });
 describe('deterministic supplied-content publishing', () => {
   it.each(cases)('preserves supplied $template content through strict validation', async ({template,data}) => {
-    const expected=validateView({version:1,template,data,source});
-    const result=await render({templateHint:template,data,source});
+    const expected=validateView({version:1,template,data});
+    const result=await render({templateHint:template,data});
     expect(result.view).toEqual(expected);
     expect(result.metrics?.path).toBe('source');
     expect(JSON.stringify(result.metrics)).not.toMatch(/model|prompt|provider|tokens|attempts/i);

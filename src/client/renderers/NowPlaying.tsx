@@ -27,7 +27,7 @@ const stateLabels = { playing: 'Playing', paused: 'Paused', stopped: 'Stopped' }
 
 export function NowPlayingRenderer(props: RendererProps) {
   const data = props.view.data as unknown as NowPlayingData;
-  const { showSource } = liveSurfaceOptions(props.view, props.containerView);
+  const { showCaption: showObservation } = liveSurfaceOptions(props.view, props.containerView);
   const hasElapsed = data.elapsedSeconds !== undefined, hasDuration = data.durationSeconds !== undefined;
   const paired = hasElapsed && hasDuration;
   const elapsed = hasElapsed ? formatPlaybackSeconds(data.elapsedSeconds!) : undefined;
@@ -51,7 +51,7 @@ export function NowPlayingRenderer(props: RendererProps) {
           {hasDuration && <span className="now-playing-duration" data-seconds={data.durationSeconds} aria-label={`Duration: ${duration}`}>{!paired && <span className="now-playing-time-kind">Duration </span>}{duration}</span>}
         </div>
       </div>}
-      {showSource && data.observedAt && <p className="now-playing-observation">Reported <time dateTime={data.observedAt} >{<FormattedTime value={data.observedAt}/>} </time></p>}
+      {showObservation && data.observedAt && <p className="now-playing-observation">Reported <time dateTime={data.observedAt} >{<FormattedTime value={data.observedAt}/>} </time></p>}
     </div>
   </section>;
 }

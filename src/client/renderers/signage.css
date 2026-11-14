@@ -26,3 +26,6 @@
 .signage-visual[data-arrow-side="left"]>.sign-arrow,.signage-visual[data-arrow-side="right"]>.sign-arrow{width:min(30cqw,56cqh);height:min(30cqw,56cqh)}
 .signage-visual[data-arrow-side="top"]>.sign-arrow,.signage-visual[data-arrow-side="bottom"]>.sign-arrow{width:min(56cqw,28cqh);height:min(56cqw,28cqh)}
 .signage-visual>.sign-arrow:only-child{width:min(72cqw,72cqh);height:min(72cqw,72cqh)}
+
+/* 2026-11-14 (99ba310f). Beside a left or right arrow the label and caption sit under the pictogram, not under the gap between pictogram and arrow. */
+.signage-card>h2,.signage-card>p{transform:translateX(var(--sign-text-shift,0px));max-width:calc(100% - var(--sign-text-room,0px))}

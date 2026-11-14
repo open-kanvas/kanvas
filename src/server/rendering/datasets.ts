@@ -131,7 +131,7 @@ export function parseDataset(input: DatasetInput): ParsedDataset {
   }
   let source: Provenance | undefined;
   try {
-    const embedded = embeddedSource === undefined ? undefined : provenanceSchema.parse((retainedProvenance({source:embeddedSource}) as {source:unknown}).source);
+    const embedded = embeddedSource === undefined ? undefined : provenanceSchema.parse(embeddedSource&&typeof embeddedSource==='object'&&!Array.isArray(embeddedSource)?(({illustrative:_retired,...kept})=>kept)(embeddedSource as Record<string,unknown>):embeddedSource);
     const explicit = input.source === undefined ? undefined : provenanceSchema.parse(input.source);
     source = embedded || explicit ? { ...embedded, ...explicit } : undefined;
   } catch { fail('Dataset provenance is invalid.'); }
@@ -265,7 +265,7 @@ export function materializeDatasetView(view: ViewSpec, datasets: DatasetRecord[]
       value = binding.aggregation === 'count' ? cells.length : aggregate(cells.map((cell) => projected(cell, false)!), binding.aggregation);
     }
     if ((typeof value !== 'string' && typeof value !== 'number') || value === '') fail('Selected source number is not displayable.', 'INVALID_BINDING');
-    return validateView({ ...view, source: dataset.source ?? view.source, data: { ...view.data, value, binding, label: view.data.label ?? binding.y[0], summary: { datasetId: dataset.id, sourceRows: dataset.rows.length, displayedRows: 1, aggregation: binding.aggregation, ...(precisionNote && binding.aggregation !== 'none' ? { precisionNote } : {}) } } });
+    return validateView({ ...view, data: { ...view.data, value, binding, label: view.data.label ?? binding.y[0], summary: { datasetId: dataset.id, sourceRows: dataset.rows.length, displayedRows: 1, aggregation: binding.aggregation, ...(precisionNote && binding.aggregation !== 'none' ? { precisionNote } : {}) } } });
   }
   if (view.template === 'table') {
     if (binding.aggregation !== 'none' || binding.histogram || binding.downsample || binding.x || binding.y || binding.groupBy || binding.row !== undefined) fail('Tables select source columns/rows only; chart transformations are not table bindings.', 'INVALID_BINDING');
@@ -282,11 +282,11 @@ export function materializeDatasetView(view: ViewSpec, datasets: DatasetRecord[]
       }
       previewBytes += bytes; rows.push(selected);
     }
-    return validateView({ ...view, source: dataset.source ?? view.source, data: tableDataSchema.parse({ ...view.data, columns, rows, binding, summary: { datasetId: dataset.id, sourceRows: dataset.rows.length, displayedRows: rows.length, aggregation: 'none' } }) });
+    return validateView({ ...view, data: tableDataSchema.parse({ ...view.data, columns, rows, binding, summary: { datasetId: dataset.id, sourceRows: dataset.rows.length, displayedRows: rows.length, aggregation: 'none' } }) });
   }
   const chart = chartDataSchema.parse(view.data);
   const advanced = materializeAdvancedChartData(chart, dataset, binding, numericProjection, precisionNote);
-  if (advanced) return validateView({ ...view, source: dataset.source ?? view.source, data: advanced });
+  if (advanced) return validateView({ ...view, data: advanced });
   if (hasAdvancedBinding(binding)) fail('This chart kind does not use the supplied structured source mapping.', 'INVALID_BINDING');
   if (binding.offset || binding.limit || binding.columns || binding.row !== undefined) fail('Chart row truncation is not implicit: use explicit downsampling or aggregation.', 'INVALID_BINDING');
   let series: ChartData['series'] = [], excludedRows = 0;
@@ -344,7 +344,7 @@ export function materializeDatasetView(view: ViewSpec, datasets: DatasetRecord[]
   const displayedRows = series.reduce((sum, item) => sum + item.points.length, 0);
   if (displayedRows > VIEW_LIMITS.points) fail('Plot exceeds 5,000 points; request explicit aggregation/downsampling or use a table.', 'PLOT_TOO_LARGE');
   if (!series.some((item) => item.points.some((point) => point.y !== null))) fail('No renderable numeric source values.', 'INVALID_BINDING');
-  return validateView({ ...view, source: dataset.source ?? view.source, data: { ...chart, binding, series,
+  return validateView({ ...view, data: { ...chart, binding, series,
     xLabel: chart.xLabel ?? binding.x, yLabel: chart.yLabel ?? (binding.y && binding.y.join(', ').length <= 500 ? binding.y.join(', ') : undefined),
     summary: { datasetId: dataset.id, sourceRows: dataset.rows.length, displayedRows, aggregation: chart.kind === 'histogram' ? 'histogram' : chart.kind === 'box' ? 'box' : binding.aggregation, downsampled: displayedRows < originalPoints, ...(precisionNote ? { precisionNote } : {}), ...(excludedRows ? { excludedRows } : {}) },
   } });

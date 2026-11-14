@@ -23,7 +23,7 @@ for (const direction of ['down', 'up'] as const) test(`${direction} timer pause 
   if (info.project.name.startsWith('phone')) await viewer.setViewportSize({ width: 443, height: 823 });
   await viewer.bringToFront();
   const nowMs = Date.now(), view: ViewSpec = {
-    version: 1, template: 'countdown', title: 'Stored timer metadata', source: { title: 'Supplied timer' },
+    version: 1, template: 'countdown', title: 'Stored timer metadata', 
     data: { label: 'Workshop time', ...(direction === 'up' ? { direction, startedAt: new Date(nowMs - 42125).toISOString() } : { endsAt: new Date(nowMs + 120000).toISOString(), completeText: 'Workshop resumes' }) },
   };
   await publishPrepared(page, sessionId, [display.id], view); await ready(page, viewer, sessionId, display.id, 1);

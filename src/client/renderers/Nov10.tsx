@@ -1,9 +1,9 @@
 import {useEffect,useLayoutEffect,useMemo,useRef,useState,type CSSProperties,type ReactNode} from 'react';
 import {jsonPathLine,prettyJson,type JsonData} from '../../shared/connection-views';
 import {TOOL_CALL_LINES,type AgentsData,type ToolCallDetailsData,type WelcomeData} from '../../shared/nov10-templates';
-import {projectTasks,statusColor,type TaskListData} from '../../shared/task-list';
+import {projectTasks,statusColor,taskCustomColumns,type TaskListData} from '../../shared/task-list';
 import {contrastMatrix,harmonies,hexToOklch,namedColours,optionSwatches,readableOn,resolveColour,roleSteps,seedTheme,shadeGrid,variations,type ColourData,type Swatch} from '../../shared/colour';
-import {fontCssName,fontDisplayName,fontUrl,fontVariableRange,iconId,iconSetTitle,iconUrl,iconVariants,FONT_FAMILIES,type FontPickerData,type FontRef,type IconPickerData,type IconRef} from '../../shared/pickers';
+import {fontCssName,fontDisplayName,fontUrl,fontVariableRange,iconId,iconRefOf,iconSetTitle,iconUrl,iconVariants,FONT_FAMILIES,type FontPickerData,type FontRef,type IconPickerData,type IconRef} from '../../shared/pickers';
 import {HUMAN_INVITATION} from '../../shared/philosophy';
 import {highlightLine} from './Code';
 import {JsonExplorer} from './JsonExplorer';
@@ -44,9 +44,11 @@ export function ToolCallDetails({data}:{data:ToolCallDetailsData}){
 
 const DETAIL_SHOWN=1400;
 export function TaskList({data}:{data:TaskListData}){
- const projected=useMemo(()=>projectTasks(data.items,{sort:data.sort,filter:data.filter}),[data.items,data.sort,data.filter]);
+ const projected=useMemo(()=>projectTasks(data.items,{sort:data.sort,filter:data.filter,doneLast:data.doneLast}),[data.items,data.sort,data.filter,data.doneLast]);
+ // Items ticked since the previous render get a short in-place check-off; the first render animates nothing.
+ const doneBefore=useRef<Set<string>|undefined>(undefined),justDone=useMemo(()=>{const now=new Set(data.items.filter(item=>item.checked).map(item=>String(item.id??item.number))),fresh=new Set(doneBefore.current?[...now].filter(key=>!doneBefore.current!.has(key)):[]);doneBefore.current=now;return fresh;},[data.items]);
  const body=useRef<HTMLTableSectionElement>(null),positions=useRef(new Map<string,number>()),lastHighlight=useRef<string|undefined>(undefined);
- // A ticked item visibly travels to its new place instead of vanishing.
+ // When the list asks for doneLast (or is re-sorted), a moved item visibly travels to its new place.
  useLayoutEffect(()=>{const root=body.current;if(!root)return;const reduced=typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches,next=new Map<string,number>();
   for(const row of root.querySelectorAll<HTMLElement>('tr[data-task-id]')){const key=row.dataset.taskId!,top=row.offsetTop;next.set(key,top);const before=positions.current.get(key);
    if(!reduced&&before!==undefined&&Math.abs(before-top)>1&&typeof row.animate==='function')row.animate([{transform:`translateY(${before-top}px)`},{transform:'none'}],{duration:Math.min(900,350+Math.abs(before-top)/2),easing:'cubic-bezier(.2,.7,.2,1)'});}
@@ -55,13 +57,13 @@ export function TaskList({data}:{data:TaskListData}){
  useEffect(()=>{if(data.highlight===lastHighlight.current)return;lastHighlight.current=data.highlight;if(!data.highlight)return;
   body.current?.querySelector<HTMLElement>(`tr[data-task-id="${CSS.escape(data.highlight)}"]`)?.scrollIntoView({block:'center',behavior:typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
  },[data.highlight]);
- const open=data.items.filter(item=>!item.checked).length,done=data.items.length-open,columns=data.columns??[];
+ const open=data.items.filter(item=>!item.checked).length,done=data.items.length-open,columns=taskCustomColumns(data.columns,data.items);
  const anyStatus=data.items.some(item=>item.status),anyTags=data.items.some(item=>item.tags?.length);
  return <div className="task-list" data-task-list={data.taskListId}>
   <p className="task-list-counts"><span><b>{open}</b> open</span><span><b>{done}</b> done</span>{projected.hidden>0&&<span className="task-list-hidden">{projected.hidden} hidden by filter</span>}</p>
   <div className="task-list-scroll" data-navigation-scroll tabIndex={0}><table><thead><tr><th className="task-number" scope="col">#</th><th scope="col" className="task-check" aria-label="Done"/><th scope="col">Item</th>{anyStatus&&<th scope="col">Status</th>}{anyTags&&<th scope="col">Tags</th>}{columns.map(column=><th key={column.key} scope="col">{column.label}</th>)}</tr></thead>
    <tbody ref={body}>{projected.items.map(item=>{const current=item.id===data.highlight,colour=statusColor(data.statusPalette,item.status,data.colors);
-    return <tr key={item.id??item.number} data-task-id={item.id} data-task-number={item.number} className={`${item.checked?'is-done':''}${current?' is-current':''}`.trim()} aria-current={current?'true':undefined}>
+    return <tr key={item.id??item.number} data-task-id={item.id} data-task-number={item.number} className={`${item.checked?'is-done':''}${current?' is-current':''}${justDone.has(String(item.id??item.number))?' just-done':''}`.trim()} aria-current={current?'true':undefined}>
      <td className="task-number">{item.number}</td>
      <td className="task-check"><span className="task-box" role="img" aria-label={item.checked?'Done':'Open'}>{item.checked?'✓':''}</span></td>
      <td className="task-item"><strong>{item.title}</strong>{item.summary&&<p className="task-summary">{item.summary}</p>}
@@ -105,8 +107,8 @@ const iconStyle=(icon:IconRef):CSSProperties=>({WebkitMaskImage:`url(${iconUrl(i
 function IconGlyph({icon,size}:{icon:IconRef;size?:string}){return <i className="picker-icon" role="img" aria-label={`${iconSetTitle(icon)} ${icon.name}`} style={{...iconStyle(icon),...(size?{width:size,height:size}:{})}}/>;}
 export function IconPicker({data}:{data:IconPickerData}){
  // A core set has style variants; a catalogue icon is one drawing, so it is shown as it is.
- const styles=data.mode==='variants'?iconVariants(data.icons[0]):[];
- const variants:IconRef[]=styles.length?styles.map(variant=>({...data.icons[0],variant})):data.mode==='variants'?[data.icons[0]]:data.icons;
+ const icons=data.icons.map(iconRefOf),styles=data.mode==='variants'?iconVariants(icons[0]):[];
+ const variants:IconRef[]=styles.length?styles.map(variant=>({...icons[0],variant})):data.mode==='variants'?[icons[0]]:icons;
  return <div className={`picker icon-picker mode-${data.mode}`} data-picker-mode={data.mode}>{data.concept&&<p className="picker-concept">{data.concept}</p>}
   <ol className="picker-grid" style={{'--count':variants.length} as CSSProperties}>{variants.map((icon,index)=><li key={index} className={data.selected===index+1?'is-selected':undefined} data-icon-id={iconId(icon)}>
    <b className="picker-number">{index+1}</b>
@@ -125,7 +127,7 @@ export function FontPicker({data}:{data:FontPickerData}){
  // A variable family is one file for its whole weight range; a static family is one file per weight.
  const css=[...new Map(used.map(font=>[fontVariableRange(font.family)?font.family:`${font.family}:${font.weight}`,font])).values()].map(font=>{const range=fontVariableRange(font.family);return `@font-face{font-family:"${fontCssName(font.family)}";font-weight:${range?`${range[0]} ${range[1]}`:font.weight};font-style:normal;font-display:swap;src:url(${fontUrl(font.family,font.weight)}) format("woff2")}`;}).join('');
  const rows=data.mode==='weights'?weights:data.fonts,body='Kanvas is your agent’s screen. The detail is already visible, so your words get shorter.';
- return <div className={`picker font-picker mode-${data.mode}`} data-picker-mode={data.mode}><style>{css}</style>
+ return <div className={`picker font-picker mode-${data.mode}`} data-picker-mode={data.mode} data-sample-size={data.sampleSize} style={data.sampleSize?{'--font-sample-size':`${data.sampleSize}px`} as CSSProperties:undefined}><style>{css}</style>
   {data.mode==='pairings'?<ol className="picker-grid font-pairings" style={{'--count':pairings.length} as CSSProperties}>{pairings.map((pair,index)=><li key={index} className={data.selected===index+1?'is-selected':undefined}><b className="picker-number">{index+1}</b><h3 style={face(pair.heading)}>{data.text}</h3><p style={face(pair.body)}>{body}</p><code className="picker-label">{`${fontLabel(pair.heading)} + ${fontLabel(pair.body)}`}</code></li>)}</ol>
   :<ol className="font-samples" style={{'--count':rows.length} as CSSProperties}>{rows.map((font,index)=><li key={index} className={data.selected===index+1?'is-selected':undefined} data-font-family={font.family} data-font-weight={font.weight}><b className="picker-number">{index+1}</b>
    {data.mode==='context'?<div className="font-context"><h3 style={face(font)}>{data.text}</h3><p style={face({...font,weight:400})}>{body}</p><span className="picker-button" style={face(font)}>Button</span></div>:<p className="font-sample" style={face(font)}>{data.text}</p>}

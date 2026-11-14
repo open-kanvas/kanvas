@@ -5,6 +5,13 @@ import {z} from 'zod';
  * that carries full detail only for the highlighted item. */
 const identifier=z.string().min(1).max(128).regex(/^[a-zA-Z0-9_.:-]+$/);
 export const TASK_LIST_MAX_ITEMS=200,TASK_DETAIL_MAX=8000,STATUS_COLOURS_MAX=16;
+/** Columns the list always has. Naming one in `columns` adds nothing: it is already on screen. */
+export const TASK_BUILTIN_COLUMNS=new Set(['number','#','no','item','title','status','tags','tag','summary','done','checked','check']);
+export const isBuiltinTaskColumn=(key:string)=>TASK_BUILTIN_COLUMNS.has(key.trim().toLowerCase());
+/** Own columns worth a place on screen: not a built-in, and at least one item has a value for it. */
+export function taskCustomColumns<C extends {key:string}>(columns:readonly C[]|undefined,items?:readonly {fields?:Record<string,string>}[]):C[]{
+ return (columns??[]).filter(column=>!isBuiltinTaskColumn(column.key)&&(!items||items.some(item=>(item.fields?.[column.key]??'').trim())));
+}
 export const taskColumnSchema=z.object({key:z.string().min(1).max(40),label:z.string().min(1).max(60)}).strict();
 /** A small map of text to text: an item's own column values, and a list's own status colours. */
 const textMap=z.record(z.string(),z.string().max(200));
@@ -44,6 +51,7 @@ export const taskListDataSchema=z.object({
  items:z.array(taskItemSchema).max(TASK_LIST_MAX_ITEMS),
  highlight:identifier.optional(),
  sort:sortSchema.optional(),filter:filterSchema.optional(),
+ doneLast:z.boolean().optional().describe('true moves checked items to the bottom. Default: every item stays where it was written.'),
 }).strict().superRefine((data,ctx)=>{
  const ids=new Set<string>(),numbers=new Set<number>();
  if(data.colors&&(Object.keys(data.colors).length>STATUS_COLOURS_MAX||longKey(data.colors)||Object.entries(data.colors).some(([value,colour])=>!value.trim()||!/^#[0-9a-fA-F]{6}$/.test(colour))))ctx.addIssue({code:'custom',path:['colors'],message:`colors maps up to ${STATUS_COLOURS_MAX} status values to #rrggbb colours, e.g. {"waiting":"#d9a441"}.`});
@@ -68,7 +76,8 @@ export function statusColor(palette:TaskListData['statusPalette'],status:string|
 }
 /** Deterministic filter and sort over stored items: the same function runs on
  * the server (reads) and in the browser (display). Stable; ties keep stored
- * order. Done items always go last. Nothing is dropped silently:
+ * order. Items keep their written order whether done or not, unless the list
+ * asks for doneLast. Nothing is dropped silently:
  * the caller reports how many items the filter hides. */
 export function projectTasks<T extends Pick<TaskItem,'checked'|'status'|'tags'|'title'|'number'|'fields'>>(items:readonly T[],view:{sort?:TaskListData['sort'];filter?:TaskListData['filter'];doneLast?:boolean}={}):{items:T[];hidden:number}{
  const filter=view.filter;
@@ -84,7 +93,7 @@ export function projectTasks<T extends Pick<TaskItem,'checked'|'status'|'tags'|'
  const by=view.sort?.by,direction=view.sort?.direction==='desc'?-1:1;
  const value=(item:T):string|number=>by==='number'?item.number??0:by==='title'?item.title.toLocaleLowerCase():by==='status'?(item.status??'￿').toLocaleLowerCase():by==='tag'?((item.tags??[])[0]??'￿').toLocaleLowerCase():by&&by!=='position'?(item.fields?.[by]??'￿').toLocaleLowerCase():0;
  indexed.sort((a,b)=>{
-  if(view.doneLast!==false&&Boolean(a.item.checked)!==Boolean(b.item.checked))return a.item.checked?1:-1;
+  if(view.doneLast===true&&Boolean(a.item.checked)!==Boolean(b.item.checked))return a.item.checked?1:-1;
   if(by&&by!=='position'){const x=value(a.item),y=value(b.item);if(x!==y)return (x<y?-1:1)*direction;}
   return a.index-b.index;
  });

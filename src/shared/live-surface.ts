@@ -1,17 +1,14 @@
-import type { Provenance, ViewSpec } from './types.js';
-import { isSafeUrl } from './urls.js';
+import type { ViewSpec } from './types.js';
 
 /** Presentation metadata remains stored; none of these flags changes the payload. */
 export interface LiveSurfaceFlags {
   showTitle?: boolean;
   showCaption?: boolean;
-  showSource?: boolean;
   showControls?: boolean;
 }
 export interface LiveSurfaceOptions {
   showTitle: boolean;
   showCaption: boolean;
-  showSource: boolean;
   showControls: boolean;
 }
 type SurfaceView = ViewSpec & LiveSurfaceFlags;
@@ -26,7 +23,6 @@ export function liveSurfaceOptions(view: SurfaceView, container?: SurfaceView): 
   return {
     showTitle: view.showTitle === true && nonempty(view.title),
     showCaption: (view.showCaption ?? container?.showCaption) === true,
-    showSource: (view.showSource ?? container?.showSource) === true,
     showControls: (view.showControls ?? container?.showControls) === true,
   };
 }
@@ -35,8 +31,19 @@ export type LiveSurfaceMode = 'focus' | 'reading' | 'media' | 'interactive';
 export interface LiveSurfaceLayout { mode: LiveSurfaceMode; fullBleed: boolean }
 
 const mediaTemplates = new Set<string>(['colour','icon-picker','font-picker','welcome','split-screen','traffic-demo','satisfaction','signage','molecule','menu','menu-board','todays-special','opening-hours','back-at','closed-sign','hiring','sale-poster','health-notice','custom-sign','image-gallery','website','iframe', 'image', 'map', 'whiteboard', 'video', 'html', 'weather', 'presentation', 'now-playing']);
-const readingTemplates = new Set<string>(['task-list','tool-call-details','agents','database-schema','keyboard-shortcuts','standings','tool-call-log','email','inbox','chat','cards','bookmarks','tool-inventory','tool-detail','developer','operations','code-workspace','list', 'table', 'comparison', 'code', 'transcription', 'translation', 'schedule', 'timeline', 'itinerary', 'menu', 'leaderboard', 'notifications', 'drafting']);
+const readingTemplates = new Set<string>(['monitor-stream','message-board','task-list','tool-call-details','agents','database-schema','keyboard-shortcuts','standings','tool-call-log','email','inbox','chat','cards','bookmarks','tool-inventory','tool-detail','developer','operations','code-workspace','list', 'table', 'comparison', 'code', 'transcription', 'translation', 'schedule', 'timeline', 'itinerary', 'menu', 'leaderboard', 'notifications', 'drafting']);
 const interactiveTemplates = new Set<string>(['json', 'session-topology', 'form', 'poll', 'qa', 'overview', 'settings', 'procedure', 'join']);
+
+/** How the session text size reaches a view.
+ * content: reference views (lists, tables, logs, documents, pickers) scale all of their content and lay it out again
+ * in the same area, scrolling where they already scroll.
+ * viewport: views composed to fill the screen are laid out for a proportionally smaller (or larger) screen, so text
+ * set in fixed sizes changes while content sized to the screen keeps filling it instead of being cut off. */
+export function textSizeMode(view: ViewSpec): 'content' | 'viewport' {
+  if (['colour','icon-picker','font-picker'].includes(view.template)) return 'content';
+  const mode = liveSurfaceLayout(view).mode;
+  return mode === 'reading' || mode === 'interactive' ? 'content' : 'viewport';
+}
 
 /** A reading surface is not a failed fit. Exact long data gets a bounded, readable
  * scroll region; it is never truncated or globally scaled down to fake a fit. */
@@ -54,47 +61,3 @@ export function liveSurfaceLayout(view: ViewSpec): LiveSurfaceLayout {
   return { mode: 'focus', fullBleed: false };
 }
 
-export interface ViewInformationContent {
-  titles: string[];
-  sources: Provenance[];
-  captions: { label: string; text: string }[];
-}
-
-/** Useful information only: an empty source object never creates an info widget. */
-export function viewInformationContent(view: ViewSpec, container?: ViewSpec): ViewInformationContent {
-  const lineage: ViewSpec[] = [view];
-  if (container && container !== view) lineage.push(container);
-  // The deliberate display menu can pass the deck itself. Include only the
-  // currently shown slide, never metadata from hidden/future slides.
-  let current = view;
-  const visited = new Set<ViewSpec>(lineage);
-  while (current.template === 'presentation' && Array.isArray(current.data.slides) && current.data.slides.length) {
-    const requested = typeof current.data.index === 'number' && Number.isFinite(current.data.index) ? Math.trunc(current.data.index) : 0;
-    const index = Math.min(Math.max(requested, 0), current.data.slides.length - 1);
-    const slide = current.data.slides[index] as ViewSpec | undefined;
-    if (!slide || typeof slide !== 'object' || !slide.data || visited.has(slide)) break;
-    visited.add(slide);
-    lineage.unshift(slide);
-    current = slide;
-  }
-  const titles = [...new Set(lineage.map(item => item.title).filter(nonempty))];
-  const sources: Provenance[] = [];
-  const seenSources = new Set<string>();
-  for (const item of lineage) {
-    const source = item.source;
-    if (!source || !(nonempty(source.title) || nonempty(source.locator) || nonempty(source.timestamp) || nonempty(source.url) && isSafeUrl(source.url))) continue;
-    const key = JSON.stringify([source.title, source.url, source.locator, source.timestamp]);
-    if (!seenSources.has(key)) { sources.push(source); seenSources.add(key); }
-  }
-  const images = Array.isArray(current.data.images) ? current.data.images : [];
-  const captions = images.flatMap((entry: unknown, index: number) => {
-    const caption = entry && typeof entry === 'object' && 'caption' in entry ? entry.caption : undefined;
-    return nonempty(caption) ? [{ label: images.length > 1 ? `Image ${index + 1}` : 'Caption', text: caption }] : [];
-  });
-  return { titles, sources, captions };
-}
-
-export function hasViewInformation(view: ViewSpec, container?: ViewSpec): boolean {
-  const information = viewInformationContent(view, container);
-  return information.titles.length > 0 || information.sources.length > 0 || information.captions.length > 0;
-}

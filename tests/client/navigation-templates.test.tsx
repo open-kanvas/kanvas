@@ -25,8 +25,8 @@ describe('source-preserving templates and regional display',()=>{
     const schema=templateViewSchema('iframe');for(const pages of [[],Array.from({length:17},()=>({url:'https://example.com/'})),[{url:'javascript:alert(1)'}],[{url:'https://user:pass@example.com/'}],[{url:'https://127.0.0.1/'}]])expect(schema.safeParse({version:1,template:'iframe',data:{pages}}).success).toBe(false);
     const view=validateView({version:1,template:'iframe',data:{pages:[{url:'https://outside-previous-allowlist.example/page',title:'External source'}]}}),html=renderToStaticMarkup(<Renderer view={view}/>);
     expect(html).toContain('<iframe');expect(html).toContain('sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"');expect(html).not.toContain('allow-same-origin');expect(html).toContain('https://outside-previous-allowlist.example/page');expect(html).not.toContain('class="iframe-toolbar"');
-    const old={version:1,template:'web',data:{url:'https://example.com/',text:'Original supplied summary'},source:{title:'Retained source',illustrative:true}};
-    const retained=validateView(old);expect(retained.source).toEqual({title:'Retained source'});expect(old.source.illustrative).toBe(true);expect(retained.data).toMatchObject(old.data);expect(renderToStaticMarkup(<Renderer view={retained}/>)).not.toContain('Illustrative data');
+    const old={version:1,template:'web',data:{url:'https://example.com/',text:'Original supplied summary'}};
+    const retained=validateView(old);expect(()=>validateView({...old,source:{title:'Retained source'}})).toThrow();expect(retained.data).toMatchObject(old.data);expect(renderToStaticMarkup(<Renderer view={retained}/>)).not.toContain('Illustrative data');
     expect(provenanceSchema.safeParse({illustrative:true}).success).toBe(false);expect(JSON.stringify(z.toJSONSchema(templateViewSchema('presentation')))).not.toContain('"const":"web"');
   });
   it('formats numeric values and qualified weather while retaining exact string amounts, dates and source units when unknown',()=>{

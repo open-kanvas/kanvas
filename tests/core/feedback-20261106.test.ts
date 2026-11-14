@@ -30,9 +30,9 @@ it('weather temperature is genuinely optional with precise field errors',()=>{
  expect(()=>validateView({template:'weather',data:{condition:'rain',temperature:''}})).toThrow();
  try{validateView({template:'weather',data:{condition:'rain',temperature:17}});}catch(e:any){expect(e.issues[0].path).toEqual(['data','temperature']);}
 });
-it('split schema has 2/4/6 bounded ordinary panes and rejects recursive composition',()=>{
- for(const count of [2,4,6])expect(validateView({template:'split-screen',data:{panes:Array.from({length:count},(_,i)=>({id:'p'+i,view:fact('Pane')}))}}).data.panes).toHaveLength(count);
- for(const count of [1,3,5,7])expect(()=>validateView({template:'split-screen',data:{panes:Array.from({length:count},(_,i)=>({id:'p'+i,view:fact('Pane')}))}})).toThrow();
+it('split schema has bounded ordinary panes (2, 3, 4 or 6 without rows/columns since 0.38.0) and rejects recursive composition',()=>{
+ for(const count of [2,3,4,6])expect(validateView({template:'split-screen',data:{panes:Array.from({length:count},(_,i)=>({id:'p'+i,view:fact('Pane')}))}}).data.panes).toHaveLength(count);
+ for(const count of [1,5,7])expect(()=>validateView({template:'split-screen',data:{panes:Array.from({length:count},(_,i)=>({id:'p'+i,view:fact('Pane')}))}})).toThrow();
  const nested={version:1,template:'split-screen',data:{panes:[{id:'a',view:fact('a')},{id:'b',view:fact('b')}]}};
  expect(()=>validateView({template:'split-screen',data:{panes:[{id:'a',view:nested},{id:'b',view:fact('b')}]}})).toThrow();
 });

@@ -95,7 +95,7 @@ export function validationIssues(error: z.ZodError, prefix = '', submitted?: unk
       let node:any=select(root,submitted),value:any=submitted;
       for(const part of issue.path){node=select(node,value);node=typeof part==='number'?node?.items:node?.properties?.[part];value=value?.[part];}
       node=select(node,value);const allowedFields=Object.keys(node?.properties??{});
-      return issue.keys.map(key=>{const known=names.has(key),field=known?key:'<record-key>',misplaced=path.endsWith('.data')&&['title','showTitle','showCaption','showSource','showControls','source','actions'].includes(key);return {path:`${path}.${field}`,problem:'Unsupported field.',received:value?.[key]===null?'null':Array.isArray(value?.[key])?'array':typeof value?.[key],...(allowedFields.length?{allowedFields}:{}),...(misplaced?{hint:`${key} belongs beside template/data in view, not inside data.`}:{})};});
+      return issue.keys.map(key=>{const known=names.has(key),field=known?key:'<record-key>',misplaced=path.endsWith('.data')&&['title','showTitle','showCaption','showControls','actions'].includes(key);return {path:`${path}.${field}`,problem:'Unsupported field.',received:value?.[key]===null?'null':Array.isArray(value?.[key])?'array':typeof value?.[key],...(allowedFields.length?{allowedFields}:{}),...(misplaced?{hint:`${key} belongs beside template/data in view, not inside data.`}:{})};});
     }
     return [{
     path,...(expected?{expected,received:received===undefined?'missing':received===null?'null':Array.isArray(received)?'array':typeof received}:{}),

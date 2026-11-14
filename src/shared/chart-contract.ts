@@ -186,7 +186,7 @@ export const chartDataSchema = z.object({
   kind: z.enum(CHART_KINDS).default('line'),
   series: z.array(z.object({ name: label,stackGroup:identifier.optional().describe('Independent stack identifier within this axis and chart kind. Bar stack groups occupy side-by-side slots; lines remain independent.'),color:z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),kind:z.enum(['bar','line','area']).optional(),axis:z.enum(['primary','secondary']).optional(),lineWidth:z.number().min(1).max(8).optional(),dashed:z.boolean().optional(), points: z.array(chartPointSchema).max(pointLimit) }).strict()).max(16).default([]),
   nodes: z.array(chartNodeSchema).max(200).optional(), links: z.array(chartLinkSchema).max(500).optional(), directed: z.boolean().optional(),
-  regions: z.array(chartRegionSchema).max(250).optional(), radarAxes: z.array(radarAxisSchema).min(3).max(16).optional(), gauge: gaugeSchema.optional(),
+  regions: z.array(chartRegionSchema).max(250).optional(), territoryNote: z.boolean().optional().describe('Choropleth: show the note that dots mark approximate small-territory locations. Off by default.'), radarAxes: z.array(radarAxisSchema).min(3).max(16).optional(), gauge: gaugeSchema.optional(),
   xLabel: short.optional(), yLabel: short.optional(), unit: z.string().max(80).optional(), binding: datasetBindingSchema.optional(), summary: summarySchema.optional(),
 }).strict().superRefine((data, ctx) => {
   const issue = (message: string, path: (string | number)[] = []) => ctx.addIssue({ code: 'custom', message, path });

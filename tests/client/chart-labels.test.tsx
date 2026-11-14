@@ -97,8 +97,8 @@ describe('legacy rendering preserves source observations while fitting labels', 
   });
   it('keeps controls and source summaries opt-in while axis titles and units remain visible', () => {
     const data = { ...sample(), summary: { sourceRows: 20, displayedRows: 4 } };
-    const quiet = renderToStaticMarkup(<ChartRenderer data={data} />), explicit = renderToStaticMarkup(<ChartRenderer data={data} showControls showSource />);
+    const quiet = renderToStaticMarkup(<ChartRenderer data={data} />), explicit = renderToStaticMarkup(<ChartRenderer data={data} showControls />);
     expect(quiet).not.toContain('<button'); expect(quiet).not.toContain('20 source rows'); expect(quiet).toContain('Price · USD');
-    expect(explicit).not.toContain('>Data</button>'); expect(explicit).toContain('4 shown from 20 source rows');
+    expect(explicit).not.toContain('>Data</button>'); expect(explicit).not.toContain('4 shown from 20 source rows');
   });
 });

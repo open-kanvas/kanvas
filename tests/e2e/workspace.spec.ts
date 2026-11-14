@@ -9,7 +9,7 @@ import {
 
 const fact = (text: string): ViewSpec => ({
   version: 1, template: 'fact', data: { text },
-  source: { title: 'Browser acceptance fixture' },
+  
 });
 const checklist: ViewSpec = {
   version: 1, template: 'checklist', title: 'Ready to build',
@@ -17,7 +17,7 @@ const checklist: ViewSpec = {
     { id: 'evidence', text: 'Prepare the evidence', checked: false },
     { id: 'source', text: 'Confirm the source', checked: false },
   ] },
-  source: { title: 'Browser acceptance fixture' },
+  
 };
 
 test('real account, two independently targeted displays, source-bound chart and full-surface layouts', async ({ page }, testInfo) => {
@@ -217,7 +217,7 @@ test('saved presentation authoring and deliberate cues preserve the independent 
   await editor.getByLabel('Slide 2 content', { exact: true }).fill(JSON.stringify({
     version: 1, template: 'number', title: 'The exact result',
     data: { value: '42.000', unit: 'kg', label: 'Supplied measurement' },
-    source: { title: 'Browser acceptance fixture' },
+    
   } satisfies ViewSpec));
   await editor.getByRole('button', { name: 'Save presentation', exact: true }).click();
   await expect(editor).toBeHidden();

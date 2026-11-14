@@ -75,18 +75,18 @@ describe('inspectable publishing recipes without mandatory schema lookup', () =>
 
 describe('literal context and intent remain separate from exact source content', () => {
   it('prepares a context-only fact via the existing bounded selector without appending intent text', async () => {
-    const submitted = request({ context: exactWords, intent: 'Show the supplied statement verbatim.', templateHint: 'fact', source });
+    const submitted = request({ context: exactWords, intent: 'Show the supplied statement verbatim.', templateHint: 'fact' });
     const result = await createInterpreter().interpret(submitted);
     expect(result.view?.data.text).toBe(exactWords);
-    expect(result.view?.source).toEqual(source);
+    expect(result.view).not.toHaveProperty('source');
   });
 
   it('recognizes literal transcript context as a real source before the direct fast path', async () => {
-    const submitted = request({ context: exactWords, intent: 'Show these words verbatim; do not create a speaker.', templateHint: 'transcription', source });
+    const submitted = request({ context: exactWords, intent: 'Show these words verbatim; do not create a speaker.', templateHint: 'transcription' });
     const before = structuredClone(submitted);
     const result = await createInterpreter().interpret(submitted);
     expect(result.view?.data).toEqual({ segments: [{ id: 'supplied-1', text: exactWords }], status: 'complete' });
-    expect(result.view?.source).toEqual(source);
+    expect(result.view).not.toHaveProperty('source');
     expect(submitted).toEqual(before);
   });
 
@@ -102,12 +102,12 @@ describe('literal context and intent remain separate from exact source content',
 describe('complete structured tables are source-bound, not inferred samples', () => {
   it.each(['native', 'inline-rows'] as const)('retains all 51 rows, decimal strings, zeros and nulls through %s + context/intent', async format => {
     const data = format === 'native' ? { columns: ['item', 'amount', 'count', 'empty'], rows, pageSize: 7 } : { rows };
-    const submitted = request({ data, context: 'This is the complete supplied ledger.', intent: 'Show all 51 rows exactly; do not round, summarize, filter or aggregate.', templateHint: 'table', source });
+    const submitted = request({ data, context: 'This is the complete supplied ledger.', intent: 'Show all 51 rows exactly; do not round, summarize, filter or aggregate.', templateHint: 'table' });
     const before = structuredClone(submitted);
     const result = await createInterpreter().interpret(submitted);
     expect(result.view?.data.rows).toEqual(rows);
     expect(result.view?.data.rows).toHaveLength(51);
-    expect(result.view?.source).toEqual(source);
+    expect(result.view).not.toHaveProperty('source');
     if (format === 'native') expect(result.view?.data.pageSize).toBe(7);
     else expect(result.view?.data.summary).toMatchObject({ sourceRows: 51, displayedRows: 51, aggregation: 'none' });
     expect(submitted).toEqual(before);

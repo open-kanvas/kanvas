@@ -1,4 +1,5 @@
 import {KANVAS_VERSION} from '../shared/version.js';
+import {mapSplitViews} from '../shared/split-screen.js';
 import {SessionModes} from './session-mode.js';
 import {limitError} from './limit-errors.js';
 import {STORED_SESSION_FACTOR} from './usage-limits.js';
@@ -6,6 +7,7 @@ import {Friction,type FrictionCall} from './friction.js';
 import {Agents} from './agents.js';
 import {TaskLists} from './task-lists.js';
 import {MonitorStreams} from './monitor-streams.js';
+import {MessageBoard} from './message-board.js';
 import {Pickers} from './pickers.js';
 import type {SessionMode} from '../shared/philosophy.js';
 import type {ResponseContext} from './mcp/response-policy.js';
@@ -149,6 +151,7 @@ export class KanvasService implements McpService {
   readonly agents:Agents;
   readonly taskLists:TaskLists;
   readonly monitorStreams:MonitorStreams;
+  readonly board:MessageBoard;
   readonly pickers:Pickers;
   readonly customTemplates=new CustomTemplates(this);
   readonly mediaLibrary=new MediaLibrary(this);
@@ -194,7 +197,7 @@ export class KanvasService implements McpService {
     this.modes=new SessionModes(this);
     this.friction=new Friction(this);this.friction.start();
     this.agents=new Agents(this);this.taskLists=new TaskLists(this);
-    this.monitorStreams=new MonitorStreams(this);this.monitorStreams.start();
+    this.monitorStreams=new MonitorStreams(this);this.monitorStreams.start();this.board=new MessageBoard(this);
     this.pickers=new Pickers(this);
     this.pointing=new Pointing(this);this.toolLog=new ToolLog(this);this.autoplay=new Autoplay(this);
     this.accounts=new Accounts(this);
@@ -316,7 +319,7 @@ export class KanvasService implements McpService {
     this.events.on('change', receive); return () => this.events.off('change', receive);
   }
   subscribe(principal: AuthPrincipal, listener: (event: SessionEvent) => void): () => void {
-    return this.onEvent(async event => { if (event.type === 'identify') return; try { (await this.access(principal, event.sessionId)); listener({ type: event.type, sessionId: event.sessionId, displayId: event.displayId, revision: event.revision }); } catch { /* An inaccessible session must not leak even a change hint. */ } });
+    return this.onEvent(async event => { if (event.type === 'identify' || event.type === 'pointing') return; try { (await this.access(principal, event.sessionId)); listener({ type: event.type, sessionId: event.sessionId, displayId: event.displayId, revision: event.revision }); } catch { /* An inaccessible session must not leak even a change hint. */ } });
   }
   access = async (principal: AuthPrincipal, sessionId: string, minimum: Role = 'viewer'): Promise<Awaited<SessionRecord>> => {
     (await this.auth.assertCurrent(principal, minimum === 'viewer' ? 'read' : 'publish', sessionId));
@@ -344,6 +347,7 @@ export class KanvasService implements McpService {
     return value;
   }
   /** Observable facts for the response policy. Never content, never inference. */
+  async pointingEvents(principal:AuthPrincipal,connectionId:string,sessionId?:string){return this.pointing.forAgent(principal,connectionId,sessionId);}
   async responseContext(principal:AuthPrincipal,args:unknown,connectionId:string,failed=false):Promise<ResponseContext>{
     const a=args&&typeof args==='object'&&!Array.isArray(args)?args as {sessionId?:unknown}:{},out:ResponseContext={};
     // The installation default applies to every caller, also one whose grant is too narrow to read more.
@@ -355,6 +359,7 @@ export class KanvasService implements McpService {
       try{await this.access(principal,a.sessionId);const online=(await this.experience.receiving.viewers(a.sessionId,undefined,true)).length>0;out.displayConnected=online;/* A failed call records nothing. */out.mode=failed?await this.modes.read(a.sessionId):await this.modes.observeAgent(principal,a.sessionId,online);}catch{/* An unauthorized or ended session contributes nothing. */}
     }
     out.manage=manageMap();
+    if(!failed&&!principal.browserId){try{out.messageBoard=await this.board.notice(principal);}catch{/* A notice never replaces a result. */}}
     return out;
   }
   /** session.state for agents: what is needed before a display decision, not the whole log. */
@@ -685,8 +690,9 @@ export class KanvasService implements McpService {
     if(value.template==='instrument'&&process.env.KANVAS_INSTRUMENTS_ENABLED==='false')throw new AppError('FEATURE_DISABLED','Instrument publication is disabled on this installation.',403);
     if(value.template==='live-captions'&&process.env.KANVAS_CAPTIONS_ENABLED==='false')throw new AppError('FEATURE_DISABLED','Live Captions publication is disabled on this installation.',403);
     try{assertJsonBudget(value);}catch{throw new InputError([{path:'view',problem:'Exceeds the supported content size or complexity.'}]);}
-    if(value.template==='split-screen'&&Array.isArray(value.data.panes)){const panes:{id:string;view:ViewSpec}[]=[];for(const pane of value.data.panes as {id:string;view:ViewSpec}[])panes.push({...pane,view:await this.verifyView(principal,sessionId,pane.view)});value={...value,data:{...value.data,panes}};}
+    if(value.template==='split-screen'&&Array.isArray(value.data.panes))value={...value,data:await mapSplitViews(value.data,pane=>this.verifyView(principal,sessionId,pane))};
     if(value.template==='presentation'&&Array.isArray(value.data.slides)){const slides:ViewSpec[]=[];for(const slide of value.data.slides as ViewSpec[])slides.push(await this.verifyView(principal,sessionId,slide));value={...value,data:{...value.data,slides}};}
+    if(value.template==='monitor-stream')await this.monitorStreams.assertBindable(sessionId,String(value.data.streamId));
     if(value.template==='game-board'&&process.env.KANVAS_GAMES_ENABLED==='false')throw new AppError('FEATURE_DISABLED','Game publication is disabled; retained positions are preserved.',409);
     if(value.template==='account-template')value=await this.customTemplates.resolve(principal,value);
     if(value.template==='sale-poster'&&(value.data.html||value.data.css))validateStatic(String(value.data.html??''),String(value.data.css??''));
@@ -1337,6 +1343,10 @@ export class KanvasService implements McpService {
       case 'kanvas_tasklist_read':return this.taskLists.read(principal,a);
       case 'kanvas_tasklist_update':return this.taskLists.update(principal,a);
       case 'kanvas_tasklist_show':return this.taskLists.show(principal,a);
+      case 'kanvas_board_post':return this.board.post(principal,a);
+      case 'kanvas_board_read':return this.board.read(principal,a);
+      case 'kanvas_board_overview':return this.board.overview(principal,a);
+      case 'kanvas_board_update':return this.board.update(principal,a);
       case 'kanvas_monitor_stream_create':return this.monitorStreams.create(principal,a);
       case 'kanvas_monitor_stream_read':return this.monitorStreams.read(principal,a);
       case 'kanvas_monitor_stream_revoke':return this.monitorStreams.revoke(principal,a);
@@ -1529,7 +1539,7 @@ export class KanvasService implements McpService {
         const result=changesSettings?await this.experience.scopedSettings(principal,settings):{sessionId:a.sessionId};
         return {...(result as object),mode:await this.modes.set(principal,a.sessionId,requestedMode)};
       }
-      case 'kanvas_submit': { const result=await this.publication.show(principal,a as unknown as PublishInput);if(a.clientDetails&&'sessionId' in result&&typeof result.sessionId==='string')await this.recordAgentContext(principal,result.sessionId,a.clientDetails);return (a.view as ViewSpec|undefined)?.template==='settings'||a.templateHint==='settings'?{...result,settingsGuidance:{tool:'kanvas_config_update',sessionId:a.sessionId??('sessionId' in result?result.sessionId:undefined),readRevision:'Read session.state for configRevision; pass it as expectedRevision.',nextAction:'Apply user-requested changes now via settings.update with config:{style,theme,accent,readingFontSize,readingWpm,readingZoom}. This is live configuration, not static display content. Account defaults use profile preferences.update and its current revision; never change scope implicitly.'}}:result; }
+      case 'kanvas_submit': { const result=await this.publication.show(principal,a as unknown as PublishInput);if(a.clientDetails&&'sessionId' in result&&typeof result.sessionId==='string')await this.recordAgentContext(principal,result.sessionId,a.clientDetails);return (a.view as ViewSpec|undefined)?.template==='settings'||a.templateHint==='settings'?{...result,settingsGuidance:{tool:'kanvas_config_update',sessionId:a.sessionId??('sessionId' in result?result.sessionId:undefined),readRevision:'Read session.state for configRevision; pass it as expectedRevision.',nextAction:'Apply user-requested changes now via settings.update with config:{style,theme,accent,textSize,readingFontSize,readingWpm,readingZoom}. This is live configuration, not static display content. Account defaults use profile preferences.update and its current revision; never change scope implicitly.'}}:result; }
       case 'kanvas_presentation_navigate': return (await this.navigatePresentation(principal, a as unknown as PresentationNavigation));
       case 'kanvas_clear': return (await this.clear(principal, a.sessionId, a.displayIds, a.requestId));
       case 'kanvas_update_status': { (await this.access(principal, a.sessionId)); const update = required(a.updateId ? (await this.store.get<UpdateRecord>('update', a.updateId)) : (await this.retryStatus(principal, a.sessionId, a.requestId))); if (update.sessionId !== a.sessionId) throw new AppError('NOT_FOUND', 'This update is unavailable.', 404); return (await this.updateDelivery(update)); }

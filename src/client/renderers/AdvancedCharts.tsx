@@ -200,13 +200,21 @@ export function pieArc(cx: number, cy: number, radius: number, inner: number, st
   const c = polar(cx, cy, inner, end), d = polar(cx, cy, inner, start), im = polar(cx, cy, inner, (start + end) / 2);
   return full ? `${outer} L${c} A${inner},${inner} 0 0 0 ${im} A${inner},${inner} 0 0 0 ${d} Z` : `${outer} L${c} A${inner},${inner} 0 ${end - start > Math.PI ? 1 : 0} 0 ${d} Z`;
 }
+/** A round plot and its key share the measured area, never more: beside each other
+ * when the area is wider than tall (a split-screen pane, a landscape phone), stacked
+ * otherwise, with the plot giving way to the key so nothing scrolls (4b998939). */
+export function plotWithKey(width: number, height: number, items: number, max: number, sideShare = .56): { layout: 'side' | 'stacked'; size: number } {
+  if (width >= 420 && width >= height * 1.15) return { layout: 'side', size: Math.max(120, Math.min(width * sideShare, height - 4, max)) };
+  const key = Math.min(items * 32 + 14, height * .42);
+  return { layout: 'stacked', size: Math.max(120, Math.min(width, height - key - 10, max)) };
+}
 function ProportionPlot({ data, width, height, inspect, details }: PlotProps) {
   const pretty = useAxisNumber();
   const series = data.series[0], points = series?.points ?? [], total = points.reduce((sum, point) => sum + Number(point.y), 0);
   if (!(total > 0)) return <p className="content-empty">No positive proportion supplied.</p>;
-  const size = Math.max(260, Math.min(width < 650 ? width : width * .56, height, 670)), radius = size * .44, inner = data.kind === 'donut' ? radius * .58 : 0;
+  const { layout, size } = plotWithKey(width, height, points.length, 670), radius = size * .44, inner = data.kind === 'donut' ? radius * .58 : 0;
   let angle = -Math.PI / 2;
-  return <div className="advanced-plot-with-key"><Svg width={size} height={size} title={`${data.kind} chart of ${series.name}`}>
+  return <div className="advanced-plot-with-key" data-key-layout={layout}><Svg width={size} height={size} title={`${data.kind} chart of ${series.name}`}>
     {points.map((point, index) => {
       const start = angle; angle += Number(point.y) / total * Math.PI * 2;
       return Number(point.y) > 0 ? <path key={index} d={pieArc(size / 2, size / 2, radius, inner, start, angle)} fill={color(index)} stroke="var(--surface)" strokeWidth="1.5" {...pointMark(series.name, point, data, inspect)} data-chart-proportion={Number(point.y) / total}><title>{pointText(series.name, point, data)}</title></path> : null;
@@ -326,8 +334,9 @@ function geometryRings(geometry: ChartGeometry): [number, number][][] { return g
  * colour scale, the attribution line and any notes. On short landscape screens
  * the map gives way so the legend is never pushed below the viewport. */
 export function choroplethPlotHeight(available: number, shown: { warning?: boolean; dots?: boolean; scale?: boolean } = {}): number {
-  const reserved = 26 + (shown.scale === false ? 0 : 34) + (shown.warning ? 34 : 0) + (shown.dots ? 24 : 0);
-  return Math.max(110, Math.min(available - reserved, 640));
+  // No fixed ceiling: on a tall or large screen the map takes the height that is there (8bfdf7b0).
+  const reserved = (shown.scale === false ? 0 : 34) + (shown.warning ? 34 : 0) + (shown.dots ? 24 : 0);
+  return Math.max(110, available - reserved);
 }
 export function choroplethPaths(data: ChartData, width: number, height: number): { id: string; path: string }[] {
   const entries=(data.regions??[]).map(region=>({region,rings:geometryRings(regionGeometry(region)),point:region.geometry?undefined:geographyPoints[geographyCodes[region.countryCode!.toUpperCase()]]}));
@@ -340,11 +349,11 @@ export function choroplethPaths(data: ChartData, width: number, height: number):
 
 function ChoroplethPlot({ data, width, height, inspect, uid, details }: PlotProps) {
   const pretty = useAxisNumber();
-  const excluded=(data.regions??[]).filter(r=>!r.geometry&&!geographyCodes[r.countryCode!.toUpperCase()]), regions=(data.regions??[]).filter(r=>!excluded.includes(r)), plotHeight = choroplethPlotHeight(height, { warning: excluded.length > 0, dots: regions.some(r=>!r.geometry&&Boolean(geographyPoints[geographyCodes[r.countryCode!.toUpperCase()]])), scale: regions.some(r => number(r.value)) }), paths = useMemo(() => choroplethPaths(data, width, plotHeight), [data, width, plotHeight]);
+  const excluded=(data.regions??[]).filter(r=>!r.geometry&&!geographyCodes[r.countryCode!.toUpperCase()]), regions=(data.regions??[]).filter(r=>!excluded.includes(r)), plotHeight = choroplethPlotHeight(height, { warning: excluded.length > 0, dots: data.territoryNote===true&&regions.some(r=>!r.geometry&&Boolean(geographyPoints[geographyCodes[r.countryCode!.toUpperCase()]])), scale: regions.some(r => number(r.value)) }), paths = useMemo(() => choroplethPaths(data, width, plotHeight), [data, width, plotHeight]);
   const values = regions.flatMap(region => number(region.value) ? [region.value] : []), min = Math.min(...values), max = Math.max(...values), magnitude = Math.max(Math.abs(min), Math.abs(max));
   const fill = (value: number) => min < 0 && max > 0 ? value < 0 ? falling : 'var(--accent)' : 'var(--accent)';
   const opacity = (value: number) => min < 0 && max > 0 ? .22 + .73 * Math.abs(value) / magnitude : min === max ? .76 : .2 + .75 * ((value - min) / (max - min));
-  return <div className="advanced-hierarchy">{!!excluded.length&&<p role="status" className="choropleth-warning">Not mapped (unsupported codes): {excluded.map(r=>`${r.label??r.id} (${r.countryCode})`).join(', ')}. Supply GeoJSON to include these regions.</p>}{regions.some(r=>!r.geometry&&geographyPoints[geographyCodes[r.countryCode!.toUpperCase()]])&&<small>Dots mark approximate small-territory locations, not area or boundaries.</small>}<Svg width={width} height={plotHeight} title="Choropleth of supplied region boundaries; unobserved regions remain no data">
+  return <div className="advanced-hierarchy">{!!excluded.length&&<p role="status" className="choropleth-warning">Not mapped (unsupported codes): {excluded.map(r=>`${r.label??r.id} (${r.countryCode})`).join(', ')}. Supply GeoJSON to include these regions.</p>}{data.territoryNote===true&&regions.some(r=>!r.geometry&&geographyPoints[geographyCodes[r.countryCode!.toUpperCase()]])&&<small className="choropleth-territory-note">Dots mark approximate small-territory locations, not area or boundaries.</small>}<Svg width={width} height={plotHeight} title="Choropleth of supplied region boundaries; unobserved regions remain no data">
     <defs><pattern id={`${uid}-missing`} patternUnits="userSpaceOnUse" width="8" height="8"><path d="M-2,2 L2,-2 M0,8 L8,0 M6,10 L10,6" stroke="var(--muted)" strokeOpacity=".4" strokeWidth="1" /></pattern></defs>
     {regions.map((region, index) => { const description = `${region.label ?? region.id}: ${region.value === null || region.value === undefined ? 'No data' : exact(region.raw?.value ?? region.value)}${number(region.value) && data.unit ? ` ${data.unit}` : ''}`; return <path key={region.id} d={paths.find(p=>p.id===region.id)?.path} fill={number(region.value) ? fill(region.value) : `url(#${uid}-missing)`} fillOpacity={number(region.value) ? opacity(region.value) : 1} fillRule="evenodd" stroke="var(--text)" strokeOpacity=".65" strokeWidth="1.2" vectorEffect="non-scaling-stroke" {...mark(description, inspect, 'choropleth-region')} data-chart-region={region.id} data-chart-value={region.value ?? 'no-data'}><title>{description}</title></path>; })}
   </Svg>{values.length > 0 && <div className="advanced-color-scale" aria-label={`Color scale ${min} to ${max}${data.unit ? ` ${data.unit}` : ''}`}><span>{pretty(min)}</span><i style={{ background: min < 0 && max > 0 ? `linear-gradient(90deg, ${falling}, var(--surface), var(--accent))` : 'linear-gradient(90deg, color-mix(in srgb, var(--accent) 20%, var(--surface)), var(--accent))' }} /><span>{pretty(max)}{data.unit ? ` ${data.unit}` : ''}</span></div>}
@@ -420,7 +429,7 @@ function ExactDataTable({ data }: { data: ChartData }) {
   return <div className="advanced-data-table" tabIndex={0} aria-label="Exact supplied chart data"><table><thead><tr>{table.columns.map(column => <th key={column} scope="col">{column}</th>)}</tr></thead><tbody>{table.rows.map((row, index) => <tr key={index}>{table.columns.map(column => <td key={column}>{row[column] === null || row[column] === undefined ? '—' : String(row[column])}</td>)}</tr>)}</tbody></table></div>;
 }
 
-export function AdvancedChartRenderer({ data, showControls = false, showSource = false }: { data: ChartData; showControls?: boolean; showSource?: boolean }) {
+export function AdvancedChartRenderer({ data, showControls = false }: { data: ChartData; showControls?: boolean }) {
   const root = useRef<HTMLDivElement>(null), body = useRef<HTMLDivElement>(null), uid = useId().replace(/[^A-Za-z0-9_-]/g, '');
   const [viewport, setViewport] = useState({ width: 960, height: 530, preview: false }), [selected, setSelected] = useState<string | null>(null), [showData, setShowData] = useState(false);
   useEffect(() => { setSelected(null); setShowData(false); }, [data]);
@@ -439,7 +448,7 @@ export function AdvancedChartRenderer({ data, showControls = false, showSource =
   else if (data.kind === 'network') plot = <NetworkPlot {...props} />;
   else if (data.kind === 'treemap') plot = <TreemapPlot {...props} />;
   else if (data.kind === 'sankey') plot = <SankeyPlot {...props} />;
-  else if (data.kind === 'choropleth') plot = <><ChoroplethPlot {...props}/>{data.regions?.some(r=>r.countryCode)&&<small className="geography-attribution">Natural Earth · 1:110m generalized boundaries · public domain</small>}</>;
+  else if (data.kind === 'choropleth') plot = <ChoroplethPlot {...props}/>;
   else if (data.kind === 'gauge') plot = <GaugePlot {...props} />;
   else if (data.kind === 'funnel') plot = <FunnelPlot {...props} />;
   else plot = <p className="content-empty">No advanced chart selected.</p>;
@@ -447,7 +456,6 @@ export function AdvancedChartRenderer({ data, showControls = false, showSource =
     {(showControls || data.series.length > 1) && <div className="advanced-chart-toolbar">{data.series.length > 1 && <div className="advanced-series-key">{data.series.map((series, index) => <span key={index}><i style={{ background: seriesColor(index, data.series.length) }} />{series.name}</span>)}</div>}{showControls && <button type="button" className="advanced-data-control" aria-expanded={showData} onClick={() => { setSelected(null); setShowData(value => !value); }}>{showData ? 'Chart' : 'Data'}</button>}</div>}
     <div ref={body} className="advanced-chart-body" data-navigation-scroll tabIndex={0} aria-label={showData ? 'Scrollable exact source data' : `Scrollable ${data.kind} chart`}>{viewport.preview ? <div className="advanced-preview-canvas" style={{ width: 960, height: 530, transform: `scale(${Math.min(viewport.width / 960, viewport.height / 530)})` }}>{plot}</div> : showData ? <ExactDataTable data={data} /> : plot}</div>
     {selected && <div className="advanced-chart-readout" role="status" aria-live="polite">{selected}</div>}
-    {showSource && data.summary && <p className="advanced-source-summary">{sourceSummary(data.summary)}</p>}
     {isAdvancedChartKind(data.kind) && <span className="sr-only">One source-backed visual. Focus a mark for its supplied values.{showControls ? ' Data opens the exact source values.' : ''}</span>}
   </div>;
 }

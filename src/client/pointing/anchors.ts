@@ -1,4 +1,4 @@
-import { pointingTextKey,type PointingAnchor } from '../../shared/pointing';
+import { pointingTextKey,type PointingAnchor,type PointingTarget } from '../../shared/pointing';
 import type { ViewSpec } from '../../shared/types';
 import { navigationLeaf } from '../../shared/navigation';
 const units='p,li,h1,h2,h3,h4,h5,pre,blockquote,.number-value,.json-line,.code-line';
@@ -32,10 +32,30 @@ export function anchorAt(root:HTMLElement,view:ViewSpec,x:number,y:number,tolera
 }
 function textRange(el:Element,start:number,end:number){const walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT),r=document.createRange();let at=0,started=false;for(let n=walker.nextNode();n;n=walker.nextNode()){const length=n.textContent?.length??0;if(!started&&start>=at&&start<at+length){r.setStart(n,start-at);started=true;}if(started&&end<=at+length){r.setEnd(n,Math.max(0,end-at));return r;}at+=length;}return undefined;}
 function clipped(rect:DOMRect|{left:number;top:number;width:number;height:number},el:Element,root:HTMLElement){let l=rect.left,t=rect.top,r=l+rect.width,b=t+rect.height;for(let p:Element|null=el;p;p=p.parentElement){if(p===root||/auto|scroll|hidden|clip/.test(`${getComputedStyle(p).overflowX} ${getComputedStyle(p).overflowY}`)){const box=p.getBoundingClientRect();l=Math.max(l,box.left);t=Math.max(t,box.top);r=Math.min(r,box.right);b=Math.min(b,box.bottom);}if(p===root)break;}return r>l&&b>t?{left:l,top:t,width:r-l,height:b-t}:undefined;}
+/** Coordinates as a fraction of the visible view, the fallback for anything without a semantic target. */
+export function pointAt(root:HTMLElement,x:number,y:number){const r=root.getBoundingClientRect();if(!r.width||!r.height)return undefined;return {x:Math.min(1,Math.max(0,(x-r.left)/r.width)),y:Math.min(1,Math.max(0,(y-r.top)/r.height))};}
+const squeeze=(value:string|null|undefined,max:number)=>{const text=(value??'').replace(/\s+/g,' ').trim();return text?text.length>max?`${text.slice(0,max-1)}…`:text:undefined;};
+const roles:[string,string][]=[['h1,h2,h3,h4,h5','heading'],['td,th','table cell'],['li','list item'],['figure,img,picture','image'],['[data-chart-series]','chart mark'],['svg','graphic'],['blockquote','quote'],['pre,code,.code-line','code'],['p','paragraph']];
+/** What the rendered view shows under a point: display text only, read from the DOM that is already on screen.
+ * `doc` is the pane document inside a split screen. */
+export function describeTarget(root:Element,x:number,y:number,anchor:PointingAnchor|undefined,doc:Document=document):PointingTarget|undefined{
+  const hit=doc.elementFromPoint(x,y);if(!hit||!root.contains(hit))return undefined;
+  const target:PointingTarget={};
+  for(const [selector,role] of roles){if(hit.closest(selector)){target.role=role;break;}}
+  if(anchor?.kind==='chart'){target.role='chart mark';target.label=squeeze(`${anchor.series?`${anchor.series}: `:''}${anchor.x} = ${anchor.y}`,200);return target;}
+  if(anchor?.kind==='text'){const unit=hit.closest(units)??hit,text=unit.textContent??'';target.label=squeeze(text.slice(anchor.start,anchor.end),200);target.context=squeeze(text,300);return target;}
+  const labelled=hit.closest<HTMLElement>('[data-point-label],[aria-label],[title],[alt]');
+  const own=hit.closest('td,th,li,h1,h2,h3,h4,h5,p,button,figcaption,blockquote,[data-chart-series],text,tspan')??hit;
+  target.label=squeeze(labelled?.dataset.pointLabel,200)??squeeze((own.textContent??'').length<=400?own.textContent:undefined,200)??squeeze(labelled?.getAttribute('aria-label')??labelled?.getAttribute('alt')??labelled?.getAttribute('title'),200);
+  const block=own.closest('section,article,li,tr,figure,[data-pane-id]');if(block&&block!==own)target.context=squeeze((block.textContent??'').length<=600?block.textContent:undefined,300);
+  if(target.context===target.label)delete target.context;
+  return target.role||target.label?target:undefined;
+}
 export function anchorRects(root:HTMLElement,view:ViewSpec,anchor:PointingAnchor){let el:Element|undefined,rects:({left:number;top:number;width:number;height:number}|DOMRect)[]=[];
+  if(anchor.kind==='point'){const r=root.getBoundingClientRect();return r.width&&r.height?[{left:r.left+anchor.x*r.width-14,top:r.top+anchor.y*r.height-14,width:28,height:28}]:[];}
   if(anchor.kind==='text'){el=textUnits(root).filter(x=>pointingTextKey(x.textContent??'')===anchor.key)[anchor.occurrence];if(el){const r=textRange(el,anchor.start,anchor.end);if(r)rects=[...r.getClientRects()];}}
   else if(anchor.kind==='cell'){const columns=navigationLeaf(view)?.data.columns as string[]|undefined,index=columns?.indexOf(anchor.column)??-1;const row=[...root.querySelectorAll<HTMLElement>('tr[data-source-row]')].find(x=>Number(x.dataset.sourceRow)===anchor.row);if(index>=0)el=row?.children[index];if(el)rects=[el.getBoundingClientRect()];}
   else if(anchor.kind==='chart'){el=[...root.querySelectorAll<HTMLElement>('[data-chart-series][data-chart-x][data-chart-y]')].find(x=>x.dataset.chartSeries===anchor.series&&x.dataset.chartX===anchor.x&&x.dataset.chartY===anchor.y);if(el){const r=el.getBoundingClientRect();rects=[{left:r.left-3,top:r.top-3,width:Math.max(8,r.width+6),height:Math.max(8,r.height+6)}];}}
-  else{const img=[...root.querySelectorAll<HTMLImageElement>('img')].find(x=>Number(x.closest<HTMLElement>('[data-image-index]')?.dataset.imageIndex??0)===anchor.index&&visible(x));if(img){el=img;const r=imageRect(img);if(r)rects=[{left:r.left+anchor.x*r.width-9,top:r.top+anchor.y*r.height-9,width:18,height:18}];}}
+  else if(anchor.kind==='image'){const img=[...root.querySelectorAll<HTMLImageElement>('img')].find(x=>Number(x.closest<HTMLElement>('[data-image-index]')?.dataset.imageIndex??0)===anchor.index&&visible(x));if(img){el=img;const r=imageRect(img);if(r)rects=[{left:r.left+anchor.x*r.width-9,top:r.top+anchor.y*r.height-9,width:18,height:18}];}}
   if(!el||!visible(el))return[];return rects.map(r=>clipped(r,el!,root)).filter((r):r is NonNullable<typeof r>=>!!r);
 }

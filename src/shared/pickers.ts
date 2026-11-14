@@ -44,10 +44,30 @@ export const iconUrl=(icon:IconParts)=>icon.set===ICONIFY_SET?`/api/picker/icons
 export const iconId=(icon:IconParts)=>icon.set===ICONIFY_SET?icon.name:`${icon.set}:${icon.name}${icon.variant&&icon.variant!==core(icon).defaultVariant?`/${icon.variant}`:''}`;
 export const iconSetTitle=(icon:IconParts)=>icon.set===ICONIFY_SET?`Iconify ${icon.name.split(':')[0]}`:core(icon).title;
 export const iconVariants=(icon:IconParts):string[]=>icon.set===ICONIFY_SET?[]:Object.keys(core(icon).variants);
+/** One written form everywhere an icon can be given: the id kanvas.icons.search returns. A core set is
+ * set:name or set:name/variant ("lucide:mail-dot", "heroicons:envelope/solid"); a catalogue icon is collection:name. */
+export function parseIconId(value:string):IconRef|undefined{
+ const [head,variant,...extra]=value.trim().split('/');if(extra.length)return undefined;
+ const at=head.indexOf(':');if(at<1)return undefined;
+ const set=head.slice(0,at),name=head.slice(at+1);
+ const candidate=Object.hasOwn(ICON_SETS,set)?{set:set as IconSetId,name,...(variant?{variant}:{})}:variant?undefined:{set:ICONIFY_SET,name:head} as const;
+ if(!candidate)return undefined;
+ const parsed=iconRefSchema.safeParse(candidate);if(!parsed.success)return undefined;
+ if(parsed.data.set!==ICONIFY_SET&&parsed.data.variant&&!Object.hasOwn(ICON_SETS[parsed.data.set as IconSetId].variants,parsed.data.variant))return undefined;
+ return parsed.data;
+}
+export const ICON_PATH_PREFIX='/api/picker/icons/';
+/** True for an icon served by this Kanvas: single-colour artwork that can take the text colour. */
+export function isPickerIconUrl(value:string,origin?:string):boolean{
+ try{const url=new URL(value,origin??'http://kanvas.invalid');return url.pathname.startsWith(ICON_PATH_PREFIX)&&url.pathname.endsWith('.svg')&&(value.startsWith('/')||(!!origin&&url.origin===new URL(origin).origin));}catch{return false;}
+}
+export const iconIdSchema=z.string().max(120).refine(value=>Boolean(parseIconId(value)),'Use an icon id from kanvas.icons.search, e.g. "lucide:mail-dot".');
+/** Either written form of the same reference. */
+export const iconRefOf=(icon:IconRef|string):IconRef=>typeof icon==='string'?parseIconId(icon)!:icon;
 export const iconPickerDataSchema=z.object({
  mode:z.enum(['candidates','sets','variants','context']).default('candidates'),
  concept:z.string().max(80).optional(),
- icons:z.array(iconRefSchema).min(1).max(24),
+ icons:z.array(z.union([iconRefSchema,iconIdSchema])).min(1).max(24).describe('Each icon is {set,name,variant?} or the id string from kanvas.icons.search ("lucide:mail-dot").'),
  selected:z.number().int().min(1).max(24).optional(),
 }).strict();
 export type IconPickerData=z.infer<typeof iconPickerDataSchema>;
@@ -105,6 +125,7 @@ export const fontPickerDataSchema=z.object({
  text:z.string().min(1).max(160).default('The quick brown fox jumps over the lazy dog'),
  fonts:z.array(fontRefSchema).min(1).max(12),
  selected:z.number().int().min(1).max(12).optional(),
+ sampleSize:z.number().int().min(10).max(96).optional().describe('Sample text size in CSS px, e.g. 18. Omit to size samples to the screen.'),
 }).strict().superRefine((data,ctx)=>{
  if(data.mode==='pairings'&&data.fonts.length%2)ctx.addIssue({code:'custom',path:['fonts'],message:'pairings mode takes fonts two at a time: heading, then body.'});
 });

@@ -15,11 +15,11 @@ export function inlineDatasetForSubmission(submission: SubmissionInput, datasetI
   if (typeof objectData(data?.binding)?.datasetId === 'string') return;
   const canBeDataset = !submission.templateHint || ['chart', 'table', 'number'].includes(submission.templateHint);
   let inline: ReturnType<typeof parseDataset> | undefined;
-  if (canBeDataset && data && ['rows', 'csv', 'json'].some(key => Object.hasOwn(data, key))) inline = parseDataset({ name: 'Inline source', rows: data.rows, csv: data.csv as string | undefined, json: data.json as string | undefined, source: submission.source });
-  else if (canBeDataset && Array.isArray(submission.data) && submission.data.length && objectData(submission.data[0])) inline = parseDataset({ name: 'Inline source', rows: submission.data, source: submission.source });
+  if (canBeDataset && data && ['rows', 'csv', 'json'].some(key => Object.hasOwn(data, key))) inline = parseDataset({ name: 'Inline source', rows: data.rows, csv: data.csv as string | undefined, json: data.json as string | undefined});
+  else if (canBeDataset && Array.isArray(submission.data) && submission.data.length && objectData(submission.data[0])) inline = parseDataset({ name: 'Inline source', rows: submission.data});
   else if (canBeDataset) {
     const source = inlineTabularText(submission);
-    if (source) inline = parseDataset({ name: 'Inline source', ...source, source: submission.source });
+    if (source) inline = parseDataset({ name: 'Inline source', ...source});
   }
   if (!inline) return;
   const { summary: _summary, ...parsed } = inline;
@@ -56,7 +56,7 @@ export function createInterpreter(): Interpreter {
       const input = prepareInput(originalInput);
       let view;
       try {
-        if (input.submission.view) view = validateView({ ...input.submission.view, source: input.submission.view.source ?? input.submission.source });
+        if (input.submission.view) view = validateView(input.submission.view);
         else {
           preflightSourceRequirements(input);
           view = renderSuppliedContent(input).view;

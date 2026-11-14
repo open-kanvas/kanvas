@@ -103,11 +103,11 @@ export const MONITOR_CONFIG: MonitoringConfig = {
   mode: 'json', url: MONITOR_URL, intervalSeconds: 30, durationSeconds: 180,
   template: 'number', mapping: { value: { $path: '/price' }, label: { $path: '/label' } },
 };
-export const fact = (text = LITERAL): ViewSpec => ({ version: 1, template: 'fact', data: { text }, source: EXACT_SOURCE });
+export const fact = (text = LITERAL): ViewSpec => ({ version: 1, template: 'fact', data: { text }});
 export const transcript = (): ViewSpec => ({
   version: 1, template: 'transcription', title: 'Exact authored title', showTitle: false,
   data: { segments: [{ id: 'utterance-001', text: LITERAL, speaker: 'Speaker 0001', timestamp: '00:01.250' }, { id: 'untouched', text: 'Untouched sibling 9007199254740993' }], status: 'live', language: 'nb' },
-  source: EXACT_SOURCE, actions: [{ id: 'reply', kind: 'input', label: 'kanvas_submit is a literal label' }],
+  actions: [{ id: 'reply', kind: 'input', label: 'kanvas_submit is a literal label' }],
 });
 
 /** Snapshot committed state via a separate PostgreSQL pool, never a mock or
@@ -266,14 +266,14 @@ export class ParityWorld {
     this.ids.viewer = result.viewerId;
   }
   async video(withCommand = false) {
-    await this.publish({ version: 1, template: 'video', data: { url: 'https://example.com/exact-video.mp4', start: 1.25, end: 20.75, muted: true }, source: EXACT_SOURCE });
+    await this.publish({ version: 1, template: 'video', data: { url: 'https://example.com/exact-video.mp4', start: 1.25, end: 20.75, muted: true }});
     if (withCommand) {
       const result = await this.canonical<{ id: string }>('kanvas_video_control', { ...(await this.request()), requestId: 'seed-command', command: { action: 'seek', time: 12.375 } });
       this.ids.command = result.id;
     }
   }
   async timer() {
-    await this.publish({ version: 1, template: 'countdown', data: { endsAt: new Date(FIXED_TIME + 61_375).toISOString(), label: LITERAL, completeText: 'Exactly complete' }, source: EXACT_SOURCE });
+    await this.publish({ version: 1, template: 'countdown', data: { endsAt: new Date(FIXED_TIME + 61_375).toISOString(), label: LITERAL, completeText: 'Exactly complete' }});
   }
   async monitor(sample = true) {
     const result = await this.canonical<MonitoringSummary>('kanvas_monitoring_start', { ...(await this.request()), requestId: 'seed-monitor', config: MONITOR_CONFIG });
@@ -381,7 +381,7 @@ export async function verifySuccessfulFixture(name: CanonicalFixture, w: ParityW
     case 'kanvas_presentations_list': expect(result).toMatchObject([{ id: w.ids.deck, slides: [fact(), fact('Second exact slide 0002')] }]); break;
     case 'kanvas_interactions_read': expect(result).toMatchObject({ interactions: [{ id: w.ids.interaction, value: LITERAL, status: 'pending', targetAgentId: w.principal.agentId }] }); break;
     case 'kanvas_display_current': expect(result).toMatchObject({ id: w.displayId, view: fact(), latestUpdate: { status: 'prepared' } }); break;
-    case 'kanvas_view_validate': expect(result).toMatchObject({ valid: true, published: false, view: { template: 'table', data: { rows: EXACT_ROWS }, source: EXACT_SOURCE } }); break;
+    case 'kanvas_view_validate': expect(result).toMatchObject({ valid: true, published: false, view: { template: 'table', data: { rows: EXACT_ROWS } } }); break;
     case 'kanvas_styles_list': expect((result as { styles: unknown[] }).styles).toHaveLength(8); break;
     case 'kanvas_preferences_get': expect(result).toMatchObject({ revision: 1, config: { readingFontSize:28 } }); break;
     case 'kanvas_pairings_read': expect(result).toMatchObject([{ id: w.ids.pairing, status: 'pending', label: 'Violet Otter 23' }]); expect((result as object[])[0]).not.toHaveProperty('proofHash'); break;
@@ -400,7 +400,7 @@ export async function verifySuccessfulFixture(name: CanonicalFixture, w: ParityW
     }
     case 'kanvas_address_get': expect(result).toMatchObject({ access: 'locator-only' }); expect((await w.store.list<{ displayId?: string }>('alias', w.sessionId)).some(alias => alias.displayId === undefined)).toBe(true); expect((await w.store.list('pairing'))).toEqual([]); break;
     case 'kanvas_submit': expect(current.view).toEqual(transcript()); expect(current.revision).toBe(w.before.revision + 1); expect(w.generatedInputs).toEqual([]); break;
-    case 'kanvas_display_edit': expect(current.view?.data).toEqual({ segments: [{ id: 'replacement', text: 'Full replacement 00123.4500' }], status: 'complete' }); expect(current.view?.data).not.toHaveProperty('language'); expect(current.view?.source).toEqual(EXACT_SOURCE); expect(current.view?.title).toBe('Exact authored title'); expect(current.revision).toBe(w.before.revision + 1); break;
+    case 'kanvas_display_edit': expect(current.view?.data).toEqual({ segments: [{ id: 'replacement', text: 'Full replacement 00123.4500' }], status: 'complete' }); expect(current.view?.data).not.toHaveProperty('language'); expect(current.view).not.toHaveProperty('source'); expect(current.view?.title).toBe('Exact authored title'); expect(current.revision).toBe(w.before.revision + 1); break;
     case 'kanvas_view_patch': expect(current.view).toEqual({ ...transcript(), data: { ...transcript().data, status: 'complete', segments: [{ id: 'utterance-001', text: LITERAL + APPENDED, speaker: 'Speaker 0001', timestamp: '00:01.250' }, { id: 'untouched', text: 'Untouched sibling 9007199254740993' }] } }); expect(current.revision).toBe(w.before.revision + 1); expect(current.interactionEpoch).toBe(w.before.interactionEpoch); break;
     case 'kanvas_toast': expect(result).toMatchObject({ notifications: [{ text: LITERAL, severity: 'warning', displayId: w.displayId }] }); expect(current).toEqual(w.before); expect((await w.store.list('toast'))).toHaveLength(1); break;
     case 'kanvas_displays_identify': expect(result).toMatchObject({ identified: [{ displayId: w.displayId }], durationMs: 1500 }); expect(current).toEqual(w.before); break;
@@ -408,7 +408,7 @@ export async function verifySuccessfulFixture(name: CanonicalFixture, w: ParityW
     case 'kanvas_display_navigate': expect(current.view).toEqual(fact()); expect(current.revision).toBe(w.before.revision + 1); expect(w.generatedInputs).toEqual([]); break;
     case 'kanvas_video_control': expect(result).toMatchObject({ action: 'seek', time: 12.375, status: 'pending' }); expect((await w.store.list('video-command'))).toHaveLength(1); expect(current).toEqual(w.before); break;
     case 'kanvas_timer_control': expect(current.view?.data).toEqual({ ...w.before.view!.data, pausedRemainingSeconds: 61.375 }); break;
-    case 'kanvas_map_camera': expect(current.view?.data).toEqual({ ...w.before.view!.data, center: { lat: 58.4612345678, lng: 8.7723456789 }, zoom: 12.375 }); expect(current.view?.source).toEqual(w.before.view!.source); break;
+    case 'kanvas_map_camera': expect(current.view?.data).toEqual({ ...w.before.view!.data, center: { lat: 58.4612345678, lng: 8.7723456789 }, zoom: 12.375 }); expect(current.view).not.toHaveProperty('source'); break;
     case 'kanvas_presentation_create': expect(result).toMatchObject({ name: 'Exact retained presentation', slides: [fact(), transcript()] }); expect((await w.store.list('deck'))).toHaveLength(1); expect(current).toEqual(w.before); break;
     case 'kanvas_presentation_cue': expect(current.view).toMatchObject({ template: 'presentation', data: { index: 1, slides: [fact(), fact('Second exact slide 0002')] } }); expect(current.interactionEpoch).toBe(`deck:${w.ids.deck}`); break;
     case 'kanvas_presentation_navigate': expect(current.view).toMatchObject({ template: 'presentation', data: { index: 1, slides: [fact(), transcript()] } }); expect(current.interactionEpoch).toBe(w.before.interactionEpoch); expect(current.revision).toBe(w.before.revision + 1); break;

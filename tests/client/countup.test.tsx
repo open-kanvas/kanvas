@@ -78,8 +78,8 @@ describe('count-up renderer semantics', () => {
     const defaultHtml = renderToStaticMarkup(<Renderer view={view} />);
     expect(defaultHtml).toContain('Time since launch'); expect(defaultHtml).not.toContain('class="view-heading"');
     expect(defaultHtml).not.toContain('<details');
-    const requested = renderToStaticMarkup(<Renderer view={{ ...view, showTitle: true, showSource: true, showControls: true }} />);
-    expect(requested).toContain('class="view-heading"'); expect(requested).toContain('Stored source');
+    const requested = renderToStaticMarkup(<Renderer view={{ ...view, showTitle: true, showControls: true }} />);
+    expect(requested).toContain('class="view-heading"'); expect(requested).not.toContain('view-information');
     expect(requested).toContain('Timer details');
   });
 });

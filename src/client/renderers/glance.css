@@ -79,27 +79,6 @@
 .countdown-detail>summary,.fact-details>summary{margin-inline:auto}.countdown-detail time{overflow-wrap:anywhere}
 .fact-details .fact-items{font-size:clamp(1rem,2cqw,1.6rem);line-height:1.55}
 
-/* Opt-in provenance takes only its actual space. Its panel opens above the
-   control; default surfaces contain neither a trigger nor an invisible footer. */
-.view-information{position:relative;align-self:flex-start;flex-shrink:0;margin-top:12px;z-index:20;max-width:100%;color:var(--text);font-size:1rem;line-height:1.5}
-.render-surface.is-live.is-full-bleed>.view-information{margin:8px var(--live-padding);max-width:calc(100% - 2 * var(--live-padding))}
-.view-information>summary{display:flex;align-items:center;gap:10px;flex-wrap:wrap;list-style:none;min-height:44px;padding:9px 14px;border:1px solid var(--line);border-radius:24px;background:var(--surface);cursor:pointer;box-shadow:0 2px 12px #0000000a}
-.view-information>summary::-webkit-details-marker{display:none}.view-information>summary:hover{background:var(--panel)}
-.view-information[open]>summary{border-color:var(--text)}
-.view-information .illustrative-label{font-size:1rem;line-height:1.5;text-transform:none;letter-spacing:0;font-weight:600;border:0;padding:0}.illustrative-label:after{content:'·';font-weight:400;margin-left:10px}
-.view-information-panel{position:absolute;left:0;bottom:calc(100% + 10px);width:min(460px,calc(100cqw - 32px));max-height:calc(100cqh - 100px);overflow:auto;overscroll-behavior:contain;padding:24px;background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 12px 40px #0003;overflow-wrap:anywhere}
-.view-information-panel h2{font-size:1.25rem;line-height:1.4;padding-right:30px;margin-bottom:16px}
-.view-information-panel :is(p,a){font-size:1rem;line-height:1.6;display:block;margin-top:12px}
-.view-information-panel a{text-decoration:underline;text-underline-offset:3px}
-.view-information-panel .information-close{position:absolute;right:8px;top:8px;width:44px;height:44px;font-size:1.6rem;line-height:1;border-radius:10px}
-.information-close:hover{background:var(--panel-alt)}.information-illustrative{font-weight:600}
-.information-caption{margin-top:16px}.information-caption h3{font-size:1rem;font-weight:600}.information-caption p{white-space:pre-wrap}
-.view-information.view-information-menu{position:relative;align-self:stretch;margin:0;max-width:100%;width:100%;z-index:auto}
-.view-information-menu>summary{border:0;box-shadow:none;border-radius:8px;padding:12px 10px}
-.view-information-menu>.view-information-panel{position:relative;left:auto;bottom:auto;width:100%;max-height:none;box-shadow:none;border:0;border-radius:8px;padding:16px 10px}
-.view-information-menu .information-close{right:0}
-.render-surface.template-weather.has-view-information{background:#0e1929}
-.template-weather>.view-information{--surface:#14283c;--panel:#19334b;--panel-alt:#29485e;--text:#f0f7ff;--line:#668ba66b}
 @container(max-width:600px){
   .render-surface.is-live>.render-body>.product-content .product-intro,.render-surface.is-live>.render-body>.profile-content,.render-surface.is-live>.render-body>.recipe-content>header{flex-direction:column;align-items:stretch;gap:20px}
   .render-surface.is-live>.render-body>.product-content .product-intro>.extended-photo,.render-surface.is-live>.render-body>.recipe-content>header>.extended-photo{width:100%;max-height:32cqh;object-fit:contain}
@@ -109,9 +88,6 @@
   .render-surface.is-live>.render-body>.whiteboard-content:has(>.board-zoom)>.board-style{bottom:calc(var(--board-controls-bottom) + 66px);max-width:calc(100% - var(--board-edge-left) - var(--board-edge-right))}
 }
 @container(max-width:500px){
-  .view-information{font-size:1rem}
-  .view-information>summary{gap:6px;padding:8px 12px}.illustrative-label:after{margin-left:6px}
-  .view-information-panel{width:calc(100cqw - 24px);padding:22px 18px}
   .render-surface:not(.is-preview) .kpi-content:not(.is-preview *){grid-template-columns:1fr;gap:18px;overflow:auto;align-content:safe center}
   .render-surface:not(.is-preview) .code-toolbar>span:not(.is-preview *){flex:1 1 100%}
   .render-surface:not(.is-preview) .code-toolbar>div:not(.is-preview *){width:100%;justify-content:space-between}

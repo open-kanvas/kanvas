@@ -6,7 +6,6 @@ const heading = 'A supplied outer clock heading that must remain fully readable 
 const source = { title: 'Synthetic clock layout acceptance' };
 const clock = (zones: boolean, qualified: boolean, extra: Partial<ViewSpec> = {}): ViewSpec => ({
   version: 1, template: 'clock', title: heading,
-  ...(qualified ? { source } : {}),
   data: {
     timeZone: 'Europe/Oslo', label: 'Arendal', hourFormat: '24h', showSeconds: true, showDate: true,
     ...(zones ? { zones: [{ timeZone: 'America/New_York', label: 'New York' }, { timeZone: 'Asia/Tokyo', label: 'Tokyo' }] } : {}),
@@ -14,7 +13,7 @@ const clock = (zones: boolean, qualified: boolean, extra: Partial<ViewSpec> = {}
   ...extra,
 });
 
-async function assertClockLayout(viewer: Page, qualified: boolean, showDate: boolean, showSource = false) {
+async function assertClockLayout(viewer: Page, qualified: boolean, showDate: boolean) {
   const surface = viewer.locator('.viewer-candidate .template-clock');
   await expect(surface.locator('.clock-primary-time')).toBeVisible();
   await viewer.evaluate(() => document.fonts.ready.then(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))));
@@ -84,7 +83,7 @@ async function assertClockLayout(viewer: Page, qualified: boolean, showDate: boo
   }
   if (!showDate) expect(geometry.readings.some(reading => reading.actualDifference), 'Opposite-date-line zones disclose their real day difference').toBe(true);
   await expect(surface.locator('.view-qualification,.illustrative-label')).toHaveCount(0);
-  if(!showSource){
+  {
     expect(geometry.body.height).toBeCloseTo(geometry.surface.height-geometry.padding.top-geometry.padding.bottom-geometry.requestedChrome,0);
     await expect(surface.locator('.view-information,.view-actions')).toHaveCount(0);
   }
@@ -95,7 +94,7 @@ test('clock dates and day differences keep readable source details and unobstruc
   await register(page);
   const sessionId = await createSession(page, 'Clock truth qualification'), display = await createDisplay(page, sessionId, 'Clock receiving screen');
   const viewer = await openViewer(page, sessionId, display.id); await viewer.bringToFront();
-  const variants: Array<{ name: string; view: ViewSpec; qualified: boolean; showDate: boolean; showSource?: boolean; navigate?: boolean }> = [
+  const variants: Array<{ name: string; view: ViewSpec; qualified: boolean; showDate: boolean; navigate?: boolean }> = [
     { name: 'solo', view: clock(false, false), qualified: false, showDate: true },
     { name: 'three-zones', view: clock(true, false), qualified: false, showDate: true },
     { name: 'day-difference', qualified: true, showDate: false, view: clock(true, true, { data: {
@@ -103,10 +102,10 @@ test('clock dates and day differences keep readable source details and unobstruc
       // UTC+14 and UTC-11 guarantee a real differing day at every test instant.
       zones: [{ timeZone: 'Pacific/Kiritimati', label: 'Kiritimati' }, { timeZone: 'Pacific/Pago_Pago', label: 'American Samoa' }],
     } }) },
-    { name: 'explicit-source', view: clock(true, true, { showSource: true }), qualified: true, showDate: true, showSource: true },
+    { name: 'explicit-flags', view: clock(true, true, { }), qualified: true, showDate: true },
     { name: 'long-title', view: clock(true, true, { showTitle: true }), qualified: true, showDate: true },
     { name: 'presentation-navigation', qualified: true, showDate: true, navigate: true, view: {
-      version: 1, template: 'presentation', title: heading, showTitle: true, showControls: true, source,
+      version: 1, template: 'presentation', title: heading, showTitle: true, showControls: true,
       data: { index: 0, slides: [clock(true, false, { title: undefined }), { version: 1, template: 'fact', data: { text: 'A second supplied slide' } }] },
     } },
   ];
@@ -122,7 +121,7 @@ test('clock dates and day differences keep readable source details and unobstruc
         await publishPrepared(page, sessionId, [display.id], variant.view);
         let current = await waitForDisplay(page, sessionId, display.id, item => item.revision > before && item.appliedRevision === item.revision);
         await expect(viewer.locator('.viewer-shell')).toHaveAttribute('data-rendered-revision', String(current.revision));
-        await assertClockLayout(viewer, variant.qualified, variant.showDate, variant.showSource);
+        await assertClockLayout(viewer, variant.qualified, variant.showDate);
         if (variant.name === 'long-title' || variant.navigate) await expect(viewer.locator('.viewer-candidate .view-heading h1')).toHaveText(heading);
         if (variant.name === 'three-zones' || variant.name === 'long-title' || variant.navigate) {
           await viewer.getByRole('button', { name: 'Display controls', exact: true }).click();
@@ -130,11 +129,7 @@ test('clock dates and day differences keep readable source details and unobstruc
           await viewer.getByRole('button', { name: 'Display controls', exact: true }).click();
           await expect(viewer.locator('.viewer-menu')).toHaveCount(0);
         }
-        if (variant.showSource) {
-          await viewer.getByLabel('About this view', { exact: true }).click();
-          await expect(viewer.getByRole('region', { name: 'View information', exact: true })).toBeInViewport({ ratio: 1 });
-          await viewer.getByRole('button', { name: 'Close view information', exact: true }).click();
-        }
+        await expect(viewer.getByLabel('About this view', { exact: true })).toHaveCount(0);
         if (variant.name === 'three-qualified' || variant.navigate) {
           const path = info.outputPath(`clock-qualification-${width}-${variant.name}.png`);
           await viewer.screenshot({ path, animations: 'disabled' });

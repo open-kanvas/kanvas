@@ -48,7 +48,7 @@ describe('authenticated MCP HTTP using published SDK clients', () => {
     const sessionId = session.id;
     const left = data(await client.callTool(operationRequest({ name: 'kanvas_display_register', arguments: { sessionId, name: 'Facts', width: 400, height: 800 } })));
     const right = data(await client.callTool(operationRequest({ name: 'kanvas_display_register', arguments: { sessionId, name: 'Plot', width: 1920, height: 1080, pixelRatio: 1 } })));
-    const result = data(await client.callTool(operationRequest({ name: 'kanvas_submit', arguments: { sessionId, requestId: 'request-1', displayIds: [left.id, right.id], data: { value: 42.125, unit: 'kg' }, source: { title: 'Measured source' } } })));
+    const result = data(await client.callTool(operationRequest({ name: 'kanvas_submit', arguments: { sessionId, requestId: 'request-1', displayIds: [left.id, right.id], data: { value: 42.125, unit: 'kg' } } })));
     expect(result.status).toBe('accepted');
     expect(result.displayIds).toEqual([left.id, right.id]);
     const status = data(await client.callTool(operationRequest({ name: 'kanvas_update_status', arguments: { sessionId, requestId: 'request-1' } })));

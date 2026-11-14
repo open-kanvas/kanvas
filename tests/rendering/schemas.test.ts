@@ -6,7 +6,7 @@ import { cases, source, view } from './helpers.js';
 describe('accepted template contracts', () => {
   it('validates one genuine renderable case for every accepted family and preserves provenance', () => {
     expect(cases.map((sample) => sample.template).sort()).toEqual([...TEMPLATE_IDS].sort());
-    for (const sample of cases) expect(validateView({ ...view(sample.template, sample.data), source }).source).toEqual(source);
+    for (const sample of cases) { expect(validateView(view(sample.template, sample.data)).template).toBe(sample.template); expect(() => validateView({ ...view(sample.template, sample.data), source })).toThrow(); }
   });
   it('sets safe interaction and playback defaults', () => {
     expect((validateView(view('checklist', { items: [{ id: 'one', text: 'Verify' }] })).data.items as any[])[0].checked).toBe(false);

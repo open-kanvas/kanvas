@@ -13,6 +13,7 @@ import { toolSuccess, toolFailure, MAX_TOOL_RESULT_BYTES } from '../../src/serve
 import { InputError } from '../../src/server/input-errors.js';
 import { harness } from './harness.js';
 import { NOV10_MAPPING } from './nov10-mapping.js';
+import { NOV14_MAPPING } from './nov14-mapping.js';
 
 const publicTools = listToolDefinitions('twelve');
 const ajv = new Ajv2020({ strict: false, validateFormats: false, allErrors: true });
@@ -136,7 +137,10 @@ describe('twelve-tool strict published and runtime contract', () => {
     // Preserve the same per-operation allowance, not a relaxed blanket budget.
     // Nov10 adds eleven inventoried operations (NOV10_MAPPING) under the same per-operation allowance.
     expect(NOV10_MAPPING).toHaveLength(11);
-    expect(bytes('twelve')).toBeLessThan(153 * 1024 + (6 + 3 + 11) * 960);
+    // Nov14 adds four inventoried message-board operations (NOV14_MAPPING) under the same per-operation allowance.
+    // Measured at 0.38.0: 179003 bytes against the 179712 cap.
+    expect(NOV14_MAPPING).toHaveLength(4);
+    expect(bytes('twelve')).toBeLessThan(153 * 1024 + (6 + 3 + 11 + 4) * 960);
     // Returned schemas/examples are detached; callers cannot poison later catalogs.
     const changed = listToolDefinitions('twelve');
     (changed[0].inputSchema.examples as unknown[]).push({ poison: true });

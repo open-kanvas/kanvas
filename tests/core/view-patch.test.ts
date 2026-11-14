@@ -21,7 +21,7 @@ const identity = (principal: AuthPrincipal): string => principal.tokenId ? `toke
 const transcript = (): ViewSpec => ({
   version: 1, template: 'transcription', title: 'Live notes', showTitle: false,
   data: { segments: [{ id: 'current', text: 'Draft', speaker: 'Speaker A', timestamp: '00:10' }, { id: 'retained', text: 'Earlier note' }], status: 'live', language: 'en' },
-  source: { title: 'Supplied notes', url: 'https://example.com/notes', locator: 'Section 1' },
+  
   actions: [{ id: 'next', label: 'Continue', kind: 'button' }],
 });
 const poll = (): ViewSpec => ({ version: 1, template: 'poll', data: { question: 'Which supplied option?', options: [{ id: 'a', label: 'Alpha' }, { id: 'b', label: 'Beta' }] } });
@@ -375,7 +375,7 @@ describe('revision-bound partial view patches', () => {
     (await f.seed({ version: 1, template: 'table', data: { binding: { datasetId: 'source' }, pageSize: 12 } }));
     (await f.patch([{ op: 'set', path: '/data/pageSize', value: 20 }]));
     const before = (await f.read());
-    expect(before.view).toMatchObject({ source: dataset.source, data: { rows: dataset.rows, pageSize: 20 } });
+    expect(before.view).toMatchObject({ data: { rows: dataset.rows, pageSize: 20 } }); expect(before.view).not.toHaveProperty('source');
     for (const path of ['/data/rows', '/data/rows/0/value', '/data/columns', '/data/summary/sourceRows']) (await errorCode(async () => (await f.patch([{ op: 'set', path, value: 999 }])), 'PATCH_SOURCE_CONFLICT'));
     (await errorCode(async () => (await f.patch([{ op: 'remove', path: '/data/binding' }])), 'PATCH_UNSUPPORTED'));
     (await errorCode(async () => (await f.patch([{ op: 'set', path: '/data/binding/datasetId', value: 'other-source' }])), 'PATCH_UNSUPPORTED'));

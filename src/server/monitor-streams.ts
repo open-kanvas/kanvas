@@ -192,19 +192,37 @@ export class MonitorStreams{
   // Unknown here: ended before a restart, or never part of this session. Nothing about it is disclosed.
   return {streamId,state:'ended',received:0,dropped:0,rejected:0,buffered:0,sources:[]};
  }
- /** Events for a display that is showing this stream. The caller has already been admitted to the display. */
- private async snapshot(sessionId:string,display:Pick<DisplayRecord,'view'>,query:{streamId?:unknown;afterSeq?:unknown;limit?:unknown;wait?:unknown},closed?:(listener:()=>void)=>void){
+ /** Events for a display that is showing this stream.
+  *
+  * `admit` reads the caller's access and the display as they are now, and throws when the caller may no
+  * longer see the display. Nothing it returned earlier is kept: a request can be held for up to
+  * STREAM_WAIT_MS, and in that time a member can be removed, a sign-in can end, public access can be
+  * turned off, the session can end or the display can be given another view. Every answer is therefore
+  * admitted again, and the stream it carries must be one the display shows at that moment.
+  *
+  * Order in `answer`: the stream row is read first and admission is the last thing awaited. From there to
+  * the returned events nothing yields, so no change can land between the check and what is taken from the
+  * buffer. The row is used only after admission and the binding check have passed. */
+ private async snapshot(sessionId:string,admit:()=>Promise<Pick<DisplayRecord,'view'>>,query:{streamId?:unknown;afterSeq?:unknown;limit?:unknown;wait?:unknown},closed?:(listener:()=>void)=>void){
   await this.load();
-  const bound=boundStreamIds(display.view),streamId=typeof query.streamId==='string'&&bound.includes(query.streamId)?query.streamId:query.streamId===undefined?bound[0]:undefined;
-  if(!streamId)throw new AppError('INVALID_VIEW','This display is not showing that monitor stream.',409);
+  const unbound=()=>new AppError('INVALID_VIEW','This display is not showing that monitor stream.',409);
   const afterSeq=Math.max(0,Math.trunc(Number(query.afterSeq)||0)),limit=Math.min(200,Math.max(1,Math.trunc(Number(query.limit)||100)));
-  const read=async()=>{
-   const stream=await this.store.get<Stream>('monitor-stream',streamId),status=this.status(sessionId,streamId,stream),b=status.state==='active'?this.buffers.get(streamId):undefined;
+  const answer=async(streamId:string)=>{
+   const row=identifier.safeParse(streamId).success?await this.store.get<Stream>('monitor-stream',streamId):undefined;
+   if(!boundStreamIds((await admit()).view).includes(streamId))throw unbound();
+   // A stream that ended while the row was in hand is reported from its final counters, never from the row.
+   const stream=this.tombstones.has(streamId)?undefined:row,status=this.status(sessionId,streamId,stream),b=status.state==='active'?this.buffers.get(streamId):undefined;
    if(b&&stream)this.trim(stream,b);
    const events=(b?.events??[]).filter(e=>e.seq>afterSeq).slice(-limit).map(({bytes:_bytes,...e})=>redactStreamAddress(e));
    return {status,events,lastSeq:b?.seq??0,firstSeq:b?.events[0]?.seq??0,serverNow:now()};
   };
-  let result=await read();
+  // A request that names no stream follows the first one on the display. It is fixed here: the request
+  // waits on one stream and is never answered with another.
+  let streamId:string|undefined;
+  if(typeof query.streamId==='string'&&query.streamId)streamId=query.streamId;
+  else{const shown=boundStreamIds((await admit()).view);streamId=query.streamId===undefined?shown[0]:undefined;}
+  if(!streamId)throw unbound();
+  let result=await answer(streamId);
   // Held until something arrives or the stream ends, so the screen follows the stream without polling the agent.
   if(query.wait&&result.status.state==='active'&&!result.events.length&&this.waiting<STREAM_WAITERS_TOTAL&&(this.waiters.get(streamId)?.size??0)<STREAM_WAITERS_PER_STREAM){
    const expiry=Date.parse(result.status.expiresAt!)-Date.now();
@@ -213,18 +231,23 @@ export class MonitorStreams{
     let done=false;const resume=()=>{if(done)return;done=true;clearTimeout(timer);set.delete(resume);if(!set.size)this.waiters.delete(streamId);this.waiting--;resolve();};
     const timer=setTimeout(resume,Math.max(50,Math.min(STREAM_WAIT_MS,expiry+50)));timer.unref();set.add(resume);closed?.(resume);
    });
-   result=await read();
+   // The earlier admission is not reused: whoever is answered now must be allowed to see this stream now.
+   result=await answer(streamId);
   }
   return result;
  }
  async forDisplay(p:AuthPrincipal,sessionId:string,displayId:string,query:Record<string,unknown>,closed?:(listener:()=>void)=>void){
-  return this.snapshot(sessionId,await this.service.display(p,sessionId,displayId),query,closed);
+  // service.display reads the sign-in or token, the pairing, the membership, the session and the display again on every call.
+  return this.snapshot(sessionId,()=>this.service.display(p,sessionId,displayId),query,closed);
  }
  /** Public sessions: only for a display of a session whose public access is on, and only the stream it shows. */
  async publicDisplay(sessionId:string,displayId:string,query:Record<string,unknown>,closed?:(listener:()=>void)=>void){
-  const session=await this.store.get<SessionRecord>('session',sessionId),display=await this.store.get<DisplayRecord>('display',displayId);
-  if(!session||session.endedAt||session.publicAccess?.enabled!==true||!display||display.sessionId!==sessionId)throw new AppError('NOT_FOUND','This public session is unavailable.',404);
-  return this.snapshot(sessionId,display,query,closed);
+  return this.snapshot(sessionId,async()=>{
+   // The session row, which carries the public switch, is read last.
+   const display=await this.store.get<DisplayRecord>('display',displayId),session=await this.store.get<SessionRecord>('session',sessionId);
+   if(!session||session.endedAt||session.publicAccess?.enabled!==true||!display||display.sessionId!==sessionId)throw new AppError('NOT_FOUND','This public session is unavailable.',404);
+   return display;
+  },query,closed);
  }
  /** Mounted before cookies, CSRF and the JSON body parser: a reporter has
   * neither, and an event is limited to a few kilobytes at the socket. */

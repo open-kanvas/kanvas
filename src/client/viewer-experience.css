@@ -53,3 +53,6 @@
 .viewer-toast-icon{width:32px;height:32px;object-fit:contain;flex:none}.viewer-toast-title{display:block}.viewer-toast time{display:block;font-size:.75em;opacity:.75}.viewer-toast>span{overflow-wrap:anywhere}
 
 .viewer-toast-builtin{width:28px;height:28px;opacity:.92}.toast-warning .viewer-toast-builtin{color:#e5b56a}
+
+/* A Kanvas-served icon is single-colour artwork: drawn in the notification's own text colour on any theme. */
+.viewer-toast-glyph{display:inline-block;background-color:currentColor;-webkit-mask:var(--toast-glyph) center/contain no-repeat;mask:var(--toast-glyph) center/contain no-repeat}

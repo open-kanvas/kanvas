@@ -28,6 +28,7 @@ import { ImageGallery } from './ImageGallery';
 import type { GalleryData } from '../../shared/image-gallery';
 import type { SessionTopology } from '../../shared/accounts';
 import { Scoreboard,Standings,ToolCallLog } from './EventViews';
+import { MonitorStreamView,MessageBoardView } from './Nov14';
 import type { ToolCall } from '../../shared/event-views';
 import { JsonExplorer } from './JsonExplorer';
 import { SessionTopologyRenderer } from './SessionTopology';
@@ -55,8 +56,7 @@ import type { MapData } from './Map';
 import { TranscriptionRenderer, TranslationRenderer } from './Text';
 import { CountdownRenderer, ScheduleRenderer } from './Time';
 import { FormRenderer, PollRenderer, QARenderer } from './Participation';
-import { hasViewInformation, liveSurfaceLayout, liveSurfaceOptions, viewInformationContent } from '../../shared/live-surface';
-import { ViewInformation } from './ViewInformation';
+import { liveSurfaceLayout, liveSurfaceOptions } from '../../shared/live-surface';
 import { DraftingRenderer } from './Drafting';
 import { ClockRenderer } from './Clock';
 import { NowPlayingRenderer } from './NowPlaying';
@@ -82,6 +82,8 @@ const MathWorkspaceRenderer = lazy(() => import('./MathWorkspace').then(m => ({d
 const MapRenderer = lazy(() => import('./Map'));
 
 export interface RendererProps {
+  /** Public sessions read a bound monitor stream from this path instead of the signed-in one. */
+  publicStreamPath?:string;
   publicToolCalls?:ToolCall[];
   publicTopology?:SessionTopology;
 
@@ -117,15 +119,13 @@ export function Renderer(props: RendererProps) {
   const { view, config, preview } = props;
   const surface = liveSurfaceOptions(view, props.containerView);
   const layout = liveSurfaceLayout(view);
-  const hasInformation = !preview && view.template !== 'presentation' && surface.showSource && hasViewInformation(view, props.containerView);
   const hasMedia = (view.template==='table'&&(view.data.cellStyles as {indicator?:{kind:string}}[]|undefined)?.some(s=>s.indicator?.kind==='image')) || ['qr','signage','todays-special','menu-board','opening-hours','back-at','closed-sign','hiring','sale-poster','health-notice','custom-sign','itinerary','comparison','story-cards','scoreboard','standings','image-gallery','overview', 'image', 'web', 'website', 'iframe', 'document', 'video', 'product', 'profile', 'quote', 'recipe', 'leaderboard', 'menu', 'join', 'now-playing'].includes(view.template);
   const accent = config?.accent && /^#[0-9a-fA-F]{6}$/.test(config.accent) ? config.accent : undefined;
-  return <RegionalContext.Provider value={{...config,...view.format}}><ImageFallbackContext.Provider value={{sessionId:props.sessionId,displayId:props.displayId,revision:props.revision,preview:props.preview}}><section className={`render-surface template-${view.template} ${layout.mode === 'reading' || layout.mode === 'interactive' ? 'is-reference' : 'is-glance'} ${preview ? 'is-preview' : 'is-live'} ${layout.fullBleed ? 'is-full-bleed' : ''} ${hasInformation ? 'has-view-information' : ''}`} data-device-kind={props.preview?undefined:receiver.device?.context?.device} data-surface-mode={layout.mode} data-show-caption={surface.showCaption} data-show-controls={surface.showControls} style={accent ? { '--source-accent': accent } as CSSProperties : undefined} aria-label={view.title ?? `${view.template} display`}>
+  return <RegionalContext.Provider value={{...config,...view.format}}><ImageFallbackContext.Provider value={{sessionId:props.sessionId,displayId:props.displayId,revision:props.revision,preview:props.preview}}><section className={`render-surface template-${view.template} ${layout.mode === 'reading' || layout.mode === 'interactive' ? 'is-reference' : 'is-glance'} ${preview ? 'is-preview' : 'is-live'} ${layout.fullBleed ? 'is-full-bleed' : ''}`} data-device-kind={props.preview?undefined:receiver.device?.context?.device} data-surface-mode={layout.mode} data-show-caption={surface.showCaption} data-show-controls={surface.showControls} style={accent ? { '--source-accent': accent } as CSSProperties : undefined} aria-label={view.title ?? `${view.template} display`}>
     {config?.branding && !preview && <div className="session-branding">{config.branding.logoUrl&&<img src={`${config.branding.logoUrl}?sessionId=${encodeURIComponent(props.sessionId??'')}&displayId=${encodeURIComponent(props.displayId??'')}`} alt={`${config.branding.name??'Organization'} logo`}/>}<span>{config.branding.name}</span><span className="brand-palette">{config.branding.palette.map((color,index)=><i key={index} style={{background:color}}/>)}</span></div>}
     {surface.showTitle && <header className="view-heading"><h1>{view.title}</h1></header>}
-    <div className="render-body"><RenderBoundary identity={props.renderIdentity ?? JSON.stringify(view)} onError={props.onError}><Suspense fallback={<LoadingView onError={props.onError} />}>{hasMedia ? <MediaReadyGate key={props.renderIdentity ?? JSON.stringify(view)} onReady={props.onReady} onError={props.onError}><Content {...props} /></MediaReadyGate> : <Content {...props} />}{!hasMedia && !['split-screen','qr','scene3d','account-template','presentation', 'map', 'whiteboard', 'html', 'device-preview', 'session-topology'].includes(view.template) && <ReadyProbe identity={props.renderIdentity ?? JSON.stringify(view)} onReady={props.onReady} />}</Suspense></RenderBoundary></div>
+    <div className="render-body"><RenderBoundary identity={props.renderIdentity ?? JSON.stringify(view)} onError={props.onError}><Suspense fallback={<LoadingView onError={props.onError} />}>{hasMedia ? <MediaReadyGate key={props.renderIdentity ?? JSON.stringify(view)} onReady={props.onReady} onError={props.onError}><Content {...props} /></MediaReadyGate> : <Content {...props} />}{!hasMedia && !['monitor-stream','split-screen','qr','scene3d','account-template','presentation', 'map', 'whiteboard', 'html', 'device-preview', 'session-topology'].includes(view.template) && <ReadyProbe identity={props.renderIdentity ?? JSON.stringify(view)} onReady={props.onReady} />}</Suspense></RenderBoundary></div>
     {!!view.actions?.length && !preview && !['email','inbox','chat'].includes(view.template) && <ActionControls actions={view.actions} enabled={props.actionable ?? false} onAction={props.onAction} feedback={props.feedback} />}
-    {hasInformation && <ViewInformation key={props.renderIdentity ?? JSON.stringify(view)} view={view} container={props.containerView} preview={preview}/>}
   </section></ImageFallbackContext.Provider></RegionalContext.Provider>;
 }
 function LoadingView({ onError }: { onError?: () => void }) {
@@ -144,6 +144,9 @@ function Content(props: RendererProps) {
 }
 function ContentInner(props: RendererProps) {
   const { view, config, editable, onEdit } = props;
+  // Rows of a bound stream live in the renderer, so its selection is applied there.
+  if(view.template==='monitor-stream')return <MonitorStreamView {...props}/>;
+  if(view.template==='message-board')return <MessageBoardView {...props}/>;
   if(view.selection){const projected=projectSelection(view);return <SelectionContext.Provider value={projected}><Content {...props} view={projected.view}/></SelectionContext.Provider>;}
   const data = view.data;
   if(view.template==='game-board')return <GameRenderer data={data as GameData}/>;

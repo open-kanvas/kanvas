@@ -51,7 +51,7 @@ describe('deterministic materialization', () => {
     const original = dataset([{ date: '2026-09-01', sales: '1.2300' }, { date: '2026-09-02', sales: null }, { date: '2026-09-03', sales: '2.4500' }]);
     const result = materializeDatasetView(view('chart', { kind: 'line', binding: { datasetId: original.id, x: 'date', y: ['sales'] }, series: [{ name: 'Invented', points: [{ x: 'wrong', y: 999 }] }] }), [original]);
     expect((result.data.series as any[])[0]).toEqual({ name: 'sales', points: [{ x: '2026-09-01', y: 1.23, rawX: '2026-09-01', rawY: '1.2300', sourceRows: [0] }, { x: '2026-09-02', y: null, rawX: '2026-09-02', rawY: null, sourceRows: [1] }, { x: '2026-09-03', y: 2.45, rawX: '2026-09-03', rawY: '2.4500', sourceRows: [2] }] });
-    expect(result.source).toEqual(source);
+    expect(result).not.toHaveProperty('source');
     expect(original.rows[0].sales).toBe('1.2300');
   });
   it('retains exact decimals and IDs in table/number selection, not rounded projections', () => {

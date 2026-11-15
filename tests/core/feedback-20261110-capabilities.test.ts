@@ -40,7 +40,7 @@ describe('e2ba79e1 task list: saved state, narrow operations, stable numbers',()
   const result=await update({expectedRevision:0,check:[2],items:[{item:3,status:'passed',tags:['toast','done']}],add:[{title:'New finding',status:'untested'}]});
   expect(result).toMatchObject({revision:1,changes:{added:[5],changed:[3],checked:[2],removed:[],unchecked:[]},counts:{total:5,open:4,done:1}});
   const rows=(await call('kanvas_tasklist_read',{sessionId:s,taskListId:listId})).items;
-  expect(rows.map((r:{number:number})=>r.number)).toEqual([1,3,4,5,2]);expect(rows.at(-1)).toMatchObject({number:2,checked:true});
+  expect(rows.map((r:{number:number})=>r.number)).toEqual([1,2,3,4,5]);expect(rows[1]).toMatchObject({number:2,checked:true});
   expect(rows.find((r:{number:number})=>r.number===1)).toMatchObject({title:'Sign in',status:'passed',hasDetail:true});
   const removed=await update({remove:[4]});expect(removed.changes.removed).toEqual([4]);
   const added=await update({add:[{title:'After a removal'}]});expect(added.changes.added).toEqual([6]);

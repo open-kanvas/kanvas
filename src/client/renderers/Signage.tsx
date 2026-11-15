@@ -1,5 +1,5 @@
 import {SIGN_ART} from '../../shared/sign-art';
-import {useEffect,useState} from 'react';
+import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {SignageDetails} from './SignageDetails';
 import {signageDataSchema,signCatalog,signLabel,type SignageData} from '../../shared/signage';
 import type {ViewSpec} from '../../shared/types';
@@ -33,5 +33,14 @@ export function SignageRenderer({view,serverNow}:{view:ViewSpec;serverNow?:strin
 function SignCard({item,data,now}:{now:number;item:SignageData['items'][number];data:SignageData}){
  const rich=!!(item.directory||item.destinations||item.map||item.wifi);
  const def=signCatalog.find(s=>s.id===item.type)!,region=item.region??data.region,label=item.label??signLabel(item.type,region);
- return <article className={'signage-card sign-'+def.style+(rich?' sign-rich':'')} data-sign-id={item.id} data-sign-type={item.type} data-region={region} aria-label={label}><div className="signage-visual" data-arrow-side={item.direction?signArrowSide(item.direction):undefined}>{SIGN_ART[item.type]?<div className="sign-reviewed-composition"><img className="sign-reviewed-art" src={SIGN_ART[item.type]} alt={label}/>{def.style==='prohibit'&&<svg className="sign-reviewed-prohibition" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="55"/><path d="M22 22L98 98"/></svg>}</div>:null}{item.direction&&<SignArrow direction={item.direction}/>}</div><SignageDetails item={item} showText={data.text!=='none'} now={now}/>{data.text!=='none'&&<><h2>{label}</h2>{item.caption&&<p>{item.caption}</p>}</>}</article>;
+ const card=useRef<HTMLElement>(null),side=item.direction?signArrowSide(item.direction):undefined;
+ // With an arrow beside it the pictogram is off centre: the label follows the pictogram so word and symbol read as one sign.
+ useLayoutEffect(()=>{const el=card.current;if(!el)return;
+  const align=()=>{const art=el.querySelector<HTMLElement>('.signage-visual[data-arrow-side="left"]>.sign-reviewed-composition,.signage-visual[data-arrow-side="right"]>.sign-reviewed-composition'),box=el.getBoundingClientRect();
+   if(!art||!box.width||!el.offsetWidth){el.style.removeProperty('--sign-text-shift');el.style.removeProperty('--sign-text-room');return;}
+   const mark=art.getBoundingClientRect(),shift=Math.round((mark.left+mark.width/2-(box.left+box.width/2))/(box.width/el.offsetWidth));
+   el.style.setProperty('--sign-text-shift',`${shift}px`);el.style.setProperty('--sign-text-room',`${Math.abs(shift)*2}px`);};
+  align();const observer=new ResizeObserver(align);observer.observe(el);const visual=el.querySelector('.signage-visual');if(visual)observer.observe(visual);return()=>observer.disconnect();
+ },[side,item.type,label,item.caption,data.text]);
+ return <article ref={card} className={'signage-card sign-'+def.style+(rich?' sign-rich':'')} data-sign-id={item.id} data-sign-type={item.type} data-region={region} aria-label={label}><div className="signage-visual" data-arrow-side={item.direction?signArrowSide(item.direction):undefined}>{SIGN_ART[item.type]?<div className="sign-reviewed-composition"><img className="sign-reviewed-art" src={SIGN_ART[item.type]} alt={label}/>{def.style==='prohibit'&&<svg className="sign-reviewed-prohibition" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="55"/><path d="M22 22L98 98"/></svg>}</div>:null}{item.direction&&<SignArrow direction={item.direction}/>}</div><SignageDetails item={item} showText={data.text!=='none'} now={now}/>{data.text!=='none'&&<><h2>{label}</h2>{item.caption&&<p>{item.caption}</p>}</>}</article>;
 }

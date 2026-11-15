@@ -5,6 +5,9 @@ import type {AuthPrincipal} from './auth.js';
 import {hash,opaque} from './auth.js';
 import {AppError,id,now} from './store.js';
 import type {Definition} from './mcp/canonical.js';
+import type {DisplayRecord,SessionRecord,ViewSpec} from '../shared/types.js';
+import {splitLeaves} from '../shared/split-screen.js';
+import {redactStreamAddress,type StreamState,type StreamViewStatus} from '../shared/monitor-stream-view.js';
 
 /** Monitor streams: one small capability, getting live events in from outside.
  *
@@ -26,6 +29,16 @@ export const STREAM_BURST=60,STREAM_REFILL_PER_SECOND=5,STREAMS_PER_SESSION=10,S
  * owner; this bounds the process. Beyond it a post is refused, never queued. */
 export const STREAM_TOTAL_BYTES=64*1024*1024;
 export const STREAM_INGEST_ROUTE='/in/:token';
+/** A bound display waits this long for the next event before asking again; waiting requests are bounded. */
+export const STREAM_WAIT_MS=20_000,STREAM_WAITERS_PER_STREAM=64,STREAM_WAITERS_TOTAL=1024,STREAM_TOMBSTONES=500;
+interface Tombstone {tokenHash:string;state:Exclude<StreamState,'active'>;sessionId:string;name:string;endedAt:string;received:number;dropped:number;rejected:number;lastEventAt?:string}
+/** The monitor-stream views a display shows right now: the view itself, split panes, or the current slide. */
+export function boundStreamIds(view:ViewSpec|null|undefined):string[]{
+ if(!view)return [];
+ if(view.template==='split-screen')return splitLeaves(view.data).flatMap(pane=>boundStreamIds(pane.view));
+ if(view.template==='presentation'){const slides=view.data.slides as ViewSpec[]|undefined;return boundStreamIds(slides?.[Number(view.data.index??0)]);}
+ return view.template==='monitor-stream'&&typeof view.data.streamId==='string'?[view.data.streamId]:[];
+}
 interface Stream {id:string;sessionId:string;ownerId:string;name:string;tokenHash:string;createdAt:string;expiresAt:number;revokedAt?:string;maxEvents:number;retentionMinutes:number}
 export interface StreamEvent {seq:number;receivedAt:string;source?:string;text?:string;data?:unknown;bytes:number}
 interface Buffer_ {events:StreamEvent[];seq:number;received:number;dropped:number;rejected:number;tokens:number;refilledAt:number;lastAt?:string}
@@ -48,12 +61,24 @@ export class MonitorStreams{
  /** Bytes held right now across all streams; for tests and diagnostics. */
  get bufferedBytes(){return this.totalBytes;}
  totalLimit=STREAM_TOTAL_BYTES;
- private forget(streamId:string){const b=this.buffers.get(streamId);if(!b)return;for(const event of b.events)this.totalBytes-=event.bytes;this.buffers.delete(streamId);}
+ private tombstones=new Map<string,Tombstone>();
+ /** Hashes of addresses that ended recently, so a late reporter hears 410 (ended) rather than 404 (never existed). */
+ private endedTokens=new Set<string>();
+ private waiters=new Map<string,Set<()=>void>>();
+ private waiting=0;
+ private wake(streamId:string){const set=this.waiters.get(streamId);if(!set)return;for(const resume of [...set])resume();}
+ /** What a bound display may still say about a stream after its events are gone. */
+ private entomb(stream:Stream,state:Tombstone['state']){
+  const b=this.buffers.get(stream.id);
+  this.tombstones.delete(stream.id);this.endedTokens.add(stream.tokenHash);this.tombstones.set(stream.id,{tokenHash:stream.tokenHash,state,sessionId:stream.sessionId,name:stream.name,endedAt:state==='revoked'?stream.revokedAt??now():new Date(Math.min(Date.now(),stream.expiresAt)).toISOString(),received:b?.received??0,dropped:b?.dropped??0,rejected:b?.rejected??0,...(b?.lastAt?{lastEventAt:b.lastAt}:{})});
+  while(this.tombstones.size>STREAM_TOMBSTONES){const oldest=this.tombstones.keys().next().value!;this.endedTokens.delete(this.tombstones.get(oldest)!.tokenHash);this.tombstones.delete(oldest);}
+ }
+ private forget(streamId:string){const b=this.buffers.get(streamId);if(b){for(const event of b.events)this.totalBytes-=event.bytes;this.buffers.delete(streamId);}this.wake(streamId);}
  private sweeper?:ReturnType<typeof setInterval>;
  constructor(private service:KanvasService){}
  private get store(){return this.service.store;}
  start(){this.sweeper??=setInterval(()=>void this.sweep().catch(()=>{}),30_000);this.sweeper.unref();}
- close(){if(this.sweeper)clearInterval(this.sweeper);this.sweeper=undefined;this.buffers.clear();this.byToken.clear();this.totalBytes=0;}
+ close(){if(this.sweeper)clearInterval(this.sweeper);this.sweeper=undefined;for(const id of [...this.waiters.keys()])this.wake(id);this.buffers.clear();this.byToken.clear();this.tombstones.clear();this.endedTokens.clear();this.totalBytes=0;}
  private async load(){
   if(this.loaded)return;this.loaded=true;
   for(const stream of await this.store.list<Stream>('monitor-stream'))if(!stream.revokedAt&&stream.expiresAt>Date.now())this.byToken.set(stream.tokenHash,stream);
@@ -68,7 +93,7 @@ export class MonitorStreams{
  private async sweep(){
   await this.load();
   for(const [token,stream] of this.byToken){
-   if(stream.revokedAt||stream.expiresAt<=Date.now()){this.byToken.delete(token);this.forget(stream.id);try{await this.store.delete('monitor-stream',stream.id);}catch{/* Retried on the next sweep. */}}
+   if(stream.revokedAt||stream.expiresAt<=Date.now()){this.byToken.delete(token);if(!this.tombstones.has(stream.id))this.entomb(stream,stream.revokedAt?'revoked':'expired');this.forget(stream.id);try{await this.store.delete('monitor-stream',stream.id);}catch{/* Retried on the next sweep. */}}
    else{const b=this.buffers.get(stream.id);if(b)this.trim(stream,b);}
   }
  }
@@ -77,7 +102,7 @@ export class MonitorStreams{
   if(!/^[A-Za-z0-9_-]{43}$/.test(token))return {status:404,body:{accepted:false}};
   await this.load();
   const stream=this.byToken.get(hash(token));
-  if(!stream)return {status:404,body:{accepted:false}};
+  if(!stream)return this.endedTokens.has(hash(token))?{status:410,body:{accepted:false,reason:'This stream has ended.'}}:{status:404,body:{accepted:false}};
   if(stream.revokedAt||stream.expiresAt<=Date.now())return {status:410,body:{accepted:false,reason:'This stream has ended.'}};
   const b=this.buffer(stream.id),time=Date.now();
   b.tokens=Math.min(STREAM_BURST,b.tokens+(time-b.refilledAt)/1000*STREAM_REFILL_PER_SECOND);b.refilledAt=time;
@@ -89,10 +114,12 @@ export class MonitorStreams{
   if(this.totalBytes+body.length>this.totalLimit){this.trim(stream,b);if(this.totalBytes+body.length>this.totalLimit){b.rejected++;return {status:503,body:{accepted:false,reason:'Kanvas is holding as many live events as it can right now. Try again later.'},retryAfter:30};}}
   const raw=body.toString('utf8');let data:unknown,text:string|undefined,source:string|undefined;
   if(/json/i.test(contentType??'')||/^\s*[{[]/.test(raw)){try{data=JSON.parse(raw);}catch{data=undefined;}}
-  if(data!==undefined&&data!==null&&typeof data==='object'){const fields=data as Record<string,unknown>;source=clean(fields.source,80)??clean(fields.name,80);}
-  else{data=undefined;text=clean(raw,STREAM_EVENT_BYTES);}
+  // A reporter can capture its own address (a hook that logs its command line). It is removed before the event is kept.
+  if(data!==undefined&&data!==null&&typeof data==='object'){data=redactStreamAddress(data);const fields=data as Record<string,unknown>;source=clean(fields.source,80)??clean(fields.name,80);}
+  else{data=undefined;text=redactStreamAddress(clean(raw,STREAM_EVENT_BYTES)??'');}
   const event:StreamEvent={seq:++b.seq,receivedAt:new Date(time).toISOString(),...(source?{source}:{}),...(data!==undefined?{data}:{text:text??''}),bytes:body.length};
   b.events.push(event);this.totalBytes+=event.bytes;b.received++;b.lastAt=event.receivedAt;this.trim(stream,b);
+  this.wake(stream.id);
   return {status:202,body:{accepted:true}};
  }
  private publicStream(stream:Stream){
@@ -147,9 +174,80 @@ export class MonitorStreams{
   return this.store.atomic(async()=>{
    const stream=await this.owned(p,a.sessionId,a.streamId);
    if(!stream.revokedAt){stream.revokedAt=now();await this.store.put('monitor-stream',stream);}
-   this.store.afterCommit(()=>{this.byToken.delete(stream.tokenHash);this.forget(stream.id);});
+   this.store.afterCommit(()=>{this.byToken.delete(stream.tokenHash);this.entomb(stream,'revoked');this.forget(stream.id);});
    return {streamId:stream.id,revoked:true,revokedAt:stream.revokedAt,note:'The address no longer accepts events and the buffered events are deleted.'};
   });
+ }
+ /** Publishing a bound view needs a stream of the same session; a stream of another session is never reachable through a view. */
+ async assertBindable(sessionId:string,streamId:string){
+  const stream=await this.store.get<Stream>('monitor-stream',streamId);
+  if(stream?.sessionId!==sessionId&&this.tombstones.get(streamId)?.sessionId!==sessionId)throw new AppError('NOT_FOUND','This monitor stream is unavailable in this session. Create one with kanvas.monitor.stream.create and use its streamId.',404);
+ }
+ private status(sessionId:string,streamId:string,stream:Stream|undefined):StreamViewStatus{
+  if(stream&&stream.sessionId===sessionId&&!stream.revokedAt&&stream.expiresAt>Date.now()){const s=this.publicStream(stream);return {streamId,name:s.name,state:'active',expiresAt:s.expiresAt,...(s.lastEventAt?{lastEventAt:s.lastEventAt}:{}),received:s.received,dropped:s.dropped,rejected:s.rejected,buffered:s.buffered,sources:s.sources};}
+  // The final counters are taken when a stream ends, before its events are deleted.
+  const tomb=this.tombstones.get(streamId);
+  if(tomb?.sessionId===sessionId)return {streamId,name:tomb.name,state:tomb.state,endedAt:tomb.endedAt,...(tomb.lastEventAt?{lastEventAt:tomb.lastEventAt}:{}),received:tomb.received,dropped:tomb.dropped,rejected:tomb.rejected,buffered:0,sources:[]};
+  if(stream&&stream.sessionId===sessionId){const b=this.buffers.get(stream.id);return {streamId,name:stream.name,state:stream.revokedAt?'revoked':'expired',endedAt:stream.revokedAt??new Date(stream.expiresAt).toISOString(),...(b?.lastAt?{lastEventAt:b.lastAt}:{}),received:b?.received??0,dropped:b?.dropped??0,rejected:b?.rejected??0,buffered:0,sources:[]};}
+  // Unknown here: ended before a restart, or never part of this session. Nothing about it is disclosed.
+  return {streamId,state:'ended',received:0,dropped:0,rejected:0,buffered:0,sources:[]};
+ }
+ /** Events for a display that is showing this stream.
+  *
+  * `admit` reads the caller's access and the display as they are now, and throws when the caller may no
+  * longer see the display. Nothing it returned earlier is kept: a request can be held for up to
+  * STREAM_WAIT_MS, and in that time a member can be removed, a sign-in can end, public access can be
+  * turned off, the session can end or the display can be given another view. Every answer is therefore
+  * admitted again, and the stream it carries must be one the display shows at that moment.
+  *
+  * Order in `answer`: the stream row is read first and admission is the last thing awaited. From there to
+  * the returned events nothing yields, so no change can land between the check and what is taken from the
+  * buffer. The row is used only after admission and the binding check have passed. */
+ private async snapshot(sessionId:string,admit:()=>Promise<Pick<DisplayRecord,'view'>>,query:{streamId?:unknown;afterSeq?:unknown;limit?:unknown;wait?:unknown},closed?:(listener:()=>void)=>void){
+  await this.load();
+  const unbound=()=>new AppError('INVALID_VIEW','This display is not showing that monitor stream.',409);
+  const afterSeq=Math.max(0,Math.trunc(Number(query.afterSeq)||0)),limit=Math.min(200,Math.max(1,Math.trunc(Number(query.limit)||100)));
+  const answer=async(streamId:string)=>{
+   const row=identifier.safeParse(streamId).success?await this.store.get<Stream>('monitor-stream',streamId):undefined;
+   if(!boundStreamIds((await admit()).view).includes(streamId))throw unbound();
+   // A stream that ended while the row was in hand is reported from its final counters, never from the row.
+   const stream=this.tombstones.has(streamId)?undefined:row,status=this.status(sessionId,streamId,stream),b=status.state==='active'?this.buffers.get(streamId):undefined;
+   if(b&&stream)this.trim(stream,b);
+   const events=(b?.events??[]).filter(e=>e.seq>afterSeq).slice(-limit).map(({bytes:_bytes,...e})=>redactStreamAddress(e));
+   return {status,events,lastSeq:b?.seq??0,firstSeq:b?.events[0]?.seq??0,serverNow:now()};
+  };
+  // A request that names no stream follows the first one on the display. It is fixed here: the request
+  // waits on one stream and is never answered with another.
+  let streamId:string|undefined;
+  if(typeof query.streamId==='string'&&query.streamId)streamId=query.streamId;
+  else{const shown=boundStreamIds((await admit()).view);streamId=query.streamId===undefined?shown[0]:undefined;}
+  if(!streamId)throw unbound();
+  let result=await answer(streamId);
+  // Held until something arrives or the stream ends, so the screen follows the stream without polling the agent.
+  if(query.wait&&result.status.state==='active'&&!result.events.length&&this.waiting<STREAM_WAITERS_TOTAL&&(this.waiters.get(streamId)?.size??0)<STREAM_WAITERS_PER_STREAM){
+   const expiry=Date.parse(result.status.expiresAt!)-Date.now();
+   await new Promise<void>(resolve=>{
+    const set=this.waiters.get(streamId)??new Set<()=>void>();this.waiters.set(streamId,set);this.waiting++;
+    let done=false;const resume=()=>{if(done)return;done=true;clearTimeout(timer);set.delete(resume);if(!set.size)this.waiters.delete(streamId);this.waiting--;resolve();};
+    const timer=setTimeout(resume,Math.max(50,Math.min(STREAM_WAIT_MS,expiry+50)));timer.unref();set.add(resume);closed?.(resume);
+   });
+   // The earlier admission is not reused: whoever is answered now must be allowed to see this stream now.
+   result=await answer(streamId);
+  }
+  return result;
+ }
+ async forDisplay(p:AuthPrincipal,sessionId:string,displayId:string,query:Record<string,unknown>,closed?:(listener:()=>void)=>void){
+  // service.display reads the sign-in or token, the pairing, the membership, the session and the display again on every call.
+  return this.snapshot(sessionId,()=>this.service.display(p,sessionId,displayId),query,closed);
+ }
+ /** Public sessions: only for a display of a session whose public access is on, and only the stream it shows. */
+ async publicDisplay(sessionId:string,displayId:string,query:Record<string,unknown>,closed?:(listener:()=>void)=>void){
+  return this.snapshot(sessionId,async()=>{
+   // The session row, which carries the public switch, is read last.
+   const display=await this.store.get<DisplayRecord>('display',displayId),session=await this.store.get<SessionRecord>('session',sessionId);
+   if(!session||session.endedAt||session.publicAccess?.enabled!==true||!display||display.sessionId!==sessionId)throw new AppError('NOT_FOUND','This public session is unavailable.',404);
+   return display;
+  },query,closed);
  }
  /** Mounted before cookies, CSRF and the JSON body parser: a reporter has
   * neither, and an event is limited to a few kilobytes at the socket. */
@@ -158,6 +256,8 @@ export class MonitorStreams{
    let outcome:Awaited<ReturnType<MonitorStreams['ingest']>>;
    try{outcome=await this.ingest(String(req.params.token),req.get('content-type'),Buffer.isBuffer(req.body)?req.body:Buffer.alloc(0));}
    catch{outcome={status:503,body:{accepted:false}};}
+   // Lets a reporter tell an answer from Kanvas from one given by something in front of it.
+   res.set('X-Kanvas-Stream','1');
    if(outcome.retryAfter)res.set('Retry-After',String(outcome.retryAfter));
    res.status(outcome.status).set('Cache-Control','no-store').json(outcome.body);
   });

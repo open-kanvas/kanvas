@@ -18,8 +18,8 @@ function chart(kind: ChartData['kind'], points: unknown[], fields: Record<string
 describe('individual advanced chart contracts', () => {
   it.each(ADVANCED_CHART_KINDS)('%s has a valid source-labelled example and direct literal path', async kind => {
     const example = advancedChartExamples[kind];
-    expect(validateView(example).source).toEqual(example.source);
-    const request = input(); request.submission = { ...request.submission, templateHint: 'chart', data: example.data, source: example.source };
+    expect(validateView(example).template).toBe('chart');expect(example).not.toHaveProperty('source');
+    const request = input(); request.submission = { ...request.submission, templateHint: 'chart', data: example.data};
     const result = await createInterpreter().interpret(request);
     expect(result.view?.data.kind).toBe(kind);
   });
@@ -173,8 +173,8 @@ describe('authoritative advanced source bindings', () => {
   });
   it('preserves top-level opt-in display controls/source flags during materialization', () => {
     const original = dataset([{ n: 2 }]);
-    const result = materializeDatasetView({ ...view('chart', { kind: 'area', binding: { datasetId: original.id, y: ['n'] } }), showControls: true, showSource: true }, [original]);
-    expect(result.showControls).toBe(true); expect(result.showSource).toBe(true); expect(result.source).toEqual(source);
+    const result = materializeDatasetView({ ...view('chart', { kind: 'area', binding: { datasetId: original.id, y: ['n'] } }), showControls: true}, [original]);
+    expect(result.showControls).toBe(true); expect(result).not.toHaveProperty('showSource'); expect(result).not.toHaveProperty('source');
   });
   it('rejects structured mappings on incompatible legacy/table/number kinds', () => {
     const original = dataset([{ x: 1, y: 2, size: 4 }]);

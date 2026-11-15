@@ -60,9 +60,10 @@ test('live registry catalogs fit without controls and device metadata stays read
  await page.goto(`/view/${s}/${d.id}`);// Historical153 was already stale at main490b8f9(166 canonical minus3 catalog-only helpers). B1 adds window.viewport,
  // November5 adds device.lock/device.unlock/display.lockdown:175 canonical minus3 catalog-only helpers =172 visible.
  // November 10 adds eleven operations (NOV10_MAPPING): 186 canonical minus 3 catalog-only helpers = 183 visible.
- const labels=page.locator('.viewer-candidate .catalog-list span');await expect(labels).toHaveCount(183);
+ // November 14 adds four message-board operations (NOV14_MAPPING): 190 canonical minus 3 catalog-only helpers = 187 visible.
+ const labels=page.locator('.viewer-candidate .catalog-list span');await expect(labels).toHaveCount(187);
  const catalogView=(await sessionDetail(page,s)).displays.find(x=>x.id===d.id)!.view!;
- expect(catalogView.template).toBe('catalog-list');expect(catalogView.data.items).toHaveLength(183);
+ expect(catalogView.template).toBe('catalog-list');expect(catalogView.data.items).toHaveLength(187);
  expect(catalogView.data.items).toEqual(expect.arrayContaining(['window.viewport','guidance.suggestions.list','guidance.suggestions.save','guidance.suggestions.delete','guidance.suggestions.import','satisfaction.read','device.lock','device.unlock','display.lockdown']));
  await expect(labels).toHaveText(catalogView.data.items as string[]);
  const bounds=await page.locator('.viewer-candidate .catalog-list').evaluate(root=>{const r=root.getBoundingClientRect();return [...root.querySelectorAll('span')].every(el=>{const b=el.getBoundingClientRect();return b.right<=r.right+1&&b.bottom<=r.bottom+1;});});expect(bounds).toBe(true);await expect(page.locator('.catalog-list button,.catalog-list a,.catalog-list input')).toHaveCount(0);

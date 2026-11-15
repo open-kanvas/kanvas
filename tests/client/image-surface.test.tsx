@@ -4,12 +4,11 @@ import { ImageRenderer as CompatibleImageRenderer, MediaImage as CompatibleMedia
 import { ImageRenderer, MediaImage, type ImageEntry } from '../../src/client/renderers/Image';
 import { Renderer } from '../../src/client/renderers/Renderer';
 import { validateView } from '../../src/shared/view-schemas';
-import { viewInformationContent } from '../../src/shared/live-surface';
 
 const caption = '  Exact supplied caption.\nSecond line; retained trailing spaces.  ';
 const alt = '  Original accessible description — all four corners.  ';
 const entry: ImageEntry = { url: '/api/assets/image-fixture', alt, caption };
-const rich = () => validateView({ version: 1, template: 'image', title: 'Retained image title', source: { title: 'Original collection', url: 'https://example.com/collection', locator: 'Plate 17, original scan', timestamp: '2026-09-14T12:00:00Z' }, data: { images: [entry] } });
+const rich = () => validateView({ version: 1, template: 'image', title: 'Retained image title', data: { images: [entry] } });
 
 describe('full-frame image surface with retained metadata', () => {
   it('preserves established Content exports for image, document and profile callers', () => {
@@ -22,38 +21,39 @@ describe('full-frame image surface with retained metadata', () => {
     expect(html).not.toContain('<figcaption'); expect(html).not.toContain('image-original-link'); expect(html).not.toContain('gallery-controls');
     expect(html).not.toContain(caption); expect(html).not.toContain('image-crop');
   });
-  it('keeps the complete validated metadata without painting title/source widgets by default', () => {
+  it('keeps the complete validated metadata without painting title widgets by default', () => {
     const view = rich(), before = structuredClone(view), html = renderToStaticMarkup(<Renderer view={view} />);
     expect(view).toEqual(before); expect(view.data.images).toEqual([entry]);
     expect(html).toContain('is-full-bleed'); expect(html).not.toContain('view-heading'); expect(html).not.toContain('view-information'); expect(html).not.toContain('<figcaption');
-    expect(viewInformationContent(view)).toEqual({ titles: ['Retained image title'], sources: [view.source], captions: [{ label: 'Caption', text: caption }] });
+    expect(view.title).toBe('Retained image title'); expect(() => validateView({ ...view, source: { title: 'Original collection' } })).toThrow();
   });
   it('renders exact captions only when explicitly enabled', () => {
     const html = renderToStaticMarkup(<ImageRenderer data={{ images: [entry] }} showCaption />);
     expect(html).toContain(`<figcaption tabindex="0">${caption}</figcaption>`); expect(html).not.toContain('image-original-link');
     expect(renderToStaticMarkup(<ImageRenderer data={{ images: [{ url: entry.url, alt }] }} showCaption />)).not.toContain('<figcaption');
   });
-  it('makes title, source and original-link utilities independent opt-ins', () => {
+  it('makes title and original-link utilities independent opt-ins; there is no source affordance', () => {
     const view = rich();
     const titled = renderToStaticMarkup(<Renderer view={{ ...view, showTitle: true }} />);
     expect(titled).toContain('<h1>Retained image title</h1>'); expect(titled).not.toContain('<figcaption'); expect(titled).not.toContain('view-information');
-    const sourced = renderToStaticMarkup(<Renderer view={{ ...view, showSource: true }} />);
-    expect(sourced).toContain('aria-label="About this view"'); expect(sourced).toContain('Plate 17, original scan');
-    expect(sourced).not.toContain('<figcaption'); expect(sourced).not.toContain('image-original-link');
+    const plain = renderToStaticMarkup(<Renderer view={{ ...view}} />);
+    expect(plain).not.toContain('About this view'); expect(plain).not.toContain('Source &amp; info');
+    expect(plain).not.toContain('<figcaption'); expect(plain).not.toContain('image-original-link');
     const controls = renderToStaticMarkup(<Renderer view={{ ...view, showControls: true }} />);
     expect(controls).toContain('class="image-original-link"'); expect(controls).toContain('href="/api/assets/image-fixture"');
     expect(controls).not.toContain('<figcaption'); expect(controls).not.toContain('view-information');
   });
-  it('does not create an empty source widget even if source display is requested', () => {
-    const view = validateView({ version: 1, template: 'image', showSource: true, source: {}, data: { images: [{ url: entry.url, alt: 'Image' }] } });
+  it('refuses the removed source fields and draws no source widget', () => {
+    expect(() => validateView({ version: 1, template: 'image', showSource: true, source: {}, data: { images: [{ url: entry.url, alt: 'Image' }] } })).toThrow();
+    const view = validateView({ version: 1, template: 'image', data: { images: [{ url: entry.url, alt: 'Image' }] } });
     const html = renderToStaticMarkup(<Renderer view={view} />);
     expect(html).not.toContain('view-information'); expect(html).not.toContain('About this view');
   });
-  it('inherits presentation caption/source/utility flags and honors a slide override', () => {
-    const deck = validateView({ version: 1, template: 'presentation', showCaption: true, showSource: true, showControls: true, data: { slides: [rich()], index: 0 } });
+  it('inherits presentation caption/utility flags and honors a slide override', () => {
+    const deck = validateView({ version: 1, template: 'presentation', showCaption: true, showControls: true, data: { slides: [rich()], index: 0 } });
     const inherited = renderToStaticMarkup(<Renderer view={deck} />);
-    expect(inherited).toContain(`<figcaption tabindex="0">${caption}</figcaption>`); expect(inherited).toContain('image-original-link'); expect(inherited).toContain('view-information');
-    const quietSlide = validateView({ ...deck, data: { slides: [{ ...rich(), showCaption: false, showSource: false, showControls: false }], index: 0 } });
+    expect(inherited).toContain(`<figcaption tabindex="0">${caption}</figcaption>`); expect(inherited).toContain('image-original-link'); expect(inherited).not.toContain('view-information');
+    const quietSlide = validateView({ ...deck, data: { slides: [{ ...rich(), showCaption: false, showControls: false }], index: 0 } });
     const quiet = renderToStaticMarkup(<Renderer view={quietSlide} />);
     expect(quiet).not.toContain('<figcaption'); expect(quiet).not.toContain('image-original-link'); expect(quiet).not.toContain('view-information');
   });

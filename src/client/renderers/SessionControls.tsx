@@ -41,7 +41,7 @@ function RetainedOverview(props:RendererProps){
   </article>)}</div></section>)}</div>{pageCount>1&&<nav aria-label="Overview pages"><button disabled={pageIndex===0} onClick={()=>setPage(pageIndex-1)}>Previous</button><span>Page {pageIndex+1} of {pageCount}</span><button disabled={pageIndex+1===pageCount} onClick={()=>setPage(pageIndex+1)}>Next</button></nav>}{!props.preview&&!auth.viewOnly&&<footer className="overview-account-actions"><a href="/">Home</a><button onClick={()=>void task.run(()=>auth.logout())}>Sign out of this browser</button></footer>}</div>;
 
 }
-const SETTINGS_LABELS:Record<string,string>={style:'Style',theme:'Theme',accent:'Accent color',readingFontSize:'Reading font size',readingWpm:'Reading speed',readingZoom:'Reading zoom',dateFormat:'Date format',timeFormat:'Time format',timeZone:'Time zone',numberLocale:'Number locale',unitSystem:'Weather units'};
+const SETTINGS_LABELS:Record<string,string>={style:'Style',theme:'Theme',accent:'Accent color',textSize:'Text size',readingFontSize:'Reading font size',readingWpm:'Reading speed',readingZoom:'Reading zoom',dateFormat:'Date format',timeFormat:'Time format',timeZone:'Time zone',numberLocale:'Number locale',unitSystem:'Weather units'};
 export function SessionSettings(props:RendererProps){
  const [draft,setDraft]=useState(props.config),[base,setBase]=useState(props.configRevision??0),[scope,setScope]=useState('session'),[status,setStatus]=useState('');
  const [defaults,setDefaults]=useState<{revision:number;config:SessionConfig}>(),[groups,setGroups]=useState<{id:string;name:string;kind:string;role:string;revision:number;defaults:Partial<SessionConfig>}[]>([]);
@@ -112,7 +112,7 @@ export function SessionSettings(props:RendererProps){
  {(show('style')||show('theme')||show('accent'))&&<section className="settings-section"><h3>Appearance</h3>{show('style')&&<VisibleOptions label="Style preset" defaultValue="ocean" value={draft.style??'ocean'} options={STYLE_PRESETS.map(s=>[s.id,s.name])} colors={Object.fromEntries(STYLE_PRESETS.map(s=>[s.id,s.accent]))} onChange={v=>change({style:v,accent:STYLE_PRESETS.find(s=>s.id===v)!.accent})}/>}
  {show('theme')&&<VisibleOptions label="Theme" defaultValue="dark" value={draft.theme} options={[["dark","Dark"],["light","Light"],["system","Follow device"]]} onChange={v=>change({theme:v as SessionConfig['theme']})}/>}
  {show('accent')&&<Field label="Accent (default: Ocean blue)"><input type="color" value={draft.accent} onChange={e=>change({accent:e.target.value})}/></Field>}</section>}
- {['all','readingFontSize','readingWpm','readingZoom'].includes(dimension)&&<ReadingSettings value={draft} disabled={!canChange} change={change} dimension={dimension}/>}
+ {['all','textSize','readingFontSize','readingWpm','readingZoom'].includes(dimension)&&<ReadingSettings value={draft} disabled={!canChange} change={change} dimension={dimension}/>}
  {['all','numberLocale','unitSystem','dateFormat','timeFormat','timeZone'].includes(dimension)&&<RegionalSettings value={draft} disabled={!canChange} change={change} dimension={dimension}/>}
  </fieldset></div><div className="surface-settings-status" role="status" aria-live="polite">{status}</div><ErrorNotice message={task.error}/>
  </section>;

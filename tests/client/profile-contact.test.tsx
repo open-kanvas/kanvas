@@ -130,7 +130,7 @@ describe('prominent and inert-when-untyped profile presentation', () => {
 
   it('does not hide contact labels or actions in optional generic details, even inside a presentation', () => {
     const leaf = { ...profile({ details: [...contacts, { label: 'Joined', value: '2021' }] }), showControls: true };
-    const html = renderToStaticMarkup(<Renderer view={leaf} containerView={validateView({ version: 1, template: 'presentation', showSource: false, data: { slides: [leaf] } })} />);
+    const html = renderToStaticMarkup(<Renderer view={leaf} containerView={validateView({ version: 1, template: 'presentation', data: { slides: [leaf] } })} />);
     expect(html).toContain('<summary>More details</summary>');
     expect(html.indexOf('href="tel:')).toBeLessThan(html.indexOf('<summary>More details'));
     for (const contact of contacts) expect(html).toContain(`<dt>${contact.label}</dt>`);

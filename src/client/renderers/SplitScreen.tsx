@@ -2,6 +2,8 @@ import {memo,useCallback,useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {Renderer,type RendererProps} from './Renderer';
 import type {ViewSpec} from '../../shared/types';
+import type {CSSProperties} from 'react';
+import {isGridPane,splitDivider,splitGrid,splitLeaves,type SplitScreenData,type SplitPane} from '../../shared/split-screen';
 import './split-screen.css';
 type Pane={id:string;view:ViewSpec};
 function controlPreview(view:ViewSpec){const active=view.template==='presentation'?(view.data.slides as ViewSpec[])[Number(view.data.index??0)]:view;return Boolean(active&&['display-grid','session-topology','overview'].includes(active.template));}
@@ -18,10 +20,14 @@ const PaneViewport=memo(function PaneViewport({pane,config,serverNow,preview,onR
 },(a,b)=>a.config===b.config&&a.preview===b.preview&&JSON.stringify(a.pane)===JSON.stringify(b.pane));
 export function SplitScreen(props:RendererProps){
  const ready=useRef(new Map<string,string>()),latest=useRef(props);latest.current=props;
- const readyPane=useCallback((id:string,signature:string)=>{ready.current.set(id,signature);const panes=latest.current.view.data.panes as Pane[];if(panes.every(p=>ready.current.get(p.id)===JSON.stringify(p.view)))latest.current.onReady?.();},[]);
- useEffect(()=>{const panes=props.view.data.panes as Pane[];if(!panes.every(p=>ready.current.get(p.id)===JSON.stringify(p.view)))return;let second=0;const first=requestAnimationFrame(()=>{second=requestAnimationFrame(()=>latest.current.onReady?.());});return()=>{cancelAnimationFrame(first);cancelAnimationFrame(second);};},[props.revision,props.view]);
+ const leaves=()=>splitLeaves(latest.current.view.data);
+ const readyPane=useCallback((id:string,signature:string)=>{ready.current.set(id,signature);if(leaves().every(p=>ready.current.get(p.id)===JSON.stringify(p.view)))latest.current.onReady?.();},[]);
+ useEffect(()=>{if(!leaves().every(p=>ready.current.get(p.id)===JSON.stringify(p.view)))return;let second=0;const first=requestAnimationFrame(()=>{second=requestAnimationFrame(()=>latest.current.onReady?.());});return()=>{cancelAnimationFrame(first);cancelAnimationFrame(second);};},[props.revision,props.view]);
  const failPane=useCallback(()=>latest.current.onError?.(),[]);
- const data=props.view.data as {panes:Pane[];direction:'vertical'|'horizontal'},[selected,setSelected]=useState(data.panes[0].id);
- useEffect(()=>{if(!data.panes.some(p=>p.id===selected))setSelected(data.panes[0].id);},[data.panes,selected]);
- return <div className="split-screen" data-count={data.panes.length} data-direction={data.direction}><nav aria-label="Choose pane">{data.panes.map(p=><button key={p.id} aria-pressed={p.id===selected} onClick={()=>setSelected(p.id)}>{p.id}</button>)}</nav><div className="split-grid">{data.panes.map(p=><section key={p.id} data-selected={p.id===selected}><PaneViewport pane={p} config={props.config} serverNow={props.serverNow} preview={props.preview} sessionId={props.sessionId} displayId={props.displayId} revision={props.revision} onReady={readyPane} onError={failPane}/></section>)}</div></div>;
+ const data=props.view.data as unknown as SplitScreenData,divider=splitDivider(data.divider);
+ const gridStyle=(count:number,rows?:number,columns?:number,direction?:SplitScreenData['direction']):CSSProperties=>{const grid=splitGrid(count,rows,columns,direction)??{rows:1,columns:count};return {gridTemplateColumns:`repeat(${grid.columns},minmax(0,1fr))`,gridTemplateRows:`repeat(${grid.rows},minmax(0,1fr))`};};
+ const viewport=(p:Pane)=><PaneViewport pane={p} config={props.config} serverNow={props.serverNow} preview={props.preview} sessionId={props.sessionId} displayId={props.displayId} revision={props.revision} onReady={readyPane} onError={failPane}/>;
+ const pane=(p:SplitPane)=>isGridPane(p)?<section key={p.id} className="split-nested" data-pane-id={p.id}><div className="split-grid" data-pane-count={p.panes.length} style={gridStyle(p.panes.length,p.rows,p.columns,p.direction)}>{p.panes.map(inner=><section key={inner.id} className="split-leaf" data-pane-id={inner.id}>{viewport(inner)}</section>)}</div></section>:<section key={p.id} className="split-leaf" data-pane-id={p.id}>{viewport(p)}</section>;
+ // The authored grid is what every screen shows, phones included: no tab fallback.
+ return <div className="split-screen" data-count={splitLeaves(data).length} data-divider={divider.gap===0&&divider.borderWidth===0?'none':'lines'} style={{'--split-gap':`${divider.gap}px`,'--split-border-width':`${divider.borderWidth}px`,...(divider.borderColor?{'--split-border-color':divider.borderColor}:{})} as CSSProperties}><div className="split-grid" style={gridStyle(data.panes.length,data.rows,data.columns,data.direction)}>{data.panes.map(pane)}</div></div>;
 }

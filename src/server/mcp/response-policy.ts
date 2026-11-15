@@ -8,7 +8,7 @@ export type GuidancePreference = 'concise' | 'full';
 /** A connection that has been silent this long is greeted as a new contact. */
 export const CONTACT_IDLE_MS = 30 * 60_000;
 const MAX_CONTACTS = 5000;
-interface Contact { seenAt: number; guidance?: string; rhythm: Set<string> }
+interface Contact { seenAt: number; guidance?: string; rhythm: Set<string>; board?: number }
 export interface ContactState { first: boolean; contact: Contact }
 /** Process-local and bounded. A restart greets every connection once more. */
 export class ContactLedger {
@@ -29,6 +29,10 @@ export interface ResponseContext {
   displayConnected?: boolean;
   displayNameHint?: string;
   manage?: unknown;
+  /** What people pointed at since this connection's previous call; present only when there is something new. */
+  pointing?: unknown;
+  /** Opt-in message board notice: new public messages since the account last looked. */
+  messageBoard?: { newMessages: number; note: string };
 }
 export const FIRST_CONTACT_HELP = { philosophy: 'kanvas.help.philosophy', manage: 'kanvas.help.manage', displays: 'kanvas.help.displays', policy: ['kanvas.help.policy-links', 'kanvas.help.policy-consent'], modes: 'kanvas.help.modes' } as const;
 export function firstContactBlock(context: ResponseContext): Record<string, unknown> {
@@ -62,6 +66,11 @@ export function applyResponsePolicy(structured: Record<string, unknown> | undefi
     ? { ...(guidance as Record<string, unknown>), ...(context.mode ? { mode: context.mode } : {}), ...(changed && !state.first ? { changed: true } : {}) }
     : { unchanged: true, ...(context.mode ? { mode: context.mode.current } : {}), note: 'Same guidance and mode as sent earlier on this connection.' };
   if (state.first) additions.firstContact = firstContactBlock(context);
+  if (context.pointing && !input.isError) additions.pointing = context.pointing;
+  // Opt-in only, and once per number: at the start of a conversation or when a session is created.
+  if (context.messageBoard && !input.isError && (state.first || input.operation === 'kanvas_session_create') && state.contact.board !== context.messageBoard.newMessages) {
+    state.contact.board = context.messageBoard.newMessages; additions.messageBoard = context.messageBoard;
+  }
   const data = structured?.data && typeof structured.data === 'object' ? structured.data as Record<string, unknown> : undefined;
   if (!input.isError && input.operation && PUBLISH_OPERATIONS.has(input.operation) && input.sessionId && settled(data?.status) && !state.contact.rhythm.has(input.sessionId)) {
     state.contact.rhythm.add(input.sessionId); additions.rhythm = RHYTHM_NUDGE;

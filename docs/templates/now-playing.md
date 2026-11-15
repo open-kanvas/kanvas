@@ -34,7 +34,7 @@ The example is illustrative. Replace its content and asset path with genuinely s
 - `state`: optional `playing`, `paused` or `stopped`. It is only the state reported by the source. Omitting it does not imply playing, paused or a connected service.
 - `elapsedSeconds`: optional finite, nonnegative number.
 - `durationSeconds`: optional finite, positive number. Both numeric fields accept fractions and values up to `Number.MAX_SAFE_INTEGER`, supporting long-form audio without a 24-hour wrap. Elapsed values greater than the supplied duration are rejected, never clamped.
-- `observedAt`: optional timezone-qualified ISO source timestamp. It remains metadata, not a clock anchor. Set the view's `showSource: true` to display this exact observation time; it creates no default timestamp footer.
+- `observedAt`: optional timezone-qualified ISO source timestamp. It remains metadata, not a clock anchor. Set the view's `showCaption: true` to display this exact observation time; it creates no default timestamp footer.
 
 The root data object and artwork object reject unknown fields. Playback URLs, service credentials, controls and fetch instructions are not accepted.
 

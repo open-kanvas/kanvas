@@ -22,7 +22,7 @@ const jsonConfig = { mode: 'json', url: 'https://example.com/status', template: 
 describe('September 14 real application boundaries', () => {
   it('publishes and durably replays a partial patch without content regeneration or metadata loss', async () => {
     const { h, owner, session, display, interpret } = await setup();
-    const first = await owner.submit(session.id, [display.id], { ...fact('First'), source: { title: 'Supplied source' } });
+    const first = await owner.submit(session.id, [display.id], { ...fact('First')});
     const revision = first.detail.displays[0].revision;
     const path = `/api/sessions/${session.id}/displays/${display.id}/patch`;
     const body = { requestId: randomUUID(), expectedRevision: revision, operations: [{ op: 'appendText', path: '/data/text', value: ' plus exact text' }] };
@@ -31,7 +31,7 @@ describe('September 14 real application boundaries', () => {
     success(await owner.request('POST', path, body));
     const current = (await owner.detail(session.id)).displays[0];
     expect(current.revision).toBe(revision + 1);
-    expect(current.view).toMatchObject({ data: { text: 'First plus exact text' }, source: { title: 'Supplied source' } });
+    expect(current.view).toMatchObject({ data: { text: 'First plus exact text' } }); expect(current.view).not.toHaveProperty('source');
     expect((await h.runtime.store.list('update', session.id))).toHaveLength(2);
     expect(interpret).not.toHaveBeenCalled();
     denied(await owner.request('POST', path, { ...body, requestId: randomUUID() }), [409]);

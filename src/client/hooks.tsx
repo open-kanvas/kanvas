@@ -177,8 +177,10 @@ export function useSession(id: string | null, displayId?: string) {
             window.dispatchEvent(new CustomEvent('kanvas:identify', { detail: { ...identify, sessionId: change.sessionId, displayId: change.displayId } }));
             return;
           }
+          // Pointer marks have their own channel: nothing else in the window re-reads anything for a tap.
+          if (change.type === 'pointing') { window.dispatchEvent(new CustomEvent('kanvas:pointing', { detail: { sessionId: change.sessionId, displayId: change.displayId } })); return; }
           window.dispatchEvent(new CustomEvent('kanvas:session-change', { detail: { sessionId: change.sessionId, displayId: change.displayId, type: change.type } }));
-          // Overlay notifications change no session detail; the receiving window re-reads them itself.
+          // Overlay notifications and pointer marks change no session detail; the receiving window re-reads them itself.
           if (change.type === 'toast') return;
           if (change.type === 'ended') {
             ended.current = true; streamOpen.current = false; setDetail(null); setConnection('closed'); setError('This session has ended.'); source.close(); return;

@@ -176,7 +176,7 @@ test('image galleries, document crops, snapshots, presentation media and videos 
     const entry = { url, alt: `${kind} readiness fixture` };
     const image: ViewSpec = { version: 1, template: 'image', data: { images: [entry] } };
     const view: ViewSpec = kind === 'document' ? { version: 1, template: 'document', data: { text: 'Source excerpt with a focused crop.', images: [entry] } }
-      : kind === 'snapshot' ? { ...image, source: { url: 'https://example.com/article', title: 'Supplied screenshot' } }
+      : kind === 'snapshot' ? { ...image, title: 'Supplied screenshot' }
       : kind === 'presentation' ? { version: 1, template: 'presentation', data: { slides: [image], index: 0 } }
       : kind === 'video' ? { version: 1, template: 'video', data: { url, muted: true } } : image;
     if (kind === 'image') {
@@ -296,9 +296,8 @@ test('the PDF adapter exposes a safe protected download and document provenance 
   const download = await viewer.evaluate(async url => { const response = await fetch(url, { credentials: 'same-origin' }); return { status: response.status, type: response.headers.get('content-type'), attachment: response.headers.get('content-disposition')?.startsWith('attachment'), pdf: (await response.text()).startsWith('%PDF-') }; }, asset.data!.url);
   expect(download).toMatchObject({ status: 200, type: 'application/pdf', attachment: true, pdf: true });
   await waitForDisplay(page, sessionId, display.id, item => item.revision > 0 && item.appliedRevision === item.revision);
-  await publishPrepared(page, sessionId, [display.id], { version: 1, template: 'document', showSource: true, data: { text: 'The relevant document passage.', quote: true }, source: { url: asset.data!.url, locator: 'Page 1' } });
+  await publishPrepared(page, sessionId, [display.id], { version: 1, template: 'document', data: { text: 'The relevant document passage.', quote: true } });
   await waitForDisplay(page, sessionId, display.id, item => item.view?.template === 'document' && item.appliedRevision === item.revision);
-  await viewer.getByLabel('About this view',{exact:true}).click();
-  await expect(viewer.locator('.view-information-panel a')).toHaveAttribute('href', asset.data!.url);
-  await expect(viewer.locator('.view-information-panel a')).toContainText('Protected document');
+  // 0.38.0: a view carries no source and draws no information control.
+  await expect(viewer.getByLabel('About this view',{exact:true})).toHaveCount(0);await expect(viewer.locator('.view-information')).toHaveCount(0);
 });

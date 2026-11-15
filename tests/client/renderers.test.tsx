@@ -16,7 +16,7 @@ describe('the complete visual vocabulary', () => {
     // One catalog render covers both starter integrity and default metadata
     // disclosure. Formerly live-surface repeated all 41 renders for these same
     // wrappers; retain its assertions here, not a second full matrix.
-    const surface = { ...view, title: 'Stored metadata title', source: { ...view.source, title: 'Metadata-only source' }, showTitle: undefined, showCaption: undefined, showSource: undefined, showControls: undefined };
+    const surface = { ...view, title: 'Stored metadata title', showTitle: undefined, showCaption: undefined, showControls: undefined };
     const before = structuredClone(surface);
     const html = renderToStaticMarkup(<Renderer view={surface} />);
     expect(html).toContain(`template-${template}`);
@@ -26,7 +26,7 @@ describe('the complete visual vocabulary', () => {
     expect(html).not.toContain('has-view-information');
     expect(html).not.toContain('Metadata-only source');
     expect(surface).toEqual(before);
-    expect(view.source??{}).not.toHaveProperty('illustrative');
+    expect(view).not.toHaveProperty('source');expect(view).not.toHaveProperty('showSource');
     if (template === 'iframe') { expect(html).toContain('<iframe'); expect(html).not.toContain('class="iframe-toolbar"'); }
   });
 
@@ -94,7 +94,7 @@ describe('safe source rendering', () => {
 
   it('keeps protected PDF downloads navigable without treating a relative URL as a hostname', () => {
     const url = '/api/assets/pdf_123';
-    const html = renderToStaticMarkup(<Renderer view={{ version: 1, template: 'web', data: { url, text: 'PDF document · protected download' }, source: { url } }} />);
+    const html = renderToStaticMarkup(<Renderer view={{ version: 1, template: 'web', data: { url, text: 'PDF document · protected download' }}} />);
     expect(html.match(/href="\/api\/assets\/pdf_123"/g)).toHaveLength(1);
     expect(html).toContain('Open original');
     expect(html).not.toContain('<iframe');
@@ -103,7 +103,7 @@ describe('safe source rendering', () => {
   });
 
   it.each(['/api/assets/../tokens', '/api/assets/file?redirect=https://example.com', '/api/assets/%2e%2e', '/api/tokens', '//example.com/file'])('does not widen protected document links to %s', url => {
-    const html = renderToStaticMarkup(<Renderer view={{ version: 1, template: 'web', data: { url }, source: { url } }} />);
+    const html = renderToStaticMarkup(<Renderer view={{ version: 1, template: 'web', data: { url }}} />);
     expect(html).not.toContain('<a ');
     expect(html).not.toContain('<iframe');
     expect(sourceLabel(url)).toBe('Source');
@@ -137,13 +137,12 @@ describe('safe source rendering', () => {
   });
 
   it('retains attribution without adding an unsolicited interpretation label', () => {
-    const view: ViewSpec = { version: 1, template: 'document', data: { text: 'A concise interpretation.', quote: false }, source: { title: 'Source report', url: 'https://example.com/report', locator: 'Section 4' } };
-    const html = renderToStaticMarkup(<Renderer view={validateView({ ...view, showSource: true })} />);
+    const view: ViewSpec = { version: 1, template: 'document', data: { text: 'A concise interpretation.', quote: false }};
+    const html = renderToStaticMarkup(<Renderer view={validateView({ ...view, showCaption: true })} />);
     expect(html).not.toContain('Interpretation');
     expect(html).not.toContain('<blockquote');
-    expect(html).toContain('Source report');
-    expect(html).toContain('Section 4');
-    expect(html).toContain('rel="noopener noreferrer"');
+    expect(html).not.toContain('view-information');
+    expect(renderToStaticMarkup(<Renderer view={validateView({ ...view, showCaption: true, data: { ...view.data, section: 'Section 4', page: 12 } })} />)).toContain('Section 4');
   });
 });
 

@@ -5,7 +5,7 @@
  * No model, no embeddings: this is authored text measured by a probe set. */
 export interface TemplateConcept { when: string; also: string }
 export const TEMPLATE_CONCEPTS: Record<string, TemplateConcept> = {
-  'split-screen': { when: 'Two to six views side by side on one screen. Use when someone wants to see things next to each other or keep one thing up while looking at another.', also: 'side by side panes halves quarters two things at once dashboard wall multi view' },
+  'split-screen': { when: 'Two to sixteen views in a grid on one screen (rows x columns, one nested grid level). Use when someone wants to see things next to each other or keep one thing up while looking at another.', also: 'side by side panes halves quarters two things at once dashboard wall multi view' },
   'database-schema': { when: 'Database tables with their columns, types and keys. Use when someone asks what a table looks like or how the data is modelled.', also: 'tables columns foreign key sql model entity relationship erd' },
   qr: { when: 'One large code to scan with a phone. Use when someone needs to open a link, join wifi or pass text to a phone.', also: 'qr code scan phone camera link url barcode' },
   math: { when: 'A calculation shown large so the person can check it: sums, totals, percentages, VAT, splitting a bill, unit conversions, as well as equations and derivations. The agent supplies the results; Kanvas only displays.', also: 'calculation calculator arithmetic sum add up total percentage percent vat tax tip split bill share divide conversion convert working steps equation formula derivation latex' },
@@ -39,6 +39,8 @@ export const TEMPLATE_CONCEPTS: Record<string, TemplateConcept> = {
   flowchart: { when: 'A process or decision path, step by step. Use when explaining how something flows or what happens next.', also: 'process flow steps decision diagram phases left to right pipeline how it works' },
   network: { when: 'Things and the relationships between them. Use when the connections matter more than the order.', also: 'graph relationships nodes links connections web who knows who dependencies' },
   json: { when: 'JSON shown exactly, as readable text or a collapsible tree. Use when someone wants to see a payload or config.', also: 'json payload config raw tree object api response data structure' },
+  'monitor-stream': { when: 'A live screen bound to one monitor stream: rows appear by themselves as hooks, scripts or sub-agents report, newest first. Use to watch agents or jobs work without polling.', also: 'live agent activity hooks claude code sub-agent monitor stream watch events progress tool calls dashboard' },
+  'message-board': { when: 'The public Kanvas message board at a glance: counts by tag, new messages and the latest posts. Publish the view returned by kanvas.board.overview.', also: 'community forum messages board new posts tags overview questions tips' },
   'tool-call-details': { when: 'One tool call in full: the request beside the response, with status and duration. Use when inspecting what a call sent and got back.', also: 'tool call request response arguments result error duration debug inspect api call' },
   'session-topology': { when: 'The people, devices and windows in this session. Use when someone asks who is connected or where a screen is.', also: 'who is connected devices windows people watching topology' },
   email: { when: 'One email with its headers. Use when reading or discussing a message.', also: 'mail message sender subject read email' },

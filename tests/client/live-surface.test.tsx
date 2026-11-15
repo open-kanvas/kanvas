@@ -2,28 +2,26 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { CodeRenderer } from '../../src/client/renderers/Code';
 import { Renderer } from '../../src/client/renderers/Renderer';
-import { ViewInformation } from '../../src/client/renderers/ViewInformation';
 import WhiteboardRenderer from '../../src/client/renderers/Whiteboard';
-import { hasViewInformation, liveSurfaceLayout, liveSurfaceOptions, viewInformationContent, type LiveSurfaceFlags } from '../../src/shared/live-surface';
+import { liveSurfaceLayout, liveSurfaceOptions, type LiveSurfaceFlags } from '../../src/shared/live-surface';
 import { samples } from '../../src/shared/template-examples';
 import { type ViewSpec } from '../../src/shared/types';
 import { validateView } from '../../src/shared/view-schemas';
 
 type SurfaceView = ViewSpec & LiveSurfaceFlags;
-const source = { title: 'Exact submitted source', url: 'https://example.com/original', locator: 'Page 12', timestamp: '2026-09-14T10:00:00Z' };
-const fact: SurfaceView = { version: 1, template: 'fact', title: 'Stored metadata title', data: { text: 'One useful idea.' }, source };
+const fact: SurfaceView = { version: 1, template: 'fact', title: 'Stored metadata title', data: { text: 'One useful idea.' } };
 
 describe('live surface metadata is opt-in across the catalog', () => {
-  it('preserves explicit flags and exact metadata through schema validation', () => {
-    const view = validateView({ ...fact, showTitle: false, showCaption: true, showSource: true, showControls: false });
-    expect(view).toMatchObject({ title: fact.title, source, showTitle: false, showCaption: true, showSource: true, showControls: false });
+  it('preserves explicit flags through schema validation; source metadata is no longer part of a view (0.38.0)', () => {
+    const view = validateView({ ...fact, showTitle: false, showCaption: true, showControls: false });
+    expect(view).toMatchObject({ title: fact.title, showTitle: false, showCaption: true, showControls: false });
     const html = renderToStaticMarkup(<Renderer view={view} />);
     expect(html).not.toContain('class="view-heading"');
-    expect(html).toContain('Source &amp; info');
-    expect(html).not.toContain('Illustrative data');
-    expect(html).toContain('Exact submitted source');
-    expect(html).toContain('Page 12');
-    expect(html).toContain('2026-09-14T10:00:00Z');
+    expect(html).not.toContain('Source &amp; info');
+    expect(html).not.toContain('About this view');
+    expect(html).not.toContain('view-information');
+    expect(() => validateView({ ...fact, showSource: true })).toThrow();
+    expect(() => validateView({ ...fact, source: { title: 'Exact submitted source', url: 'https://example.com/original' } })).toThrow();
   });
 
   it('requires a deliberate title flag even for chart, table and reading documents', () => {
@@ -38,61 +36,20 @@ describe('live surface metadata is opt-in across the catalog', () => {
     expect(html).toContain('NOK');
   });
 
-  it('does not create empty affordances from blank metadata or invalid source links', () => {
-    const empty: SurfaceView = { ...fact, title: '  ', source: { title: '', locator: ' ' }, showTitle: true, showSource: true };
-    expect(hasViewInformation(empty)).toBe(false);
-    expect(renderToStaticMarkup(<ViewInformation view={empty} />)).toBe('');
-    expect(renderToStaticMarkup(<Renderer view={empty} />)).not.toContain('view-heading');
-    expect(hasViewInformation({ ...empty, source: { url: 'javascript:alert(1)' } })).toBe(false);
-    expect(renderToStaticMarkup(<ViewInformation view={empty} placement="menu" />)).toBe('');
-  });
-
-  it('makes stored metadata available in the deliberate display menu, not a hidden default widget', () => {
-    expect(renderToStaticMarkup(<ViewInformation view={fact} />)).toBe('');
-    const html = renderToStaticMarkup(<ViewInformation view={fact} placement="menu" />);
-    expect(html).toContain('view-information-menu');
-    expect(html).toContain('Stored metadata title');
-    expect(html).toContain('Exact submitted source');
-    expect(html).toContain('https://example.com/original');
-    expect(renderToStaticMarkup(<ViewInformation view={{ ...fact, showSource: true } as SurfaceView} preview />)).toBe('');
-  });
-
-  it('includes exact supplied image captions in deliberate metadata without rewriting the view', () => {
-    const view: SurfaceView = { version: 1, template: 'image', data: { images: [{ url: 'https://example.com/photo.jpg', alt: 'An exact photograph', caption: 'A <caption>\nwith its original spacing.' }] } };
-    const before = structuredClone(view);
-    const html = renderToStaticMarkup(<ViewInformation view={view} placement="menu" />);
-    expect(html).toContain('A &lt;caption&gt;\nwith its original spacing.');
-    expect(viewInformationContent(view).captions).toEqual([{ label: 'Caption', text: 'A <caption>\nwith its original spacing.' }]);
-    expect(view).toEqual(before);
-  });
 });
 
 describe('presentation metadata follows the currently shown slide', () => {
-  const deck: SurfaceView = { version: 1, template: 'presentation', title: 'Deck title', source: { title: 'Deck source' }, data: { index: 1, slides: [
-    { ...fact, title: 'Other slide', source: { title: 'Do not show this source' } },
-    { ...fact, title: 'Current slide', source: { title: 'Current slide source' } },
+  const deck: SurfaceView = { version: 1, template: 'presentation', title: 'Deck title', data: { index: 1, slides: [
+    { ...fact, title: 'Other slide' },
+    { ...fact, title: 'Current slide' },
   ] } };
 
-  it('combines current slide and deck only on explicit request', () => {
-    const html = renderToStaticMarkup(<Renderer view={{ ...deck, showSource: true }} />);
-    expect(html.match(/aria-label="About this view"/g)).toHaveLength(1);
-    for (const text of ['Current slide', 'Current slide source', 'Deck title', 'Deck source']) expect(html).toContain(text);
-    expect(html).not.toContain('Do not show this source');
-    const menu = renderToStaticMarkup(<ViewInformation view={deck} placement="menu" />);
-    expect(menu).toContain('Current slide source');
-    expect(menu).not.toContain('Do not show this source');
-  });
-
   it('inherits utility flags, respects an explicit leaf override, and never repeats a deck heading', () => {
-    const container = { ...deck, showTitle: true, showCaption: true, showSource: true, showControls: true };
-    expect(liveSurfaceOptions(fact, container)).toEqual({ showTitle: false, showCaption: true, showSource: true, showControls: true });
-    expect(liveSurfaceOptions({ ...fact, showCaption: false, showSource: false, showControls: false }, container)).toEqual({ showTitle: false, showCaption: false, showSource: false, showControls: false });
+    const container = { ...deck, showTitle: true, showCaption: true, showControls: true };
+    expect(liveSurfaceOptions(fact, container)).toEqual({ showTitle: false, showCaption: true, showControls: true });
+    expect(liveSurfaceOptions({ ...fact, showCaption: false, showControls: false }, container)).toEqual({ showTitle: false, showCaption: false, showControls: false });
   });
 
-  it('deduplicates the same source regardless of object key order', () => {
-    const information = viewInformationContent(fact, { ...deck, source: { timestamp: source.timestamp, locator: source.locator, url: source.url, title: source.title } });
-    expect(information.sources).toEqual([source]);
-  });
 });
 
 describe('fit modes preserve readable content and intrinsic interaction', () => {
@@ -123,7 +80,7 @@ describe('fit modes preserve readable content and intrinsic interaction', () => 
   });
 
   it('retains meaningful quote attribution and access states independently of caption flags', () => {
-    const quote = renderToStaticMarkup(<Renderer view={{ ...samples.quote, showCaption: false, showSource: false } as SurfaceView} />);
+    const quote = renderToStaticMarkup(<Renderer view={{ ...samples.quote, showCaption: false } as SurfaceView} />);
     expect(quote).toContain(String(samples.quote.data.attribution));
     const checklist = renderToStaticMarkup(<Renderer view={{ ...samples.checklist, showControls: false } as SurfaceView} />);
     expect(checklist).toContain('View-only checklist');

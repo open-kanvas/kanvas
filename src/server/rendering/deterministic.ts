@@ -29,8 +29,7 @@ export function renderSuppliedContent(input: InterpretationInput): Interpretatio
   const { submission } = input;
   const data = objectData(submission.data);
   const text = typeof submission.data === 'string' ? submission.data : typeof data?.text === 'string' ? data.text : (submission.context ?? '');
-  const source = submission.source;
-  const make = (template: TemplateId, value: Record<string, unknown>): InterpretationResult => ({ action: 'replace', view: validateView({ version: 1, template, data: value, ...(source ? { source } : {}) }) });
+  const make = (template: TemplateId, value: Record<string, unknown>): InterpretationResult => ({ action: 'replace', view: validateView({ version: 1, template, data: value }) });
   if (submission.datasetId) {
     const dataset = input.datasets.find((item) => item.id === submission.datasetId);
     if (!dataset) throw new RenderingError('DATASET_NOT_FOUND', 'Referenced dataset is unavailable in this session.');
@@ -61,7 +60,7 @@ export function renderSuppliedContent(input: InterpretationInput): Interpretatio
   if (!template) throw new RenderingError('PREPARED_VIEW_REQUIRED', 'Ambiguous content: supply an explicit templateHint with schema-valid data, or a prepared view {version:1,template,data}. Instructions in intent are not display content.');
   if(['iframe','website'].includes(template))return make(template,suppliedIframeData(input));
   if (data) {
-    const direct = leafViewSchema.safeParse({ version: 1, template, data, source });
+    const direct = leafViewSchema.safeParse({ version: 1, template, data });
     if (direct.success) return { action: 'replace', view: validateView(direct.data) };
   }
   switch (template) {

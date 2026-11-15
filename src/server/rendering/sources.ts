@@ -77,7 +77,6 @@ export function sourceUrls(input: InterpretationInput): Set<string> {
     } else if (value && typeof value === 'object') for (const child of Object.values(value)) collect(child, depth + 1);
   };
   collect(input.submission.data, 0); collect(input.submission.context, 0); collect(input.submission.intent, 0);
-  if (input.submission.source?.url) urls.add(input.submission.source.url);
   return urls;
 }
 
@@ -115,9 +114,9 @@ export function suppliedIframeData(input: InterpretationInput): Record<string, u
 export function suppliedWebData(input: InterpretationInput, chosenUrl?: string): Record<string, unknown> {
   const data = objectData(input.submission.data);
   const urls = sourceUrls(input);
-  const url = typeof data?.url === 'string' ? data.url : chosenUrl && urls.has(chosenUrl) ? chosenUrl : input.submission.source?.url ?? urls.values().next().value;
+  const url = typeof data?.url === 'string' ? data.url : chosenUrl && urls.has(chosenUrl) ? chosenUrl : urls.values().next().value;
   if (!url || !urls.has(url)) throw new RenderingError('MISSING_WEB_SOURCE', 'The web template needs a supplied public URL or a selected PDF asset. KANVAS does not fetch pages or generate website mockups; use whiteboard for a described layout.');
-  const parsed = webDataSchema.safeParse({ url, ...(typeof data?.title === 'string' ? { title: data.title } : input.submission.source?.title ? { title: input.submission.source.title } : {}),
+  const parsed = webDataSchema.safeParse({ url, ...(typeof data?.title === 'string' ? { title: data.title } : {}),
     ...(typeof data?.text === 'string' ? { text: data.text } : {}), ...(typeof data?.snapshotUrl === 'string' ? { snapshotUrl: data.snapshotUrl } : {}),
     ...(typeof data?.retrievedAt === 'string' ? { retrievedAt: data.retrievedAt } : {}), ...(data?.embed === true ? { embed: true } : {}),
   });

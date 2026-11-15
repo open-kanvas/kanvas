@@ -1,5 +1,6 @@
 import {NOV05_MAPPING} from './nov05-mapping';
 import {NOV10_MAPPING} from './nov10-mapping';
+import {NOV14_MAPPING} from './nov14-mapping';
 import {NOVEMBER_MAPPING} from './november-mapping.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthPrincipal, Token } from '../../src/server/auth.js';
@@ -70,7 +71,7 @@ async function invoke(w: ParityWorld, profile: McpProfile, canonical: CanonicalF
 
 describe.sequential('twelve-tool semantic parity against real committed stores', () => {
   it('accounts independently for all original parity fixtures and separately exercised new real-client operations', () => {
-    const fixtures = [...PARITY_MAPPING,...AFTERNOON_MAPPING,...WORK_MAPPING,...DEVICE_MAPPING,...ACCOUNT_MAPPING,...CURRENT_MAPPING,...NOVEMBER_MAPPING,...NOV05_MAPPING,...NOV10_MAPPING].map(([canonical, tool, operation]) => ({ canonical, tool, operation }));
+    const fixtures = [...PARITY_MAPPING,...AFTERNOON_MAPPING,...WORK_MAPPING,...DEVICE_MAPPING,...ACCOUNT_MAPPING,...CURRENT_MAPPING,...NOVEMBER_MAPPING,...NOV05_MAPPING,...NOV10_MAPPING,...NOV14_MAPPING].map(([canonical, tool, operation]) => ({ canonical, tool, operation }));
     expect(fixtures).toHaveLength(OPERATION_ENTRIES.length);
     expect(new Set(fixtures.map(entry => entry.canonical)).size).toBe(OPERATION_ENTRIES.length);
     expect(new Set(fixtures.map(entry => entry.tool)).size).toBe(12);
@@ -199,7 +200,7 @@ describe.sequential('source fidelity, publication modes and scope-sensitive effe
     for (const profile of ['legacy', 'twelve'] as const) {
       const w = await world();
       const args = { sessionId: w.sessionId, displayIds: [w.displayId], requestId: 'generated-context', context: LITERAL,
-        intent: 'Show the exact supplied wording', templateHint: 'fact', source: EXACT_SOURCE,
+        intent: 'Show the exact supplied wording', templateHint: 'fact',
         data: { operation: 'kanvas_submit', command: { action: 'literal data' }, amount: '00123.4500', text: LITERAL } };
       const receipt = await invoke(w, profile, 'kanvas_submit', args) as UpdateRecord;
       await w.flush();
@@ -223,7 +224,7 @@ describe.sequential('source fidelity, publication modes and scope-sensitive effe
       view: { version: 1, template: 'table', data: { binding: { datasetId: dataset.id } } } });
     await w.flush();
     expect((await w.current()).view?.data.rows).toEqual(EXACT_ROWS);
-    expect((await w.current()).view?.source).toEqual(EXACT_SOURCE);
+    expect((await w.current()).view).not.toHaveProperty('source');
     const before = (await w.snapshot());
     await expect(invoke(w, profile, 'kanvas_view_patch', { ...(await w.request()), requestId: 'illegal-source-edit', operations: [{ op: 'set', path: '/data/rows/0/amount', value: '123.45' }] })).rejects.toMatchObject({ code: 'PATCH_SOURCE_CONFLICT' });
     expect((await w.snapshot())).toEqual(before);
@@ -240,7 +241,7 @@ describe.sequential('source fidelity, publication modes and scope-sensitive effe
     // transcription validator supplies its documented status:'complete' default.
     expect((await w.current()).view?.data).toEqual({ segments: [{ id: 'only-replacement', text: LITERAL }], status: 'complete' });
     expect((await w.current()).view?.data).not.toHaveProperty('language');
-    expect((await w.current()).view).toMatchObject({ title: original.view!.title, source: EXACT_SOURCE, actions: transcript().actions });
+    expect((await w.current()).view).toMatchObject({ title: original.view!.title, actions: transcript().actions });
     expect(w.generatedInputs).toEqual([]);
   });
 

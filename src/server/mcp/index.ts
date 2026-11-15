@@ -170,6 +170,8 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
         try{context=await service.responseContext?.(principal,guidanceArgs,connectionId,result.isError===true)??{};}catch{/* Policy inputs are optional. */}
         const original=result.structuredContent&&typeof result.structuredContent==='object'?result.structuredContent as Record<string,unknown>:undefined;
         const targetSession=guidanceArgs&&typeof guidanceArgs==='object'&&typeof (guidanceArgs as {sessionId?:unknown}).sessionId==='string'?(guidanceArgs as {sessionId:string}).sessionId:typeof (original?.data as {sessionId?:unknown}|undefined)?.sessionId==='string'?(original!.data as {sessionId:string}).sessionId:undefined;
+        // Pointing rides on whatever this connection calls next; a failed call keeps it for the following one.
+        if(result.isError!==true){try{const pointing=await service.pointingEvents?.(principal,connectionId,targetSession);if(pointing)context={...context,pointing};}catch{/* Never replace the primary result. */}}
         const decided=applyResponsePolicy(original,{state:contacts.observe(`${principal.userId}:${connectionId}`),context,guidance,isError:result.isError===true,operation,sessionId:targetSession});
         if(!decided.structured&&!decided.extra){friction(result,result.content,operation,connectionId);return result;}
         const structuredContent=decided.structured;

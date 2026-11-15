@@ -1,5 +1,6 @@
 import type { ToastRecord } from '../shared/viewer-experience.js';
 import { asyncMap, asyncSome } from './async-collections.js';
+import { SPLIT_LIMITS, splitLeaves } from '../shared/split-screen.js';
 import { requestContext } from './request-context.js';
 import { lifecycleNotice } from './lifecycle-notices.js';
 import { NATO_WORDS, type RequestContext } from '../shared/recognition.js';
@@ -261,8 +262,9 @@ export async function pairedDisplayAllowsAsset(store: Store, principal: AuthPrin
         return (await referenced(retained,0));
       }))));
     }
-    if (view.template === 'split-screen' && depth === 0 && Array.isArray(data.panes) && [2,4,6].includes(data.panes.length)) {
-      return await asyncSome(data.panes as {view:ViewSpec}[], pane=>referenced(pane.view,depth+1));
+    if (view.template === 'split-screen' && depth === 0 && Array.isArray(data.panes)) {
+      const leaves=splitLeaves(data);
+      return leaves.length>=2&&leaves.length<=SPLIT_LIMITS.leaves&&await asyncSome(leaves, pane=>referenced(pane.view,depth+1));
     }
     if (view.template === 'presentation' && Array.isArray(data.slides)) {
       const index = data.index === undefined ? 0 : data.index;

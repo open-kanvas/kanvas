@@ -133,3 +133,11 @@
 
 .custom-visual-host{width:100%;height:100%;min-height:0;display:flex}.custom-visual-host>.custom-visual{flex:1;min-width:0}
 .render-surface.is-live>.render-body>.custom-visual-host{flex:1;min-height:0}.render-surface.is-live>.render-body>.custom-visual-host>.custom-visual{min-height:0;display:block}
+
+/* An authored sample size wins over fit-to-screen sizing; a long list then scrolls. */
+.font-picker[data-sample-size] :is(.font-sample,.font-context h3,.font-pairings h3){font-size:var(--font-sample-size);-webkit-line-clamp:unset;line-clamp:unset;display:block}.font-picker[data-sample-size] :is(.font-samples,.font-pairings){overflow:auto}
+
+/* Check-off happens where the item stands. */
+@keyframes task-check{0%{transform:scale(.4);opacity:.2}60%{transform:scale(1.35)}100%{transform:scale(1)}}@keyframes task-done{0%{background:color-mix(in srgb,var(--accent) 35%,transparent)}100%{background:transparent}}
+.task-list tr.just-done .task-box{animation:task-check .45s ease-out}.task-list tr.just-done>td{animation:task-done .9s ease-out}
+@media(prefers-reduced-motion:reduce){.task-list tr.just-done .task-box,.task-list tr.just-done>td{animation:none}}

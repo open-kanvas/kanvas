@@ -33,13 +33,13 @@ export function DiagramRenderer({view}:RendererProps){
   // Window zoom is applied by zooming the surface, which also shrinks this
   // container. Fit against the UNZOOMED viewport so zoom really enlarges the
   // diagram (and scrolls) instead of being cancelled by a re-fit.
-  const windowZoom=navigation?.state.scale??1,textScale=(parsed.data as {textScale?:number}).textScale??1;
+  const windowZoom=navigation?.surfaceScale??navigation?.state.scale??1,fitted=navigation?.state.fit===true,textScale=fitted?1:(parsed.data as {textScale?:number}).textScale??1;
   const viewportWidth=Math.max(1,size.width*windowZoom),viewportHeight=Math.max(1,size.height*windowZoom);
   // A small diagram fills a large screen (up to DIAGRAM_MAX_FILL) so it reads from across a room.
   const fit=view.template==='flowchart'?fitFlowchart(parsed.data,viewportWidth,viewportHeight):{...natural,scale:Math.min(DIAGRAM_MAX_FILL,viewportWidth/natural.width,viewportHeight/natural.height)};
   const enlarged=windowZoom>1.001||textScale>1.001;
   const layout=fit,focusing=Boolean(navigation?.state.focus),scale=focusing?Math.max(1,fit.scale*zoom)*textScale:fit.scale*textScale;
-  return <div ref={root} className={`diagram-scroll${!focusing&&!enlarged?' diagram-fit':''}`} data-diagram-scale={Math.round(scale*windowZoom*1000)/1000} data-navigation-scroll tabIndex={0} role="region" aria-label={`${view.template} diagram`}><svg className="relationship-diagram" viewBox={`0 0 ${layout.width} ${layout.height}`} style={{width:layout.width*scale,height:layout.height*scale}} role="img" aria-label={view.title??`${view.template}: ${layout.nodes.map(n=>n.label).join(', ')}`}><defs><marker id={marker} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="var(--muted)"/></marker></defs>
+  return <div ref={root} className={`diagram-scroll${!focusing&&!enlarged?' diagram-fit':''}`} data-diagram-scale={Math.round(scale*windowZoom*1000)/1000} data-diagram-fitted={fitted||undefined} data-navigation-scroll tabIndex={0} role="region" aria-label={`${view.template} diagram`}><svg className="relationship-diagram" viewBox={`0 0 ${layout.width} ${layout.height}`} style={{width:layout.width*scale,height:layout.height*scale}} role="img" aria-label={view.title??`${view.template}: ${layout.nodes.map(n=>n.label).join(', ')}`}><defs><marker id={marker} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="var(--muted)"/></marker></defs>
     {layout.edges.map((edge,i)=>{const a=layout.nodes.find(n=>n.id===edge.from)!,b=layout.nodes.find(n=>n.id===edge.to)!;if(!a||!b)return null;
       const dx=b.x-a.x,dy=b.y-a.y,sa=1/Math.max(Math.abs(dx)/116,Math.abs(dy)/(a.height/2),1),sb=1/Math.max(Math.abs(dx)/116,Math.abs(dy)/(b.height/2),1);
       const sx=a.x+dx*sa,sy=a.y+dy*sa,ex=b.x-dx*sb,ey=b.y-dy*sb;

@@ -96,10 +96,14 @@ function assertPatchTarget(view: ViewSpec, parts: string[]): void {
   let leaf = view, relative = parts.slice(1);
   if(leaf.template==='split-screen'){
     if(relative.length===1&&relative[0]==='direction')return;
-    if(relative[0]!=='panes'||relative[2]!=='view')unsupported('Patch a pane at /data/panes/N/view or its data; pane IDs/count remain stable until a new submission.');
-    const pane=(leaf.data.panes as {view:ViewSpec}[])[existingIndex(relative[1],leaf.data.panes as unknown[])];
-    if(relative.length===3)return;
-    return assertPatchTarget(pane.view,relative.slice(3));
+    if(relative[0]==='divider'&&relative.length<=2)return;
+    const refuse=()=>unsupported('Patch a pane at /data/panes/N/view (or /data/panes/N/panes/M/view inside a nested grid) or its data; pane IDs, counts and grid shape remain stable until a new submission.');
+    if(relative[0]!=='panes'||relative.length<3)refuse();
+    let pane=(leaf.data.panes as {view?:ViewSpec;panes?:{view:ViewSpec}[]}[])[existingIndex(relative[1],leaf.data.panes as unknown[])],rest=relative.slice(2);
+    if(rest[0]==='panes'&&Array.isArray(pane.panes)){if(rest.length<3)refuse();pane=pane.panes[existingIndex(rest[1],pane.panes)];rest=rest.slice(2);}
+    if(rest[0]!=='view'||!pane.view)refuse();
+    if(rest.length===1)return;
+    return assertPatchTarget(pane.view!,rest.slice(1));
   }
   while (leaf.template === 'presentation') {
     if (relative[0] === 'index' && relative.length === 1) return;

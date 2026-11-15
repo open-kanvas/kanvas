@@ -3,7 +3,7 @@ import { viewFormatSchema } from './regional.js';
 import { selectionSchema } from './selection.js';
 import { z } from 'zod';
 import { TEMPLATE_IDS, type SubmissionInput } from './types.js';
-import { actionSchema, provenanceSchema } from './view-schemas.js';
+import { actionSchema } from './view-schemas.js';
 
 const id = z.string().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/);
 const targets = z.array(id).min(1).max(64).refine(values => new Set(values).size === values.length).meta({ uniqueItems: true });
@@ -20,10 +20,9 @@ export const publishInputSchema = z.strictObject({
   targetRef: id.optional(), contextId: z.string().min(1).max(128).optional(), resolution: resolution.optional(),
   context: z.string().max(12000).optional(), intent: z.string().max(1000).optional(), data: z.unknown().optional(),
   datasetId: id.optional(), assetIds: z.array(id).max(32).optional(), templateHint: z.enum(TEMPLATE_IDS).optional(),
-  source: provenanceSchema.optional(),
   view: z.strictObject({ format:viewFormatSchema.optional(), selection:selectionSchema.optional(), version: z.literal(1), template: z.enum(TEMPLATE_IDS), title: z.string().max(500).optional(),
-    showTitle: z.boolean().optional(), showCaption: z.boolean().optional(), showSource: z.boolean().optional(), showControls: z.boolean().optional(),
-    data: z.record(z.string(), z.unknown()), source: provenanceSchema.optional(), actions: z.array(actionSchema).max(8).optional(),
+    showTitle: z.boolean().optional(), showCaption: z.boolean().optional(), showControls: z.boolean().optional(),
+    data: z.record(z.string(), z.unknown()), actions: z.array(actionSchema).max(8).optional(),
   }).optional(),
 }).superRefine((v, ctx) => {
   if (v.displayIds && !v.sessionId) ctx.addIssue({ code: 'custom', path: ['sessionId'], message: 'Explicit displayIds require their sessionId.' });

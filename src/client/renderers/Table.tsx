@@ -83,7 +83,7 @@ export function tableSummaryText(summary?: TableSummary): string | undefined {
   return [`${summary.displayedRows.toLocaleString()} shown from ${summary.sourceRows.toLocaleString()} source rows`, summary.aggregation && summary.aggregation !== 'none' ? summary.aggregation : '', summary.downsampled ? 'downsampled' : '', summary.excludedRows ? `${summary.excludedRows} rows excluded` : '', summary.precisionNote ?? ''].filter(Boolean).join(' · ');
 }
 
-export function TableRenderer({ data, showControls = false, showSource = false }: { data: TableData; showControls?: boolean; showSource?: boolean }) {
+export function TableRenderer({ data, showControls = false }: { data: TableData; showControls?: boolean }) {
   const navigation=useNavigation(),regional=useRegional();
   const snapshot = useMemo(() => tableSnapshot(data), [data.columns, data.rows, data.pageSize, data.binding?.datasetId, data.summary?.datasetId]);
   const [state, setState] = useState<TableState>(() => ({ snapshot, controls: showControls, page: 0, query: '', sort: null }));
@@ -96,7 +96,6 @@ export function TableRenderer({ data, showControls = false, showSource = false }
   if(navigation&&!navigation.hasPosition)navigation.seedPage(page.page);
   useEffect(()=>{if(navigation?.hasPosition)setState(old=>old.page===page.page?old:{...old,page:page.page});},[navigation?.hasPosition,page.page]);
   useEffect(() => { if (scroll.current) scroll.current.scrollTop = 0; }, [page.page, page.pageSize, current.query, current.sort]);
-  const summary = showSource ? tableSummaryText(data.summary) : undefined;
   const selection=useSelection();
   const rowStyles=useMemo(()=>new Map(data.rowStyles?.map(s=>[s.row,s])),[data.rowStyles]);
   const cellStyles=useMemo(()=>new Map(data.cellStyles?.map(s=>[JSON.stringify([s.row,s.column]),s])),[data.cellStyles]);
@@ -124,6 +123,5 @@ export function TableRenderer({ data, showControls = false, showSource = false }
       <span aria-live="polite" aria-atomic="true"><span className="sr-only">Rows </span>{page.start + 1}–{page.end} of {page.matchingRows}<span className="sr-only"> · Page {page.page + 1} of {page.pageCount}</span></span>
       <button type="button" disabled={page.page === page.pageCount - 1||navigation?.canNavigate===false} onClick={() => {setState(old=>({...old,page:page.page+1}));navigation?.send({action:'page',page:page.page+2});}}>Next →</button>
     </nav>}
-    {summary && <p className="content-summary table-source-summary">{summary}</p>}
   </div>;
 }

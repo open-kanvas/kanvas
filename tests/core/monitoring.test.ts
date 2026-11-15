@@ -268,7 +268,7 @@ describe('persisted monitoring jobs', () => {
     expect(stored.owner).toEqual({ userId: PRINCIPAL.userId, agentId: PRINCIPAL.agentId, tokenId: PRINCIPAL.tokenId });
     expect(JSON.stringify(started)).not.toContain('stable-grant'); expect(JSON.stringify(stored)).not.toContain('rotating-access-credential');
     await h.engine.runDue();
-    expect(fetcher).toHaveBeenCalledTimes(1); expect((await h.display()).view).toMatchObject({ template: 'fact', data: { text: 'Up' }, source: { url: URL, timestamp: '2026-09-14T12:00:00.000Z' } });
+    expect(fetcher).toHaveBeenCalledTimes(1); expect((await h.display()).view).toMatchObject({ template: 'fact', data: { text: 'Up' } }); expect((await h.display()).view).not.toHaveProperty('source');
     expect((await h.read(started.id))).toMatchObject({ health: { status: 'healthy', targetState: 'up', statusCode: 200, latencyMs: 31.25, lastSuccessAt: '2026-09-14T12:00:00.000Z' } });
     expect(h.validations).toHaveLength(1); expect((await h.store.list('update'))).toHaveLength(0); expect((await h.store.list('work'))).toHaveLength(0);
   });

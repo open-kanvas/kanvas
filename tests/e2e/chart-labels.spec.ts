@@ -12,7 +12,7 @@ function chart(kind: 'line' | 'bar' | 'box' | 'heatmap'): ViewSpec {
     : LABELS.map((x, index) => kind === 'box'
       ? { x, y: 40 + index * 10, low: 10 + index * 10, q1: 25 + index * 10, median: 40 + index * 10, q3: 50 + index * 10, high: 65 + index * 10 }
       : { x, y: 20 + index * 20, rawY: `${20 + index * 20}.00000000000000001` });
-  return validateView({ version: 1, template: 'chart', data: { kind, xLabel: 'Price milestone', yLabel: kind === 'heatmap' ? 'Supplied region' : 'Share price', unit: 'USD', series: [{ name: 'Supplied values', points }] }, source: { title: 'Synthetic axis-layout acceptance data' } });
+  return validateView({ version: 1, template: 'chart', data: { kind, xLabel: 'Price milestone', yLabel: kind === 'heatmap' ? 'Supplied region' : 'Share price', unit: 'USD', series: [{ name: 'Supplied values', points }] } });
 }
 async function setup(page: Page) {
   await register(page);
@@ -93,7 +93,7 @@ test('dense categories retain observations and exact accessible labels with rota
   const { sessionId, display, viewer } = await setup(page);
   if (info.project.name.startsWith('phone')) await viewer.setViewportSize({ width: 443, height: 823 });
   const points = Array.from({ length: 35 }, (_, index) => ({ x: `Complete supplied milestone number ${index + 1}`, y: index === 17 ? null : index + 1, rawY: index === 17 ? null : `${index + 1}.00000000000000001` }));
-  const view = validateView({ version: 1, template: 'chart', data: { kind: 'line', xLabel: 'Full source milestone', yLabel: 'Source amount', unit: 'USD', series: [{ name: 'Supplied values', points }] }, source: { title: 'Supplied sample' } });
+  const view = validateView({ version: 1, template: 'chart', data: { kind: 'line', xLabel: 'Full source milestone', yLabel: 'Source amount', unit: 'USD', series: [{ name: 'Supplied values', points }] } });
   await show(page, viewer, sessionId, display.id, view);
   const metrics = await geometry(viewer);
   expect(metrics.collisions).toEqual([]); expect(metrics.outside).toEqual([]); expect(Math.min(...metrics.text.map(item => item.actualFont))).toBeGreaterThanOrEqual(15.9);

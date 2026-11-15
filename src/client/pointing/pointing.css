@@ -3,3 +3,7 @@
 
 /* Opt-in mode alone owns the touch gesture; native scrolling returns on exit. */
 .semantic-pointing-active .viewer-candidate,.semantic-pointing-active .viewer-candidate *{touch-action:none!important}
+/* A tap fades; a pinned mark stays and is drawn firmer. */
+.semantic-pointer.is-fading{animation:pointer-fade linear forwards}.semantic-pointer.is-pinned .semantic-pointer-mark{border-width:3px;box-shadow:0 0 0 2px #0006}
+.semantic-pointer-mark.is-spot{border-radius:50%}
+@keyframes pointer-fade{0%,65%{opacity:1}100%{opacity:0}}

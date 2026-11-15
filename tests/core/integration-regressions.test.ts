@@ -35,7 +35,7 @@ function assertExactView(view: ViewSpec, render: typeof renderCases[number]): vo
     return assertExactView(slides[0], render);
   }
   expect(view.template).toBe(render.template);
-  expect(view.source).toEqual(source);
+  expect(view).not.toHaveProperty('source');
   if (render.template === 'number') expect(view.data.value).toBe(render.value);
   else if (render.template === 'table') {
     expect(view.data.columns).toEqual(['date', 'amount', 'units']);
@@ -67,7 +67,7 @@ describe('inline sources at publication and saved-playback boundaries', () => {
   for (const inline of inlineSources) for (const render of renderCases) {
     it(`publishes an exact ${render.name} from inline ${inline.format}, then saves, cues and restarts it`, async () => {
       const owner = await h.account(), session = await owner.session(), display = await owner.display(session.id);
-      const submission = { requestId: randomUUID(), displayIds: [display.id], templateHint: render.template, source, data: { ...inline.data, binding: render.binding } };
+      const submission = { requestId: randomUUID(), displayIds: [display.id], templateHint: render.template, data: { ...inline.data, binding: render.binding } };
       const accepted = success(await owner.request<UpdateRecord>('POST', `/api/sessions/${session.id}/submit`, submission));
       const prepared = await owner.settle(session.id, submission.requestId);
       expect(prepared.update.status).toBe('prepared');

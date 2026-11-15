@@ -3,7 +3,7 @@ import type {KanvasService} from './domain.js';
 import type {AuthPrincipal} from './auth.js';
 import {hash} from './auth.js';
 import type {DisplayRecord,ViewSpec} from '../shared/types.js';
-import {projectTasks,taskItemSchema,taskListDataSchema,TASK_DETAIL_MAX,TASK_LIST_MAX_ITEMS,type TaskItem,type TaskListData} from '../shared/task-list.js';
+import {isBuiltinTaskColumn,projectTasks,taskItemSchema,taskListDataSchema,TASK_DETAIL_MAX,TASK_LIST_MAX_ITEMS,type TaskItem,type TaskListData} from '../shared/task-list.js';
 import {AppError,id,now,required} from './store.js';
 import {InputError} from './input-errors.js';
 import type {Definition} from './mcp/canonical.js';
@@ -26,7 +26,7 @@ export const taskListUpdateSchema=z.strictObject({sessionId:sessionKey,taskListI
  highlight:ref.nullable().optional(),
  sort:dataShape.sort.unwrap().nullable().optional(),
  filter:dataShape.filter.unwrap().nullable().optional(),
- columns:dataShape.columns});
+ columns:dataShape.columns,doneLast:z.boolean().optional()});
 export const taskListShowSchema=z.strictObject({sessionId:sessionKey,taskListId:identifier,displayId:sessionKey,expectedRevision:revision.optional(),requestId:identifier});
 export const taskListTools:Definition[]=[
  {name:'kanvas_tasklist_read',readOnly:true,schema:taskListReadSchema,description:'Read a saved task list: rows filtered and sorted by the server, or ONE item (number or id) in full with its detail and source. Omit taskListId to list them.'},
@@ -123,7 +123,8 @@ export class TaskLists{
    const {highlight:_h,sort:_s,filter:_f,...rest}=list.data;
    const data=taskListDataSchema.parse({...rest,items,...(highlight?{highlight}:{}),
     ...(a.sort===null?{}:a.sort?{sort:a.sort}:list.data.sort?{sort:list.data.sort}:{}),...(a.filter===null?{}:a.filter?{filter:a.filter}:list.data.filter?{filter:list.data.filter}:{}),
-    ...(a.columns?{columns:a.columns}:{})});
+    ...(a.columns?{columns:a.columns.filter(column=>!isBuiltinTaskColumn(column.key))}:{}),...(a.doneLast!==undefined?{doneLast:a.doneLast}:{})});
+   const ignoredColumns=(a.columns??[]).filter(column=>isBuiltinTaskColumn(column.key)).map(column=>column.key);
    const title=a.title??list.title,unchanged=JSON.stringify([title,data])===before;
    const next:TaskList=unchanged?list:{...list,title,data,nextNumber,revision:list.revision+1,updatedAt:now()};
    if(!unchanged){
@@ -141,7 +142,7 @@ export class TaskLists{
    const final=next.data.items as Stored[];
    const result={id:next.id,sessionId:next.sessionId,revision:next.revision,previousRevision:list.revision,title:next.title,changes,
     counts:{total:final.length,open:final.filter(item=>!item.checked).length,done:final.filter(item=>item.checked).length},
-    ...(next.data.highlight?{highlight:{id:next.data.highlight,number:final.find(item=>item.id===next.data.highlight)!.number}}:{}),...(unchanged?{unchanged:true}:{}),updatedAt:next.updatedAt,
+    ...(next.data.highlight?{highlight:{id:next.data.highlight,number:final.find(item=>item.id===next.data.highlight)!.number}}:{}),...(unchanged?{unchanged:true}:{}),...(ignoredColumns.length?{ignoredColumns,columnsNote:'Number, item, status and tags are always shown. columns is only for your own extra columns, filled from each item\'s fields.'}:{}),updatedAt:next.updatedAt,
     note:unchanged?'Nothing differed from the saved list; revision unchanged.':'Saved. Items not listed in changes are exactly as before; item numbers never change.'};
    await this.store.put('task-list-request',{id:key,sessionId:a.sessionId,digest,result});return result;
   }));

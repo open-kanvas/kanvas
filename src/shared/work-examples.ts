@@ -1,7 +1,7 @@
 import type { ViewSpec } from './types.js';
 import type { WORK_TEMPLATE_IDS } from './work-views.js';
 type Id=typeof WORK_TEMPLATE_IDS[number];
-const sample=(template:Id,data:Record<string,unknown>):ViewSpec=>({version:1,template,data,source:{title:'KANVAS example (sample data)'}});
+const sample=(template:Id,data:Record<string,unknown>):ViewSpec=>({version:1,template,data});
 export const workNames:Record<Id,string>={email:'Email reader',inbox:'Inbox',chat:'Chat thread',cards:'Cards','record-detail':'Record detail',bookmarks:'Web bookmarks','tool-inventory':'Tool inventory','tool-detail':'Tool detail','code-workspace':'Code workspace',developer:'Developer workflow',operations:'Operations'};
 export const workExamples:Record<Id,ViewSpec>={
   email:sample('email',{messages:[{id:'mail-1',from:'Alex',to:['Sam'],subject:'Design review',timestamp:'2026-09-17T10:00:00Z',body:'The updated sketches are ready.\n\nPlease review the navigation before Friday.'}]}),

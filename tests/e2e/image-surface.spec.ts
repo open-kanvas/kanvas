@@ -39,7 +39,7 @@ async function uploadImages(page: Page, sessionId: string) {
 }
 
 const imageEntry = (asset: AssetRecord, extra: Partial<ImageEntry> = {}): ImageEntry => ({ url: asset.url, alt: exactAlt, caption: exactCaption, ...extra });
-const imageView = (images: ImageEntry[], options: Partial<ViewSpec> = {}): ViewSpec => validateView({ version: 1, template: 'image', title: 'Retained original collection title', source: { title: 'Locally generated acceptance image', url: images[0].url, locator: 'Original protected asset; all source pixels retained', timestamp: '2026-09-14T12:00:00Z' }, data: { images }, ...options });
+const imageView = (images: ImageEntry[], options: Partial<ViewSpec> = {}): ViewSpec => validateView({ version: 1, template: 'image', title: 'Retained original collection title', data: { images }, ...options });
 const twoFrames = (page: Page) => page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
 
 async function show(page: Page, viewer: Page, sessionId: string, displayId: string, view: ViewSpec) {
@@ -87,7 +87,7 @@ test('protected images use the full phone/desktop frame without cropping or disc
       await expect(viewer.locator('.viewer-candidate .image-surface img')).toHaveAttribute('alt', exactAlt);
       await expect(viewer.locator('.viewer-candidate .view-heading,.viewer-candidate figcaption,.viewer-candidate .view-information,.viewer-candidate .image-original-link,.viewer-candidate .gallery-controls')).toHaveCount(0);
       expect(await viewer.locator('.viewer-candidate .image-surface').innerText()).toBe('');
-      expect(current.view?.data).toEqual(view.data); expect(current.view?.source).toEqual(view.source); expect(current.view?.title).toBe(view.title);
+      expect(current.view?.data).toEqual(view.data); expect(current.view).not.toHaveProperty('source'); expect(current.view?.title).toBe(view.title);
       const scale = Math.min(viewport.width / shape.width, viewport.height / shape.height), painted = { width: shape.width * scale, height: shape.height * scale };
       expect(Math.min(Math.abs(painted.width - viewport.width), Math.abs(painted.height - viewport.height))).toBeLessThan(1);
       await viewer.screenshot({ path: `${info.outputPath('visuals')}/${info.project.name}-${shape.name}-${viewport.width}x${viewport.height}.png`, animations: 'disabled' });
@@ -130,23 +130,22 @@ test('all gallery images remain reachable and caption/source/utility flags work 
   expect((await sessionDetail(page, sessionId)).displays.find(item => item.id === display.id)?.view?.data).toEqual(view.data);
 
   const caption = '  Exact caption.\n' + ('Identifier ' + 'X'.repeat(80) + '\n').repeat(3) + '  final supplied line  ';
-  const explicit = imageView([imageEntry(assets[1], { caption })], { showTitle: true, showCaption: true, showSource: true, showControls: true });
+  const explicit = imageView([imageEntry(assets[1], { caption })], { showTitle: true, showCaption: true, showControls: true });
   await show(page, viewer, sessionId, display.id, explicit);
   expect(await surface.locator('figcaption').textContent()).toBe(caption); await expect(viewer.locator('.viewer-candidate h1')).toHaveText(explicit.title!);
   await expect(surface.getByRole('link', { name: 'Open original image', exact: true })).toHaveAttribute('href', assets[1].url);
   const captionMetrics = await surface.locator('figcaption').evaluate(element => ({ font: parseFloat(getComputedStyle(element).fontSize), whiteSpace: getComputedStyle(element).whiteSpace, width: element.clientWidth, scrollWidth: element.scrollWidth }));
   expect(captionMetrics.font).toBeGreaterThanOrEqual(16); expect(captionMetrics.whiteSpace).toBe('break-spaces'); expect(captionMetrics.scrollWidth).toBeLessThanOrEqual(captionMetrics.width + 1);
-  await viewer.getByLabel('About this view', { exact: true }).click(); await expect(viewer.getByRole('region', { name: 'View information', exact: true })).toContainText('Original protected asset; all source pixels retained');
-  await viewer.getByRole('button', { name: 'Close view information', exact: true }).click();
+  await expect(viewer.getByLabel('About this view', { exact: true })).toHaveCount(0); await expect(viewer.locator('.viewer-candidate .view-information')).toHaveCount(0);
   await mkdir(info.outputPath('visuals'), { recursive: true }); await viewer.screenshot({ path: `${info.outputPath('visuals')}/${info.project.name}-explicit-metadata.png`, animations: 'disabled' });
-  await show(page, viewer, sessionId, display.id, imageView([imageEntry(assets[0], { caption: undefined })], { source: {}, title: undefined, showSource: true }));
+  await show(page, viewer, sessionId, display.id, imageView([imageEntry(assets[0], { caption: undefined })], { title: undefined }));
   await expect(viewer.locator('.viewer-candidate .view-information')).toHaveCount(0);
 
   const slide = imageView([imageEntry(assets[0])]);
-  const deck = validateView({ version: 1, template: 'presentation', showCaption: true, showSource: true, showControls: true, data: { slides: [slide], index: 0 } });
+  const deck = validateView({ version: 1, template: 'presentation', showCaption: true, showControls: true, data: { slides: [slide], index: 0 } });
   await show(page, viewer, sessionId, display.id, deck);
-  await expect(surface.locator('figcaption')).toHaveCount(1); await expect(surface.locator('.image-original-link')).toHaveCount(1); await expect(viewer.locator('.viewer-candidate .view-information')).toHaveCount(1);
-  await show(page, viewer, sessionId, display.id, validateView({ ...deck, data: { slides: [{ ...slide, showCaption: false, showSource: false, showControls: false }], index: 0 } }));
+  await expect(surface.locator('figcaption')).toHaveCount(1); await expect(surface.locator('.image-original-link')).toHaveCount(1); await expect(viewer.locator('.viewer-candidate .view-information')).toHaveCount(0);
+  await show(page, viewer, sessionId, display.id, validateView({ ...deck, data: { slides: [{ ...slide, showCaption: false, showControls: false }], index: 0 } }));
   await expect(surface.locator('figcaption,.image-original-link')).toHaveCount(0); await expect(viewer.locator('.viewer-candidate .view-information')).toHaveCount(0);
 });
 

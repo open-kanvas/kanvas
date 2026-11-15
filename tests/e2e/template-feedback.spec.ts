@@ -54,13 +54,11 @@ test('filled whiteboard labels, literal code and honest source cards reach actua
   expect(await viewer.locator('.viewer-candidate .code-line>span:last-child').allTextContents()).toEqual(exact.split('\n'));
   const sourceText = 'This text did not come from a KANVAS fetch.';
   await publish(page, viewer, sessionId, display.id, 'document', { text: sourceText, quote: false }, {
-    title: 'Supplied description', showTitle: true, showSource: true,
-    source: { title: 'Supplied summary · not a fetched excerpt', url: 'https://example.com/article' },
+    title: 'Supplied description', showTitle: true,
   });
   await expect(viewer.locator('.viewer-candidate .view-heading')).toContainText('Supplied description');
   await expect(viewer.locator('.viewer-candidate .document-content')).toContainText(sourceText);
-  await viewer.locator('.viewer-candidate').getByLabel('About this view', { exact: true }).click();
-  await expect(viewer.locator('.viewer-candidate').getByRole('link', { name: 'Supplied summary · not a fetched excerpt' })).toHaveAttribute('href', 'https://example.com/article');
+  await expect(viewer.locator('.viewer-candidate').getByLabel('About this view', { exact: true })).toHaveCount(0);
 });
 
 test('transcription and translation preserve source text, speaker labels and timestamp lexemes', async ({ page }, testInfo) => {

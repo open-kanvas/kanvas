@@ -20,7 +20,7 @@ export const navigationActionSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('reset') }).strict(),
 ]);
 export type NavigationAction = z.infer<typeof navigationActionSchema>;
-export interface NavigationState { scale?:number; line?:number; panelId?:string; side?:'before'|'after'; day?:number|'all'; reading?:ReadingState; page:number; query:string; highlight:string; match:number; scroll:{x:number;y:number}; focus?:{text?:string;region?:{x:number;y:number;width:number;height:number};zoom:number} }
+export interface NavigationState { /** Diagram shown whole in each window, whatever its authored textScale. */ fit?:boolean; scale?:number; line?:number; panelId?:string; side?:'before'|'after'; day?:number|'all'; reading?:ReadingState; page:number; query:string; highlight:string; match:number; scroll:{x:number;y:number}; focus?:{text?:string;region?:{x:number;y:number;width:number;height:number};zoom:number} }
 export const initialNavigation = (view?:ViewSpec|null):NavigationState => ({page:(view?.template==='iframe'||view?.template==='website')?Number(view.data.index??0):view?.template==='tool-inventory'?Math.max(0,((view.data.groups??[]) as {name:string}[]).findIndex(g=>g.name===view.data.activeGroup)):0,query:'',highlight:'',match:0,scroll:{x:0,y:0},...(view?.template==='itinerary'&&view.data.layout==='map'?{day:'all' as const}:{})});
 export function navigationLeaf(view:ViewSpec|null):ViewSpec|null { return view?.template==='presentation' ? (view.data.slides as ViewSpec[])[Number(view.data.index??0)]??null : view; }
 const text = (value:unknown):string => value === null || value === undefined ? '' : typeof value === 'object' ? Object.values(value).map(text).join(' ') : String(value);
@@ -37,10 +37,12 @@ export function navigationCapabilities(view:ViewSpec|null,state?:NavigationState
 export function navigate(view:ViewSpec|null, prior:NavigationState, action:NavigationAction):NavigationState {
   const next=structuredClone(prior), caps=navigationCapabilities(view,prior);
   const need=(yes:boolean)=>{if(!yes)throw new Error(`This view does not support ${action.action}. ${caps.note}`);};
+  // Fit holds until the person or agent deliberately moves or enlarges the diagram again.
+  if(['zoom','scroll','focus'].includes(action.action))delete next.fit;
   switch(action.action){
     case 'zoom':need(caps.zoom);next.scale=action.scale??(action.direction==='reset'?1:Math.max(.25,Math.min(3,Math.round((next.scale??1)*(action.direction==='in'?1.2:1/1.2)*100)/100)));break;
     case 'reading':{need(caps.reading);const r={...READING_DEFAULTS,...next.reading};if(action.command==='start'||action.command==='resume')r.playing=true;if(action.command==='pause')r.playing=false;if(action.command==='faster')r.wpm=READING_SPEEDS.find(v=>v>r.wpm)??320;if(action.command==='slower')r.wpm=[...READING_SPEEDS].reverse().find(v=>v<r.wpm)??120;if(action.fontSize!==undefined)r.fontSize=action.fontSize;if(action.wpm!==undefined)r.wpm=action.wpm;if(action.zoom!==undefined)r.zoom=action.zoom;if(action.position!==undefined)next.scroll.y=action.position;next.reading=r;break;}
-    case 'fit':need(caps.fit);return initialNavigation(navigationLeaf(view));
+    case 'fit':need(caps.fit);return {...initialNavigation(navigationLeaf(view)),fit:true};
     case 'gotoLine':{need(caps.gotoLine);const leaf=navigationLeaf(view)!,panels=(leaf.data.panels??[]) as Record<string,unknown>[],source=leaf.data.kind==='split'?(action.panelId?panels.find(p=>p.id===action.panelId):panels[0]):leaf.data;if(!source)throw new Error('Choose a supplied panelId.');if(action.panelId&&leaf.data.kind!=='split')throw new Error('panelId requires a split code view.');const start=Number(source.startLine??1),text=String(source.kind==='diff'?source[action.side??'after']:source.code??''),count=source.kind==='diff'&&!text?0:text.split('\n').length;if(action.line<start||action.line>=start+count)throw new Error(`Line must be between ${start} and ${start+count-1}.`);next.line=action.line;next.panelId=leaf.data.kind==='split'?String(source.id):undefined;next.side=action.side??'after';next.focus=undefined;next.query='';break;}
     case 'selectDay':{need(caps.selectDay);if(action.day!=='all'&&action.day>(caps.dayCount??0))throw new Error(`Day must be between 1 and ${caps.dayCount}, or all.`);next.day=action.day;next.scroll={x:0,y:0};next.focus=undefined;break;}
     case 'reset':return initialNavigation(navigationLeaf(view));

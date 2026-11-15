@@ -58,6 +58,9 @@ import { cellSchema, datasetBindingSchema, summarySchema, chartDataSchema } from
 export { cellSchema, datasetBindingSchema, chartPointSchema, chartDataSchema } from './chart-contract.js';
 export type { Cell, DatasetBinding, ChartPoint, ChartData } from './chart-contract.js';
 import type { Provenance, TemplateId, ViewSpec } from './types.js';
+import { SPLIT_LIMITS, splitGrid, splitLeaves, mapSplitViewsSync } from './split-screen.js';
+import { monitorStreamDataSchema } from './monitor-stream-view.js';
+import { messageBoardDataSchema } from './message-board.js';
 
 /** Shared, browser-safe contracts. Content is text/data, never executable markup. */
 export const VIEW_LIMITS = { bytes: 2 * 1024 * 1024, points: 5000, tableRows: 1000, slides: 64, boardElements: 1000, transcriptSegments: 1000, formFields: 40, scheduleEvents: 500, pollOptions: 12 } as const;
@@ -253,7 +256,7 @@ export const actionSchema = z.object({ id: identifier, label, kind: z.enum(['but
   .refine((v) => v.kind !== 'choice' || Boolean(v.options?.length), 'Choice action needs options')
   .meta({ allOf: [{ if: { properties: { kind: { const: 'choice' } }, required: ['kind'] }, then: { required: ['options'] } }] });
 export const codeWorkspaceDataSchema=z.object({files:codeDataSchema.shape.files.unwrap(),activePath:z.string().min(1).max(500),excerpt:codeDataSchema}).strict().refine(v=>v.files.some(f=>f.path===v.activePath&&f.kind==='file'),'Active path must name a supplied file.').refine(v=>['code','diff'].includes(v.excerpt.kind),'Workspace excerpt must be code or diff.');
-const base = { format: viewFormatSchema.optional().describe('Display-only format overrides; source stays ISO.'), selection: selectionSchema.optional().describe('Agent-controlled filter/sort/highlight; full source is retained. No display filter widgets.'), version: z.literal(1).default(1), title: short.optional(), showTitle: z.boolean().optional().describe('Show the stored title on the display only when explicitly true.'), showCaption: z.boolean().optional().describe('Opt in to supporting captions on the display; content remains stored when hidden.'), showSource: z.boolean().optional().describe('Opt in to visible source metadata. Required attribution is always retained.'), showControls: z.boolean().optional().describe('Default off for every template. Opt in to utility controls such as chart data; tables have no filter/sort/reset widgets. Intrinsic responses and navigation remain available.'), source: provenanceSchema.optional(), actions: z.array(actionSchema).max(8).refine(uniqueIds, 'Action IDs must be unique').optional() };
+const base = { format: viewFormatSchema.optional().describe('Display-only format overrides; source stays ISO.'), selection: selectionSchema.optional().describe('Agent-controlled filter/sort/highlight; full source is retained. No display filter widgets.'), version: z.literal(1).default(1), title: short.optional(), showTitle: z.boolean().optional().describe('Show the stored title on the display only when explicitly true.'), showCaption: z.boolean().optional().describe('Opt in to supporting captions on the display; content remains stored when hidden.'), showControls: z.boolean().optional().describe('Default off for every template. Opt in to utility controls such as chart data; tables have no filter/sort/reset widgets. Intrinsic responses and navigation remain available.'), actions: z.array(actionSchema).max(8).refine(uniqueIds, 'Action IDs must be unique').optional() };
 export const leafViewSchema = z.discriminatedUnion('template', [
   z.object({...base,template:z.literal('database-schema'),data:databaseSchemaDataSchema}).strict(),
   z.object({...base,template:z.literal('sing-along'),data:venueSchemas['sing-along']}).strict(),
@@ -276,6 +279,8 @@ export const leafViewSchema = z.discriminatedUnion('template', [
   z.object({...base,template:z.literal('icon-picker'),data:iconPickerDataSchema}).strict(),
   z.object({...base,template:z.literal('font-picker'),data:fontPickerDataSchema}).strict(),
   z.object({...base,template:z.literal('tool-call-details'),data:toolCallDetailsDataSchema}).strict(),
+  z.object({...base,template:z.literal('monitor-stream'),data:monitorStreamDataSchema}).strict(),
+  z.object({...base,template:z.literal('message-board'),data:messageBoardDataSchema}).strict(),
   z.object({...base,template:z.literal('agents'),data:agentsDataSchema}).strict(),
   z.object({...base,template:z.literal('welcome'),data:welcomeDataSchema}).strict(),
   z.object({...base,template:z.literal('session-topology'),data:topologyDataSchema}).strict(),
@@ -368,17 +373,32 @@ export const leafViewSchema = z.discriminatedUnion('template', [
 ]);
 export const presenterPreviewSchema = z.boolean().optional().describe('Notes display: private preview, with explicit Go live to cue linked screens.');
 export const cueOptionsSchema={mirrored:z.union([z.boolean(),z.enum(['vertical','horizontal','both'])]).optional().describe('false disables mirroring; true defaults to vertical (top/bottom flip). Choose vertical, horizontal (left/right flip), or both (180-degree rotation). Select for your physical rig; no glass calibration is inferred.'),cueMode:z.boolean().optional()};
-export const presentationDataSchema = z.object({ ...cueOptionsSchema,slides: z.array(leafViewSchema).min(1).max(VIEW_LIMITS.slides), index: z.number().int().min(0).default(0), presenterPreview: presenterPreviewSchema,
+/** Views that belong on a display or in a split-screen pane, not on a slide: a live stream binding and the
+ * message-board snapshot. Leaving them out keeps the complete presentation contract inside the MCP result budget. */
+export const NOT_A_SLIDE:ReadonlySet<string>=new Set(['monitor-stream','message-board']);
+const slideOptions=leafViewSchema.options.filter(option=>!NOT_A_SLIDE.has(option.shape.template.value)) as unknown as typeof leafViewSchema.options;
+export const slideViewSchema=z.discriminatedUnion('template',slideOptions);
+export const presentationDataSchema = z.object({ ...cueOptionsSchema,slides: z.array(slideViewSchema).min(1).max(VIEW_LIMITS.slides), index: z.number().int().min(0).default(0), presenterPreview: presenterPreviewSchema,
 }).strict().refine((v) => v.index < v.slides.length, 'Slide index is outside this deck');
 const ordinaryViewSchema = z.union([leafViewSchema,z.object({...base,template:z.literal('presentation'),data:presentationDataSchema}).strict()]);
-export const splitScreenSchema=z.object({...base,template:z.literal('split-screen'),data:z.object({direction:z.enum(['vertical','horizontal']).default('vertical'),panes:z.array(z.object({id:z.string().regex(/^[A-Za-z0-9_-]{1,32}$/),view:ordinaryViewSchema}).strict()).min(2).max(6).refine(p=>[2,4,6].includes(p.length),'Use 2, 4 or 6 panes.').refine(p=>new Set(p.map(x=>x.id)).size===p.length,'Pane IDs must be unique.')}).strict()}).strict();
-export const viewSchema = z.union([leafViewSchema, ordinaryViewSchema.options[1],splitScreenSchema]).describe('title, showTitle, showCaption, showSource, showControls, source and actions are view-level fields beside template/data, never inside data.');
+const splitPaneId=z.string().regex(/^[A-Za-z0-9_-]{1,32}$/),splitAxis=z.number().int().min(1).max(SPLIT_LIMITS.axis),splitDirection=z.enum(['vertical','horizontal']);
+const splitLeafPane=z.object({id:splitPaneId,view:ordinaryViewSchema}).strict();
+const splitGridMessage='Pane count must equal rows x columns (1-4 each). Without rows/columns only 2, 3, 4 or 6 panes are arranged automatically.';
+const splitGridPane=z.object({id:splitPaneId,rows:splitAxis.optional(),columns:splitAxis.optional(),direction:splitDirection.optional(),panes:z.array(splitLeafPane).min(2).max(SPLIT_LIMITS.leaves)}).strict().refine(p=>Boolean(splitGrid(p.panes.length,p.rows,p.columns,p.direction)),splitGridMessage).describe('A pane that holds its own grid. Its panes cannot be split again.');
+export const splitScreenDataSchema=z.object({rows:splitAxis.optional().describe('1-4. Panes fill the grid row by row.'),columns:splitAxis.optional().describe('1-4.'),direction:splitDirection.default('vertical').describe('Lane direction when rows/columns are omitted: vertical is side by side.'),
+  divider:z.union([z.literal('none'),z.object({gap:z.number().min(0).max(64).optional().describe('CSS px between panes; default 6.'),borderWidth:z.number().min(0).max(16).optional().describe('CSS px; default 1.'),borderColor:z.string().regex(/^#[0-9a-fA-F]{6}$/).optional()}).strict()]).optional().describe('Omit for the standard thin border and gap. "none" lets content run edge to edge. Applies to nested grids too.'),
+  panes:z.array(z.union([splitLeafPane,splitGridPane])).min(2).max(SPLIT_LIMITS.leaves)}).strict()
+  .refine(d=>Boolean(splitGrid(d.panes.length,d.rows,d.columns,d.direction)),splitGridMessage)
+  .refine(d=>splitLeaves(d).length<=SPLIT_LIMITS.leaves,`At most ${SPLIT_LIMITS.leaves} panes in total, nested panes included.`)
+  .refine(d=>{const ids=[...d.panes.map(p=>p.id),...d.panes.flatMap(p=>'panes' in p?p.panes.map(x=>x.id):[])];return new Set(ids).size===ids.length;},'Pane IDs must be unique across the whole screen, nested panes included.');
+export const splitScreenSchema=z.object({...base,template:z.literal('split-screen'),data:splitScreenDataSchema}).strict();
+export const viewSchema = z.union([leafViewSchema, ordinaryViewSchema.options[1],splitScreenSchema]).describe('title, showTitle, showCaption, showControls and actions are view-level fields beside template/data, never inside data.');
 export type ValidatedView = z.infer<typeof viewSchema>;
 
 /** The same per-template contract powers runtime validation and MCP discovery. */
 export function templateViewSchema(template: TemplateId): z.ZodType {
   if(template==='split-screen')return splitScreenSchema;
-  return template === 'presentation' ? z.object({...base,template:z.literal('presentation'),data:z.object({...cueOptionsSchema,slides:z.array(z.union(leafViewSchema.options.filter(option=>!['web'].includes(option.shape.template.value)))).min(1).max(VIEW_LIMITS.slides),index:z.number().int().min(0).default(0),presenterPreview:presenterPreviewSchema}).strict().refine(data=>data.index<data.slides.length,'Slide index is outside the presentation.')}).strict()
+  return template === 'presentation' ? z.object({...base,template:z.literal('presentation'),data:z.object({...cueOptionsSchema,slides:z.array(z.union(slideViewSchema.options.filter(option=>!['web'].includes(option.shape.template.value)))).min(1).max(VIEW_LIMITS.slides),index:z.number().int().min(0).default(0),presenterPreview:presenterPreviewSchema}).strict().refine(data=>data.index<data.slides.length,'Slide index is outside the presentation.')}).strict()
     : sourceDescribedSchema(template);
 }
 
@@ -412,8 +432,7 @@ export function assertJsonBudget(input: unknown, maxBytes = VIEW_LIMITS.bytes, m
 
 export function validateView(input: unknown): ViewSpec {
   assertJsonBudget(input);
-  // Historical payloads keep their substantive content; the retired badge field
-  // is discarded only from provenance, never from user data with the same key.
+  // The retired demo-deck metadata is dropped; nothing else is rewritten.
   input = retainedProvenance(input);
   // Select the known discriminator before parsing so a malformed fact returns
   // fact field errors, not an opaque union failure across all fifteen templates.
@@ -426,14 +445,14 @@ export function validateView(input: unknown): ViewSpec {
 }
 
 function checkedSelection(view:ViewSpec,path:(string|number)[]=[]):ViewSpec {
-  if(view.template==='split-screen')(view.data.panes as {view:ViewSpec}[]).forEach((p,i)=>checkedSelection(p.view,[...path,'data','panes',i,'view']));
+  if(view.template==='split-screen')splitLeaves(view.data).forEach(p=>checkedSelection(p.view,[...path,...p.path.slice(1).split('/').map(part=>/^\d+$/.test(part)?Number(part):part)]));
   if(view.selection&&!selectionKey(view))throw new z.ZodError([{code:'custom',path:[...path,'selection'],message:'Selection requires a table, list, log, communication or technical record view.'}]);
   if(view.template==='presentation')(view.data.slides as ViewSpec[]).forEach((slide,i)=>checkedSelection(slide,[...path,'data','slides',i]));
   return view;
 }
 
 function normalizeTableRows(view: ViewSpec): ViewSpec {
-  if(view.template==='split-screen')return {...view,data:{...view.data,panes:(view.data.panes as {id:string;view:ViewSpec}[]).map(p=>({...p,view:normalizeTableRows(p.view)}))}};
+  if(view.template==='split-screen')return {...view,data:mapSplitViewsSync(view.data,normalizeTableRows)};
   if (view.template === 'presentation') return { ...view, data: { ...view.data, slides: (view.data.slides as ViewSpec[]).map(normalizeTableRows) } };
   if (view.template !== 'table') return view;
   const supplied = view.data.columns as string[], rows = view.data.rows as unknown[];
@@ -444,11 +463,9 @@ function normalizeTableRows(view: ViewSpec): ViewSpec {
 export function retainedProvenance(input: unknown): unknown {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return input;
   const v = input as Record<string, unknown>;
-  const source = v.source && typeof v.source === 'object' && !Array.isArray(v.source) ? { ...v.source as Record<string, unknown> } : undefined;
-  if (source) delete source.illustrative;
   const data = v.data as Record<string, unknown> | undefined;
   // The retired static demo deck stored per-slide agent prompts in data.demo;
   // retained decks keep their slides, but that legacy metadata is dropped.
   const deck = v.template === 'presentation' && data && typeof data === 'object' ? (({ demo: _demo, ...rest }) => rest)(data) : data;
-  return { ...v, ...(source ? { source } : {}), ...(v.template === 'presentation' && Array.isArray(data?.slides) ? { data: { ...deck, slides: data.slides.map(retainedProvenance) } } : {}) };
+  return { ...v, ...(v.template === 'presentation' && Array.isArray(data?.slides) ? { data: { ...deck, slides: data.slides.map(retainedProvenance) } } : {}) };
 }

@@ -48,8 +48,6 @@ export interface ImageRendererProps {
   data: { images: ImageEntry[] };
   showCaption?: boolean;
   showControls?: boolean;
-  /** Source information is handled by the surrounding Renderer, never duplicated here. */
-  showSource?: boolean;
 }
 
 export function ImageRenderer({ data, showCaption = false, showControls = false }: ImageRendererProps) {

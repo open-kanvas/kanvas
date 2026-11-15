@@ -40,8 +40,7 @@ Ordinary series have `name` and `points`. Points retain the existing required `x
         { "x": "2026-09-02", "y": 104, "open": 108, "high": 112, "low": 102, "close": 104 }
       ]
     }]
-  },
-  "source": { "title": "Illustrative supplied sessions", "illustrative": true }
+  }
 }
 ```
 
@@ -142,7 +141,7 @@ The Data alternative includes exact raw observations and source row indexes; it 
 
 ## Display behavior and limits
 
-`showControls: true` and `showSource: true` are optional **top-level ViewSpec flags**, not fields inside `data`. Their defaults are false. `showControls` exposes the Chart/Data switch; `showSource` exposes the materialization summary. Mark focus/hover inspection, full category/graph keys and axis ranges remain available as intrinsic chart meaning. Stored provenance and exact data are retained regardless of resting chrome.
+`showControls: true` is an optional **top-level ViewSpec flag**, not a field inside `data`. Its default is false. It exposes the Chart/Data switch. Mark focus/hover inspection, full category/graph keys and axis ranges remain available as intrinsic chart meaning. Exact data is retained regardless of resting chrome. There is no `source` object and no `showSource` flag on a view (removed in 0.38.0): where data came from is something the person asks the agent.
 
 Measured CSS-pixel SVG sizing keeps text readable. Discrete long-label plots wrap complete labels and gain a scrollable extent instead of ellipsizing source identities or shrinking text. Continuous axes use spaced ticks without dropping observations; every supplied mark remains in the plot. Network/radar keys identify indexed marks with full names, and dense legends/long datasets can scroll within the chart.
 
@@ -153,3 +152,9 @@ See [data displays](data-displays.md) and the [template index](README.md).
 ## Independently grouped stacks
 
 For bar or area series, assign `stackGroup` to stack matching categories within that group. Different groups are side by side; axis and kind also partition stacks. A secondary-axis line stays independent and is never accumulated. `stacking:"percent"` normalizes each stack independently and rejects negative stacked values. Category zoom and pan preserve the complete source; legend toggles only affect the current local projection.
+
+## Built-in geography
+
+Choropleths that name regions by `countryCode` use boundaries shipped with Kanvas: **Natural Earth**, 1:110m generalized country and US-state boundaries, public domain (naturalearthdata.com). Small countries without a polygon at that scale are drawn as a dot at an approximate location; `territoryNote: true` shows a one-line note saying so. The credit is recorded here and is not drawn on the map (0.38.0). Supply GeoJSON `geometry` for regions the built-in set does not cover or when exact boundaries matter.
+
+A choropleth takes the full height available to it, keeping its colour scale.

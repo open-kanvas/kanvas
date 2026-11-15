@@ -27,7 +27,8 @@ it('compacted presentation schema preserves valid leaves and rejection boundarie
     for(const candidate of [sample,missing,{...sample,version:7},{...sample,unknownField:true},{...sample,data:{...sample.data,unknownField:true}},{...sample,data:null}]){
       const value=deck(candidate);expect(converted(value),sample.template+' '+JSON.stringify(candidate)).toBe(original(value));
     }
-    expect(converted(deck(sample)),sample.template).toBe(!['web','split-screen'].includes(sample.template));
+    // 0.38.0: a live stream binding and the message-board snapshot are display views, not slides.
+    expect(converted(deck(sample)),sample.template).toBe(!['web','split-screen','monitor-stream','message-board'].includes(sample.template));
     // Common action bounds may be lifted, but source-record branches must stay action-free.
     for(const count of [0,1,8,9]){const candidate=deck({...sample,actions:Array.from({length:count},(_,i)=>({id:`a${i}`,label:'Action',kind:'button'}))});expect(converted(candidate),`${sample.template} action count ${count}`).toBe(original(candidate));}
   }

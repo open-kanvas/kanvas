@@ -47,10 +47,10 @@ describe('real single-visual advanced chart renderers', () => {
     const html = renderToStaticMarkup(<AdvancedChartRenderer data={data} />); expect(html).toContain('open 101.000000000000001'); expect(html).toContain('close 108.000000000000001');
     expect(advancedChartRows(data).rows[0]).toMatchObject({ Open: '101.000000000000001', Close: '108.000000000000001', Y: '108.000000000000001' });
   });
-  it('keeps data controls and source summaries off unless explicitly requested', () => {
+  it('keeps data controls off unless explicitly requested and never draws a source summary (0.38.0)', () => {
     const data: ChartData = { ...sample('area'), summary: { sourceRows: 100, displayedRows: 6, downsampled: true } };
-    const quiet = renderToStaticMarkup(<AdvancedChartRenderer data={data} />), explicit = renderToStaticMarkup(<AdvancedChartRenderer data={data} showControls showSource />);
-    expect(quiet).not.toContain('<button'); expect(quiet).not.toContain('100 source rows'); expect(explicit).toContain('>Data</button>'); expect(explicit).toContain('6 shown from 100 source rows'); expect(explicit).toContain('downsampled');
+    const quiet = renderToStaticMarkup(<AdvancedChartRenderer data={data} />), explicit = renderToStaticMarkup(<AdvancedChartRenderer data={data} showControls />);
+    expect(quiet).not.toContain('<button'); expect(quiet).not.toContain('100 source rows'); expect(explicit).toContain('>Data</button>'); expect(explicit).not.toContain('6 shown from 100 source rows'); expect(explicit).not.toContain('advanced-source-summary');
   });
   it('keeps full long categorical labels and wraps them without ellipsizing source identities', () => {
     const label = 'Completed customer onboarding and initial deployment review', data = sample('waterfall'); data.series[0].points[1].x = label;

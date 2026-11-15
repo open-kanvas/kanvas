@@ -195,6 +195,7 @@ export async function createApp(options: AppOptions = {}) {
   const closePublic=(await mountPublicSessions(app,service,browser));
   mountSessionBrowsing(app,service,browser);
   app.get('/api/sessions/:id/displays/:displayId/tool-log',async (req,res)=>send(res,(await service.toolLog.forDisplay((await browser(req)),String(req.params.id),String(req.params.displayId)))));
+  app.get('/api/sessions/:id/displays/:displayId/monitor-stream',async (req,res)=>send(res,(await service.monitorStreams.forDisplay((await browser(req)),String(req.params.id),String(req.params.displayId),req.query,listener=>res.on('close',listener)))));
   app.post('/api/sessions/:id/displays/:displayId/autoplay',operation('kanvas_autoplay_control',displayArgs));
   app.get('/api/sessions/:id/displays/:displayId/autoplay',operation('kanvas_autoplay_read',displayArgs));
   const closeDevices=mountEntryDevices(app,service.devices,browser);
@@ -379,7 +380,7 @@ export async function createApp(options: AppOptions = {}) {
       if (closed || event.sessionId !== sessionId) return;
       if (event.type === 'ended') { res.write(`event: change\ndata: ${JSON.stringify({ type: 'ended', sessionId })}\n\n`); (await finish()); return; }
       try { (await service.access(principal, sessionId)); if (displayId) (await service.display(principal, sessionId, displayId)); } catch { (await finish()); return; }
-      if (principal.scopedDisplayId && (event.displayId && event.displayId !== displayId || !['display', 'config', 'update', 'membership', 'identify', 'toast'].includes(event.type))) return;
+      if (principal.scopedDisplayId && (event.displayId && event.displayId !== displayId || !['display', 'config', 'update', 'membership', 'identify', 'toast', 'pointing'].includes(event.type))) return;
       const safe = { type: event.type, sessionId, ...(event.displayId ? { displayId: event.displayId } : {}), ...(event.revision !== undefined ? { revision: event.revision } : {}), ...(event.type === 'identify' && event.data && typeof event.data === 'object' ? { identify: event.data } : {}) };
       if (!res.write(`event: change\ndata: ${JSON.stringify(safe)}\n\n`)) (await finish());
     });

@@ -10,7 +10,7 @@ const rows = Array.from({ length: 51 }, (_, index) => ({
   'Tool identifier': `fixture_tool_${String(index + 1).padStart(2, '0')}${index === 50 ? `_with_an_unbroken_source_identifier_${'0'.repeat(48)}` : ''}`,
   'Original description': `  Supplied description ${index + 1}. Keep original spacing and details.\nSecond supplied line.  `,
 }));
-const table = (options: Partial<ViewSpec> = {}): ViewSpec => validateView({ version: 1, template: 'table', data: { columns, rows }, source: { title: 'Synthetic table acceptance data' }, ...options });
+const table = (options: Partial<ViewSpec> = {}): ViewSpec => validateView({ version: 1, template: 'table', data: { columns, rows }, ...options });
 async function setup(page: Page) {
   await register(page);
   const sessionId = await createSession(page, 'Complete quiet tables'), display = await createDisplay(page, sessionId, 'Table reading screen');
@@ -160,15 +160,15 @@ test('agent selection remains available without viewer widgets and preserves exa
   await expect(surface.locator('.table-toolbar,input,th button')).toHaveCount(0);
 
   const exact = '9007199254740993.00000000000000001';
-  const precise = table({ source: undefined, data: { columns: ['Identifier', 'Exact amount', 'Enabled', 'Absent'], rows: [{ Identifier: '  0000007  ', 'Exact amount': exact, Enabled: false, Absent: null }, { Identifier: '', 'Exact amount': '\t0.00000000000000001\n  trailing spaces  ', Enabled: true, Absent: 0 }], summary: { sourceRows: 51, displayedRows: 2, precisionNote: 'Exact supplied cells.' } } });
+  const precise = table({ data: { columns: ['Identifier', 'Exact amount', 'Enabled', 'Absent'], rows: [{ Identifier: '  0000007  ', 'Exact amount': exact, Enabled: false, Absent: null }, { Identifier: '', 'Exact amount': '\t0.00000000000000001\n  trailing spaces  ', Enabled: true, Absent: 0 }], summary: { sourceRows: 51, displayedRows: 2, precisionNote: 'Exact supplied cells.' } } });
   await show(page, viewer, sessionId, display.id, precise);
   const exactRows = await pageRows(viewer);
   expect(exactRows.map(row => row.cells.map(cell => cell.text))).toEqual([['  0000007  ', exact, 'false', '—'], ['', '\t0.00000000000000001\n  trailing spaces  ', 'true', '0']]);
   expect(exactRows[0].cells.map(cell => cell.type)).toEqual(['string', 'string', 'boolean', 'null']);
   await expect(surface.locator('.table-source-summary')).toHaveCount(0);
-  await show(page, viewer, sessionId, display.id, { ...precise, showSource: true });
-  await expect(surface.locator('.table-source-summary')).toContainText('2 shown from 51 source rows');
-  await show(page, viewer, sessionId, display.id, table({ source: undefined, showSource: true }));
+  await show(page, viewer, sessionId, display.id, { ...precise, showControls: true });
+  await expect(surface.locator('.table-source-summary')).toHaveCount(0);
+  await show(page, viewer, sessionId, display.id, table({}));
   await expect(viewer.locator('.viewer-candidate .table-source-summary,.viewer-candidate .view-information')).toHaveCount(0);
   expect((await sessionDetail(page, sessionId)).displays.find(item => item.id === display.id)?.view?.data).toEqual(table().data);
 });
@@ -192,10 +192,9 @@ test('table and display controls keep separate hit areas in a quiet surface and 
       const { width, height } = element.getBoundingClientRect(); return { width, height };
     })).toEqual(profile.viewport);
     for (const presentation of [false, true]) await test.step(`${profile.viewport.width}/${profile.insets.bottom ? 'device-insets' : 'ordinary'}/${presentation ? 'presentation' : 'table'}`, async () => {
-      const leaf = table({ source: undefined, showControls: false });
+      const leaf = table({ showControls: false });
       const view: ViewSpec = presentation ? {
         version: 1, template: 'presentation', showControls: true, title: 'A supplied table inside a presentation, with independent page and slide navigation.', showTitle: true,
-        source: { title: 'Synthetic presentation acceptance data' },
         data: { index: 0, slides: [leaf, { version: 1, template: 'fact', data: { text: 'The second supplied slide' } }] },
       } : leaf;
       await show(page, viewer, sessionId, display.id, view);

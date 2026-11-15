@@ -26,7 +26,7 @@ test.use({hasTouch:true});
 test('line and bar marks accept actual touch, expose browser eligibility, and keep agent writes forbidden',async({page,baseURL},info)=>{
   const a=await setup(page,info,baseURL!);
   try{
-    await a.call('kanvas_access','pointing.configure',{sessionId:a.s,enabled:true,expectedRevision:0,confirm:true});
+    await a.call('kanvas_access','pointing.configure',{sessionId:a.s,enabled:true,tools:true,expectedRevision:0,confirm:true});
     for(const kind of ['line','bar']){
       await a.show({...samples.chart,data:{...samples.chart.data,kind}});
       const eligibility=await a.call('kanvas_inspect','pointing.read',{sessionId:a.s,displayId:a.d.id});

@@ -9,7 +9,7 @@ One supplied step fills the display, with large type, progress, optional materia
 `name`, optional `description`, up to 100 `materials`, 1–100 `steps`, zero-based `index`, and `stage: intro | step | complete`. Optional `completion` supplies the closing text. The index must refer to a supplied step. Fields, limits and defaults are available from `kanvas_discover` with `catalog:"templates", action:"get", id:"kanvas.template.procedure"`.
 
 ```json
-{"version":1,"template":"procedure","data":{"name":"Prepare the workspace","materials":["A notebook"],"steps":["Clear a space for the work ahead.","Write the one result you want to achieve.","Begin with the smallest useful action."],"stage":"intro","index":0},"source":{"illustrative":true}}
+{"version":1,"template":"procedure","data":{"name":"Prepare the workspace","materials":["A notebook"],"steps":["Clear a space for the work ahead.","Write the one result you want to achieve.","Begin with the smallest useful action."],"stage":"intro","index":0}}
 ```
 
 ## Hands-free control

@@ -48,8 +48,9 @@ describe('template fixes',()=>{
   expect(signArrowSide('left')).toBe('left');expect(signArrowSide('up-left')).toBe('left');expect(signArrowSide('turn-left-down')).toBe('left');expect(signArrowSide('right')).toBe('right');expect(signArrowSide('down-right')).toBe('right');expect(signArrowSide('up')).toBe('top');expect(signArrowSide('ahead')).toBe('top');expect(signArrowSide('down')).toBe('bottom');
  });
  it('b2640923: the map gives way so the scale and notes fit a short screen; HK and MO are mapped',()=>{
-  expect(choroplethPlotHeight(900)).toBe(640);expect(choroplethPlotHeight(300)).toBe(240);expect(choroplethPlotHeight(300,{warning:true,dots:true})).toBe(182);expect(choroplethPlotHeight(100)).toBe(110);
-  for(const available of [260,300,395,480,540])expect(choroplethPlotHeight(available,{warning:true,dots:true})+26+34+34+24).toBeLessThanOrEqual(Math.max(available,228));
+  // 0.38.0 (8bfdf7b0, f430f4e8): no 640 px ceiling and no credit line to reserve room for.
+  expect(choroplethPlotHeight(900)).toBe(866);expect(choroplethPlotHeight(2000)).toBe(1966);expect(choroplethPlotHeight(300)).toBe(266);expect(choroplethPlotHeight(300,{warning:true,dots:true})).toBe(208);expect(choroplethPlotHeight(100)).toBe(110);
+  for(const available of [260,300,395,480,540])expect(choroplethPlotHeight(available,{warning:true,dots:true})+34+34+24).toBeLessThanOrEqual(Math.max(available,202));
   expect(geographyCodes.HK).toBe('HKG');expect(geographyCodes.MO).toBe('MAC');
  });
  it('aca837d4: weather descriptions are short enough to design for; the text block shrinks in steps',()=>{
@@ -93,9 +94,9 @@ describe('new template renderers',()=>{
   const failed=renderToStaticMarkup(<ToolCallDetails data={validateView({template:'tool-call-details',data:{tool:'t',status:'error',request:'{"a":1}',responseText:'boom',error:{code:'E_BAD',message:'It failed.'},highlight:{pane:'request',path:'$.a',note:'wrong'}}} as never).data as never}/>);
   expect(failed).toContain('role="alert"');expect(failed).toContain('E_BAD');expect(failed).toContain('It failed.');expect(failed).toContain('is-marked');expect(failed).toContain('wrong');expect(failed).toContain('boom');
  });
- it('task list shows numbers, pills, muted done rows last and the highlighted item expanded',()=>{
+ it('task list shows numbers, pills, muted done rows in their written place (0.38.0) and the highlighted item expanded',()=>{
   const markup=renderToStaticMarkup(<TaskList data={data('task-list')}/>);
-  expect(markup.indexOf('data-task-number="2"')).toBeLessThan(markup.indexOf('data-task-number="1"'));expect(markup).toMatch(/data-task-number="1" class="is-done"/);
+  expect(markup.indexOf('data-task-number="1"')).toBeLessThan(markup.indexOf('data-task-number="2"'));const sunk=renderToStaticMarkup(<TaskList data={{...(data('task-list') as Record<string,unknown>),doneLast:true} as never}/>);expect(sunk.indexOf('data-task-number="2"')).toBeLessThan(sunk.indexOf('data-task-number="1"'));expect(markup).toMatch(/data-task-number="1" class="is-done"/);
   expect(markup).toMatch(/data-task-number="2" class="is-current" aria-current="true"/);expect(markup).toContain('task-detail');expect(markup).toContain('class="task-pill"');expect(markup).toContain('<b>2</b> open');expect(markup).toContain('<b>1</b> done');
   expect(markup).not.toContain('<button');expect(markup).not.toContain('<input');
  });

@@ -16,14 +16,12 @@ async function navigation(page:any,s:string,d:string,revision:number,action:unkn
 test('live registry catalogs fit without controls and device metadata stays readable',async({page})=>{
  await register(page);const s=await createSession(page,'Registry and devices'),d=await createDisplay(page,s,'Catalog');
  const result=await sessionApi<any>(page,`/api/sessions/${s}/catalog`,'POST',{displayIds:[d.id],requestId:crypto.randomUUID(),catalog:'operations'});expect(result.status).toBe(200);
- await page.goto(`/view/${s}/${d.id}`);// Historical153 was already stale at main490b8f9(166 canonical minus3 catalog-only helpers). B1 adds window.viewport,
- // November5 adds device.lock/device.unlock/display.lockdown:175 canonical minus3 catalog-only helpers =172 visible.
- // November 10 adds eleven operations (TASK_MAPPING): 186 canonical minus 3 catalog-only helpers = 183 visible.
- // November 14 adds four message-board operations (BOARD_MAPPING): 190 canonical minus 3 catalog-only helpers = 187 visible.
- const labels=page.locator('.viewer-candidate .catalog-list span');await expect(labels).toHaveCount(187);
+ await page.goto(`/view/${s}/${d.id}`);
+ // 187 established public operations plus active-share read and share revoke.
+ const labels=page.locator('.viewer-candidate .catalog-list span');await expect(labels).toHaveCount(189);
  const catalogView=(await sessionDetail(page,s)).displays.find(x=>x.id===d.id)!.view!;
- expect(catalogView.template).toBe('catalog-list');expect(catalogView.data.items).toHaveLength(187);
- expect(catalogView.data.items).toEqual(expect.arrayContaining(['window.viewport','guidance.suggestions.list','guidance.suggestions.save','guidance.suggestions.delete','guidance.suggestions.import','satisfaction.read','device.lock','device.unlock','display.lockdown']));
+ expect(catalogView.template).toBe('catalog-list');expect(catalogView.data.items).toHaveLength(189);
+ expect(catalogView.data.items).toEqual(expect.arrayContaining(['window.viewport','guidance.suggestions.list','guidance.suggestions.save','guidance.suggestions.delete','guidance.suggestions.import','satisfaction.read','device.lock','device.unlock','display.lockdown','shares.read','share.revoke']));
  await expect(labels).toHaveText(catalogView.data.items as string[]);
  const bounds=await page.locator('.viewer-candidate .catalog-list').evaluate(root=>{const r=root.getBoundingClientRect();return [...root.querySelectorAll('span')].every(el=>{const b=el.getBoundingClientRect();return b.right<=r.right+1&&b.bottom<=r.bottom+1;});});expect(bounds).toBe(true);await expect(page.locator('.catalog-list button,.catalog-list a,.catalog-list input')).toHaveCount(0);
  const devices=Array.from({length:10},(_,i)=>({name:`Office laptop Chrome number ${i+1}`,device:'Windows computer',browser:'Chrome',location:'Office',role:'Dashboard',tags:['work'],connected:true,windows:[{name:'Main',connected:true,sessionId:'shared',sessionName:'Planning'}]}));

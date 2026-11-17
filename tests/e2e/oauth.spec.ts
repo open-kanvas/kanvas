@@ -90,7 +90,7 @@ test('email form has centered primary action, sender guidance and centered devic
 
 test.describe("oauth coverage 4", () => {
 
-const evidence='/home/deploy/kanvas-feedback-20261029-evidence';
+const evidence=()=>test.info().outputPath("screenshots");
 async function clientFor(page:Page){const issued=await sessionApi<{token:string}>(page,'/api/tokens','POST',{name:'Disposable feedback acceptance',scopes:['read','publish']});expect(issued.status).toBe(201);const client=new Client({name:'feedback-acceptance',version:'1'});await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',page.url()),{requestInit:{headers:{Authorization:'Bearer '+issued.data!.token}}}));return {client,call:async(operationId:string,args:Record<string,unknown>)=>{const result=await client.callTool({name:'kanvas_call',arguments:{operationId,arguments:args}});expect(result.isError).not.toBe(true);return (result.structuredContent as any).data;}};}
 test('email-confirmed connector redirects only its original browser and persists through console and reload',async({page,browser})=>{
  const server=createServer();await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));const address=server.address();if(!address||typeof address==='string')throw new Error('No test server');const base=`http://127.0.0.1:${address.port}`,database=testDatabase(),mail:string[]=[],runtime=await createApp({database,publicUrl:base,allowRegistration:true,signinMailer:async(_email,link)=>{mail.push(link);}});server.on('request',runtime.app);const confirmation=await browser.newContext({viewport:page.viewportSize()!}),emailPage=await confirmation.newPage();

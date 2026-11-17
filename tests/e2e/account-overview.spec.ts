@@ -16,9 +16,9 @@ test('root has safe nested previews and the same live tab can return from a disp
  await expect.poll(async()=>{const current=(await inventory()).data.devices.find((x:any)=>x.id===device.id).windows.find((x:any)=>x.id===window.id);return current.command?.status;}).toBe('applied');
  const current=(await inventory()).data.devices.find((x:any)=>x.id===device.id).windows.find((x:any)=>x.id===window.id);expect(current.current).toBeUndefined();expect((await sessionApi<any>(page,'/api/sessions')).data.length).toBe(sessionsBefore);
  await publishPrepared(page,s,[d.id],{version:1,template:'table',title:'Live table preview',data:{columns:['Name','Value'],rows:[['Alpha','42'],['Beta','43']]}});await page.reload();await expect(page.getByRole('table',{name:'Current table excerpt'})).toContainText('Alpha');await expect(page.getByRole('table',{name:'Current table excerpt'})).toContainText('42');
- await page.screenshot({path:`/home/deploy/kanvas-root-feedback-20261016-visuals/${test.info().project.name}-overview-table.png`});
+ await page.screenshot({path:`${test.info().outputPath("screenshots")}/${test.info().project.name}-overview-table.png`});
  await publishPrepared(page,s,[d.id],{version:1,template:'flowchart',title:'Live diagram preview',data:{nodes:[{id:'one',label:'Begin',shape:'terminal'},{id:'two',label:'Decide',shape:'decision'}],edges:[{from:'one',to:'two'}]}});await page.reload();await expect(page.locator('.overview-diagram')).toContainText('Begin');await expect(page.locator('.overview-diagram .decision')).toHaveText('Decide');
- expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await page.screenshot({path:`/home/deploy/kanvas-root-feedback-20261016-visuals/${test.info().project.name}-overview.png`});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await page.screenshot({path:`${test.info().outputPath("screenshots")}/${test.info().project.name}-overview.png`});
  await page.goto('/console');await expect(page.locator('.workspace')).toBeVisible();
 });
 test('empty overview is agent-first and never loads executable preview content',async({page})=>{
@@ -54,7 +54,7 @@ test('compact root cards paginate 51 sessions, preserve extra display links and 
  if(page.viewportSize()!.width>760){expect(layout[0].y).toBe(layout[1].y);expect(layout[1].x).toBeGreaterThan(layout[0].x);}else{expect(layout[0].x).toBe(layout[1].x);expect(layout[1].y).toBeGreaterThan(layout[0].y);}
  expect((await card.locator('.overview-preview').first().boundingBox())!.height).toBe(90);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
- await page.screenshot({path:`/home/deploy/kanvas-root-feedback-20261016-visuals/${test.info().project.name}-50-sessions.png`});
+ await page.screenshot({path:`${test.info().outputPath("screenshots")}/${test.info().project.name}-50-sessions.png`});
  await primary.click();await expect(page.locator('.viewer-shell')).toBeVisible();
  await page.goto('/');await page.getByRole('button',{name:'Next',exact:true}).click();
  await expect(page.locator('.overview-session')).toHaveCount(1);await expect(page.getByRole('navigation',{name:'Session pages'})).toContainText('51–51 of 51');await expect(page.getByRole('button',{name:'Next',exact:true})).toBeDisabled();

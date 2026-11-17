@@ -44,7 +44,9 @@ test('line and bar marks accept actual touch, expose browser eligibility, and ke
             const mark = a.v.locator('[data-chart-series="This year"][data-chart-x="Mar"][data-chart-y="45"]').first(), r = await mark.boundingBox();
             expect(r).not.toBeNull();
             await a.v.touchscreen.tap(r!.x + r!.width / 2 + (kind === 'line' ? 12 : 0), r!.y + r!.height / 2);
-            await expect(a.v.locator('[data-pointer-kind="chart"] .semantic-pointer-mark')).toBeVisible();
+            const pointer = a.v.locator('[data-pointer-kind="chart"]');
+            await expect(pointer.locator(`[data-pointer-shape="${kind === 'line' ? 'circle' : 'rect'}"]`)).toBeVisible();
+            await expect(pointer).toHaveCSS('opacity', '1');
             const state = await a.call("kanvas_call", "kanvas.pointing.read", { sessionId: a.s, displayId: a.d.id });
             expect(state.pointers[0].anchor).toEqual({ kind: 'chart', series: 'This year', x: 'Mar', y: '45' });
             await a.v.getByRole('button', { name: 'Stop pointing' }).tap();

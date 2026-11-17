@@ -13,10 +13,10 @@ import {PROCEDURE_ACTIONS} from '../../shared/procedure.js';
 const id=z.string().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/),revision=z.number().int().nonnegative(),session={sessionId:id},display={...session,displayId:id};
 const requestId=z.string().min(1).max(128);
 export const experienceTools: readonly Definition[] = [
-    { name: 'kanvas.shares.read', domain: 'sharing', requiredScope: 'read', schema: sharesReadSchema, readOnly: true,
+    { name: 'kanvas.shares.read', domain: 'sharing', requiredScope: 'read' as const, schema: sharesReadSchema, readOnly: true,
       description: 'As session owner, list every currently active, unexpired display share invitation for this session, including share IDs and expiry. Read-only; closed links are excluded and no invitation is created. A share URL locates an invitation, never a content grant.',
       discovery: { group: 'access', hint: 'Find active display-share IDs before revoking one; distinct from membership invitations.', examples: [{ sessionId: 'session-id' }] }, searchAliases: ['kanvas.shares.read'] },
-    { name: 'kanvas.share.revoke', domain: 'sharing', requiredScope: 'publish', schema: shareRevokeSchema, destructive: true, idempotent: true,
+    { name: 'kanvas.share.revoke', domain: 'sharing', requiredScope: 'publish' as const, schema: shareRevokeSchema, destructive: true, idempotent: true,
       description: 'As session owner, revoke the explicitly chosen display shareId in sessionId. Closes the link, pending pairing requests and approved browser sessions admitted through that share. Other links and account memberships remain unchanged. Repeating the same revoke returns its retained closed state. Read active links with kanvas.shares.read; membership invitation IDs belong to kanvas.invite.revoke instead.',
       discovery: { group: 'access', hint: 'Revoke one owner-selected display share and its admitted guest browsers, without closing other shares.', examples: [{ sessionId: 'session-id', shareId: 'share-id' }] }, searchAliases: ['kanvas.share.revoke'] },
 

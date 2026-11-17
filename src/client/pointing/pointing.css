@@ -9,3 +9,7 @@
 @keyframes pointer-fade{0%,65%{opacity:1}100%{opacity:0}}
 
 .semantic-pointer-shapes{position:absolute;inset:0;overflow:visible;pointer-events:none}
+
+/* Reduced motion must not fast-forward a temporary mark to transparent.
+ * Keep it still and visible until the same server expiry removes it. */
+@media(prefers-reduced-motion:reduce){.semantic-pointer.is-fading{animation:none}}

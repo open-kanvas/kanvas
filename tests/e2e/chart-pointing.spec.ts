@@ -19,6 +19,8 @@ test('chart pointing follows wedge/bar/point geometry, snaps real line observati
   const overlay=viewer.locator('.pointing-overlay [data-pointer-kind="chart"]');await expect(overlay).toHaveCount(1);
   await expect(overlay.locator('[data-pointer-shape="path"]')).toHaveAttribute('d',(await wedge.getAttribute('d'))!);await expect(overlay.locator('.semantic-pointer-mark')).toHaveCount(0);
   expect((await state()).pointers[0].anchor).toMatchObject({kind:'chart',series:'Share',x:'Alpha',y:'40'});
+  // The reduced-motion preference must retain a visible mark until normal expiry.
+  await expect(overlay).toHaveCSS('opacity','1');
   await viewer.screenshot({style:'.viewer-toast{opacity:0!important}',path:test.info().outputPath('chart-pointing-wedge.png')});
   await show({kind:'bar',orientation:'horizontal',series:[{name:'Revenue',points:[{x:'March',y:42},{x:'April',y:55}]}]});
   const bar=viewer.locator('rect[data-chart-series="Revenue"][data-chart-x="March"]');await bar.click();
@@ -29,6 +31,8 @@ test('chart pointing follows wedge/bar/point geometry, snaps real line observati
   const painted=await overlay.locator('[data-pointer-shape="rect"]').evaluate(screenGeometry),original=await bar.evaluate(screenGeometry);
   for(let i=0;i<original.length;i++)expect(painted[i]).toBeCloseTo(original[i],2);
   await expect(overlay.locator('[data-pointer-shape="rect"]')).toHaveAttribute('stroke-width','2.5');
+  // The reduced-motion preference must retain a visible mark until normal expiry.
+  await expect(overlay).toHaveCSS('opacity','1');
   await viewer.screenshot({style:'.viewer-toast{opacity:0!important}',path:test.info().outputPath('chart-pointing-bar.png')});
   await show({kind:'line',series:[{name:'Site A',points:[{x:'March',y:42},{x:'April',y:55}]},{name:'Site B',points:[{x:'March',y:12},{x:'April',y:22}]}]});
   const line=viewer.locator('path[data-chart-line="Site A"]');
@@ -36,6 +40,8 @@ test('chart pointing follows wedge/bar/point geometry, snaps real line observati
   await viewer.mouse.click(between.x,between.y+2);
   await expect(overlay.locator('[data-pointer-shape="circle"]')).toHaveCount(1);
   expect((await state()).pointers[0].anchor).toEqual({kind:'chart',series:'Site A',x:'March',y:'42'});
+  // The reduced-motion preference must retain a visible mark until normal expiry.
+  await expect(overlay).toHaveCSS('opacity','1');
   await viewer.screenshot({style:'.viewer-toast{opacity:0!important}',path:test.info().outputPath('chart-pointing-snapped-line.png')});
   // The gap in the legend is not a plotted value and reports readable series names.
   const legend=viewer.locator('.chart-legend'),gap=await legend.evaluate(el=>{const a=el.children[0].getBoundingClientRect(),b=el.children[1].getBoundingClientRect();return{x:(a.right+b.left)/2,y:a.top+a.height/2};});
@@ -43,5 +49,16 @@ test('chart pointing follows wedge/bar/point geometry, snaps real line observati
   await expect(viewer.locator('.pointing-overlay [data-pointer-kind="point"]')).toHaveCount(1);
   expect((await hear()).pointing.events.at(-1).target.label).toBe('Site A · Site B');
   expect((await state()).pointers[0].anchor.kind).toBe('point');
+  // Normal motion still fades, and a pinned SVG mark stays visible beyond tap expiry.
+  await viewer.emulateMedia({reducedMotion:'no-preference'});
+  await viewer.mouse.dblclick(between.x,between.y+2);
+  await expect(overlay).toHaveAttribute('data-pointer-pinned','true');
+  await expect(overlay.locator('[data-pointer-shape="circle"]')).toHaveAttribute('stroke-width','3');
+  await viewer.waitForTimeout(4200);
+  await expect(overlay).toHaveCSS('opacity','1');
+  await viewer.mouse.click(between.x,between.y+2);
+  await expect(overlay).toHaveAttribute('data-pointer-pinned','false');
+  await expect(overlay).toHaveCSS('opacity','1');
+  await expect(overlay).toHaveCount(0,{timeout:6000});
   }finally{await client.close();}
 });

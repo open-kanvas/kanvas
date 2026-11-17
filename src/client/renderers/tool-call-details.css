@@ -1,0 +1,16 @@
+.tool-call-details{height:100%;min-height:0;display:flex;flex-direction:column;gap:clamp(8px,1.4cqh,16px)}
+.tool-call-header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px 24px}
+.tool-call-header h2{margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:clamp(18px,2.6cqw,38px);overflow-wrap:anywhere}
+.tool-call-integration{color:var(--muted);font-size:clamp(12px,1.3cqw,18px)}
+.tool-call-header dl{display:flex;flex-wrap:wrap;gap:6px 24px;margin:0}.tool-call-header dl>div{display:flex;flex-direction:column}
+.tool-call-header dt{font-size:clamp(10px,1cqw,13px);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}.tool-call-header dd{margin:0;font-size:clamp(14px,1.6cqw,22px);font-weight:600}
+.status-success .tool-call-status{color:#4caf7d}.status-error .tool-call-status{color:#e06c6c}.status-running .tool-call-status{color:#d9a441}
+.tool-call-error{margin:0;padding:.7em 1em;border-radius:10px;border:2px solid #e06c6c;background:color-mix(in srgb,#e06c6c 14%,transparent);font-size:clamp(14px,1.7cqw,24px);display:flex;flex-wrap:wrap;gap:.3em .8em;overflow-wrap:anywhere}
+.tool-call-panes{flex:1;min-height:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(8px,1.4cqw,20px)}
+.tool-call-pane{min-width:0;min-height:0;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.tool-call-pane h3{margin:0;padding:.5em .9em;font-size:clamp(11px,1.1cqw,15px);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line);display:flex;gap:1em;align-items:baseline;flex-wrap:wrap}
+.tool-call-note{text-transform:none;letter-spacing:0;color:var(--accent);font-size:1.05em}
+.tool-call-pane>.json-raw,.tool-call-pane>div{flex:1;min-height:0}
+.tool-call-text pre{margin:0;padding:.6em 1ch;white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}
+.tool-call-empty{margin:1em;color:var(--muted)}
+@container (max-width:700px){.tool-call-panes{grid-template-columns:minmax(0,1fr);grid-auto-rows:minmax(0,1fr)}}

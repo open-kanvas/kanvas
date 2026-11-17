@@ -1,26 +1,25 @@
-import { Welcome } from './renderers/Nov10';
+import {Welcome} from './renderers/Welcome';
 import {afterPaint} from './after-paint';
 import {GeneralKiosk} from './SatisfactionKiosk';
 import {renderedView,paintedView} from './delivery-timing';
 import {viewerTabId} from './window-identity';
-import { useClientCapture } from './client-capture';
-import { PointingLayer } from './pointing/PointingLayer';
-import { useFilmstrip, FilmstripOverview } from './Filmstrip';
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
-import type { DisplayRecord, InteractionRecord, SessionConfig, ViewAction, VideoControlResult } from '../shared/types';
-import { api, ApiError, displayPath, errorMessage, requestId, sessionPath } from './api';
-import { useAuth, useMedia, useSession } from './hooks';
-import { Icon, Wordmark } from './icons';
-import { BrowsingProvider } from './renderers/Navigation';
-import { Renderer } from './renderers/Renderer';
+import {useClientCapture} from './client-capture';
+import {PointingLayer} from './pointing/PointingLayer';
+import {useFilmstrip,FilmstripOverview} from './Filmstrip';
+import {useCallback,useEffect,useRef,useState,type CSSProperties} from 'react';
+import type {DisplayRecord,InteractionRecord,SessionConfig,ViewAction,VideoControlResult} from '../shared/types';
+import {api,ApiError,displayPath,errorMessage,requestId,sessionPath} from './api';
+import {useAuth,useMedia,useSession} from './hooks';
+import {Icon,Wordmark} from './icons';
+import {BrowsingProvider} from './renderers/Navigation';
+import {Renderer} from './renderers/Renderer';
 import {PushSettings} from './PushSettings';
-import { ViewerExperience } from './ViewerExperience';
-import { IdentifyOverlay } from './IdentifyOverlay';
-import { sourceStatusText } from './monitoring-status';
+import {ViewerExperience} from './ViewerExperience';
+import {IdentifyOverlay} from './IdentifyOverlay';
+import {sourceStatusText} from './monitoring-status';
 import './monitoring.css';
-import type { ViewerRoute } from './Auth';
-import { MEDIA_FAILURES, type MediaFailureCode } from '../shared/media-failures';
-
+import type {ViewerRoute} from './Auth';
+import {MEDIA_FAILURES,type MediaFailureCode} from '../shared/media-failures';
 
 export function Viewer({sessionId,displayId}:ViewerRoute){
  const state=useSession(sessionId,displayId),display=state.detail?.displays.find(d=>d.id===displayId);

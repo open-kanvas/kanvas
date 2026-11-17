@@ -1,6 +1,6 @@
 import { samples } from '../../src/shared/template-examples.js';
 import { eventViewExamples } from '../../src/shared/event-views.js';
-import { extendedExamples } from '../../src/shared/extended-templates.js';
+import {templateExampleData} from '../../src/shared/template-examples.js';
 import type { InterpretationInput, TemplateId, ViewSpec } from '../../src/shared/types.js';
 
 export function input(overrides: Partial<InterpretationInput> = {}): InterpretationInput {
@@ -57,7 +57,7 @@ export const cases: {template:TemplateId;data:Record<string, unknown>}[] = [
   { template: 'now-playing', data: { track: 'Exact track title', artist: 'Supplied artist', state: 'paused', elapsedSeconds: 42.125, durationSeconds: 7200.25 } },
   { template: 'drafting', data: { text: 'Keep the supplied draft.\r\nIncluding every character.', status: 'drafting' } },
   { template: 'clock', data: { timeZone: 'Europe/Oslo', hourFormat: '24h', showSeconds: true, zones: [{ timeZone: 'Asia/Tokyo', label: 'Tokyo' }] } },
-  ...Object.entries(extendedExamples).map(([template,data])=>({template:template as TemplateId,data})),
+  ...Object.entries(templateExampleData).map(([template,data])=>({template:template as TemplateId,data})),
   { template: 'fact', data: { text: 'Supplied evidence.', subtitle: 'Qualified context' } },
   { template: 'number', data: { value: '42.000', unit: 'NOK', label: 'Exact decimal' } },
   { template: 'chart', data: { kind: 'line', series: [{ name: 'Observed', points: [{ x: '2026-01-01', y: 2 }, { x: '2026-01-02', y: null }] }] } },

@@ -1,8 +1,8 @@
-import { z } from 'zod';
-import { viewSchema } from '../../shared/view-schemas.js';
-import type { RenderingIssue } from './errors.js';
-import { STATIC_HTML_RULE } from '../../shared/extended-templates.js';
-import { COUNTDOWN_TARGET_TIME_RULE, timerValidationRule } from '../../shared/timer.js';
+import {z} from 'zod';
+import {viewSchema} from '../../shared/view-schemas.js';
+import type {RenderingIssue} from './errors.js';
+import {STATIC_HTML_RULE} from '../../shared/html-schema.js';
+import {COUNTDOWN_TARGET_TIME_RULE,timerValidationRule} from '../../shared/timer.js';
 
 const safeFields = new Set(['action', 'view', 'template', 'dataRef']);
 function collectFields(value: unknown): void {

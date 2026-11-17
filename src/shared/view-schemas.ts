@@ -1,66 +1,68 @@
 import {databaseSchemaDataSchema} from './database-schema.js';
-import { instrumentDataSchema } from './instrument.js';
-import { captionDataSchema } from './local-sequence.js';
+import {instrumentDataSchema} from './instrument.js';
+import {captionDataSchema} from './local-sequence.js';
 import {mathWorkspaceSchema} from './math-workspace.js';
 import {vennSchema} from './statistical-visuals.js';
 import {moleculeDataSchema} from './molecules.js';
 import {scene3dSchema} from './scene3d.js';
 import {signageDataSchema} from './signage.js';
-import { gameDataSchema } from './game.js';
+import {gameDataSchema} from './game.js';
 import {satisfactionDataSchema} from './satisfaction.js';
 import {trafficDemoSchema} from './traffic-demo.js';
 import {venueSchemas} from './venue.js';
 import {customViewSchema} from './custom-templates.js';
-import { flashcardDataSchema } from './flashcards.js';
-import { devicePreviewDataSchema } from './device-preview.js';
-import { emphasisSchema } from './emphasis.js';
-import { VERBATIM_SOURCE, SOURCE_RECORD_TEMPLATES } from './source-guidance.js';
+import {flashcardDataSchema} from './flashcards.js';
+import {devicePreviewDataSchema} from './device-preview.js';
+import {emphasisSchema} from './emphasis.js';
+import {VERBATIM_SOURCE,SOURCE_RECORD_TEMPLATES} from './source-guidance.js';
 import {architectureDataSchema,sportsLineupDataSchema,orgChartDataSchema,flowchartDataSchema,networkDataSchema} from './diagrams.js';
-import { viewFormatSchema } from './regional.js';
-import { galleryDataSchema,boardBackgroundSchema } from './image-gallery.js';
-import { scoreboardDataSchema,standingsDataSchema,toolLogDataSchema } from './event-views.js';
-import { jsonDataSchema,topologyDataSchema } from './connection-views.js';
-import { taskListDataSchema } from './task-list.js';
-import { colourDataSchema } from './colour.js';
-import { iconPickerDataSchema, fontPickerDataSchema } from './pickers.js';
-import { toolCallDetailsDataSchema, agentsDataSchema, welcomeDataSchema } from './nov10-templates.js';
-import { tableRowStyleSchema,tableCellStyleSchema } from './table-style.js';
-import { workSchemas } from './work-views.js';
-import { selectionSchema, selectionKey } from './selection.js';
-import { countdownDataSchema } from './timer.js';
-import { nowPlayingDataSchema } from './now-playing.js';
-import { rosterDataSchema } from './roster.js';
-import { displayGridDataSchema } from './display-grid.js';
-import { devicesViewDataSchema } from './devices-view.js';
+import {viewFormatSchema} from './regional.js';
+import {galleryDataSchema,boardBackgroundSchema} from './image-gallery.js';
+import {scoreboardDataSchema,standingsDataSchema,toolLogDataSchema} from './event-views.js';
+import {jsonDataSchema,topologyDataSchema} from './connection-views.js';
+import {taskListDataSchema} from './task-list.js';
+import {colourDataSchema} from './colour.js';
+import {iconPickerDataSchema,fontPickerDataSchema} from './pickers.js';
+import {toolCallDetailsDataSchema} from './tool-call-details.js';
+import {agentsDataSchema} from './connected-agents.js';
+import {welcomeDataSchema} from './welcome.js';
+import {tableRowStyleSchema,tableCellStyleSchema} from './table-style.js';
+import {workSchemas} from './work-views.js';
+import {selectionSchema,selectionKey} from './selection.js';
+import {countdownDataSchema} from './timer.js';
+import {nowPlayingDataSchema} from './now-playing.js';
+import {rosterDataSchema} from './roster.js';
+import {displayGridDataSchema} from './display-grid.js';
+import {devicesViewDataSchema} from './devices-view.js';
 export { devicesViewDataSchema } from './devices-view.js';
-import { calendarDataSchema, plannerDataSchema } from './planner.js';
+import {calendarDataSchema,plannerDataSchema} from './planner.js';
 export { plannerDataSchema } from './planner.js';
 export { displayGridDataSchema } from './display-grid.js';
 export { rosterDataSchema } from './roster.js';
 export type { RosterData } from './roster.js';
 export { nowPlayingDataSchema } from './now-playing.js';
 export type { NowPlayingData } from './now-playing.js';
-import { clockDataSchema } from './clock.js';
+import {clockDataSchema} from './clock.js';
 export { clockDataSchema } from './clock.js';
 export type { ClockData } from './clock.js';
 export { countdownDataSchema } from './timer.js';
 export type { CountdownData } from './timer.js';
-import { isSafeUrl, isAllowedEmbedUrl } from './urls.js';
-import { z } from 'zod';
-import { progressDataSchema, logDataSchema } from './task-views.js';
-import { videoEmbed } from './video-embed.js';
-import { draftingDataSchema } from './drafting.js';
+import {isSafeUrl,isAllowedEmbedUrl} from './urls.js';
+import {z} from 'zod';
+import {progressDataSchema,logDataSchema} from './task-views.js';
+import {videoEmbed} from './video-embed.js';
+import {draftingDataSchema} from './drafting.js';
 export { draftingDataSchema } from './drafting.js';
 export type { DraftingData } from './drafting.js';
-import { extendedSchemas } from './extended-templates.js';
-import { iframeDataSchema, listDataSchema } from './browsing-templates.js';
-import { cellSchema, datasetBindingSchema, summarySchema, chartDataSchema } from './chart-contract.js';
+import {templateSchemas} from './template-data.js';
+import {iframeDataSchema,listDataSchema} from './browsing-templates.js';
+import {cellSchema,datasetBindingSchema,summarySchema,chartDataSchema} from './chart-contract.js';
 export { cellSchema, datasetBindingSchema, chartPointSchema, chartDataSchema } from './chart-contract.js';
 export type { Cell, DatasetBinding, ChartPoint, ChartData } from './chart-contract.js';
-import type { Provenance, TemplateId, ViewSpec } from './types.js';
-import { SPLIT_LIMITS, splitGrid, splitLeaves, mapSplitViewsSync } from './split-screen.js';
-import { monitorStreamDataSchema } from './monitor-stream-view.js';
-import { messageBoardDataSchema } from './message-board.js';
+import type {Provenance,TemplateId,ViewSpec} from './types.js';
+import {SPLIT_LIMITS,splitGrid,splitLeaves,mapSplitViewsSync} from './split-screen.js';
+import {monitorStreamDataSchema} from './monitor-stream-view.js';
+import {messageBoardDataSchema} from './message-board.js';
 
 /** Shared, browser-safe contracts. Content is text/data, never executable markup. */
 export const VIEW_LIMITS = { bytes: 2 * 1024 * 1024, points: 5000, tableRows: 1000, slides: 64, boardElements: 1000, transcriptSegments: 1000, formFields: 40, scheduleEvents: 500, pollOptions: 12 } as const;
@@ -71,7 +73,6 @@ const finite = z.number().finite();
 const positiveInteger = z.number().int().positive();
 const dangerousKeys = new Set(['__proto__', 'prototype', 'constructor']);
 
-
 export { isSafeUrl, isAllowedEmbedUrl } from './urls.js';
 export const safeUrlSchema = z.string().max(2048).refine(isSafeUrl, 'Expected a public HTTP(S) URL or a protected asset URL');
 const dateTime = z.string().max(60).refine((v) => /^\d{4}-\d\d-\d\dT/.test(v) && Number.isFinite(Date.parse(v)), 'Expected an ISO timestamp');
@@ -79,14 +80,12 @@ export const provenanceSchema: z.ZodType<Provenance> = z.object({
   title: short.optional(), url: safeUrlSchema.optional(), locator: short.optional(), timestamp: dateTime.optional(),
 }).strict();
 
-
 export const factDataSchema = z.object({
   text: z.string().min(1).max(3000), subtitle: short.optional(), items: z.array(z.string().max(400)).max(12).optional(),
   original: z.string().max(3000).optional(), language: z.string().max(40).optional(), sourceLanguage: z.string().max(40).optional(),
 }).strict();
 export const numberDataSchema = z.object({ value: z.union([finite, z.string().min(1).max(100)]).optional(), label: short.optional(), unit: z.string().max(80).optional(), comparison: short.optional(), binding: datasetBindingSchema.optional(), summary: summarySchema.optional() }).strict()
   .refine((v) => v.value !== undefined || v.binding !== undefined, 'Number requires a value or source binding');
-
 
 const columnName = label.refine((v) => !dangerousKeys.has(v), 'Reserved column name');
 export const tableDataSchema = z.object({
@@ -289,7 +288,7 @@ export const leafViewSchema = z.discriminatedUnion('template', [
   z.object({...base,actions:z.array(actionSchema).max(0).optional().describe('Read-only conversation. Use drafting for composition; sending belongs to the agent and its messaging connector.'),template:z.literal('chat'),data:workSchemas['chat']}).strict(),
   z.object({...base,template:z.literal('cards'),data:workSchemas['cards']}).strict(),
   z.object({...base,template:z.literal('record-detail'),data:workSchemas['record-detail']}).strict(),
-  z.object({...base,template:z.literal('story-cards'),data:extendedSchemas['story-cards']}).strict(),
+  z.object({...base,template:z.literal('story-cards'),data:templateSchemas['story-cards']}).strict(),
   z.object({...base,template:z.literal('bookmarks'),data:workSchemas['bookmarks']}).strict(),
   z.object({...base,template:z.literal('tool-inventory'),data:workSchemas['tool-inventory']}).strict(),
   z.object({...base,template:z.literal('tool-detail'),data:workSchemas['tool-detail']}).strict(),
@@ -337,7 +336,7 @@ export const leafViewSchema = z.discriminatedUnion('template', [
   z.object({ ...base, template: z.literal('scoreboard'), data: scoreboardDataSchema }).strict(),
   z.object({ ...base, template: z.literal('standings'), data: standingsDataSchema }).strict(),
   z.object({ ...base, template: z.literal('tool-call-log'), data: toolLogDataSchema }).strict(),
-  z.object({ ...base, template: z.literal('overview'), data: extendedSchemas.overview }).strict(),
+  z.object({ ...base, template: z.literal('overview'), data: templateSchemas.overview }).strict(),
   z.object({ ...base, template: z.literal('display-grid'), data: displayGridDataSchema }).strict(),
   z.object({...base,template:z.literal('catalog-list'),data:z.object({items:z.array(z.string().min(1).max(240)).max(2000),kind:z.enum(['operations','templates'])}).strict()}).strict(),
   z.object({ ...base, template: z.literal('devices'), data: devicesViewDataSchema }).strict(),
@@ -349,27 +348,27 @@ export const leafViewSchema = z.discriminatedUnion('template', [
   z.object({...base,template:z.literal('network'),data:networkDataSchema}).strict(),
   z.object({ ...base, template: z.literal('calendar'), data: calendarDataSchema }).strict(),
   z.object({ ...base, template: z.literal('planner'), data: plannerDataSchema }).strict(),
-  z.object({ ...base, template: z.literal('settings'), data: extendedSchemas.settings }).strict(),
-  z.object({ ...base, template: z.literal('procedure'), data: extendedSchemas.procedure }).strict(),
-  z.object({ ...base, template: z.literal('join'), data: extendedSchemas.join }).strict(),
-  z.object({ ...base, template: z.literal('html'), data: extendedSchemas.html }).strict(),
+  z.object({ ...base, template: z.literal('settings'), data: templateSchemas.settings }).strict(),
+  z.object({ ...base, template: z.literal('procedure'), data: templateSchemas.procedure }).strict(),
+  z.object({ ...base, template: z.literal('join'), data: templateSchemas.join }).strict(),
+  z.object({ ...base, template: z.literal('html'), data: templateSchemas.html }).strict(),
   z.object({ ...base, template: z.literal('molecule'), data: moleculeDataSchema }).strict(),
   z.object({ ...base, template:z.literal('qr'),data:z.object({content:z.string().min(1).max(2000).refine(value=>new TextEncoder().encode(value).length<=2000,'QR content must fit 2000 UTF-8 bytes'),title:short.optional(),text:z.string().max(2000).optional(),image:imageItemSchema.optional()}).strict() }).strict(),
   z.object({ ...base, template: z.literal('signage'), data: signageDataSchema }).strict(),
   z.object({ ...base, template: z.literal('game-board'), data: gameDataSchema }).strict(),
   z.object({ ...base, template: z.literal('satisfaction'), data: satisfactionDataSchema }).strict(),
-  z.object({ ...base, template: z.literal('timeline'), data: extendedSchemas.timeline }).strict(),
-  z.object({ ...base, template: z.literal('itinerary'), data: extendedSchemas.itinerary }).strict(),
-  z.object({ ...base, template: z.literal('product'), data: extendedSchemas.product }).strict(),
-  z.object({...base,template:z.literal('keyboard-shortcuts'),data:extendedSchemas['keyboard-shortcuts']}).strict(),
-  z.object({ ...base, template: z.literal('weather'), data: extendedSchemas.weather }).strict(),
-  z.object({ ...base, template: z.literal('profile'), data: extendedSchemas.profile }).strict(),
-  z.object({ ...base, template: z.literal('kpi'), data: extendedSchemas.kpi }).strict(),
-  z.object({ ...base, template: z.literal('quote'), data: extendedSchemas.quote }).strict(),
-  z.object({ ...base, template: z.literal('recipe'), data: extendedSchemas.recipe }).strict(),
-  z.object({ ...base, template: z.literal('menu'), data: extendedSchemas.menu }).strict(),
-  z.object({ ...base, template: z.literal('leaderboard'), data: extendedSchemas.leaderboard }).strict(),
-  z.object({ ...base, template: z.literal('status'), data: extendedSchemas.status }).strict(),
+  z.object({ ...base, template: z.literal('timeline'), data: templateSchemas.timeline }).strict(),
+  z.object({ ...base, template: z.literal('itinerary'), data: templateSchemas.itinerary }).strict(),
+  z.object({ ...base, template: z.literal('product'), data: templateSchemas.product }).strict(),
+  z.object({...base,template:z.literal('keyboard-shortcuts'),data:templateSchemas['keyboard-shortcuts']}).strict(),
+  z.object({ ...base, template: z.literal('weather'), data: templateSchemas.weather }).strict(),
+  z.object({ ...base, template: z.literal('profile'), data: templateSchemas.profile }).strict(),
+  z.object({ ...base, template: z.literal('kpi'), data: templateSchemas.kpi }).strict(),
+  z.object({ ...base, template: z.literal('quote'), data: templateSchemas.quote }).strict(),
+  z.object({ ...base, template: z.literal('recipe'), data: templateSchemas.recipe }).strict(),
+  z.object({ ...base, template: z.literal('menu'), data: templateSchemas.menu }).strict(),
+  z.object({ ...base, template: z.literal('leaderboard'), data: templateSchemas.leaderboard }).strict(),
+  z.object({ ...base, template: z.literal('status'), data: templateSchemas.status }).strict(),
 ]);
 export const presenterPreviewSchema = z.boolean().optional().describe('Notes display: private preview, with explicit Go live to cue linked screens.');
 export const cueOptionsSchema={mirrored:z.union([z.boolean(),z.enum(['vertical','horizontal','both'])]).optional().describe('false disables mirroring; true defaults to vertical (top/bottom flip). Choose vertical, horizontal (left/right flip), or both (180-degree rotation). Select for your physical rig; no glass calibration is inferred.'),cueMode:z.boolean().optional()};

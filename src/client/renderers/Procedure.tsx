@@ -1,17 +1,17 @@
-import { useInternalNavigation } from './Navigation';
-import { useState } from 'react';
-import { CategoryIcon } from './CategoryIcon';
-import { useMediaResource } from './readiness';
+import {useInternalNavigation} from './Navigation';
+import {useState} from 'react';
+import {CategoryIcon} from './CategoryIcon';
+import {useMediaResource} from './readiness';
 import './content-additions.css';
 function RecipePhoto({image}:{image:{url:string;alt:string}}){const resource=useMediaResource('pending');return <img className="procedure-photo" src={image.url} alt={image.alt} onLoad={resource.ready} onError={resource.fail} ref={node=>{if(node?.complete&&node.naturalWidth)resource.ready();}}/>;}
-import type { RendererProps } from './Renderer';
-import type { ExtendedData } from '../../shared/extended-templates';
-import { advanceProcedure, type ProcedureAction } from '../../shared/procedure';
-import { errorMessage } from '../api';
-import { liveSurfaceOptions } from '../../shared/live-surface';
+import type {RendererProps} from './Renderer';
+import type {TemplateData} from '../../shared/template-data';
+import {advanceProcedure,type ProcedureAction} from '../../shared/procedure';
+import {errorMessage} from '../api';
+import {liveSurfaceOptions} from '../../shared/live-surface';
 
 export function ProcedureRenderer(props:RendererProps) {
-  const d=props.view.data as ExtendedData<'recipe'>, stage=d.stage??'intro', index=d.index??0;
+  const d=props.view.data as TemplateData<'recipe'>, stage=d.stage??'intro', index=d.index??0;
   const step=d.stepDetails?.find(s=>s.index===index),photo=stage==='step'?step?.image:d.image;
   const [pending,setPending]=useState(false),[error,setError]=useState('');
   const canControl=Boolean(!props.preview&&props.editable&&(props.onRespond||props.onEdit));

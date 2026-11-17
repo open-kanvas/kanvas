@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { z } from 'zod';
-import { extendedSchemas } from '../../src/shared/extended-templates';
+import {templateSchemas} from '../../src/shared/template-data';
 import { profileAddressHref, profileContactTarget, profileEmailHref, profileLinkHref, profilePhoneHref } from '../../src/shared/profile-contact';
 import { templateViewSchema, validateView } from '../../src/shared/view-schemas';
-import { ExtendedRenderer } from '../../src/client/renderers/Extended';
+import { ProfileRenderer } from '../../src/client/renderers/Profile';
 import { Renderer } from '../../src/client/renderers/Renderer';
 
 const identity = { name: 'Alex Morgan', kind: 'person' as const, role: 'Design lead' };
@@ -30,7 +30,7 @@ describe('safe explicitly typed profile targets', () => {
   it('rejects phone control/URI/query injection, dial commands, ambiguous schemes and unbounded digits', () => {
     for (const value of ['tel:+12025550123', 'javascript:alert(1)', '+12025550123\n', '+12025550123\r\nX-Header: x', '+12025550123%0d%0a', '+12025550123?body=text', '+12025550123;ext=5', '+12025550123,123', '*21*123#', '+12025550123#5', '12+345', '12', '1'.repeat(16), '123 x' + '1'.repeat(11), '1-800-FLOWERS']) {
       expect(profilePhoneHref(value)).toBeUndefined();
-      expect(extendedSchemas.profile.safeParse({ ...identity, details: [{ label: 'Phone', type: 'phone', value }] }).success).toBe(false);
+      expect(templateSchemas.profile.safeParse({ ...identity, details: [{ label: 'Phone', type: 'phone', value }] }).success).toBe(false);
     }
   });
 
@@ -41,7 +41,7 @@ describe('safe explicitly typed profile targets', () => {
     expect(new URL(href).search).toBe(''); expect(new URL(href).hash).toBe('');
     for (const value of ['mailto:alex@example.com', 'Alex <alex@example.com>', 'alex@example.com?subject=Hi', 'alex@example.com?bcc=else@example.com', 'alex@example.com,else@example.com', 'alex@example.com;else@example.com', 'alex\r\nBcc:else@example.com', 'alex%0d%0a@example.com', 'alex?body=text@example.com', 'alex&bcc=else@example.com', 'alex@example.com%0a', '.alex@example.com', 'alex..other@example.com', 'alex@-example.com', 'alex@example', 'a'.repeat(65) + '@example.com']) {
       expect(profileEmailHref(value)).toBeUndefined();
-      expect(extendedSchemas.profile.safeParse({ ...identity, details: [{ label: 'Email', type: 'email', value }] }).success).toBe(false);
+      expect(templateSchemas.profile.safeParse({ ...identity, details: [{ label: 'Email', type: 'email', value }] }).success).toBe(false);
     }
   });
 
@@ -49,7 +49,7 @@ describe('safe explicitly typed profile targets', () => {
     expect(profileLinkHref(contacts[2].value)).toBe(contacts[2].value);
     for (const value of ['http://example.com/profile', '/api/assets/file', 'javascript:alert(1)', 'data:text/html,hello', 'https://localhost/profile', 'https://127.0.0.1/profile', 'https://service.internal/profile', 'https://example.com\\@localhost/profile', 'https://example.com/\nprofile']) {
       expect(profileLinkHref(value)).toBeUndefined();
-      expect(extendedSchemas.profile.safeParse({ ...identity, details: [{ label: 'Website', type: 'link', value }] }).success).toBe(false);
+      expect(templateSchemas.profile.safeParse({ ...identity, details: [{ label: 'Website', type: 'link', value }] }).success).toBe(false);
     }
   });
 
@@ -62,7 +62,7 @@ describe('safe explicitly typed profile targets', () => {
     // Very long supplied addresses remain valid readable content, without a
     // fake action when the encoded navigation would exceed safe URL limits.
     const long = 'A very long supplied street address '.repeat(100);
-    expect(extendedSchemas.profile.safeParse({ ...identity, details: [{ label: 'Address', type: 'address', value: long }] }).success).toBe(true);
+    expect(templateSchemas.profile.safeParse({ ...identity, details: [{ label: 'Address', type: 'address', value: long }] }).success).toBe(true);
     expect(profileAddressHref(long)).toBeUndefined();
   });
 });
@@ -70,31 +70,31 @@ describe('safe explicitly typed profile targets', () => {
 describe('backward-compatible profile detail schema', () => {
   it('keeps old plain details and separate links byte-for-byte without adding a default type', () => {
     const supplied = { ...identity, details: [{ label: 'Email', value: 'alex+design@example.com' }, { label: 'Phone', value: '+1 202 555 0123' }, { label: 'Based in', value: '  Oslo\nNorway  ' }], links: [{ label: 'Existing HTTP site', url: 'http://example.com/site?x=1' }, { label: 'Protected document', url: '/api/assets/profile-document' }] };
-    expect(extendedSchemas.profile.parse(supplied)).toEqual(supplied);
-    expect(extendedSchemas.profile.parse(supplied).details?.every(item => !('type' in item))).toBe(true);
+    expect(templateSchemas.profile.parse(supplied)).toEqual(supplied);
+    expect(templateSchemas.profile.parse(supplied).details?.every(item => !('type' in item))).toBe(true);
     const explicit = { label: 'Email as plain text', value: 'alex@example.com', type: 'text' as const };
-    expect(extendedSchemas.profile.parse({ ...identity, details: [explicit] }).details).toEqual([explicit]);
+    expect(templateSchemas.profile.parse({ ...identity, details: [explicit] }).details).toEqual([explicit]);
     expect(profileContactTarget(explicit)).toBeUndefined();
   });
 
   it('retains all explicitly typed original values and reports invalid values at their exact field', () => {
-    expect(extendedSchemas.profile.parse({ ...identity, details: contacts }).details).toEqual(contacts);
-    const invalid = extendedSchemas.profile.safeParse({ ...identity, details: [{ label: 'Email', type: 'email', value: 'alex@example.com?bcc=other@example.com' }] });
+    expect(templateSchemas.profile.parse({ ...identity, details: contacts }).details).toEqual(contacts);
+    const invalid = templateSchemas.profile.safeParse({ ...identity, details: [{ label: 'Email', type: 'email', value: 'alex@example.com?bcc=other@example.com' }] });
     expect(invalid.success).toBe(false);
     if (!invalid.success) expect(invalid.error.issues).toContainEqual(expect.objectContaining({ path: ['details', 0, 'value'] }));
     for (const detail of [{ label: 'Phone', value: '123', type: 'sms' }, { label: 'Email', value: 'alex@example.com', type: 'email', subject: 'Hello' }, { label: 'Link', value: 'https://example.com', type: 'link', href: 'javascript:alert(1)' }]) {
-      expect(extendedSchemas.profile.safeParse({ ...identity, details: [detail] }).success).toBe(false);
+      expect(templateSchemas.profile.safeParse({ ...identity, details: [detail] }).success).toBe(false);
     }
-    expect(extendedSchemas.profile.safeParse({ ...identity, details: Array.from({ length: 21 }, () => ({ label: 'Text', value: 'Plain' })) }).success).toBe(false);
-    expect(extendedSchemas.profile.safeParse({ ...identity, details: [{ label: 'Text', value: 'x'.repeat(4001) }] }).success).toBe(false);
+    expect(templateSchemas.profile.safeParse({ ...identity, details: Array.from({ length: 21 }, () => ({ label: 'Text', value: 'Plain' })) }).success).toBe(false);
+    expect(templateSchemas.profile.safeParse({ ...identity, details: [{ label: 'Text', value: 'x'.repeat(4001) }] }).success).toBe(false);
     const schema = z.toJSONSchema(templateViewSchema('profile'), { io: 'input' });
     expect(schema).toMatchObject({ type: 'object', additionalProperties: false });
     expect(JSON.stringify(schema)).toContain('"phone"'); expect(JSON.stringify(schema)).toContain('"email"');
   });
 
   it('does not introduce typed contact fields to product, weather or other generic details', () => {
-    expect(extendedSchemas.product.safeParse({ name: 'Product', offers: [{ vendor: 'Store', price: '10' }], details: [contacts[0]] }).success).toBe(false);
-    expect(extendedSchemas.weather.safeParse({ place: 'Oslo', temperature: '18°', condition: 'clear', details: [contacts[0]] }).success).toBe(false);
+    expect(templateSchemas.product.safeParse({ name: 'Product', offers: [{ vendor: 'Store', price: '10' }], details: [contacts[0]] }).success).toBe(false);
+    expect(templateSchemas.weather.safeParse({ place: 'Oslo', temperature: '18°', condition: 'clear', details: [contacts[0]] }).success).toBe(false);
   });
 });
 
@@ -124,7 +124,7 @@ describe('prominent and inert-when-untyped profile presentation', () => {
     expect(html).toContain('&lt;b&gt;Alex&lt;/b&gt;'); expect(html).toContain('&lt;script&gt;Biography&lt;/script&gt;'); expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;');
     expect(html).not.toMatch(/<b>|<script>|<img/);
     const unsafe = { ...source, data: { ...source.data, details: [{ label: 'Bad URI', type: 'email', value: 'javascript:alert(1)' }], links: [{ label: 'Unsafe legacy target', url: 'javascript:alert(1)' }] } };
-    const defensive = renderToStaticMarkup(<ExtendedRenderer view={unsafe} />);
+    const defensive = renderToStaticMarkup(<ProfileRenderer view={unsafe} />);
     expect(defensive).not.toContain('href='); expect(defensive).toContain('javascript:alert(1)'); expect(defensive).toContain('Unsafe legacy target');
   });
 

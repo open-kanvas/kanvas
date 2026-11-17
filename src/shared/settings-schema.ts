@@ -1,0 +1,4 @@
+import {z} from 'zod';
+
+const text = z.string().min(1).max(4000), label = z.string().min(1).max(240);
+export const settingsDataSchema = z.object({ description: text.optional(), dimension: z.enum(['all','style','theme','accent','numberLocale','unitSystem','dateFormat','timeFormat','timeZone','textSize','readingFontSize','readingWpm','readingZoom']).default('all').describe('Show just one setting for focused voice interaction, or all. Ask whether to apply to session, account, team or organization; scope never changes implicitly. Apply requested live setting changes immediately with kanvas_session settings.update {sessionId,expectedRevision:configRevision,config}; read session state for the revision. Account defaults use kanvas_profile preferences.update.'), allowAccountDefaults: z.boolean().default(true) }).strict();

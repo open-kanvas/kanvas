@@ -50,7 +50,7 @@
 .render-surface:not(.is-preview) .chart-readout:not(.is-preview *){flex-wrap:wrap;min-height:1.5em}
 .render-surface:not(.is-preview) .chart-legend:not(.is-preview *){gap:12px 22px;flex-wrap:wrap;flex-shrink:0}
 .render-surface:not(.is-preview) :is(.kpi-cell>small,.leaderboard-content small,.timeline-content time,.menu-content small):not(.is-preview *){font-size:clamp(1rem,1.7cqw,1.3rem);line-height:1.45}
-.render-surface:not(.is-preview) :is(.code-toolbar>span,.code-toolbar>div,.board-zoom>span,.board-save-status,.presentation-controls>span,.video-info,.video-info button,.notification-filter,.notification-filter button,.schedule-event p,.schedule-event-time,.poll-count,.poll-results-status,.participation-hint,.procedure-header>span,.overview-card-caption,.overview-preview-label,.surface-settings .field-label,.surface-settings p,.surface-settings button,.extended-details dt):not(.is-preview *){font-size:1rem;line-height:1.5}
+.render-surface:not(.is-preview) :is(.code-toolbar>span,.code-toolbar>div,.board-zoom>span,.board-save-status,.presentation-controls>span,.video-info,.video-info button,.notification-filter,.notification-filter button,.schedule-event p,.schedule-event-time,.poll-count,.poll-results-status,.participation-hint,.procedure-header>span,.overview-card-caption,.overview-preview-label,.surface-settings .field-label,.surface-settings p,.surface-settings button,.content-details dt):not(.is-preview *){font-size:1rem;line-height:1.5}
 .render-surface:not(.is-preview) :is(.document-context>button,.board-zoom>button,.presentation-controls button,.video-info button,.notification-filter button):not(.is-preview *){font-size:1rem;min-width:44px;min-height:44px}
 .render-surface:not(.is-preview) .code-toolbar>span:not(.is-preview *){white-space:normal;overflow-wrap:anywhere}
 .render-surface:not(.is-preview) .code-toolbar>div:not(.is-preview *){flex-wrap:wrap}
@@ -81,8 +81,8 @@
 
 @container(max-width:600px){
   .render-surface.is-live>.render-body>.product-content .product-intro,.render-surface.is-live>.render-body>.profile-content,.render-surface.is-live>.render-body>.recipe-content>header{flex-direction:column;align-items:stretch;gap:20px}
-  .render-surface.is-live>.render-body>.product-content .product-intro>.extended-photo,.render-surface.is-live>.render-body>.recipe-content>header>.extended-photo{width:100%;max-height:32cqh;object-fit:contain}
-  .render-surface.is-live>.render-body>.profile-content>.extended-photo{width:min(100%,280px);max-height:32cqh;align-self:center}
+  .render-surface.is-live>.render-body>.product-content .product-intro>.content-photo,.render-surface.is-live>.render-body>.recipe-content>header>.content-photo{width:100%;max-height:32cqh;object-fit:contain}
+  .render-surface.is-live>.render-body>.profile-content>.content-photo{width:min(100%,280px);max-height:32cqh;align-self:center}
   .render-surface.is-live>.render-body>.recipe-content .recipe-columns{grid-template-columns:minmax(0,1fr);gap:24px}
   /* A 44px zoom target, its 10px frame and a 12px gap form a separate row. */
   .render-surface.is-live>.render-body>.whiteboard-content:has(>.board-zoom)>.board-style{bottom:calc(var(--board-controls-bottom) + 66px);max-width:calc(100% - var(--board-edge-left) - var(--board-edge-right))}

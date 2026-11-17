@@ -1,0 +1,7 @@
+.json-raw{height:100%;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:clamp(13px,1.5cqw,22px);line-height:1.5;outline-offset:-3px}
+.json-raw ol{list-style:none;margin:0;padding:0;counter-reset:json-line;min-width:max-content}
+.json-raw li{counter-increment:json-line;display:grid;grid-template-columns:4ch minmax(0,1fr);gap:1.2ch;padding-inline:.6ch 1ch}
+.json-raw li:before{content:counter(json-line);text-align:right;color:var(--muted);opacity:.7;user-select:none}
+.json-raw code{white-space:pre;font:inherit;background:none;padding:0}
+.json-raw li.is-marked{background:color-mix(in srgb,var(--accent,#8ab4ff) 22%,transparent);box-shadow:inset 4px 0 0 var(--accent,#8ab4ff)}
+.json-raw-more{margin:.6em 1ch;color:var(--muted);font-family:inherit;font-size:.85em}

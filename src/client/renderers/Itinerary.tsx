@@ -1,15 +1,15 @@
-import { InlineMap } from './InlineMap';
-import { useNavigation } from './Navigation';
-import { useMediaResource } from './readiness';
-import { useMemo, useRef, useState } from 'react';
-import type { ExtendedData } from '../../shared/extended-templates';
-import { CategoryIcon } from './CategoryIcon';
-import { MediaImage } from './Image';
-import MapRenderer, { type MapData } from './Map';
-import { useRegional } from './Regional';
-import { regionalDate, regionalDateTime } from '../../shared/regional';
+import {InlineMap} from './InlineMap';
+import {useNavigation} from './Navigation';
+import {useMediaResource} from './readiness';
+import {useMemo,useRef,useState} from 'react';
+import type {TemplateData} from '../../shared/template-data';
+import {CategoryIcon} from './CategoryIcon';
+import {MediaImage} from './Image';
+import MapRenderer,{type MapData} from './Map';
+import {useRegional} from './Regional';
+import {regionalDate,regionalDateTime} from '../../shared/regional';
 import './itinerary.css';
-type Data=ExtendedData<'itinerary'>;
+type Data=TemplateData<'itinerary'>;
 const colors=['#2563eb','#c2410c','#7c3aed','#047857','#be123c','#0e7490'];
 export function itineraryMap(data:Data, day:number|null):MapData {
  const markers:NonNullable<MapData['markers']>=[],routes:NonNullable<MapData['routes']>=[];

@@ -31,7 +31,7 @@ import { operationRequest } from '../mcp/requests.js';
 import { publicReference } from '../../src/server/mcp/operations';
 import { mkdir } from 'node:fs/promises';
 import type { DisplayRecord } from '../../src/shared/types';
-import { extendedExamples } from '../../src/shared/extended-templates';
+import {templateExampleData} from '../../src/shared/template-examples';
 
 test.describe("oauth coverage 1", () => {
 

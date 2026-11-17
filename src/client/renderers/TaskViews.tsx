@@ -1,11 +1,11 @@
-import { FormattedTime } from './Regional';
-import { useSelection } from './Selection';
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import type { RendererProps } from './Renderer';
-import { logEntries, type LogData, type ProgressData } from '../../shared/task-views';
-import type { ExtendedData } from '../../shared/extended-templates';
-import { useNavigation } from './Navigation';
-import { errorMessage } from '../api';
+import {FormattedTime} from './Regional';
+import {useSelection} from './Selection';
+import {useEffect,useRef,useState,type CSSProperties} from 'react';
+import type {RendererProps} from './Renderer';
+import {logEntries,type LogData,type ProgressData} from '../../shared/task-views';
+
+import {useNavigation} from './Navigation';
+import {errorMessage} from '../api';
 import './task-views.css';
 
 interface SpineEvent {id:string;title:string;description?:string;timestamp:string;end?:string;status?:string;lane?:string;url?:string}

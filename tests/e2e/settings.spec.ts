@@ -27,7 +27,7 @@ import { Store } from '../../src/server/store';
 import { testDatabase } from '../postgres';
 import { publicReference } from '../../src/server/mcp/operations';
 import type { DisplayRecord } from '../../src/shared/types';
-import { extendedExamples } from '../../src/shared/extended-templates';
+import {templateExampleData} from '../../src/shared/template-examples';
 
 test.describe("settings coverage 1", () => {
 

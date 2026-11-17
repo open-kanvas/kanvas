@@ -1,17 +1,17 @@
-import { timelineScale } from '../shared/timeline.js';
-import type { ExtendedData } from '../shared/extended-templates.js';
-import { instrumentDataSchema, changeInstrument, changeInstrumentSequence } from '../shared/instrument.js';
-import { captionDataSchema, changeCaptionSequence } from '../shared/local-sequence.js';
+import {timelineScale} from '../shared/timeline.js';
+import type {TemplateData} from '../shared/template-data.js';
+import {instrumentDataSchema,changeInstrument,changeInstrumentSequence} from '../shared/instrument.js';
+import {captionDataSchema,changeCaptionSequence} from '../shared/local-sequence.js';
 import {assertExpectedRevision} from './revisions.js';
-import { isDeepStrictEqual } from 'node:util';
-import { z } from 'zod';
-import { VIEW_PATCH_LIMITS, viewPatchSchema, type ViewPatchInput, type ViewPatchOperation } from '../shared/view-patch.js';
-import { assertJsonBudget, validateView } from '../shared/view-schemas.js';
-import type { DisplayRecord, UpdateRecord, ViewSpec } from '../shared/types.js';
-import type { AuthPrincipal } from './auth.js';
-import { InputError, validationIssues } from './input-errors.js';
-import { AppError } from './store.js';
-import { participationCompatible } from './participation.js';
+import {isDeepStrictEqual} from 'node:util';
+import {z} from 'zod';
+import {VIEW_PATCH_LIMITS,viewPatchSchema,type ViewPatchInput,type ViewPatchOperation} from '../shared/view-patch.js';
+import {assertJsonBudget,validateView} from '../shared/view-schemas.js';
+import type {DisplayRecord,UpdateRecord,ViewSpec} from '../shared/types.js';
+import type {AuthPrincipal} from './auth.js';
+import {InputError,validationIssues} from './input-errors.js';
+import {AppError} from './store.js';
+import {participationCompatible} from './participation.js';
 
 export interface ViewPatchDisplay extends DisplayRecord {
   generation: number;
@@ -131,7 +131,7 @@ function applyOperation(view: ViewSpec, operation: ViewPatchOperation): void {
   if(operation.op==='timeline'){
     if(view.template!=='timeline')unsupported('Timeline progression requires a timeline view.');
     if((operation.action==='select')!==Boolean(operation.eventId))unsupported('Supply eventId only for select.');
-    const data=view.data as ExtendedData<'timeline'>;
+    const data=view.data as TemplateData<'timeline'>;
     const events=timelineScale(data.events).events;
     if(operation.action==='clear'){delete data.activeEventId;return;}
     if(operation.action==='select'){

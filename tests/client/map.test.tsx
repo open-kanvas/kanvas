@@ -17,23 +17,23 @@ import { SIGN_ARROW_TURN } from '../../src/client/renderers/Signage';
 import { SIGN_DIRECTIONS } from '../../src/shared/signage';
 import { choroplethPlotHeight } from '../../src/client/renderers/AdvancedCharts';
 import { WEATHER_FIT_STEPS } from '../../src/client/renderers/Weather';
-import { WEATHER_DESCRIPTION_MAX } from '../../src/shared/extended-templates';
+import {WEATHER_DESCRIPTION_MAX} from '../../src/shared/weather-schema';
 import { validateView } from '../../src/shared/view-schemas';
 import { ToastIcon } from '../../src/client/toast-icons';
 import { TOAST_TYPES } from '../../src/shared/viewer-experience';
 import { toastsToShow } from '../../src/shared/viewer-experience';
 import type { ToastRecord } from '../../src/shared/viewer-experience';
 import { statusColor } from '../../src/shared/task-list';
-import { Agents } from '../../src/client/renderers/Nov10';
-import { Colour } from '../../src/client/renderers/Nov10';
-import { FontPicker } from '../../src/client/renderers/Nov10';
-import { IconPicker } from '../../src/client/renderers/Nov10';
-import { JsonRaw } from '../../src/client/renderers/Nov10';
-import { JsonView } from '../../src/client/renderers/Nov10';
-import { TaskList } from '../../src/client/renderers/Nov10';
-import { ToolCallDetails } from '../../src/client/renderers/Nov10';
-import { Welcome } from '../../src/client/renderers/Nov10';
-import { themeTokenCss } from '../../src/client/renderers/Nov10';
+import {Agents} from '../../src/client/renderers/ConnectedAgents';
+import {Colour} from '../../src/client/renderers/ColourPicker';
+import {FontPicker} from '../../src/client/renderers/FontPicker';
+import {IconPicker} from '../../src/client/renderers/IconPicker';
+import {JsonRaw} from '../../src/client/renderers/JsonRaw';
+import {JsonView} from '../../src/client/renderers/Json';
+import {TaskList} from '../../src/client/renderers/TaskList';
+import {ToolCallDetails} from '../../src/client/renderers/ToolCallDetails';
+import {Welcome} from '../../src/client/renderers/Welcome';
+import {themeTokenCss} from '../../src/client/renderers/CustomHtml';
 import { samples } from '../../src/shared/template-examples';
 import { geographyCodes } from '../../src/shared/geography/codes';
 import { DIAGRAM_MAX_FILL } from '../../src/client/renderers/Diagrams';
@@ -42,7 +42,7 @@ import { Renderer } from '../../src/client/renderers/Renderer';
 import { choroplethPaths } from '../../src/client/renderers/AdvancedCharts';
 import { regionGeometry } from '../../src/client/renderers/AdvancedCharts';
 import { itineraryMap } from '../../src/client/renderers/Itinerary';
-import { extendedSchemas } from '../../src/shared/extended-templates';
+import {templateSchemas} from '../../src/shared/template-data';
 import { selectRows } from '../../src/shared/selection';
 import { selectionSchema } from '../../src/shared/selection';
 import { cellEmphasis } from '../../src/shared/emphasis';
@@ -88,7 +88,7 @@ describe("map coverage 3", () => {
 
 const view=(template:string,data:unknown)=>validateView({version:1,template,data});
 describe('feedback template contracts and source preservation',()=>{
- it('itinerary uses explicit coordinates, day order and transport legs; images stay optional',()=>{const input={layout:'map',days:[{date:'2026-10-01',items:[{title:'Oslo',coordinates:{lat:59.9,lng:10.7},image:{url:'https://example.com/image.png',alt:'Scenic'}},{title:'Bergen',coordinates:{lat:60.4,lng:5.3},category:'flight'}]},{date:'2026-10-02',items:[{title:'Bergen hotel',coordinates:{lat:60.4,lng:5.3},category:'hotel'}]}]};const data=extendedSchemas.itinerary.parse(input),map=itineraryMap(data,null);expect(map.markers).toHaveLength(3);expect(map.routes).toHaveLength(2);expect(map.routes![0].dashed).toBe(true);expect(itineraryMap(data,1).markers).toHaveLength(1);expect(()=>extendedSchemas.itinerary.parse({layout:'map',days:[{date:'2026-10-01',items:[{title:'Unknown place'}]}]})).toThrow();const html=renderToStaticMarkup(<Renderer view={view('itinerary',data)}/>);expect(html).toContain('alt="Scenic"');expect(html).toContain('itinerary-anchor');expect(html).toContain('Whole trip');});});
+ it('itinerary uses explicit coordinates, day order and transport legs; images stay optional',()=>{const input={layout:'map',days:[{date:'2026-10-01',items:[{title:'Oslo',coordinates:{lat:59.9,lng:10.7},image:{url:'https://example.com/image.png',alt:'Scenic'}},{title:'Bergen',coordinates:{lat:60.4,lng:5.3},category:'flight'}]},{date:'2026-10-02',items:[{title:'Bergen hotel',coordinates:{lat:60.4,lng:5.3},category:'hotel'}]}]};const data=templateSchemas.itinerary.parse(input),map=itineraryMap(data,null);expect(map.markers).toHaveLength(3);expect(map.routes).toHaveLength(2);expect(map.routes![0].dashed).toBe(true);expect(itineraryMap(data,1).markers).toHaveLength(1);expect(()=>templateSchemas.itinerary.parse({layout:'map',days:[{date:'2026-10-01',items:[{title:'Unknown place'}]}]})).toThrow();const html=renderToStaticMarkup(<Renderer view={view('itinerary',data)}/>);expect(html).toContain('alt="Scenic"');expect(html).toContain('itinerary-anchor');expect(html).toContain('Whole trip');});});
 });
 
 describe("map coverage 4", () => {

@@ -40,3 +40,5 @@ Use logical commits and document compatibility/migrations. Do not commit operati
 ## Test organization
 
 Name test files after the behaviour or feature they test, never a date, release round or time of day. Add bug-fix coverage to the feature file, not a new report-named file. Keep suite harnesses and operation fixtures shared. When moving tests, preserve every test and assertion, compare exact suite counts, and retain literal duplicates with a `duplicate-of` comment until a separately approved pruning change.
+
+New templates get their own feature-named renderer, stylesheet and schema from the start; never name source files after a date or release round.

@@ -1,3 +1,4 @@
+import {sharesReadSchema,shareRevokeSchema} from '../shared/shares.js';
 import {derivedViewLabel} from '../shared/view-label.js';
 import {iconUrl,parseIconId} from '../shared/pickers.js';
 /** An icon id from kanvas.icons.search becomes the address this server serves it at; anything else is kept as given. */
@@ -18,7 +19,7 @@ import type {KanvasService} from './domain.js';
 import {hash,type AuthPrincipal,type Token} from './auth.js';
 import {AppError,id,now,required} from './store.js';
 import {ACCESS_LIMITS,type PairingRecord} from './access-flows.js';
-import {shareForAdmission,SHARE_LIMITS,type ShareRecord} from './sharing.js';
+import {shareForAdmission,closeShare,shareMetadata,SHARE_LIMITS,type ShareRecord} from './sharing.js';
 import {configPatchSchema,DEFAULT_CONFIG,mergeConfig} from '../shared/preferences.js';
 import {STYLE_PRESETS} from '../shared/styles.js';
 import type {Appearance} from '../shared/accounts.js';
@@ -113,6 +114,26 @@ export class Experience {
     async address(p: AuthPrincipal, sessionId: string, displayId?: string) { (await this.service.access(p, sessionId)); if (displayId)
         (await this.service.display(p, sessionId, displayId)); const alias = (await this.alias(sessionId, displayId)); return { alias: alias.id, url: `${this.service.publicUrl}/s/${alias.id}`, viewerUrl: displayId ? `${this.service.publicUrl}/view/${sessionId}/${displayId}` : undefined, access: 'locator-only' }; }
     async resolve(alias: string) { return (await this.addresses.resolve(alias)); }
+    async shares(p: AuthPrincipal, raw: unknown) {
+        const a = sharesReadSchema.parse(raw);
+        await this.service.fullAccount(p, 'read');
+        const session = await this.service.access(p, a.sessionId, 'owner');
+        const shares = (await this.store.list<ShareRecord>('share', a.sessionId))
+            .filter(share => share.ownerId === p.userId && share.ownerId === session.ownerId && share.status === 'active' && Date.parse(share.expiresAt) > Date.now())
+            .sort((left, right) => right.createdAt.localeCompare(left.createdAt) || left.id.localeCompare(right.id));
+        // Creation caps active shares per session; expired entries are excluded without a read-side mutation.
+        return { sessionId: a.sessionId, shares: shares.map(share => shareMetadata(share, this.service.publicUrl)), total: shares.length };
+    }
+    async revokeShare(p: AuthPrincipal, raw: unknown) {
+        const a = shareRevokeSchema.parse(raw);
+        return this.store.atomic(async () => {
+            const session = await this.owner(p, a.sessionId);
+            const share = required(await this.store.get<ShareRecord>('share', a.shareId), 'This invitation is unavailable.');
+            if (share.sessionId !== a.sessionId || share.ownerId !== p.userId || session.ownerId !== share.ownerId) throw new AppError('NOT_FOUND', 'This invitation is unavailable.', 404);
+            await closeShare(this.store, this.service.emit, share, 'revoked');
+            return { ...shareMetadata(share, this.service.publicUrl), revoked: share.status === 'revoked' };
+        });
+    }
     async share(p: AuthPrincipal, a: ShareInput): Promise<ShareResult> {
         (await this.owner(p, a.sessionId));
         (await this.service.display(p, a.sessionId, a.displayId));

@@ -5,6 +5,7 @@
  * No model, no embeddings: this is authored text measured by a probe set. */
 export interface TemplateConcept { when: string; also: string }
 export const TEMPLATE_CONCEPTS: Record<string, TemplateConcept> = {
+  markdown: { when: 'Formatted reading text composed by an agent: headings, lists, links, code, tables and task lists. Use document for someone else’s exact plain text.', also: 'markdown commonmark gfm formatted prose readme release notes technical help inline code fenced code rich text' },
   'split-screen': { when: 'Two to sixteen views in a grid on one screen (rows x columns, one nested grid level). Use when someone wants to see things next to each other or keep one thing up while looking at another.', also: 'side by side panes halves quarters two things at once dashboard wall multi view' },
   'database-schema': { when: 'Database tables with their columns, types and keys. Use when someone asks what a table looks like or how the data is modelled.', also: 'tables columns foreign key sql model entity relationship erd' },
   qr: { when: 'One large code to scan with a phone. Use when someone needs to open a link, join wifi or pass text to a phone.', also: 'qr code scan phone camera link url barcode' },

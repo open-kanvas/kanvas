@@ -85,3 +85,9 @@ and capture-only restrictions through real loopback HTTP.
 view-only live updates, independent guest voting and revocation in isolated
 desktop and phone browser contexts. A physical phone camera scan and an actual
 audience event are separate acceptance checks, not simulated load-test claims.
+
+## Agent-managed invitation lifecycle
+
+`kanvas.shares.read {sessionId}` lists only active, unexpired links owned by the session’s owning account. It needs a full-account read grant. `kanvas.share.revoke {sessionId,shareId}` needs owning-account publish authority and closes that invitation immediately, including its approved and pending pairings and paired-browser sessions. A repeated revoke is safe and keeps the original close time. Other invitation links, member grants and the owner’s sign-in are unchanged.
+
+The session overview returns to `private` when its last active link is revoked, unless public access or another sharing grant still applies. A share ID is not an invite ID: use the share operations, not `kanvas.invite.revoke`.

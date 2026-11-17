@@ -88,14 +88,14 @@ export function validationIssues(error: z.ZodError, prefix = '', submitted?: unk
     if (issue.code === 'unrecognized_keys' && issue.keys.includes('targetTime')) return [{ path: `${path}.targetTime`, problem: COUNTDOWN_TARGET_TIME_RULE }, ...(issue.keys.length > 1 ? [{ path, problem: 'Contains other unsupported fields. Use the documented tool or template schema.' }] : [])];
     if (issue.code === 'unrecognized_keys' && issue.keys.includes('displayId') && schema && Object.hasOwn((z.toJSONSchema(schema,{unrepresentable:'any',io:'input'}) as {properties?:object}).properties??{},'displayIds')) return [{path:'displayId',problem:'Unsupported singular field for this operation. Use displayIds: [the intended display ID], an array.'},...(issue.keys.length>1?[{path,problem:'Contains other unsupported fields. Use the documented tool schema.'}]:[])];
     if(issue.code==='unrecognized_keys'){
-      // Schema-selected fields only; untrusted arbitrary record keys stay redacted.
+      // Schema-selected and explicitly retired public fields only; arbitrary record keys stay redacted.
       const selected=submitted&&typeof submitted==='object'&&'template' in submitted?leafViewSchema.options.find(option=>option.shape.template.value===submitted.template):undefined;
       const root=z.toJSONSchema(schema??selected??viewSchema,{unrepresentable:'any',io:'input'});
       const select=(node:any,value:any):any=>{const expand=(n:any):any[]=>(n?.oneOf??n?.anyOf)?.flatMap(expand)??[n];const choices=expand(node);if(choices.length===1)return node;return select(choices.find((c:any)=>Object.entries(c.properties??{}).some(([k,v]:[string,any])=>v.const!==undefined&&value?.[k]===v.const))??choices.find((c:any)=>c.type==='object')??choices[0],value);};
       let node:any=select(root,submitted),value:any=submitted;
       for(const part of issue.path){node=select(node,value);node=typeof part==='number'?node?.items:node?.properties?.[part];value=value?.[part];}
       node=select(node,value);const allowedFields=Object.keys(node?.properties??{});
-      return issue.keys.map(key=>{const known=names.has(key),field=known?key:'<record-key>',misplaced=path.endsWith('.data')&&['title','showTitle','showCaption','showControls','actions'].includes(key);return {path:`${path}.${field}`,problem:'Unsupported field.',received:value?.[key]===null?'null':Array.isArray(value?.[key])?'array':typeof value?.[key],...(allowedFields.length?{allowedFields}:{}),...(misplaced?{hint:`${key} belongs beside template/data in view, not inside data.`}:{})};});
+      return issue.keys.map(key=>{const known=names.has(key)||key==='showSource'||key==='source',field=known?key:'<record-key>',misplaced=path.endsWith('.data')&&['title','showTitle','showCaption','showControls','actions'].includes(key);return {path:`${path}.${field}`,problem:'Unsupported field.',received:value?.[key]===null?'null':Array.isArray(value?.[key])?'array':typeof value?.[key],...(allowedFields.length?{allowedFields}:{}),...(misplaced?{hint:`${key} belongs beside template/data in view, not inside data.`}:{})};});
     }
     return [{
     path,...(expected?{expected,received:received===undefined?'missing':received===null?'null':Array.isArray(received)?'array':typeof received}:{}),

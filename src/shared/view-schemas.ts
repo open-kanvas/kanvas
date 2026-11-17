@@ -1,3 +1,4 @@
+import {markdownDataSchema} from './markdown.js';
 import {databaseSchemaDataSchema} from './database-schema.js';
 import {instrumentDataSchema} from './instrument.js';
 import {captionDataSchema} from './local-sequence.js';
@@ -81,7 +82,7 @@ export const provenanceSchema: z.ZodType<Provenance> = z.object({
 }).strict();
 
 export const factDataSchema = z.object({
-  text: z.string().min(1).max(3000), subtitle: short.optional(), items: z.array(z.string().max(400)).max(12).optional(),
+  text: z.string().min(1).max(3000).describe('Plain text; markup is rendered literally. Use markdown for formatted prose.'), subtitle: short.optional(), items: z.array(z.string().max(400)).max(12).optional(),
   original: z.string().max(3000).optional(), language: z.string().max(40).optional(), sourceLanguage: z.string().max(40).optional(),
 }).strict();
 export const numberDataSchema = z.object({ value: z.union([finite, z.string().min(1).max(100)]).optional(), label: short.optional(), unit: z.string().max(80).optional(), comparison: short.optional(), binding: datasetBindingSchema.optional(), summary: summarySchema.optional() }).strict()
@@ -167,7 +168,7 @@ export const whiteboardElementSchema = z.object({
 });
 export const whiteboardDataSchema = z.object({ background:boardBackgroundSchema.optional(), elements: z.array(whiteboardElementSchema).max(VIEW_LIMITS.boardElements).refine(uniqueIds, 'Board IDs must be unique') }).strict();
 export const documentDataSchema = z.object({
-  text: z.string().max(20_000).default(''), highlights: z.array(z.object({ start: z.number().int().min(0), end: positiveInteger, label: short.optional() }).strict()).max(100).default([]),
+  text: z.string().max(20_000).default('').describe('Exact plain text; markup is rendered literally. Use markdown for composed formatted prose.'), highlights: z.array(z.object({ start: z.number().int().min(0), end: positiveInteger, label: short.optional() }).strict()).max(100).default([]),
   layout: z.enum(['auto', 'excerpt', 'reading']).default('auto'),
   headings: z.array(z.object({ start: z.number().int().min(0), end: positiveInteger, level: z.union([z.literal(2), z.literal(3), z.literal(4)]).default(2) }).strict()).max(100).default([]),
   images: z.array(imageItemSchema).max(4).optional(), page: z.union([positiveInteger, short]).optional(), section: short.optional(), quote: z.boolean().default(true), context: z.string().max(10_000).optional(),
@@ -317,6 +318,7 @@ export const leafViewSchema = z.discriminatedUnion('template', [
   z.object({ ...base, template: z.literal('image-gallery'), data: galleryDataSchema }).strict(),
   z.object({ ...base, template: z.literal('whiteboard'), data: whiteboardDataSchema }).strict(),
   z.object({ ...base, template: z.literal('document'), data: documentDataSchema }).strict(),
+  z.object({ ...base, template: z.literal('markdown'), data: markdownDataSchema }).strict(),
   z.object({ ...base, template: z.literal('video'), data: videoDataSchema }).strict(),
   z.object({ ...base, template: z.literal('notifications'), data: notificationsDataSchema }).strict(),
   z.object({...base,template:z.literal('instrument'),data:instrumentDataSchema}).strict(),

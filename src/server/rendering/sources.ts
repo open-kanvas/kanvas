@@ -153,6 +153,11 @@ export function preflightSourceRequirements(input: InterpretationInput): void {
     const parsed = templateViewSchema('now-playing').safeParse({ version: 1, template: 'now-playing', data });
     if (!parsed.success) throw new RenderingError('INVALID_PLAYBACK_SOURCE', 'Supply the actual track and artist plus optional source artwork and playback state. Describing a player does not provide its current content.', false, safeSchemaIssues(parsed.error));
   }
+  if (template === 'markdown') {
+    const literal = data ?? { text: typeof input.submission.data === 'string' ? input.submission.data : input.submission.context };
+    const parsed = templateViewSchema('markdown').safeParse({ version: 1, template: 'markdown', data: literal });
+    if (!parsed.success) throw new RenderingError('INVALID_SOURCE_CONTENT', 'Supply the actual Markdown text in data.text or context; formatting instructions are not source content.', false, safeSchemaIssues(parsed.error));
+  }
   if (template === 'document') {
     const text = data?.text ?? data?.sourceText ?? (typeof input.submission.data === 'string' ? input.submission.data : input.submission.context);
     if (!(typeof text === 'string' && text.trim() && !isSafeUrl(text.trim())) && !(Array.isArray(data?.images) && data.images.length)) throw new RenderingError('MISSING_DOCUMENT_SOURCE', 'The document template needs supplied excerpt text or source images/crops. A URL or source title alone is not fetched; provide the actual passage or image.');

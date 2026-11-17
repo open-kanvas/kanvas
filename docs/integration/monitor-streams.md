@@ -41,7 +41,7 @@ Every answer from the stream endpoint carries the header `X-Kanvas-Stream: 1`.
 | `429` + `Retry-After` | Too fast for this address (or more than 600 writes a minute from one IP address). |
 | `503` + `Retry-After` | Kanvas is holding as many live events as it can. |
 
-**A `403` never comes from the stream endpoint.** It means the request was stopped before it: a proxy, CDN or bot filter in front of Kanvas that dislikes the HTTP client (the default `Python-urllib` user agent is a common casualty), or Kanvas's own guard against browser cross-origin requests when the reporter sends an `Origin` header. Kanvas itself has no user-agent filter: the isolated test `tests/core/feedback-20261114.test.ts` posts with `Python-urllib`, `python-requests`, Node, Go and curl user agents, and with none, and gets `202` each time.
+**A `403` never comes from the stream endpoint.** It means the request was stopped before it: a proxy, CDN or bot filter in front of Kanvas that dislikes the HTTP client (the default `Python-urllib` user agent is a common casualty), or Kanvas's own guard against browser cross-origin requests when the reporter sends an `Origin` header. Kanvas itself has no user-agent filter: the isolated test `tests/core/monitor-stream.test.ts` posts with `Python-urllib`, `python-requests`, Node, Go and curl user agents, and with none, and gets `202` each time.
 
 ### Smoke test before wiring hooks
 

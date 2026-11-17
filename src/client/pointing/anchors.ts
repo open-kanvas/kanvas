@@ -16,6 +16,17 @@ export function anchorAt(root:HTMLElement,view:ViewSpec,x:number,y:number,tolera
   if(leaf.template==='table'){const td=target.closest('td'),row=td?.closest<HTMLTableRowElement>('tr[data-source-row]');if(td&&row){const column=(leaf.data.columns as string[])[(td as HTMLTableCellElement).cellIndex];if(column)return{kind:'cell',row:Number(row.dataset.sourceRow),column};}}
   if(leaf.template==='chart'){
     let mark=target.closest<HTMLElement>('[data-chart-series][data-chart-x][data-chart-y]');
+    // A series stroke represents its supplied observations. Select the nearest
+    // real observation, never an interpolated or invented x/y pair.
+    const line=target.closest<SVGElement>('[data-chart-line]');
+    const svg=target.closest('svg'),plot=svg?.querySelector('[data-chart-snap-plot]')?.getBoundingClientRect();
+    const inPlot=plot&&x>=plot.left&&x<=plot.right&&y>=plot.top&&y<=plot.bottom&&!target.closest('text,tspan');
+    if(!mark&&(line||inPlot)){
+      mark=[...root.querySelectorAll<HTMLElement>('[data-chart-series][data-chart-x][data-chart-y]')]
+        .filter(el=>(!line||el.dataset.chartSeries===line.dataset.chartLine)&&el.closest('svg')===svg&&visible(el))
+        .map(el=>{const r=el.getBoundingClientRect();return {el,distance:Math.hypot(r.left+r.width/2-x,r.top+r.height/2-y)};})
+        .sort((a,b)=>a.distance-b.distance)[0]?.el??null;
+    }
     // Touch contact is imprecise; select only a nearby supplied mark, never a
     // series path or an invented interpolated point. Screen pixels respect zoom.
     if(!mark&&tolerance>0){
@@ -44,6 +55,8 @@ export function describeTarget(root:Element,x:number,y:number,anchor:PointingAnc
   for(const [selector,role] of roles){if(hit.closest(selector)){target.role=role;break;}}
   if(anchor?.kind==='chart'){target.role='chart mark';target.label=squeeze(`${anchor.series?`${anchor.series}: `:''}${anchor.x} = ${anchor.y}`,200);return target;}
   if(anchor?.kind==='text'){const unit=hit.closest(units)??hit,text=unit.textContent??'';target.label=squeeze(text.slice(anchor.start,anchor.end),200);target.context=squeeze(text,300);return target;}
+  const legend=hit.closest('.chart-legend,.advanced-chart-legend,.advanced-chart-key');
+  if(legend){const item=hit.closest('li,button,.chart-legend > span');target.role='chart legend';target.label=squeeze(item?.textContent??[...legend.children].map(child=>child.textContent?.trim()).filter(Boolean).join(' · '),200);return target;}
   const labelled=hit.closest<HTMLElement>('[data-point-label],[aria-label],[title],[alt]');
   const own=hit.closest('td,th,li,h1,h2,h3,h4,h5,p,button,figcaption,blockquote,[data-chart-series],text,tspan')??hit;
   target.label=squeeze(labelled?.dataset.pointLabel,200)??squeeze((own.textContent??'').length<=400?own.textContent:undefined,200)??squeeze(labelled?.getAttribute('aria-label')??labelled?.getAttribute('alt')??labelled?.getAttribute('title'),200);
@@ -58,4 +71,34 @@ export function anchorRects(root:HTMLElement,view:ViewSpec,anchor:PointingAnchor
   else if(anchor.kind==='chart'){el=[...root.querySelectorAll<HTMLElement>('[data-chart-series][data-chart-x][data-chart-y]')].find(x=>x.dataset.chartSeries===anchor.series&&x.dataset.chartX===anchor.x&&x.dataset.chartY===anchor.y);if(el){const r=el.getBoundingClientRect();rects=[{left:r.left-3,top:r.top-3,width:Math.max(8,r.width+6),height:Math.max(8,r.height+6)}];}}
   else if(anchor.kind==='image'){const img=[...root.querySelectorAll<HTMLImageElement>('img')].find(x=>Number(x.closest<HTMLElement>('[data-image-index]')?.dataset.imageIndex??0)===anchor.index&&visible(x));if(img){el=img;const r=imageRect(img);if(r)rects=[{left:r.left+anchor.x*r.width-9,top:r.top+anchor.y*r.height-9,width:18,height:18}];}}
   if(!el||!visible(el))return[];return rects.map(r=>clipped(r,el!,root)).filter((r):r is NonNullable<typeof r>=>!!r);
+}
+
+export interface ChartAnchorShape {
+  tag: 'path'|'rect'|'circle'|'ellipse'|'polygon'|'polyline'|'line';
+  attributes: Record<string,string>;
+  transform: string;
+  filled: boolean;
+  clip: {left:number;top:number;width:number;height:number};
+}
+const shapeAttributes: Record<ChartAnchorShape['tag'],string[]> = {
+  path:['d','fill-rule'],rect:['x','y','width','height','rx','ry'],circle:['cx','cy','r'],
+  ellipse:['cx','cy','rx','ry'],polygon:['points'],polyline:['points'],line:['x1','y1','x2','y2'],
+};
+/** Copy geometry only from the existing, visible chart mark. No HTML, event
+ * handlers, URLs or arbitrary SVG attributes enter the pointing overlay. */
+export function chartAnchorShapes(root:HTMLElement,anchor:PointingAnchor):ChartAnchorShape[]{
+  if(anchor.kind!=='chart')return[];
+  const mark=[...root.querySelectorAll<SVGGraphicsElement>('[data-chart-series][data-chart-x][data-chart-y]')]
+    .find(el=>el.dataset.chartSeries===anchor.series&&el.dataset.chartX===anchor.x&&el.dataset.chartY===anchor.y);
+  if(!mark||!visible(mark))return[];
+  const nodes=mark.tagName.toLowerCase()==='g'?[...mark.querySelectorAll<SVGGraphicsElement>('path,rect,circle,ellipse,polygon,polyline,line')]:[mark];
+  return nodes.flatMap(el=>{
+    const tag=el.tagName.toLowerCase() as ChartAnchorShape['tag'],allowed=shapeAttributes[tag];if(!allowed)return[];
+    const style=getComputedStyle(el),painted=(value:string)=>value!=='none'&&value!=='transparent'&&!/^rgba\([^)]*,\s*0\)$/.test(value);
+    if(Number(style.opacity)===0||(!painted(style.fill)&&!painted(style.stroke)))return[];
+    const matrix=el.getScreenCTM(),clip=clipped(el.getBoundingClientRect(),el,root);
+    if(!matrix||!clip||![matrix.a,matrix.b,matrix.c,matrix.d,matrix.e,matrix.f].every(Number.isFinite))return[];
+    const attributes:Record<string,string>={};for(const key of allowed){const value=el.getAttribute(key);if(value!==null)attributes[key==='fill-rule'?'fillRule':key]=value;}
+    return [{tag,attributes,transform:`matrix(${matrix.a} ${matrix.b} ${matrix.c} ${matrix.d} ${matrix.e} ${matrix.f})`,filled:painted(style.fill)&&tag!=='line',clip}];
+  });
 }

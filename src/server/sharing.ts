@@ -40,6 +40,29 @@ export async function shareForAdmission(store: Store, shareId: string): Promise<
   return share;
 }
 
+/** Authorized callers share one revocation path so approved browser access cannot
+ * outlive a closed invitation. Emission waits for the outer transaction to commit. */
+export async function closeShare(store: Store, emit: AccessFlowOptions['emit'], share: ShareRecord, status: 'expired' | 'revoked'): Promise<void> {
+  await store.transaction(async () => {
+    const current = required(await store.get<ShareRecord>('share', share.id), 'This invitation is unavailable.');
+    Object.assign(share, current);
+    if (share.status === status || share.status === 'revoked') return;
+    share.status = status; share.closedAt = now(); await store.put('share', share);
+    for (const pair of await store.list<PairingRecord>('pairing', share.sessionId)) {
+      if (pair.shareId !== share.id || !['approved', 'pending'].includes(pair.status)) continue;
+      pair.status = status; pair.decidedAt = share.closedAt; await store.put('pairing', pair);
+      if (pair.browserSessionId) await store.delete('browser', pair.browserSessionId);
+    }
+    store.afterCommit(() => emit({ type: 'membership', sessionId: share.sessionId, displayId: share.displayId }));
+  });
+}
+
+export function shareMetadata(share: ShareRecord, origin: string) {
+  return { id: share.id, sessionId: share.sessionId, displayId: share.displayId, label: share.label,
+    allowInteraction: share.allowInteraction, status: share.status, createdAt: share.createdAt,
+    expiresAt: share.expiresAt, closedAt: share.closedAt, joinUrl: `${new URL(origin).origin}/join/${encodeURIComponent(share.id)}` };
+}
+
 export function mountSharing(app: Express, options: AccessFlowOptions): void {
   const { auth, store, browser, access, emit } = options;
   const origin = new URL(options.publicUrl).origin;
@@ -50,24 +73,8 @@ export function mountSharing(app: Express, options: AccessFlowOptions): void {
     }
     return principal;
   };
-  const metadata = (share: ShareRecord) => ({
-    id: share.id, sessionId: share.sessionId, displayId: share.displayId, label: share.label, allowInteraction: share.allowInteraction,
-    status: share.status, createdAt: share.createdAt, expiresAt: share.expiresAt, closedAt: share.closedAt,
-    joinUrl: `${origin}/join/${encodeURIComponent(share.id)}`,
-  });
-  const close = async (share: ShareRecord, status: 'expired' | 'revoked') => {
-    const affected: PairingRecord[] = [];
-    (await store.transaction(async () => {
-      share.status = status; share.closedAt = now(); (await store.put('share', share));
-      for (const pair of (await store.list<PairingRecord>('pairing', share.sessionId))) {
-        if (pair.shareId !== share.id || !['approved', 'pending'].includes(pair.status)) continue;
-        pair.status = status; pair.decidedAt = now(); (await store.put('pairing', pair));
-        if (pair.browserSessionId) (await store.delete('browser', pair.browserSessionId));
-        affected.push(pair);
-      }
-    }));
-    for (const pair of affected) emit({ type: 'membership', sessionId: pair.sessionId, displayId: pair.displayId });
-  };
+  const metadata = (share: ShareRecord) => shareMetadata(share, origin);
+  const close = (share: ShareRecord, status: 'expired' | 'revoked') => closeShare(store, emit, share, status);
   const expire = async (share: ShareRecord) => {
     if (share.status === 'active' && Date.parse(share.expiresAt) <= Date.now()) (await close(share, 'expired'));
     return share;

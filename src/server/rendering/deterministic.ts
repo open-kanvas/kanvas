@@ -90,6 +90,7 @@ export function renderSuppliedContent(input: InterpretationInput): Interpretatio
     }
     case 'presentation':
       return make('presentation', data ?? { slides: [{ version: 1, template: 'fact', data: { text } }], index: 0 });
+    case 'markdown': return make('markdown', data ?? { text });
     case 'document':
       if (data && typeof data.sourceText === 'string' && data.text === undefined) {
         const { sourceText, ...rest } = data;

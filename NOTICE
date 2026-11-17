@@ -1,0 +1,11 @@
+Kanvas
+Copyright 2026 Kanvas contributors.
+
+Kanvas is licensed under the Apache License, Version 2.0. The Kanvas name and
+logo are project trademarks and are not licensed by that copyright license.
+
+Third-party components and assets retain their respective licenses and notices.
+Keep the accompanying notices in docs/licenses/, public/browser-icons/,
+public/signage/, public/scene-assets/, public/geography-NOTICE.txt and
+src/shared/geography/LICENSE.md with redistributed copies of those assets.
+Dependency license information is also included with the installed packages.

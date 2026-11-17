@@ -82,6 +82,7 @@ export const TEMPLATE_DISPLAY_GUIDANCE = {
     'image-gallery': focus('Several complete images, or one full image at a time.', 'Grid or carousel. Never crop. Per-image titles, captions and sources appear only when explicitly enabled.'),
     whiteboard: focus('The diagram or shared idea.', 'Keep editing tools contextual and all source elements available.', true),
     presentation: focus('The current visual, not deck chrome.', 'Arrows/swipes navigate within the deck before local history. Audience controls are opt-in with showControls. Notes displays can set data.presenterPreview:true to browse privately and explicitly Go live through linked-display sync. Autoplay only on request.'),
+    markdown: focus('Composed prose using standard CommonMark and GitHub-flavoured Markdown.', 'Natural reading scroll, preserved headings, lists, links, tables and code blocks. Session textSize and reading preferences apply. No custom formatting dialect; images are not rendered.', true, true),
     document: focus('One excerpt, or an explicitly requested readable document.', 'Reading layouts preserve headings, exact text and natural scrolling.', true, true),
     video: focus('The supplied video.', 'Keep playback controls and blocked-playback explanations usable.'),
     notifications: focus('The important notice and required action.', 'Keep source/time detail readable and older notices accessible.'),

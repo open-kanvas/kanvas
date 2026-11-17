@@ -1,17 +1,17 @@
 /** What Kanvas is for, in the founder's words, and the three renderings of it:
  * the person's invitation, the agent's conduct and the maintainer's yardstick.
  * The mission wording is authoritative: keep the first person plural and the
- * whiteboard image; do not turn it into marketing copy or a feature list. This
+ * interaction rhythm; do not turn it into marketing copy or a feature list. This
  * module is plain text placed at the right moments. It adds no behaviour. */
 
 export const MISSION = [
-  'Kanvas is your agent\'s screen. It is a visual surface for people and their agents: any browser, any size, with no intelligence inside; the intelligence lives in the agent. Sometimes the screen is a whiteboard in a live conversation, sometimes a board the agent keeps up for you, sometimes a sign it sets and leaves.',
-  'The experience at the heart of it is the feeling of working with a colleague at a whiteboard: you talk, the relevant thing appears on the screen while you speak, you point at it, it changes. Nobody asks permission, nobody narrates the mechanics, and your words get shorter because the detail is already visible. Templates, operations and schemas are how Kanvas is built; this rhythm is what it is.',
+  'Kanvas is your agent\'s screen. It is a visual surface for people and their agents: any browser, any size, with no intelligence inside; the intelligence lives in the agent.',
+  'You talk or type to your agent, and the relevant thing appears on the screen while you speak: a chart, a checklist, a map, a code snippet, a plan. You react, it changes. The goal is the shortest time to clarity, like working through a problem with a colleague at a whiteboard. Nobody asks permission, nobody narrates the mechanics, and your words get shorter because the detail is already visible. Templates, operations and schemas are how Kanvas is built; this rhythm is what it is.',
   'Our job is to make both the agent and the person reach that rhythm as fast as possible: the right information, at the right moment, with the shortest time to clarity. Get the setup, the feel and the taste right, and Kanvas can be much more than one use case while staying a light, visual surface, never a heavy application.',
 ] as const;
 
 export const TEMPOS = [
-  { id: 'live', pace: 'seconds', text: 'Live session: the whiteboard rhythm; publish while talking, patch on reaction. This is where taste shows most and where onboarding must land first.' },
+  { id: 'live', pace: 'seconds', text: 'Live session: publish while talking, patch on reaction. This is where taste shows most and where onboarding must land first.' },
   { id: 'kept-up', pace: 'hours', text: 'Ambient / kept-up: a checklist, a planner, a monitor, a scoreboard that stays current between conversations. Same templates, lower tempo.' },
   { id: 'static', pace: 'days', text: 'Static / signage: a menu board, opening hours, a sign. An agent sets it once and leaves it. Same surface, slowest tempo.' },
 ] as const;
@@ -24,7 +24,7 @@ export const HUMAN_INVITATION = {
 } as const;
 
 /** Rendering 2, for the agent: returned once on first contact and as help. */
-export const AGENT_CONDUCT = 'Use the screen like a colleague uses a whiteboard. When something is easier to see than to say, put it on the screen while you talk, without asking. One idea per view. When the person reacts, patch the view rather than republishing. Keep your spoken words short; the detail is on the screen. Know which tempo you are in: live (change it as you go), kept-up (keep it current), or static (set it and leave it).';
+export const AGENT_CONDUCT = 'Use the screen as you work through a problem with a colleague. When something is easier to see than to say, put it on the screen while you talk, without asking. One idea per view. When the person reacts, patch the view rather than republishing. Keep your spoken words short; the detail is on the screen. Know which tempo you are in: live (change it as you go), kept-up (keep it current), or static (set it and leave it).';
 export const AGENT_RULES = ['Publish proactively.', 'One glanceable beat per view.', 'Patch, don\'t rebuild.'] as const;
 export const AGENT_EXAMPLE = 'The person says "how do the three options compare?" You publish a comparison and say "on screen; B is cheaper but slower."';
 /** Said once, right after the first successful publish in a session. */

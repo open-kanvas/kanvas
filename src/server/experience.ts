@@ -117,7 +117,8 @@ export class Experience {
     async shares(p: AuthPrincipal, raw: unknown) {
         const a = sharesReadSchema.parse(raw);
         await this.service.fullAccount(p, 'read');
-        const session = await this.service.access(p, a.sessionId, 'owner');
+        const session = await this.service.access(p, a.sessionId);
+        if (session.ownerId !== p.userId) throw new AppError('NOT_FOUND', 'This session is unavailable.', 404);
         const shares = (await this.store.list<ShareRecord>('share', a.sessionId))
             .filter(share => share.ownerId === p.userId && share.ownerId === session.ownerId && share.status === 'active' && Date.parse(share.expiresAt) > Date.now())
             .sort((left, right) => right.createdAt.localeCompare(left.createdAt) || left.id.localeCompare(right.id));

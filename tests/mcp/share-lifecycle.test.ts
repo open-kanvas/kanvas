@@ -23,6 +23,9 @@ describe('public share lifecycle operations', () => {
     const service=h.runtime.service,args={sessionId,shareId},foreign={userId:other.user!.id};
     await expect(service.execute('kanvas.share.revoke',args,foreign)).rejects.toBeTruthy();
     await expect(service.execute('kanvas.shares.read',{sessionId},foreign)).rejects.toBeTruthy();
+    await service.addMember({userId:owner.user!.id},sessionId,other.user!.username,'editor');
+    await expect(service.execute('kanvas.shares.read',{sessionId},foreign)).rejects.toMatchObject({code:'NOT_FOUND'});
+    await service.removeMember({userId:owner.user!.id},sessionId,other.user!.id);
     const readToken=await h.runtime.auth.issueToken(owner.user!.id,'Read shares',['read']);
     const readPrincipal=await h.runtime.auth.authorize({get:()=>`Bearer ${readToken.value}`} as never);
     expect((await service.execute('kanvas.shares.read',{sessionId},readPrincipal) as any).total).toBe(2);

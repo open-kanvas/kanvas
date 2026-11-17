@@ -9,4 +9,4 @@ This folder exposes exactly two MCP tools to agents: **kanvas_discover** finds c
 
 A call enters `index.ts`, resolves its exact public ID against the registry and validates nested arguments against that operation's schema. Its domain handler executes with the current principal and cancellation signal. `results.ts` wraps the result, and `response-policy.ts` selects orientation, guidance and viewer-link context without rewriting user/source values.
 
-See [the discovery architecture](../../../docs/architecture/mcp-discovery.md) for design rationale. Keep this map current when the folder changes.
+See [the discovery architecture](../../../docs/architecture/mcp-discovery.md) for design rationale. Keep this map current when the folder changes. `node --import tsx scripts/measure-mcp-catalog.ts` measures the current surface offline; its artifacts stay in ignored feature scratch.

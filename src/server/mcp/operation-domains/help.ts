@@ -6,7 +6,7 @@ import {z} from 'zod';
 
 import {helpInputSchema} from '../../../shared/help.js';
 
-import {GUIDE_TOPICS} from '.././guide.js';
+import {GUIDE_TOPICS} from '../guide-topics.js';
 
 import type {Definition} from '../canonical.js';
 import {name} from '../operation-fields.js';

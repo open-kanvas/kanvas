@@ -7,8 +7,8 @@ import {PUBLISHING_GUIDANCE,PUBLISHING_RECIPES,COMMON_DATA_SHAPES} from './publi
 import {SESSION_CONTINUITY_GUIDANCE,SESSION_CONTINUITY_RECIPE,sessionContinuityGuidanceFor} from './session-continuity.js';
 import {VISUAL_INTENT_DESCRIPTION,VISUAL_INTENT_GUIDANCE,VISUAL_INTENT_ENTRY,VISUAL_INTENT_EXAMPLES} from './visual-intent.js';
 
-export const GUIDE_TOPICS = ['tour', 'getting-started', 'tools', 'publishing', 'visual-intent', 'templates', 'viewer-context', 'feedback'] as const;
-export type GuideTopic = typeof GUIDE_TOPICS[number];
+import {GUIDE_TOPICS, type GuideTopic} from './guide-topics.js';
+export {GUIDE_TOPICS, type GuideTopic} from './guide-topics.js';
 export const FEEDBACK_OFFER = "When users hit errors, workarounds or confusion, offer kanvas_call with operationId:\"kanvas.feedback.submit\" and arguments:{\u2026} once; file only on request or consent. Never include private content or credentials; do not nag.";
 export const KANVAS_DESCRIPTION = `${VISUAL_INTENT_DESCRIPTION} First contact/no active screen: read kanvas.help.about, ask the user to open this environment’s bare Kanvas URL and sign in, then discover connected receivers with kanvas.account.begin and kanvas.devices.read. Prefer window.present/device.present and short URLs, never a spoken long viewer path. ${FEEDBACK_OFFER}`;
 export const INTERACTION_GUIDANCE = 'Operate quietly: perform routine tool searches, schema/state reads, revisions and recovered retries without narrating the machinery or asking whether to do each step. Speak/write briefly and naturally about the useful result; the display complements rather than repeats the spoken answer. Explain an unresolved failure or a required user decision honestly, without a tool-call play-by-play. Give technical detail when the user explicitly requests testing/debugging. This never bypasses host approvals, access/guest consent, destructive-action authorization or permission for external actions.';

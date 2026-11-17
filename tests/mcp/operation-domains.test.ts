@@ -4,7 +4,7 @@ import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/cli
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CANONICAL_TOOLS } from '../../src/server/mcp/canonical.js';
 import { listToolDefinitions, resolveToolCall } from '../../src/server/mcp/catalog.js';
-import { DOMAIN_OPERATION_ENTRIES, DOMAIN_REGISTRY, DOMAIN_TOOL_NAMES, OPERATION_ENTRIES, OPERATION_REGISTRY, mcpProfile, publicGuidanceText, publicReference } from '../../src/server/mcp/operations.js';
+import { operationTable, mcpProfile, publicGuidanceText, publicReference } from '../../src/server/mcp/operations.js';
 import { profileInstructions } from '../../src/server/mcp/profile-guidance.js';
 import type { DisplayRecord, SessionRecord } from '../../src/shared/types.js';
 import { ORIGIN, fact, startHarness, type Harness } from '../core/harness.js';
@@ -18,81 +18,54 @@ afterEach(async () => {
   for (const h of harnesses.reverse()) await h.close(); harnesses.length = 0;
 });
 
-describe('domains profile catalog', () => {
-    it('is the default profile and groups every canonical operation exactly once into 30-50 resource tools', () => {
+describe('public operation domains', () => {
+    it('defaults to two wire tools and groups each executable public ID exactly once', () => {
         expect(mcpProfile()).toBe('discovery');
-        expect(DOMAIN_TOOL_NAMES.length).toBeGreaterThanOrEqual(30);
-        expect(DOMAIN_TOOL_NAMES.length).toBeLessThanOrEqual(50);
-        const canonical = CANONICAL_TOOLS.map(tool => tool.name).sort();
-        expect(DOMAIN_OPERATION_ENTRIES.map(entry => entry.canonical).sort()).toEqual(canonical);
-        // No kitchen-sink tool: the largest group stays small enough to scan.
-        expect(Math.max(...DOMAIN_TOOL_NAMES.map(name => Object.keys(DOMAIN_REGISTRY[name]).length))).toBeLessThanOrEqual(10);
-        const tools = listToolDefinitions('domains');
-        expect(tools.map(tool => tool.name)).toEqual([...DOMAIN_TOOL_NAMES]);
-        expect(tools.every(tool => tool.name.startsWith('kanvas_') && tool.inputSchema.required?.includes('operation'))).toBe(true);
-        // Additive operations retain max10/group and <1000 bytes/operation.
-        // Scale the total ceiling by the live operation count, not a historical inventory.
-        expect(JSON.stringify(tools).length / CANONICAL_TOOLS.length).toBeLessThan(1000);
-        expect(JSON.stringify(tools).length).toBeLessThan(CANONICAL_TOOLS.length * 1000);
+        const table=operationTable(),ids=CANONICAL_TOOLS.filter(definition=>!['kanvas.help','kanvas.guide','kanvas.template.get'].includes(definition.name)).map(definition=>definition.name);
+        expect([...table.keys()].sort()).toEqual(ids.sort());
+        expect(listToolDefinitions().map(tool=>tool.name)).toEqual([...DISCOVERY_TOOL_NAMES]);
+        expect(new Set([...table.values()].map(operation=>operation.domain)).size).toBeGreaterThan(1);
+        expect(JSON.stringify(listToolDefinitions()).length).toBeLessThan(9000);
     });
-    it('keeps kanvas_feedback byte-for-byte identical to the former profile', () => {
-        expect(DOMAIN_REGISTRY.kanvas_feedback).toEqual(OPERATION_REGISTRY.kanvas_feedback);
-        const domain = listToolDefinitions('domains').find(tool => tool.name === 'kanvas_feedback');
-        const twelve = listToolDefinitions('twelve').find(tool => tool.name === 'kanvas_feedback');
-        expect(JSON.stringify(domain)).toBe(JSON.stringify(twelve));
-        for (const operation of ['submit', 'error.report', 'report.update']) {
-            const args = operation === 'report.update' ? { operation, reportId: 'r', expectedRevision: 0, status: 'resolved', note: 'Verified.', sessionId: 's' } : { operation, requestId: 'x', title: 'T', description: 'D', sessionId: 's' };
-            const resolved = resolveToolCall('domains', 'kanvas_feedback', args);
-            expect(resolved.error).toBeUndefined();
-            expect(resolved.canonicalName).toBe(OPERATION_REGISTRY.kanvas_feedback[operation as keyof typeof OPERATION_REGISTRY.kanvas_feedback]);
+    it('uses the feedback definitions directly rather than a second profile schema', () => {
+        for(const [operationId,args] of [
+          ['kanvas.feedback.submit',{requestId:'feedback',title:'Title',description:'Description'}],
+          ['kanvas.error.report',{requestId:'error',title:'Title',description:'Description'}],
+          ['kanvas.report.update',{reportId:'r',expectedRevision:0,status:'resolved',note:'Verified.',sessionId:'s'}],
+        ] as const){
+          const operation=operationTable().get(operationId)!;
+          expect(operation.schema).toBe(CANONICAL_TOOLS.find(definition=>definition.name===operationId)!.schema);
+          const resolved=resolveToolCall('discovery','kanvas_call',{operationId,arguments:args});
+          expect(resolved.error).toBeUndefined();expect(resolved.canonicalName).toBe(operationId);
         }
     });
-    it('separates session history, session gallery and per-display revisions by name (#27)', () => {
-        expect(publicReference("kanvas.sessions.list", 'domains')).toEqual({ tool: 'kanvas_session_history', operation: 'list' });
-        expect(publicReference("kanvas.session.overview", 'domains')).toEqual({ tool: 'kanvas_session_gallery', operation: 'read' });
-        expect(publicReference("kanvas.display.history", 'domains')).toEqual({ tool: 'kanvas_display_revisions', operation: 'list' });
-        expect(publicReference("kanvas.display.navigate", 'domains')).toEqual({ tool: 'kanvas_display_revisions', operation: 'go' });
-        const tools = listToolDefinitions('domains');
-        const history = tools.find(tool => tool.name === 'kanvas_session_history')!;
-        const gallery = tools.find(tool => tool.name === 'kanvas_session_gallery')!;
-        expect(history.description).toMatch(/^SESSION HISTORY/);
-        expect(gallery.description).toMatch(/^SESSION GALLERY/);
-        // Only one tool name contains "history".
-        expect(DOMAIN_TOOL_NAMES.filter(name => name.includes('history'))).toEqual(['kanvas_session_history']);
-        expect(profileInstructions('domains')).toContain('kanvas_session_history');
-        expect(profileInstructions('domains')).toContain('kanvas_account operation start');
-        expect(publicGuidanceText('Use kanvas_sessions_list first.', 'domains')).toBe('Use kanvas_session_history operation list first.');
-        expect(publicGuidanceText('Use kanvas_sessions_list first.', 'twelve')).toBe('Use kanvas_inspect operation sessions.list first.');
-        // Authored guidance in the former form is translated, and translation is idempotent.
-        const translated = publicGuidanceText('Read kanvas_inspect operation session.state, then navigation.control; file with kanvas_feedback submit. See data.json and https://kanvas.example/docs.', 'domains');
-        expect(translated).toBe('Read kanvas_session operation state, then kanvas_view_navigation control; file with kanvas_feedback submit. See data.json and https://kanvas.example/docs.');
-        expect(publicGuidanceText(translated, 'domains')).toBe(translated);
-        expect(publicGuidanceText('kanvas_presentation autoplay.read and kanvas_session_end operation end', 'domains')).toBe('kanvas_presentation autoplay.read and kanvas_session_end operation end');
-    });
-    it('derives honest annotations per resource tool', () => {
-        const byName = new Map(listToolDefinitions('domains').map(tool => [tool.name, tool.annotations]));
-        expect(byName.get('kanvas_session_history')).toMatchObject({ readOnlyHint: true, destructiveHint: false, idempotentHint: true });
-        expect(byName.get('kanvas_account')).toMatchObject({ readOnlyHint: false, destructiveHint: true });
-        expect(byName.get('kanvas_display_clear')).toMatchObject({ readOnlyHint: false, destructiveHint: true });
-        expect(byName.get("kanvas.session.end")).toMatchObject({ destructiveHint: true });
-        expect(byName.get('kanvas_feed')).toMatchObject({ readOnlyHint: false, destructiveHint: false });
-        expect(byName.get('kanvas_feedback')).toMatchObject({ readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false });
-    });
-    it('still accepts every former twelve-profile call (hidden compatibility for cached hosts)', () => {
-        for (const entry of OPERATION_ENTRIES) {
-            const resolved = resolveToolCall('domains', entry.tool, { operation: entry.operation });
-            // Arguments are deliberately empty: routing must succeed even when the
-            // canonical schema then rejects missing fields.
-            expect(resolved.canonicalName, `${entry.tool} ${entry.operation}`).toBe(entry.canonical);
+    it('distinguishes session history, content gallery and per-display revisions by public ID', () => {
+        for(const id of ['kanvas.sessions.list','kanvas.session.overview','kanvas.display.history','kanvas.display.navigate']){
+          expect(publicReference(id)).toEqual({tool:'kanvas_call',operation:id});
+          expect(operationTable().get(id)?.definition.name).toBe(id);
         }
-        const unknown = resolveToolCall('domains', 'kanvas_nope', {});
-        expect(unknown.error?.issues[0].problem).toContain('kanvas_session_history');
-        expect(resolveToolCall('twelve', 'kanvas_session_history', { operation: 'list' }).error).toBeDefined();
+        expect(operationTable().get('kanvas.sessions.list')!.definition.discovery.hint).toContain('Session history');
+        expect(operationTable().get('kanvas.session.overview')!.definition.discovery.hint).toMatch(/gallery|overview/i);
+        expect(profileInstructions('discovery')).toContain('kanvas.account.begin');
+        const source='kanvas_sessions_list and kanvas_inspect are literal source text, not callable aliases.';
+        expect(publicGuidanceText(source)).toBe(source);
+    });
+    it('derives honest annotations on individual operations, not broad grouped tools', () => {
+        const annotations=(id:string)=>operationTable().get(id)!.annotations;
+        expect(annotations('kanvas.sessions.list')).toMatchObject({readOnlyHint:true,destructiveHint:false,idempotentHint:true});
+        expect(annotations('kanvas.clear')).toMatchObject({readOnlyHint:false,destructiveHint:true});
+        expect(annotations('kanvas.session.end')).toMatchObject({destructiveHint:true});
+        expect(annotations('kanvas.feedback.submit')).toMatchObject({readOnlyHint:false,destructiveHint:false,idempotentHint:true,openWorldHint:false});
+    });
+    it('rejects former grouped and flat callable names instead of installing hidden aliases', () => {
+        for(const name of ['kanvas_session_history','kanvas_inspect','kanvas_feedback','kanvas_session_state','kanvas.session.state'])
+          expect(resolveToolCall('discovery',name,{operation:'state',sessionId:'s'}).error?.issues[0].path).toBe('tool');
+        expect(resolveToolCall('discovery','kanvas_call',{operationId:'kanvas.nope',arguments:{}}).error?.issues[0].path).toBe('operationId');
     });
 });
 
-describe('domains profile over HTTP', () => {
-    it('runs a session/display/publish/history/gallery/feedback workflow with domain names and former names', async () => {
+describe('public domain workflows over HTTP', () => {
+    it('runs the session/display/publish/history/gallery/feedback workflow through public IDs', async () => {
         const h = await startHarness({ mcpProfile: "discovery" });
         harnesses.push(h);
         const owner = await h.account();
@@ -139,10 +112,10 @@ describe('domains profile over HTTP', () => {
             }[];
         }>(await call("kanvas_call", "kanvas.display.history", { sessionId: session.id, displayId: display.id }));
         expect(revisions.entries.map(entry => entry.revision)).toContain(current.revision);
-        // Former name, same operation: still routed.
+        // The same discovered operation reads the retained revision without mutation.
         const former = data<DisplayRecord>(await call("kanvas_call", "kanvas.display.current", { sessionId: session.id, displayId: display.id }));
         expect(former.revision).toBe(current.revision);
-        // Server-authored guidance uses this profile's names.
+        // Server-authored recovery guidance names the actual public tool.
         const failed = await call("kanvas_call", "kanvas.display.current", { sessionId: session.id });
         expect(failed.isError).toBe(true);
         expect((failed.structuredContent.docs as {
@@ -151,7 +124,7 @@ describe('domains profile over HTTP', () => {
                 operation: string;
             };
         }).help).toMatchObject({ tool: 'kanvas_discover', arguments: { catalog: 'help', action: 'get', id: 'kanvas.help.recovery' } });
-        // kanvas_feedback: same name, operations and arguments as before.
+        // Feedback remains available through its public operation IDs.
         const report = data<{
             id: string;
             revision: number;
@@ -167,7 +140,7 @@ describe('domains profile over HTTP', () => {
             }[];
         }>(await call("kanvas_call", "kanvas.reports.read", { sessionId: session.id }));
         expect(reports.reports.some(entry => entry.id === report.id)).toBe(true);
-        const help = data<unknown>(await call("kanvas.help", 'read', { topic: 'navigation' }));
+        const help = data<unknown>(await client.callTool({name:'kanvas_discover',arguments:{catalog:'help',action:'get',id:'kanvas.help.navigation'}}) as any);
         expect(JSON.stringify(help)).toContain('kanvas.navigation');
         expect(JSON.stringify(help)).not.toContain('kanvas_control');
         const server = shown.structuredContent.server as {
@@ -177,7 +150,7 @@ describe('domains profile over HTTP', () => {
         };
         expect(server).toMatchObject({ profile: 'discovery', tools: 2, operations: CANONICAL_TOOLS.length - 3 });
     });
-    it('documents the domain names publicly with a former-name map', async () => {
+    it('documents public operation IDs and the two wire tools', async () => {
         const h = await startHarness({ mcpProfile: "discovery" });
         harnesses.push(h);
         const index = await (await fetch(`${h.baseUrl}/docs/index.json`)).json() as {

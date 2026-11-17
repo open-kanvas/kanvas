@@ -1,3 +1,4 @@
+import type {HelpTopic} from '../../shared/help.js';
 import {intentResolveSchema,INTENT_EXAMPLES} from './intent-schema.js';
 import {activeContextSchema,ACTIVE_CONTEXT_HELP} from './active-context.js';
 import {workflowIds,WORKFLOW_NOTE,PLANNER_BOUNDARY,SUBMIT_SHAPE} from './workflow-guidance.js';
@@ -179,6 +180,9 @@ function helpSectionSummary(topic: string, section: string, value: unknown): str
         return short(discoveryGuidanceText(value));
     throw new Error(`Missing useful help summary for ${topic}.${section}`);
 }
+/** Published task pages may pin an authored step boundary so guidance wording
+ * changes do not move existing content between stable help IDs. */
+const HELP_PAGE_STEP_BREAKS: Partial<Record<HelpTopic, readonly number[]>> = { navigation: [10] };
 let helps: CatalogItem[] | undefined;
 export function helpCatalog(): readonly CatalogItem[] {
     if (helps)
@@ -193,8 +197,9 @@ export function helpCatalog(): readonly CatalogItem[] {
         // Split long task pages along authored step boundaries, never by token cuts.
         const chunks: string[][] = [];
         let current: string[] = [];
-        for (const step of page.steps) {
-            if (current.length && current.join('').length + step.length > 4500) {
+        const authoredBreaks = HELP_PAGE_STEP_BREAKS[topic];
+        for (const [index, step] of page.steps.entries()) {
+            if (current.length && (authoredBreaks ? authoredBreaks.includes(index) : current.join('').length + step.length > 4500)) {
                 chunks.push(current);
                 current = [];
             }

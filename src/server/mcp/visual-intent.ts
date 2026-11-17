@@ -21,7 +21,7 @@ export const VISUAL_INTENT_ENTRY = Object.freeze({
     cues: Object.freeze(['show', 'display', 'chart', 'plot', 'visualize', 'render']),
     voice: 'A voice conversation can use a connected external visual surface; speech is not the only answer channel.',
     deferredTools: 'Use the host’s available tool discovery to load KANVAS when needed; the user need not supply its name again.',
-    tools: Object.freeze(["kanvas.guide", "kanvas.sessions.list", "kanvas.session.overview", "kanvas.session.create", "kanvas.session.state", "kanvas.display.register", "kanvas.submit", "kanvas.update.status", "kanvas.address.get"]),
+    tools: Object.freeze(["kanvas_discover catalog help action search for \"getting started\"", "kanvas_call with operationId:\"kanvas.sessions.list\" and arguments:{…}", "kanvas_call with operationId:\"kanvas.session.overview\" and arguments:{…}", "kanvas_call with operationId:\"kanvas.session.create\" and arguments:{…}", "kanvas_call with operationId:\"kanvas.session.state\" and arguments:{…}", "kanvas_call with operationId:\"kanvas.display.register\" and arguments:{…}", "kanvas_call with operationId:\"kanvas.submit\" and arguments:{…}", "kanvas_call with operationId:\"kanvas.update.status\" and arguments:{…}", "kanvas_call with operationId:\"kanvas.address.get\" and arguments:{…}"]),
     source: 'Current external facts come from authorized host retrieval, not KANVAS. Supplied exact rows/text can be published directly.',
     continuity: SESSION_CONTINUITY_RECIPE.default,
     policy: 'A visual request supplies neither missing source data nor authorization to change access or held displays.',

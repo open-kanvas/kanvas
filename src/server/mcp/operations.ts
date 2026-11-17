@@ -48,7 +48,6 @@ export function operationEntry(tool: string, operation: unknown): { canonical: s
 export const isReadOnlyOperation = (id: string): boolean => operationTable().get(id)?.scopes[0] === 'read';
 export const toolNames = (_profile?: McpProfile): readonly string[] => DISCOVERY_TOOL_NAMES;
 export const operationEntries = (_profile?: McpProfile) => [...operationTable().values()].map(({ id }) => ({ canonical: id, operation: id, tool: 'kanvas_call' as const }));
-export const isGrouped = (_profile?: McpProfile): boolean => true;
 /** Authored guidance already names the public interface. Never rewrite source data. */
 export const publicGuidanceText = (text: string, _profile?: McpProfile): string => text;
 export const discoveryGuidanceText = publicGuidanceText;

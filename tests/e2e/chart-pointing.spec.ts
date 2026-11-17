@@ -1,8 +1,14 @@
+import { Client,StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { test,expect,register,createSession,createDisplay,openViewer,publishPrepared,waitForDisplay,sessionApi } from './support';
 import type { ViewSpec } from '../../src/shared/types';
 
-test('chart pointing follows wedge/bar/point geometry, snaps real line observations and separates legend labels',async({page})=>{
+test('chart pointing follows wedge/bar/point geometry, snaps real line observations and separates legend labels',async({page,baseURL})=>{
   await register(page);const s=await createSession(page,'Semantic chart pointing'),d=await createDisplay(page,s,'Chart'),viewer=await openViewer(page,s,d.id);await viewer.setViewportSize({width:960,height:540});
+  const token=await sessionApi<{token:string}>(page,'/api/tokens','POST',{name:'Chart gesture receipt',scopes:['read','publish']});
+  const client=new Client({name:'chart-gesture',version:'1'});await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',baseURL),{requestInit:{headers:{Authorization:`Bearer ${token.data!.token}`}}}));
+  const hear=async()=>{const result=await client.callTool({name:'kanvas_call',arguments:{operationId:'kanvas.session.state',arguments:{sessionId:s}}});expect(result.isError).not.toBe(true);return result.structuredContent as any;};
+  try{
+  await hear();
   const endpoint=`/api/sessions/${s}/displays/${d.id}/pointing`;
   const state=async()=>(await sessionApi<any>(viewer,endpoint)).data;
   const show=async(data:Record<string,unknown>)=>{await publishPrepared(page,s,[d.id],{version:1,template:'chart',data} as ViewSpec);const current=await waitForDisplay(page,s,d.id,x=>x.appliedRevision===x.revision&&x.revision>0);await expect(viewer.locator('.viewer-shell')).toHaveAttribute('data-rendered-revision',String(current.revision));};
@@ -26,6 +32,8 @@ test('chart pointing follows wedge/bar/point geometry, snaps real line observati
   // The gap in the legend is not a plotted value and reports readable series names.
   const legend=viewer.locator('.chart-legend'),gap=await legend.evaluate(el=>{const a=el.children[0].getBoundingClientRect(),b=el.children[1].getBoundingClientRect();return{x:(a.right+b.left)/2,y:a.top+a.height/2};});
   await viewer.mouse.click(gap.x,gap.y);
-  await expect.poll(async()=>(await state()).pointers[0]?.target?.label).toBe('Site A · Site B');
+  await expect(viewer.locator('.pointing-overlay [data-pointer-kind="point"]')).toHaveCount(1);
+  expect((await hear()).pointing.events.at(-1).target.label).toBe('Site A · Site B');
   expect((await state()).pointers[0].anchor.kind).toBe('point');
+  }finally{await client.close();}
 });

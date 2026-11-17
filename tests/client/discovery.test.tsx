@@ -1,3 +1,4 @@
+import {mcpProfile} from '../../src/server/mcp/operations.js';
 import { describe } from 'vitest';
 import { expect } from 'vitest';
 import { it } from 'vitest';
@@ -23,7 +24,7 @@ import type { TemplateId } from '../../src/shared/types';
 describe("discovery coverage 1", () => {
 
 describe("discovery contracts",()=>{
-  it('surfaces consent-based friction feedback before discovery, consistently across profiles',()=>{
-    for(const profile of ['domains','twelve','legacy'] as const){for(const text of [profileInstructions(profile),profileDescription(profile),JSON.stringify(profileGuide('feedback',guideFor('feedback'),profile))]){expect(text).toContain('file only on request or consent');expect(text).toContain('Never include private content or credentials');expect(text).toContain('do not nag');}}
+  it('surfaces consent-based friction feedback before discovery, consistently across accepted configuration labels',()=>{
+    for(const profile of ['domains','twelve','legacy'] as const){const active=mcpProfile(profile);for(const text of [profileInstructions(active),profileDescription(active),JSON.stringify(profileGuide('feedback',guideFor('feedback'),active))]){expect(text).toContain('file only on request or consent');expect(text).toContain('Never include private content or credentials');expect(text).toContain('do not nag');}}
   });});
 });

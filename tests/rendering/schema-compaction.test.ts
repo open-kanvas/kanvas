@@ -1,3 +1,4 @@
+import {mcpProfile} from '../../src/server/mcp/operations.js';
 import Ajv from 'ajv/dist/2020.js';
 import { z } from 'zod';
 import { expect,it } from 'vitest';
@@ -12,10 +13,10 @@ it('compacted presentation schema preserves valid leaves and rejection boundarie
     const compact = compactSchemaReferences(raw), ajv = new Ajv({ strict: false, validateFormats: false });
     const original = ajv.compile(raw), converted = ajv.compile(compact);
     expect(Buffer.byteLength(JSON.stringify(compact))).toBeLessThan(MAX_TOOL_RESULT_BYTES);
-    // Budget the actual MCP envelope, not only schema bytes. All profiles must
+    // Budget the actual MCP envelope, not only schema bytes. All accepted configurations must
     // retain every validator; the bounded-preview fallback is never a contract.
     for (const profile of ['legacy', 'domains', 'twelve'] as const) {
-        const result = toolSuccess({ template: 'presentation', name: templateNames.presentation, schema: compact, example: samples.presentation, displayGuidance: TEMPLATE_DISPLAY_GUIDANCE.presentation, note: 'Complete view schema, not submit arguments. Preserve supplied source values.' }, undefined, "kanvas.template.get", profile);
+        const result = toolSuccess({ template: 'presentation', name: templateNames.presentation, schema: compact, example: samples.presentation, displayGuidance: TEMPLATE_DISPLAY_GUIDANCE.presentation, note: 'Complete view schema, not submit arguments. Preserve supplied source values.' }, undefined, "kanvas.template.get", mcpProfile(profile));
         expect((result.structuredContent as Record<string, unknown>)?.truncated, profile).not.toBe(true);
         const text = result.content.find(item => item.type === 'text');
         expect(text?.type).toBe('text');

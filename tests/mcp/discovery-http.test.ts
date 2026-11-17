@@ -5,7 +5,7 @@ import { Client as LegacyClient } from '@modelcontextprotocol/sdk/client/index.j
 import { StreamableHTTPClientTransport as LegacyTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { harness } from './harness.js';
 import { startHarness, fact, PNG, type Harness } from '../core/harness.js';
-import { DISCOVERY_TOOL_NAMES, type McpProfile } from '../../src/server/mcp/operations.js';
+import { DISCOVERY_TOOL_NAMES, mcpProfile } from '../../src/server/mcp/operations.js';
 import { VisualCaptureResult } from '../../src/server/visual-capture.js';
 import { currentToolContext } from '../../src/server/mcp/call-context.js';
 const fixtureServers: Awaited<ReturnType<typeof harness>>[] = [], servers: Harness[] = [], clients: (Client | LegacyClient)[] = [];
@@ -14,8 +14,8 @@ const data = (result: any): any => { expect(result.isError, JSON.stringify(resul
 const use = (client: Client | LegacyClient, operationId: string, args: Record<string, unknown> = {}) => client.callTool({ name: 'kanvas_call', arguments: { operationId, arguments: args } });
 
 describe('two-tool authenticated HTTP contract', () => {
-    it.each(['discovery', 'domains', 'twelve', 'legacy'] as McpProfile[])('lists exactly two for profile %s in both protocol eras; discovery records raw telemetry but never executes domain mutations', async (profile) => {
-        const h = await harness({ profile });
+    it.each(['discovery', 'domains', 'twelve', 'legacy'] as const)('lists exactly two for configuration %s in both protocol eras; discovery records raw telemetry but never executes domain mutations', async (profile) => {
+        const h = await harness({ profile: mcpProfile(profile) });
         fixtureServers.push(h);
         const record = vi.fn();
         h.service.recordToolCall = record;

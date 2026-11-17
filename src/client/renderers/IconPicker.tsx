@@ -1,6 +1,6 @@
 import {type CSSProperties} from 'react';
 import {iconId,iconRefOf,iconSetTitle,iconUrl,iconVariants,type IconPickerData,type IconRef} from '../../shared/pickers';
-import './icon-picker.css';
+// Shared picker rules are supplied by picker-primitives.css in Renderer.
 
 const iconStyle=(icon:IconRef):CSSProperties=>({WebkitMaskImage:`url(${iconUrl(icon)})`,maskImage:`url(${iconUrl(icon)})`});
 

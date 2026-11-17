@@ -9,7 +9,7 @@ import {MediaImage} from './Image';
 
 import {liveSurfaceOptions} from '../../shared/live-surface';
 
-import './story-cards.css';
+// Story-card layout rules are supplied by content-additions.css in Renderer.
 
 export function StoryCardsRenderer(props: RendererProps) {
   const regional=useRegional();

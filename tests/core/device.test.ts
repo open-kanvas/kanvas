@@ -157,8 +157,8 @@ describe("device coverage 1", () => {
             expect(devices.publishRecipe).toBeUndefined();
             const revision = (await owner.submit(sessionId, [displayId], fact('Not a web page'))).detail.displays[0].revision;
             expect((await owner.request('POST', `${path()}/web-embed`, { expectedRevision: revision })).status).toBe(404);
-            expect(canonicalToolDefinitions().some(tool => tool.name.startsWith('kanvas_demo'))).toBe(false);
-            expect(operationEntries().some(entry => entry.operation.startsWith('demo.'))).toBe(false);
+            expect(canonicalToolDefinitions().some(tool => /^kanvas[._]demo(?:[._]|$)/.test(tool.name))).toBe(false);
+            expect(operationEntries().some(entry => entry.operation.startsWith('kanvas.demo.'))).toBe(false);
         });
     });
 });

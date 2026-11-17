@@ -1,11 +1,102 @@
 import { randomUUID } from 'node:crypto';
-import type { Request, Response } from 'express';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { AssetRecord, DisplayRecord, InteractionRecord, ViewSpec } from '../../src/shared/types.js';
+import type { Request } from 'express';
+import type { Response } from 'express';
+import { afterEach } from 'vitest';
+import { beforeEach } from 'vitest';
+import { describe } from 'vitest';
+import { expect } from 'vitest';
+import { it } from 'vitest';
+import type { AssetRecord } from '../../src/shared/types.js';
+import type { DisplayRecord } from '../../src/shared/types.js';
+import type { InteractionRecord } from '../../src/shared/types.js';
+import type { ViewSpec } from '../../src/shared/types.js';
 import { hash } from '../../src/server/auth.js';
 import type { PairingRecord } from '../../src/server/access-flows.js';
 import type { ShareRecord } from '../../src/server/sharing.js';
-import { denied, fact, PNG, startHarness, success, type Browser, type Harness } from './harness.js';
+import { denied } from './harness.js';
+import { fact } from './harness.js';
+import { PNG } from './harness.js';
+import { startHarness } from './harness.js';
+import { success } from './harness.js';
+import type { Browser } from './harness.js';
+import type { Harness } from './harness.js';
+import type { AuthPrincipal } from '../../src/server/auth.js';
+import type { UpdateRecord } from '../../src/shared/types.js';
+import { toolFailure } from '../../src/server/mcp/results.js';
+import { toolSuccess } from '../../src/server/mcp/results.js';
+import { canonicalToolDefinitions } from '../../src/server/mcp/canonical.js';
+import { OPERATION_ENTRIES } from '../../src/server/mcp/operations.js';
+import { AppError } from '../../src/server/store.js';
+import { ACCESS_LIMITS } from '../../src/server/access-flows.js';
+import { z } from 'zod';
+import { validateView } from '../../src/shared/view-schemas.js';
+import { viewSchema } from '../../src/shared/view-schemas.js';
+import { templateViewSchema } from '../../src/shared/view-schemas.js';
+import { NOT_A_SLIDE } from '../../src/shared/view-schemas.js';
+import { compactSchemaReferences } from '../../src/shared/json-schema.js';
+import { MAX_TOOL_RESULT_BYTES } from '../../src/server/mcp/results.js';
+import { publishInputSchema } from '../../src/shared/publish-input.js';
+import { samples } from '../../src/shared/template-examples.js';
+import { splitGrid } from '../../src/shared/split-screen.js';
+import { splitLeaves } from '../../src/shared/split-screen.js';
+import { splitDivider } from '../../src/shared/split-screen.js';
+import { SPLIT_LIMITS } from '../../src/shared/split-screen.js';
+import { redactStreamAddress } from '../../src/shared/monitor-stream-view.js';
+import { streamRows } from '../../src/shared/monitor-stream-view.js';
+import { formatDuration } from '../../src/shared/monitor-stream-view.js';
+import type { StreamViewEvent } from '../../src/shared/monitor-stream-view.js';
+import { boundStreamIds } from '../../src/server/monitor-streams.js';
+import { STREAM_WAIT_MS } from '../../src/server/monitor-streams.js';
+import { pointingSummary } from '../../src/shared/pointing.js';
+import { POINTER_FADE_MS } from '../../src/shared/pointing.js';
+import { POINTER_PIN_MS } from '../../src/shared/pointing.js';
+import { POINTING_QUEUE } from '../../src/shared/pointing.js';
+import { POINTING_BLOCK_EVENTS } from '../../src/shared/pointing.js';
+import { applyResponsePolicy } from '../../src/server/mcp/response-policy.js';
+import { ContactLedger } from '../../src/server/mcp/response-policy.js';
+import { BOARD_DISCLOSURE } from '../../src/shared/message-board.js';
+import { BOARD_LIMITS } from '../../src/shared/message-board.js';
+import { parseIconId } from '../../src/shared/pickers.js';
+import { isPickerIconUrl } from '../../src/shared/pickers.js';
+import { iconUrl } from '../../src/shared/pickers.js';
+import { iconPickerDataSchema } from '../../src/shared/pickers.js';
+import { fontPickerDataSchema } from '../../src/shared/pickers.js';
+import { projectTasks } from '../../src/shared/task-list.js';
+import { taskCustomColumns } from '../../src/shared/task-list.js';
+import { isBuiltinTaskColumn } from '../../src/shared/task-list.js';
+import { navigate } from '../../src/shared/navigation.js';
+import { initialNavigation } from '../../src/shared/navigation.js';
+import { textScale } from '../../src/shared/reading.js';
+import { configPatchSchema } from '../../src/shared/preferences.js';
+import { sharingLevel } from '../../src/server/account-overview.js';
+import { HELP_PAGES as HELP } from '../../src/shared/help.js';
+import { HELP_TOPICS } from '../../src/shared/help.js';
+import { TEMPLATE_DISPLAY_GUIDANCE } from '../../src/shared/display-guidance.js';
+import { TEMPLATE_IDS } from '../../src/shared/types.js';
+import { SEAT_LAYOUTS } from '../../src/shared/venue';
+import { materializeSeats } from '../../src/shared/venue';
+import { VOCABULARY } from '../../src/shared/venue';
+import { venueSchemas } from '../../src/shared/venue';
+import { validateStatic } from '../../src/server/custom-templates';
+import { validateCustomSchema } from '../../src/server/custom-templates';
+import { bindTemplate } from '../../src/shared/custom-templates';
+import { DiscoveryCatalog } from '../../src/server/mcp/discovery';
+import { safeError } from '../../src/server/mcp/results';
+import { CANONICAL_TOOLS } from '../../src/server/mcp/canonical';
+import { vi } from 'vitest';
+import { accountTier } from '../../src/server/usage-limits.js';
+import { accountUsageLimits } from '../../src/server/usage-limits.js';
+import { VisualCaptureResult } from '../../src/server/visual-capture.js';
+import { resolveToolCall } from '../../src/server/mcp/catalog.js';
+import type { ViewerPresence } from '../../src/shared/viewer-experience.js';
+import { createApp } from '../../src/server/app.js';
+import { validateMedia } from '../../src/server/rendering/media.js';
+import { normalizedScroll } from '../../src/client/renderers/Navigation.js';
+import { navigationCapabilities } from '../../src/shared/navigation.js';
+import { readFileSync } from 'node:fs';
+
+describe("sharing coverage 1", () => {
+
 
 interface Invitation { id: string; label: string; sessionId: string; displayId: string; allowInteraction: boolean; status: string; expiresAt: string; joinUrl: string; viewerPath?: string }
 interface Pairing { id: string; label: string; shareId?: string; sessionId: string; displayId: string; status: string; expiresAt: string; grantExpiresAt?: number; requestedInteractive?: boolean; interactive?: boolean }
@@ -13,7 +104,7 @@ interface Me { user: { id: string; username: string; displayName: string }; csrf
 const poll: ViewSpec = { version: 1, template: 'poll', data: { question: 'Choose a direction', options: [{ id: 'a', label: 'North' }, { id: 'b', label: 'South' }] } };
 
 describe('owner-approved invitation sharing, isolated guest responses and revocation', () => {
-  let h: Harness, owner: Browser, sessionId: string, displayId: string;
+  let h!:Harness, owner: Browser, sessionId: string, displayId: string;
   beforeEach(async () => {
     h = await startHarness(); owner = await h.account();
     sessionId = (await owner.session('Private owner workspace')).id;
@@ -250,4 +341,162 @@ describe('owner-approved invitation sharing, isolated guest responses and revoca
     denied(await capture.request('PATCH', `${path()}/displays/${displayId}`, { width: 640, height: 480 }), [403]);
     denied(await capture.request('POST', '/api/auth/logout', {}), [403]);
   });
+});
+});
+
+describe("sharing coverage 2", () => {
+
+
+describe("sharing contracts",()=>{
+  let h!:Harness,owner:Browser,s:string,d:string,p:AuthPrincipal;
+  const path=()=>`/api/sessions/${s}/displays/${d}`;
+  const call=async <T=Record<string,unknown>>(name:string,args:unknown)=>(await h.runtime.service.execute(name,args,p)) as Promise<T>;
+  const current=async()=> (await owner.detail(s)).displays.find(x=>x.id===d)!;
+  const settle=async(update:UpdateRecord)=>owner.settle(s,update.requestId);
+  beforeEach(async()=>{h=await startHarness();owner=await h.account();s=(await owner.session()).id;d=(await owner.display(s)).id;p={userId:owner.user!.id};});
+  afterEach(async()=>{await h?.close();});
+  async function guest(interactive:boolean){
+    const share=await call<{id:string}>('kanvas_share_create',{sessionId:s,displayId:d,allowInteraction:interactive});const g=h.browser();
+    const pair=success(await g.request<{id:string}>('POST','/api/pairings',{shareId:share.id,deviceName:'Evening test screen',requestedInteractive:interactive}));
+    await call('kanvas_pairing_decide',{sessionId:s,pairingId:pair.id,approve:true,confirm:true,interactive});success(await g.request('GET',`/api/pairings/${pair.id}/status`));g.csrf=success(await g.request<{csrfToken:string}>('GET','/api/auth/me')).csrfToken;return g;
+  }
+  it('does not replace content by default or create half an invitation for a stale show request',async()=>{
+    await owner.submit(s,[d],fact('Keep this'));await call('kanvas_share_create',{sessionId:s,displayId:d});expect((await current()).view?.data.text).toBe('Keep this');
+    const before=(await h.runtime.store.list('share',s)).length;
+    await expect(call('kanvas_share_create',{sessionId:s,displayId:d,showOnDisplay:true,requestId:randomUUID(),expectedRevision:0})).rejects.toMatchObject({code:'REVISION_CONFLICT'});expect((await h.runtime.store.list('share',s))).toHaveLength(before);
+    const shown=await call<{update:UpdateRecord}>('kanvas_share_create',{sessionId:s,displayId:d,showOnDisplay:true});await settle(shown.update);expect((await current()).view?.template).toBe('join');
+  });});
+});
+
+describe("sharing coverage 3", () => {
+
+
+describe("sharing contracts", () => {
+  let h!:Harness, owner: Browser, sessionId: string, displayId: string, p: AuthPrincipal;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const call = async (name: string, args: unknown) => (await h.runtime.service.execute(name, args, p)) as any;
+  const path = (id = displayId) => `/api/sessions/${sessionId}/displays/${id}`;
+  beforeEach(async () => { h = await startHarness(); owner = await h.account(); sessionId = (await owner.session()).id; displayId = (await owner.display(sessionId)).id; p = { userId: owner.user!.id }; });
+  afterEach(async () => { await h?.close(); });
+
+  it('keeps pending pairing requests open for one hour without granting access', () => {
+    expect(ACCESS_LIMITS.pairingMs).toBe(60 * 60_000);
+    expect(ACCESS_LIMITS.pairedBrowserMs).toBe(7 * 86400_000);
+  });});
+});
+
+describe("sharing coverage 4", () => {
+
+const displayGuidance=(template:string)=>(TEMPLATE_DISPLAY_GUIDANCE as Record<string,unknown>)[template];
+
+const pane=(id:string,text=id)=>({id,view:{version:1,template:'fact',data:{text}}});
+const split=(data:Record<string,unknown>)=>({version:1,template:'split-screen',data});
+
+describe("sharing contracts",()=>{
+ it('22eccdda: a session reports its most exposed sharing level',async()=>{
+  const h=await startHarness();
+  try{
+   const o=await h.account(),other=await h.account(),session=await o.session(),p={userId:o.user!.id},svc=h.runtime.service;
+   const level=async()=>sharingLevel(svc,(await svc.store.get<any>('session',session.id))!);
+   expect(await level()).toBe('private');
+   success(await o.request('POST',`/api/sessions/${session.id}/members`,{username:other.user!.username,role:'viewer'}));
+   expect(await level()).toBe('shared');
+   const overview=success(await o.request<any>('GET','/api/start'));
+   expect(overview.sessions.find((x:any)=>x.id===session.id).sharing).toBe('shared');
+   const stored=(await svc.store.get<any>('session',session.id))!;
+   await svc.store.put('session',{...stored,publicAccess:{enabled:true,revision:1}});
+   expect(await level()).toBe('public');
+   await svc.store.put('session',{...stored,publicAccess:{enabled:false,revision:2}});
+   await svc.store.put('session-group-grant',{id:`${session.id}:g1`,sessionId:session.id,groupId:'g1',role:'viewer',revision:1,updatedAt:new Date().toISOString()});
+   expect(await level()).toBe('team');void p;
+  }finally{await h.close();}
+ });});
+});
+
+describe("sharing coverage 5", () => {
+
+describe("sharing contracts",()=>{
+ let h!:Harness,o:Browser,s:string,d:string,p:{userId:string};
+ beforeEach(async()=>{h=await startHarness();o=await h.account();s=(await o.session()).id;d=(await o.display(s)).id;p={userId:o.user!.id};});
+ afterEach(async()=>{await h?.close();});
+ const call=(name:string,args:Record<string,unknown>={})=>h.runtime.service.execute(name,args,p) as Promise<any>;
+ const update=(name:string,args:Record<string,unknown>)=>call(name,{sessionId:s,displayId:d,...args});
+ const publish=async(template:any,data:any)=>{const result=await o.submit(s,[d],{version:1,template,data});expect(result.update.status).toBe('prepared');return result.detail.displays.find(x=>x.id===d)!;};
+ const current=async()=> (await o.detail(s)).displays.find(x=>x.id===d)!;
+ const definition={name:'Team list',schema:{type:'object',properties:{title:{type:'string'},items:{type:'array',items:{type:'object',properties:{name:{type:'string'}},required:['name']}}},required:['title','items']},html:'<article><h1>{{title}}</h1><ul>{{#each items}}<li>{{name}}</li>{{/each}}</ul></article>',css:'article {padding: 24px; color: white;} h1 {font-size: 48px;}'};
+ it('media sharing is only granted after successful publication and revocation is immediate',async()=>{
+  const media=await h.runtime.service.mediaLibrary.upload(p,{name:'photo.png',mimeType:'image/png',base64:PNG});
+  const guest=await h.account();await call('kanvas_member_add',{sessionId:s,username:guest.user!.username,role:'viewer'});
+  await expect(h.runtime.service.verifyView(p,s,{version:1,template:'todays-special',data:{item:{image:media.url,price:{invalid:true}}}})).rejects.toThrow();
+  expect((await guest.raw(media.url)).status).toBe(404);
+  await publish('todays-special',{item:{image:media.url}});
+  expect((await guest.raw(media.url)).status).toBe(200);
+  await call('kanvas_member_remove',{sessionId:s,userId:guest.user!.id});
+  expect((await guest.raw(media.url)).status).toBe(404);
+ });});
+});
+
+describe("sharing coverage 6", () => {
+
+let h!:Harness;
+afterEach(async()=>{vi.restoreAllMocks();delete process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT;delete process.env.KANVAS_MAX_VIEWS_PER_SESSION;await h?.close();});
+async function principal(a:Browser){const session=await h.runtime.auth.issueBrowser(a.user!.id,{cookie:()=>{}} as unknown as Response);return {userId:a.user!.id,browserId:session.id};}
+const pixel='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6Ot8AAAAASUVORK5CYII=';
+describe("sharing contracts",()=>{
+ it('tiers retain session entitlements and share the fixed view cap without gaining administrator authority',async()=>{
+  h=await startHarness();const a=await h.account(),p=await principal(a);
+  process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT=String((await h.runtime.service.sessionUsage(p.userId)).active+1);/* 2026-11-10 (43bcc861): the automatic Home session no longer uses a slot. */process.env.KANVAS_MAX_VIEWS_PER_SESSION='1';
+  expect(await accountTier(h.runtime.store,p.userId)).toBe('trial');
+  const s=await h.runtime.service.createSession(p,'Trial'),d=await h.runtime.service.createDisplay(p,s.id,{name:'Screen',width:800,height:600});
+  await expect(h.runtime.service.createSession(p,'Too many')).rejects.toMatchObject({code:'SESSION_LIMIT_REACHED'});
+  await h.runtime.store.put('account-tier',{id:p.userId,tier:'future-invalid'});
+  await expect(h.runtime.service.createSession(p,'Still trial')).rejects.toMatchObject({code:'SESSION_LIMIT_REACHED'});
+  for(const tier of ['free','admin']){await h.runtime.store.put('account-tier',{id:p.userId,tier});await h.runtime.service.createSession(p,`Tier ${tier}`);expect(await h.runtime.service.accounts.isServiceAdmin(p)).toBe(false);}
+  for(let i=0;i<3;i++)await a.submit(s.id,[d.id],fact(`View ${i}`));
+  expect((await h.runtime.service.history.list(await h.runtime.service.display(p,s.id,d.id))).entries.filter(x=>x.template)).toHaveLength(3);
+  await h.runtime.store.put('account-tier',{id:p.userId,tier:'trial'});
+  expect((await accountUsageLimits(h.runtime.store,p.userId)).views).toBe(1000);await a.submit(s.id,[d.id],fact('Within fixed cap'));
+  for(const tier of ['free','admin']){await h.runtime.store.put('account-tier',{id:p.userId,tier});expect((await accountUsageLimits(h.runtime.store,p.userId)).views).toBe(1000);}
+ });});
+});
+
+describe("sharing coverage 7", () => {
+
+
+describe("sharing contracts",()=>{
+  let h!:Harness,owner:Browser,sessionId:string,displayId:string,p:AuthPrincipal;
+  const path=()=>`/api/sessions/${sessionId}/displays/${displayId}`;
+  const call=async (name:string,args:unknown)=>(await h.runtime.service.execute(name,args,p));
+  beforeEach(async()=>{h=await startHarness();owner=await h.account();sessionId=(await owner.session()).id;displayId=(await owner.display(sessionId)).id;p={userId:owner.user!.id};});
+  afterEach(async()=>{await h?.close();});
+  it('short addresses never grant content access and are stable service-wide locators',async()=>{
+    const first=await call('kanvas_address_get',{sessionId,displayId}) as {alias:string;url:string};const again=await call('kanvas_address_get',{sessionId,displayId});expect(again).toEqual(first);
+    const response=await h.browser().raw(`/s/${first.alias}`);expect(response.status).toBe(302);expect(response.headers.get('location')).toBe(`/view/${sessionId}/${displayId}`);
+    denied(await h.browser().request('GET',`/api/sessions/${sessionId}`),[401]);
+    const another=await owner.display(sessionId);expect((await call('kanvas_address_get',{sessionId,displayId:another.id}) as {alias:string}).alias===first.alias).toBe(false);
+  });});
+});
+
+describe("sharing coverage 8", () => {
+
+let h!:Harness;afterEach(async()=>{await h?.close();});const id=()=>randomUUID();
+const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 60"><defs><linearGradient id="g"><stop offset="0" stop-color="#123456"/><stop offset="1" stop-color="#abcdef"/></linearGradient></defs><rect width="100" height="60" fill="url(#g)"/><text x="4" y="30">Team &amp; Friends</text></svg>';
+it('revokes only the selected approved browser while other paired browsers and owner account remain authorized',async()=>{
+  h=await startHarness();const owner=await h.account(),stranger=await h.account(),s=await owner.session(),d=await owner.display(s.id),browsers=[h.browser(),h.browser()],pairs:any[]=[];
+  for(const browser of browsers){const pair=success(await browser.request<any>('POST','/api/pairings',{sessionId:s.id,displayId:d.id,deviceName:'Pair fixture'}));pairs.push(pair);success(await owner.request('POST',`/api/pairings/${pair.id}/decision`,{approve:true}));success(await browser.request('GET',`/api/pairings/${pair.id}/status`));}
+  const args={sessionId:s.id,pairingId:pairs[0].id};await expect(h.runtime.service.execute('kanvas_pairing_revoke',args,{userId:stranger.user!.id})).rejects.toThrow();await h.runtime.service.execute('kanvas_pairing_revoke',args,{userId:owner.user!.id});
+  denied(await browsers[0].request('GET','/api/auth/me'),[401,403]);success(await browsers[1].request('GET','/api/auth/me'));success(await owner.request('GET',`/api/sessions/${s.id}`));expect((await h.runtime.service.experience.pairings({userId:owner.user!.id},s.id)).find(p=>p.id===pairs[0].id)?.status).toBe('revoked');
+});
+});
+
+describe("sharing coverage 9", () => {
+
+let h!:Harness;const id=()=>randomUUID();afterEach(async()=>{await h?.close();});
+
+it('keeps public broadcast navigation on reload and never exposes private viewer positioning',async()=>{
+ h=await startHarness();const a=await h.account(),s=await a.session(),d=await a.display(s.id),p={userId:a.user!.id},svc=h.runtime.service;
+ await a.submit(s.id,[d.id],{version:1,template:'image-gallery',data:{mode:'carousel',images:[{url:'https://example.com/1.png'},{url:'https://example.com/2.png'}]}});
+ await svc.execute('kanvas_navigation_control',{sessionId:s.id,displayId:d.id,requestId:id(),expectedRevision:1,navigation:{action:'page',page:2}},p);
+ const nav=(await svc.navigation.publicPosition(s.id,d.id));expect(nav?.state.page).toBe(1);expect(nav).not.toHaveProperty('viewerId');expect((await svc.display(p,s.id,d.id)).revision).toBe(1);
+});
 });

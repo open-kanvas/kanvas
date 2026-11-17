@@ -1,16 +1,58 @@
-import {sceneReferences,scene3dSchema} from '../../src/shared/scene3d.js';
+import { sceneReferences } from '../../src/shared/scene3d.js';
+import { scene3dSchema } from '../../src/shared/scene3d.js';
 import { testDatabase } from '../postgres.js';
-import { randomUUID, createHash } from 'node:crypto';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
+import { afterEach } from 'vitest';
+import { beforeEach } from 'vitest';
+import { describe } from 'vitest';
+import { expect } from 'vitest';
+import { it } from 'vitest';
+import { vi } from 'vitest';
 import type { AuthPrincipal } from '../../src/server/auth.js';
 import { DisplayHistory } from '../../src/server/display-history.js';
 import { Engagement } from '../../src/server/engagement.js';
 import { materializeDatasetView } from '../../src/server/rendering/datasets.js';
-import { AppError, Store } from '../../src/server/store.js';
-import { ViewPatches, type ViewPatchDisplay, type ViewPatchHost } from '../../src/server/view-patch.js';
-import type { DatasetRecord, UpdateRecord, ViewSpec } from '../../src/shared/types.js';
+import { AppError } from '../../src/server/store.js';
+import { Store } from '../../src/server/store.js';
+import { ViewPatches } from '../../src/server/view-patch.js';
+import type { ViewPatchDisplay } from '../../src/server/view-patch.js';
+import type { ViewPatchHost } from '../../src/server/view-patch.js';
+import type { DatasetRecord } from '../../src/shared/types.js';
+import type { UpdateRecord } from '../../src/shared/types.js';
+import type { ViewSpec } from '../../src/shared/types.js';
 import { validateView } from '../../src/shared/view-schemas.js';
-import { VIEW_PATCH_LIMITS, viewPatchSchema, type ViewPatchInput, type ViewPatchOperation } from '../../src/shared/view-patch.js';
+import { VIEW_PATCH_LIMITS } from '../../src/shared/view-patch.js';
+import { viewPatchSchema } from '../../src/shared/view-patch.js';
+import type { ViewPatchInput } from '../../src/shared/view-patch.js';
+import type { ViewPatchOperation } from '../../src/shared/view-patch.js';
+import { startHarness } from './harness';
+import { success } from './harness';
+import { PNG } from './harness';
+import type { Harness } from './harness';
+import type { Browser } from './harness';
+import { SEAT_LAYOUTS } from '../../src/shared/venue';
+import { materializeSeats } from '../../src/shared/venue';
+import { VOCABULARY } from '../../src/shared/venue';
+import { venueSchemas } from '../../src/shared/venue';
+import { validateStatic } from '../../src/server/custom-templates';
+import { validateCustomSchema } from '../../src/server/custom-templates';
+import { bindTemplate } from '../../src/shared/custom-templates';
+import { DiscoveryCatalog } from '../../src/server/mcp/discovery';
+import { safeError } from '../../src/server/mcp/results';
+import { CANONICAL_TOOLS } from '../../src/server/mcp/canonical';
+import { z } from 'zod';
+import { asyncMap } from '../../src/server/async-collections.js';
+import { ControlledInterpreter } from './harness.js';
+import { denied } from './harness.js';
+import { fact } from './harness.js';
+import type { MonitoringFetchResult } from '../../src/server/monitoring.js';
+import type { MonitoringFetcher } from '../../src/server/monitoring.js';
+import type { MonitoringSummary } from '../../src/shared/monitoring.js';
+import type { Token } from '../../src/server/auth.js';
+
+describe("view patch coverage 1", () => {
+
 
 const owner: AuthPrincipal = { userId: 'patch-owner', agentId: 'patch-agent' };
 const other: AuthPrincipal = { userId: 'other-editor' };
@@ -477,4 +519,74 @@ describe('statistical visual patch integration',()=>{
    expect((await f.read()).view!.data.series).toEqual(series);
   }finally{await f.store.close();}
  });
+});
+});
+
+describe("view patch coverage 2", () => {
+
+describe("view patch contracts",()=>{
+ let h!:Harness,o:Browser,s:string,d:string,p:{userId:string};
+ beforeEach(async()=>{h=await startHarness();o=await h.account();s=(await o.session()).id;d=(await o.display(s)).id;p={userId:o.user!.id};});
+ afterEach(async()=>{await h?.close();});
+ const call=(name:string,args:Record<string,unknown>={})=>h.runtime.service.execute(name,args,p) as Promise<any>;
+ const update=(name:string,args:Record<string,unknown>)=>call(name,{sessionId:s,displayId:d,...args});
+ const publish=async(template:any,data:any)=>{const result=await o.submit(s,[d],{version:1,template,data});expect(result.update.status).toBe('prepared');return result.detail.displays.find(x=>x.id===d)!;};
+ const current=async()=> (await o.detail(s)).displays.find(x=>x.id===d)!;
+ const definition={name:'Team list',schema:{type:'object',properties:{title:{type:'string'},items:{type:'array',items:{type:'object',properties:{name:{type:'string'}},required:['name']}}},required:['title','items']},html:'<article><h1>{{title}}</h1><ul>{{#each items}}<li>{{name}}</li>{{/each}}</ul></article>',css:'article {padding: 24px; color: white;} h1 {font-size: 48px;}'};
+ it('revision omission is valid across all advertised numeric revision/version guards; stale errors include retry value',async()=>{
+  for(const tool of CANONICAL_TOOLS){const schema=z.toJSONSchema(tool.schema,{unrepresentable:'any',io:'input'}) as any;for(const key of ['expectedRevision','expectedVersion','expectedDraftRevision','expectedDeckRevision','expectedRevisions'])if(schema.properties?.[key])expect(schema.required??[],tool.name+' '+key).not.toContain(key);}
+  await publish('checklist',{items:[{id:'a',text:'Task',checked:false}]});const display=await current(),checklistId=display.view!.data.checklistId;
+  await call('kanvas_checklist_update',{sessionId:s,checklistId,items:[{id:'a',text:'Task',checked:true}]});
+  let conflict:unknown;try{await call('kanvas_checklist_update',{sessionId:s,checklistId,expectedRevision:0,items:[]});}catch(e){conflict=e;}expect(safeError(conflict)).toMatchObject({code:'REVISION_CONFLICT',currentRevision:1});
+ });
+ it('narrow operations serialize concurrent writes and respect hold without losing state',async()=>{
+  await publish('seat-map',{people:[{id:'a',name:'Alex'},{id:'b',name:'Blair'}]});
+  await Promise.all([update('kanvas_seat_map_update',{action:'place',personId:'a',seatId:'seat-1'}),update('kanvas_seat_map_update',{action:'place',personId:'b',seatId:'seat-2'})]);
+  const view=await current();expect((view.view!.data.seats as any[]).filter(s=>s.personId)).toHaveLength(2);
+  await update('kanvas_display_update',{held:true});
+  await expect(update('kanvas_seat_map_update',{action:'clear-seat',seatId:'seat-1'})).rejects.toMatchObject({code:'DISPLAY_HELD'});
+  expect((await current()).view).toEqual(view.view);
+ });
+ it('malformed guards include current state after authorization, without leaking other accounts',async()=>{
+  await publish('kanban',{columns:[{id:'todo',name:'To do'}]});
+  let error:unknown;try{await update('kanvas_kanban_update',{action:'reorder-columns',columnIds:['todo'],expectedRevision:'bad'});}catch(e){error=e;}
+  expect(safeError(error)).toMatchObject({code:'INVALID_ARGUMENT',currentRevision:1});
+  await expect(call('kanvas_display_navigate',{sessionId:s,displayIds:[d],direction:'back',expectedRevisions:{[d]:'bad'}})).rejects.toMatchObject({code:'INVALID_ARGUMENT',currentRevision:1});
+  const stranger=await h.account();
+  await expect(h.runtime.service.execute('kanvas_kanban_update',{sessionId:s,displayId:d,action:'reorder-columns',columnIds:['todo'],expectedRevision:'bad'},{userId:stranger.user!.id})).rejects.not.toHaveProperty('currentRevision');
+ });});
+});
+
+describe("view patch coverage 3", () => {
+
+
+const running: Harness[] = [];
+afterEach(async () => { await Promise.all((await asyncMap(running.splice(0), async h => (await h.close())))); });
+async function setup(fetcher?: MonitoringFetcher) {
+  let time = Date.now();
+  const interpret = vi.fn(async () => { throw new Error('These source operations must not invoke the source renderer.'); });
+  const fetch = vi.fn(fetcher ?? (async () => ({ statusCode: 200, latencyMs: 5, mimeType: 'application/json', body: Buffer.from('{"text":"Exact source result"}'), finalUrl: 'https://example.com/status' })));
+  const h = await startHarness({ interpreter: { interpret }, monitoringOptions: { automatic: false, now: () => time, fetcher: fetch } }); running.push(h);
+  const owner = await h.account(), session = await owner.session(), display = await owner.display(session.id);
+  return { h, owner, session, display, interpret, fetch, advance: (ms: number) => { time += ms; } };
+}
+const jsonConfig = { mode: 'json', url: 'https://example.com/status', template: 'fact', mapping: { text: { $path: '/text' } }, intervalSeconds: 30, durationSeconds: 3600 };
+
+describe("view patch contracts", () => {
+  it('publishes and durably replays a partial patch without content regeneration or metadata loss', async () => {
+    const { h, owner, session, display, interpret } = await setup();
+    const first = await owner.submit(session.id, [display.id], { ...fact('First')});
+    const revision = first.detail.displays[0].revision;
+    const path = `/api/sessions/${session.id}/displays/${display.id}/patch`;
+    const body = { requestId: randomUUID(), expectedRevision: revision, operations: [{ op: 'appendText', path: '/data/text', value: ' plus exact text' }] };
+    const patch = success(await owner.request<UpdateRecord>('POST', path, body));
+    expect(patch).toMatchObject({ status: 'prepared', metrics: { path: 'direct' }, revisions: { [display.id]: revision + 1 } });
+    success(await owner.request('POST', path, body));
+    const current = (await owner.detail(session.id)).displays[0];
+    expect(current.revision).toBe(revision + 1);
+    expect(current.view).toMatchObject({ data: { text: 'First plus exact text' } }); expect(current.view).not.toHaveProperty('source');
+    expect((await h.runtime.store.list('update', session.id))).toHaveLength(2);
+    expect(interpret).not.toHaveBeenCalled();
+    denied(await owner.request('POST', path, { ...body, requestId: randomUUID() }), [409]);
+  });});
 });

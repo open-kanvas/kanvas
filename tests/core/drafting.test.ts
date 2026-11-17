@@ -1,12 +1,31 @@
 import { randomUUID } from 'node:crypto';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach } from 'vitest';
+import { beforeEach } from 'vitest';
+import { describe } from 'vitest';
+import { expect } from 'vitest';
+import { it } from 'vitest';
 import { z } from 'zod';
-import { DRAFTING_LIMITS, draftingDataSchema, draftPassages, isDraftTextBoundary } from '../../src/shared/drafting.js';
+import { DRAFTING_LIMITS } from '../../src/shared/drafting.js';
+import { draftingDataSchema } from '../../src/shared/drafting.js';
+import { draftPassages } from '../../src/shared/drafting.js';
+import { isDraftTextBoundary } from '../../src/shared/drafting.js';
 import type { AuthPrincipal } from '../../src/server/auth.js';
-import type { InteractionRecord, UpdateRecord, ViewSpec } from '../../src/shared/types.js';
+import type { InteractionRecord } from '../../src/shared/types.js';
+import type { UpdateRecord } from '../../src/shared/types.js';
+import type { ViewSpec } from '../../src/shared/types.js';
 import { draftingSelectionFeedback } from '../../src/server/drafting.js';
-import { templateViewSchema, validateView } from '../../src/shared/view-schemas.js';
-import { denied, fact, startHarness, success, type Browser, type Harness } from './harness.js';
+import { templateViewSchema } from '../../src/shared/view-schemas.js';
+import { validateView } from '../../src/shared/view-schemas.js';
+import { denied } from './harness.js';
+import { fact } from './harness.js';
+import { startHarness } from './harness.js';
+import { success } from './harness.js';
+import type { Browser } from './harness.js';
+import type { Harness } from './harness.js';
+import { guideFor } from '../../src/server/mcp/guide.js';
+
+describe("drafting coverage 1", () => {
+
 
 const text = 'Hei  Alex 👋\n\nKeep this exact passage.\nNext line & <not markup>.';
 const start = text.indexOf('exact'), end = start + 'exact'.length;
@@ -62,7 +81,7 @@ describe('strict drafting source contracts', () => {
 });
 
 describe('revision-bound draft selection and chunked updates', () => {
-  let h: Harness, owner: Browser, sessionId: string, displayId: string, principal: AuthPrincipal;
+  let h!:Harness, owner: Browser, sessionId: string, displayId: string, principal: AuthPrincipal;
   const path = () => `/api/sessions/${sessionId}/displays/${displayId}`;
   const respond = (value = selection(), revision = 1, requestId = randomUUID()) => owner.request<InteractionRecord>('POST', `${path()}/respond`, { value, revision, requestId });
   beforeEach(async () => {
@@ -162,4 +181,30 @@ describe('revision-bound draft selection and chunked updates', () => {
     denied(await guest.request('POST', `/api/sessions/${sessionId}/submit`, { requestId: randomUUID(), displayIds: [displayId], view: draft({ text: 'Unauthorized edit' }) }), [403]);
     expect((await owner.detail(sessionId)).displays.find(item => item.id === displayId)).toMatchObject({ revision: 1, view: { data: { text } } });
   });
+});
+});
+
+describe("drafting coverage 2", () => {
+
+
+describe("drafting contracts",()=>{
+  let h!:Harness, owner:Browser, s:string,d:string,p:AuthPrincipal;
+  beforeEach(async()=>{h=await startHarness();owner=await h.account();s=(await owner.session()).id;d=(await owner.display(s)).id;p={userId:owner.user!.id};});
+  afterEach(async()=>{await h?.close();});
+  // Tool outputs are heterogeneous envelopes; assertions below narrow the relevant fields.
+  const call=async(name:string,args:unknown,actor=p):Promise<any>=>h.runtime.service.execute(name,args,actor);
+  const target=()=>({sessionId:s,displayId:d});
+  it('records actual suggestion/editor/reviewer identities, preserves attribution on re-anchor and retries exactly',async()=>{
+    const editor=await h.account();success(await owner.request('POST',`/api/sessions/${s}/members`,{username:editor.user!.username,role:'editor'}));
+    await owner.submit(s,[d],{version:1,template:'drafting',data:{text:'Hello team'}});
+    const args={...target(),expectedRevision:1,requestId:'suggest',suggestions:[{id:'greeting',find:'Hello',replacement:'Hi'}]};
+    await call('kanvas_draft_suggest',args);
+    let read=await call('kanvas_draft_read',target());expect(read.suggestions[0].author).toEqual({id:owner.user!.id,name:owner.user!.displayName});expect(read.collaborative).toBe(true);
+    await call('kanvas_draft_edit',{...target(),expectedRevision:2,requestId:'edit',edits:[{op:'append',text:'!'}]},{userId:editor.user!.id});
+    read=await call('kanvas_draft_read',target());expect(read.suggestions[0].author.id).toBe(owner.user!.id);expect(read.activity.at(-1)).toMatchObject({action:'edit',actor:{id:editor.user!.id}});
+    await call('kanvas_draft_review',{...target(),expectedRevision:3,requestId:'review',accept:['greeting']},{userId:editor.user!.id});
+    read=await call('kanvas_draft_read',target());expect(read.text).toBe('Hi team!');expect(read.activity.at(-1)).toMatchObject({action:'accept',suggestionId:'greeting',actor:{id:editor.user!.id},revision:4});
+    await call('kanvas_draft_suggest',args);expect((await call('kanvas_draft_read',target())).activity).toEqual(read.activity);
+    await expect(call('kanvas_draft_suggest',{...target(),expectedRevision:4,requestId:'spoof',suggestions:[{find:'Hi',replacement:'Hello',author:{id:'other',name:'Other'}}]})).rejects.toThrow();
+  });});
 });

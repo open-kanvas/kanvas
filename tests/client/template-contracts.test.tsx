@@ -1,11 +1,62 @@
-import { describe, expect, it } from 'vitest';
+import { describe } from 'vitest';
+import { expect } from 'vitest';
+import { it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { z } from 'zod';
 import type { TemplateId } from '../../src/shared/types';
-import { templateViewSchema, validateView } from '../../src/shared/view-schemas';
+import { templateViewSchema } from '../../src/shared/view-schemas';
+import { validateView } from '../../src/shared/view-schemas';
 import { Renderer } from '../../src/client/renderers/Renderer';
-import { boardLabelColor, wrapBoardText } from '../../src/client/renderers/Whiteboard';
-import { countdownRemainingSeconds, dateInTimeZone, eventsOnDate, formatCountdown, scheduleDays } from '../../src/client/renderers/Time';
+import { boardLabelColor } from '../../src/client/renderers/Whiteboard';
+import { wrapBoardText } from '../../src/client/renderers/Whiteboard';
+import { countdownRemainingSeconds } from '../../src/client/renderers/Time';
+import { dateInTimeZone } from '../../src/client/renderers/Time';
+import { eventsOnDate } from '../../src/client/renderers/Time';
+import { formatCountdown } from '../../src/client/renderers/Time';
+import { scheduleDays } from '../../src/client/renderers/Time';
+import { resolveToolCall } from '../../src/server/mcp/catalog';
+import { samples } from '../../src/shared/template-examples';
+import { templateNames } from '../../src/shared/template-examples';
+import { TEMPLATE_DISPLAY_GUIDANCE } from '../../src/shared/display-guidance';
+import { calendarDataSchema } from '../../src/shared/planner';
+import { diagramLayout } from '../../src/shared/diagrams';
+import { orgChartDataSchema } from '../../src/shared/diagrams';
+import { networkDataSchema } from '../../src/shared/diagrams';
+import { regionalDateTime } from '../../src/shared/regional';
+import { regionalClock } from '../../src/shared/regional';
+import { DEFAULT_CONFIG } from '../../src/shared/preferences';
+import { checklistFocus } from '../../src/client/renderers/checklist-layout';
+import { checklistScrollDelta } from '../../src/client/renderers/checklist-layout';
+import { pieceTone } from '../../src/shared/game';
+import { gameDataSchema } from '../../src/shared/game';
+import { SignArrow } from '../../src/client/renderers/Signage';
+import { signArrowSide } from '../../src/client/renderers/Signage';
+import { SIGN_ARROW_STRAIGHT } from '../../src/client/renderers/Signage';
+import { SIGN_ARROW_TURN } from '../../src/client/renderers/Signage';
+import { SIGN_DIRECTIONS } from '../../src/shared/signage';
+import { choroplethPlotHeight } from '../../src/client/renderers/AdvancedCharts';
+import { WEATHER_FIT_STEPS } from '../../src/client/renderers/Weather';
+import { WEATHER_DESCRIPTION_MAX } from '../../src/shared/extended-templates';
+import { ToastIcon } from '../../src/client/toast-icons';
+import { TOAST_TYPES } from '../../src/shared/viewer-experience';
+import { toastsToShow } from '../../src/shared/viewer-experience';
+import type { ToastRecord } from '../../src/shared/viewer-experience';
+import { statusColor } from '../../src/shared/task-list';
+import { Agents } from '../../src/client/renderers/Nov10';
+import { Colour } from '../../src/client/renderers/Nov10';
+import { FontPicker } from '../../src/client/renderers/Nov10';
+import { IconPicker } from '../../src/client/renderers/Nov10';
+import { JsonRaw } from '../../src/client/renderers/Nov10';
+import { JsonView } from '../../src/client/renderers/Nov10';
+import { TaskList } from '../../src/client/renderers/Nov10';
+import { ToolCallDetails } from '../../src/client/renderers/Nov10';
+import { Welcome } from '../../src/client/renderers/Nov10';
+import { themeTokenCss } from '../../src/client/renderers/Nov10';
+import { geographyCodes } from '../../src/shared/geography/codes';
+import { DIAGRAM_MAX_FILL } from '../../src/client/renderers/Diagrams';
+
+describe("template contracts coverage 1", () => {
+
 
 const view = (template: TemplateId, data: Record<string, unknown>) => validateView({ version: 1, template, data });
 const poll = { question: 'Choose a focus', options: [{ id: 'a', label: 'Clarity' }, { id: 'b', label: 'Depth' }] };
@@ -171,4 +222,36 @@ describe('calendar and countdown time semantics', () => {
     expect(countdownRemainingSeconds({ endsAt: '2026-09-09T16:00:00Z', pausedRemainingSeconds: 123 }, 99e12)).toBe(123);
     expect(formatCountdown(90061)).toBe('1d 01:01:01');
   });
+});
+});
+
+describe("template contracts coverage 2", () => {
+
+const base={anchorDate:'2026-09-01',timeZone:'UTC',view:'month',items:[{id:'roma',title:'Roma',allDay:true,start:'2026-09-20',end:'2026-09-27'}]};
+const render=(template:string,data:unknown)=>renderToStaticMarkup(<Renderer view={validateView({version:1,template,data})}/>);
+describe("template contracts contracts",()=>{
+  it('wires every new supplied-data template with validated examples and readable renderers',()=>{
+    for(const template of ['sports-lineup','org-chart','flowchart','network'] as const){const view=validateView(samples[template]);expect(templateNames[template]).toBeTruthy();expect(TEMPLATE_DISPLAY_GUIDANCE[template]).toBeTruthy();const html=renderToStaticMarkup(<Renderer view={view}/>);expect(html).toContain('<svg');expect(html).not.toContain('could not be shown');}
+    expect(render('sports-lineup',samples['sports-lineup'].data).match(/data-player-id=/g)).toHaveLength(11);
+  });});
+});
+
+describe("template contracts coverage 3", () => {
+
+
+const items=Array.from({length:19},(_,i)=>({id:`t${i+1}`,text:`Item ${i+1}`,checked:false}));
+describe('new template renderers',()=>{
+ const data=<T,>(template:keyof typeof samples)=>validateView(samples[template]).data as T;
+ it('JSON raw view keeps exact tokens with line numbers; tree stays available',()=>{
+  const raw=renderToStaticMarkup(<JsonView data={{json:'{"exact":9007199254740993,"list":[1,2]}'}}/>);
+  expect(raw).toContain('data-json-view="raw"');expect(raw).toContain('9007199254740993');expect((raw.match(/data-json-line=/g)??[]).length).toBe(7);
+  expect(renderToStaticMarkup(<JsonView data={{json:'{"a":1}',view:'tree'}}/>)).not.toContain('data-json-view="raw"');
+  const marked=renderToStaticMarkup(<JsonRaw source={'{"a":{"b":2}}'} highlightPath="$.a.b"/>);expect(marked).toMatch(/class="is-marked" data-json-line="3"/);
+  const cut=renderToStaticMarkup(<JsonRaw source={JSON.stringify(Array.from({length:100},(_,i)=>i))} maxLines={10}/>);expect((cut.match(/data-json-line=/g)??[]).length).toBe(10);expect(cut).toContain('92 more lines stored');
+ });
+ it('agents overview is compact; welcome is one line and three things to say',()=>{
+  const agents=renderToStaticMarkup(<Agents data={data('agents')} serverNow="2026-11-10T09:01:00+01:00"/>);
+  expect(agents).toContain('Claude.ai');expect(agents).toContain('Active now');expect(agents).toContain('<b>12</b> sessions');expect(agents).toContain('Release testing');expect(agents).not.toContain('<button');
+  const welcome=renderToStaticMarkup(<Welcome data={{}}/>);expect(welcome).toContain('Your agent can show things here while you talk.');expect((welcome.match(/<li>/g)??[]).length).toBe(3);expect(welcome).not.toContain('<button');
+ });});
 });

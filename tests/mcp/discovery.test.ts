@@ -1,16 +1,50 @@
-import { profileResultData, interactionRoutes } from '../../src/server/mcp/profile-guidance.js';
-import { describe, expect, it } from 'vitest';
+import { profileResultData } from '../../src/server/mcp/profile-guidance.js';
+import { interactionRoutes } from '../../src/server/mcp/profile-guidance.js';
+import { describe } from 'vitest';
+import { expect } from 'vitest';
+import { it } from 'vitest';
 import { Ajv2020 } from 'ajv/dist/2020.js';
-import { CANONICAL_TOOLS, parseCanonicalArguments } from '../../src/server/mcp/canonical.js';
+import { CANONICAL_TOOLS } from '../../src/server/mcp/canonical.js';
+import { parseCanonicalArguments } from '../../src/server/mcp/canonical.js';
 import { resolveToolCall } from '../../src/server/mcp/catalog.js';
-import { DiscoveryCatalog, BUILTIN_PROVIDERS, canonicalForOperation, discoveryCatalog, discoveryToolDefinitions, helpCatalog, operationCatalog, templateCatalog, parseDiscoveryInput, SEARCH_RESULT_BYTES, discoveryResult, CATALOG_ONLY_CANONICAL, type CatalogProvider } from '../../src/server/mcp/discovery.js';
-import { DISCOVERY_TOOL_NAMES, DOMAIN_OPERATION_ENTRIES, OPERATION_ENTRIES, operationId, profileScope, publicExample, publicGuidanceText } from '../../src/server/mcp/operations.js';
+import { DiscoveryCatalog } from '../../src/server/mcp/discovery.js';
+import { BUILTIN_PROVIDERS } from '../../src/server/mcp/discovery.js';
+import { canonicalForOperation } from '../../src/server/mcp/discovery.js';
+import { discoveryCatalog } from '../../src/server/mcp/discovery.js';
+import { discoveryToolDefinitions } from '../../src/server/mcp/discovery.js';
+import { helpCatalog } from '../../src/server/mcp/discovery.js';
+import { operationCatalog } from '../../src/server/mcp/discovery.js';
+import { templateCatalog } from '../../src/server/mcp/discovery.js';
+import { parseDiscoveryInput } from '../../src/server/mcp/discovery.js';
+import { SEARCH_RESULT_BYTES } from '../../src/server/mcp/discovery.js';
+import { discoveryResult } from '../../src/server/mcp/discovery.js';
+import { CATALOG_ONLY_CANONICAL } from '../../src/server/mcp/discovery.js';
+import type { CatalogProvider } from '../../src/server/mcp/discovery.js';
+import { DISCOVERY_TOOL_NAMES } from '../../src/server/mcp/operations.js';
+import { DOMAIN_OPERATION_ENTRIES } from '../../src/server/mcp/operations.js';
+import { OPERATION_ENTRIES } from '../../src/server/mcp/operations.js';
+import { operationId } from '../../src/server/mcp/operations.js';
+import { profileScope } from '../../src/server/mcp/operations.js';
+import { publicExample } from '../../src/server/mcp/operations.js';
+import { publicGuidanceText } from '../../src/server/mcp/operations.js';
 import { LocalSearch } from '../../src/server/mcp/local-search.js';
 import { TOOL_DISCOVERY } from '../../src/server/mcp/tool-discovery.js';
 import { HELP_TOPICS } from '../../src/shared/help.js';
 import { GUIDE_TOPICS } from '../../src/server/mcp/guide.js';
 import { TEMPLATE_IDS } from '../../src/shared/types.js';
 import { templateViewSchema } from '../../src/shared/view-schemas.js';
+import { Client } from '@modelcontextprotocol/client';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+import { Client as LegacyClient } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport as LegacyTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { afterEach } from 'vitest';
+import { randomUUID } from 'node:crypto';
+import { startHarness } from '../core/harness';
+import { success } from '../core/harness';
+import type { Harness } from '../core/harness';
+
+describe("discovery coverage 1", () => {
+
 const context = { principal: { userId: 'account-a', scopes: ['read', 'publish'] } };
 const ajv = new Ajv2020({ strict: false, validateFormats: false, allErrors: true });
 
@@ -184,4 +218,29 @@ describe('two-tool discoverable catalog', () => {
     expect(result.steps[0]).toContain('operationId');
     expect(interactionRoutes('discovery').read).toMatchObject({ tool: 'kanvas_call', arguments: { operationId: 'kanvas.interactions.read' } });
   });
+});
+});
+
+describe("discovery coverage 2", () => {
+
+let h!:Harness,client:Client|LegacyClient;
+afterEach(async()=>{await client?.close();await h?.close();});
+it.each(['modern','legacy'])('%s advertises only two tools and executes flashcard voice operations and diagnostics',async era=>{
+ h=await startHarness({mcpProfile:'twelve'});const owner=await h.account(),s=await owner.session(),d=await owner.display(s.id),second=await owner.display(s.id);
+ const token=await h.runtime.auth.issueToken(owner.user!.id,'Disposable feedback regression',['read','publish']),headers={Authorization:'Bearer '+token.value};
+ if(era==='modern'){client=new Client({name:'feedback-current',version:'1'});await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',h.baseUrl),{requestInit:{headers}}));}
+ else{client=new LegacyClient({name:'feedback-legacy',version:'1'});await client.connect(new LegacyTransport(new URL('/mcp',h.baseUrl),{requestInit:{headers}}));}
+ expect((await client.listTools()).tools.map(t=>t.name).sort()).toEqual(['kanvas_call','kanvas_discover']);
+ const call=async(operationId:string,args:Record<string,unknown>)=>{const result=await client.callTool({name:'kanvas_call',arguments:{operationId,arguments:args}});expect(result.isError,JSON.stringify(result.structuredContent)).not.toBe(true);return(result.structuredContent as {data:any}).data;};
+ const discovery=await client.callTool({name:'kanvas_discover',arguments:{catalog:'templates',action:'get',id:'kanvas.template.flashcards'}});expect(discovery.isError).not.toBe(true);expect(JSON.stringify(discovery)).toContain('acceptedAnswers');
+ await owner.submit(s.id,[d.id],{version:1,template:'flashcards',data:{mode:'test',cards:[{id:'hola',prompt:'Translate hola',answer:'hello'}]}});
+ const list=await call('kanvas.flashcards.read',{sessionId:s.id}),key=list.decks[0].id;
+ const read=await call('kanvas.flashcards.read',{sessionId:s.id,deckId:key});
+ const answered=await call('kanvas.flashcards.control',{sessionId:s.id,deckId:key,displayId:d.id,expectedRevision:1,expectedDeckRevision:read.revision,requestId:'voice',cardId:'hola',action:'answer',response:'hello'});
+ expect(answered.deck.view.data.responses[0].result).toBe('correct');
+ await call('kanvas.flashcards.show',{sessionId:s.id,deckId:key,displayId:second.id,expectedRevision:0,requestId:'show'});
+ expect((await owner.detail(s.id)).displays.find(x=>x.id===second.id)!.view!.data.revealed).toBe(true);
+ const supportRef=randomUUID();success(await owner.request('POST','/api/diagnostics',{supportRef,windowId:randomUUID(),events:[{event:'startup'}]}));
+ expect((await call('kanvas.diagnostics.read',{supportRef})).timeline).toHaveLength(1);
+},30000);
 });

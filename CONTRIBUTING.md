@@ -36,3 +36,7 @@ Keep source contracts under `src/shared`, enforce authorization in domain operat
 When behaviour changes, review what describes it in the same change: the help entry (`src/shared/help.ts`), the tool description and discovery hint, the template guidance and example, and the page under `docs/`. `tests/core/documentation-current.test.ts` and the per-release feedback tests assert the statements most likely to drift; add an assertion for each statement you had to correct.
 
 Use logical commits and document compatibility/migrations. Do not commit operational archives, local databases, credentials, generated releases or private reports. Run `git diff --check` and inspect all staged files before committing. A license and public contribution process are still awaiting maintainer review.
+
+## Test organization
+
+Name test files after the behaviour or feature they test, never a date, release round or time of day. Add bug-fix coverage to the feature file, not a new report-named file. Keep suite harnesses and operation fixtures shared. When moving tests, preserve every test and assertion, compare exact suite counts, and retain literal duplicates with a `duplicate-of` comment until a separately approved pruning change.

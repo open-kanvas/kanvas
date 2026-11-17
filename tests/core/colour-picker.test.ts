@@ -1,0 +1,91 @@
+import { afterEach } from 'vitest';
+import { beforeEach } from 'vitest';
+import { describe } from 'vitest';
+import { expect } from 'vitest';
+import { it } from 'vitest';
+import { randomUUID } from 'node:crypto';
+import { startHarness } from './harness.js';
+import { success } from './harness.js';
+import type { Harness } from './harness.js';
+import type { Browser } from './harness.js';
+import { validateView } from '../../src/shared/view-schemas.js';
+import { samples } from '../../src/shared/template-examples.js';
+import { projectTasks } from '../../src/shared/task-list.js';
+import { STREAM_BURST } from '../../src/server/monitor-streams.js';
+import { STREAM_EVENT_BYTES } from '../../src/server/monitor-streams.js';
+import { STREAM_MAX_EVENTS } from '../../src/server/monitor-streams.js';
+import { sanitizeSvg } from '../../src/server/pickers.js';
+import { iconifyBase } from '../../src/server/pickers.js';
+import { readCapped } from '../../src/server/pickers.js';
+import { PICKER_CACHE_BYTES } from '../../src/server/pickers.js';
+import { PICKER_ICON_BYTES } from '../../src/server/pickers.js';
+import { PICKER_FONT_BYTES } from '../../src/server/pickers.js';
+import { precachePickers } from '../../scripts/picker-precache.js';
+import { mkdtemp } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
+import { readdir } from 'node:fs/promises';
+import { rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { FONT_FAMILIES } from '../../src/shared/pickers.js';
+import { ICON_SETS } from '../../src/shared/pickers.js';
+import { iconUrl } from '../../src/shared/pickers.js';
+import { iconId } from '../../src/shared/pickers.js';
+import { fontUrl } from '../../src/shared/pickers.js';
+import { colourTokens } from '../../src/shared/colour.js';
+import { contrastGrade } from '../../src/shared/colour.js';
+import { contrastRatio } from '../../src/shared/colour.js';
+import { harmonies } from '../../src/shared/colour.js';
+import { hexToOklch } from '../../src/shared/colour.js';
+import { namedColours } from '../../src/shared/colour.js';
+import { NAMED_GROUPS } from '../../src/shared/colour.js';
+import { oklchToHex } from '../../src/shared/colour.js';
+import { resolveColour } from '../../src/shared/colour.js';
+import { roleSteps } from '../../src/shared/colour.js';
+import { seedTheme } from '../../src/shared/colour.js';
+import { shadeGrid } from '../../src/shared/colour.js';
+import { variations } from '../../src/shared/colour.js';
+import { CSS_NAMED } from '../../src/shared/colour-palettes.js';
+import { OPEN_COLOR } from '../../src/shared/colour-palettes.js';
+import { RADIX_DARK } from '../../src/shared/colour-palettes.js';
+import { RADIX_LIGHT } from '../../src/shared/colour-palettes.js';
+import { TAILWIND } from '../../src/shared/colour-palettes.js';
+import { jsonPathLine } from '../../src/shared/connection-views.js';
+import { prettyJson } from '../../src/shared/connection-views.js';
+import { jsonDataSchema } from '../../src/shared/connection-views.js';
+import { HUMAN_INVITATION } from '../../src/shared/philosophy.js';
+import { safeError } from '../../src/server/mcp/results.js';
+import { recordHttpOperation } from '../../src/server/raw-events.js';
+
+describe("colour picker coverage 1", () => {
+
+
+describe('ebebd25c colour: published values and computed colours',()=>{
+ it('palette data is the published data and references resolve exactly',()=>{
+  expect(Object.keys(TAILWIND)).toHaveLength(22);expect(Object.values(TAILWIND).every(shades=>shades.length===11)).toBe(true);
+  expect(resolveColour('tailwind:amber-400')).toBe('#fbbf24');expect(resolveColour('tailwind:slate-950')).toBe('#020617');expect(resolveColour('radix:blue-9')).toBe('#0090ff');expect(RADIX_LIGHT.blue[0]).not.toBe(RADIX_DARK.blue[0]);
+  expect(resolveColour('open-color:blue-6')).toBe('#228be6');expect(Object.keys(OPEN_COLOR)).toHaveLength(13);expect(Object.keys(CSS_NAMED)).toHaveLength(148);expect(resolveColour('RebeccaPurple')).toBe('#663399');expect(resolveColour('#ABCDEF')).toBe('#abcdef');
+  for(const bad of ['tailwind:amber-450','nope','#12345','radix:unknown-9','url(x)'])expect(resolveColour(bad),bad).toBeUndefined();
+ });
+ it('contrast, harmony, variations and tonal scales are computed, not recalled',()=>{
+  expect(contrastRatio('#000000','#ffffff')).toBeCloseTo(21,5);expect(contrastRatio('#ffffff','#ffffff')).toBeCloseTo(1,5);expect(contrastRatio('#777777','#ffffff')).toBeCloseTo(4.48,1);
+  expect(contrastGrade(7.1)).toBe('AAA');expect(contrastGrade(4.5)).toBe('AA');expect(contrastGrade(3.2)).toBe('large only');expect(contrastGrade(2.9)).toBe('fail');
+  for(const hex of ['#fbbf24','#0090ff','#663399','#000000','#ffffff','#7f7f7f'])expect(oklchToHex(hexToOklch(hex))).toBe(hex);
+  const base='#0090ff',groups=harmonies(base);expect(groups.map(g=>g.name)).toEqual(['Complementary','Analogous','Triadic','Split complementary','Tetradic']);
+  const complement=hexToOklch(groups[0].swatches[1].hex).h,hue=hexToOklch(base).h;expect(Math.abs(((complement-hue+540)%360)-180)).toBeGreaterThan(150);
+  const around=variations(base);expect(around.map(s=>s.label)).toEqual(['lighter','darker','warmer','original','cooler','muted','vivid']);expect(hexToOklch(around[0].hex).l).toBeGreaterThan(hexToOklch(base).l);expect(hexToOklch(around[1].hex).l).toBeLessThan(hexToOklch(base).l);expect(hexToOklch(around[5].hex).c).toBeLessThan(hexToOklch(base).c);
+  const theme=seedTheme(base);expect(Object.keys(theme.palettes)).toEqual(['primary','secondary','tertiary','neutral','error']);expect(theme.palettes.primary[0].hex).toBe('#000000');expect(theme.palettes.primary.at(-1)!.hex).toBe('#ffffff');
+  const tones=theme.palettes.primary.map(t=>hexToOklch(t.hex).l);expect([...tones].sort((a,b)=>a-b)).toEqual(tones);expect(contrastRatio(theme.light.primary,theme.light.onPrimary)).toBeGreaterThan(4.5);
+  expect(seedTheme(base)).toEqual(theme);
+ });
+ it('every mode validates, labels are speakable, and the token list returns exact values',()=>{
+  const view=(data:Record<string,unknown>)=>validateView({template:'colour',data} as never).data as never;
+  expect(colourTokens(view({mode:'options',options:[{value:'tailwind:amber-400'},{value:'#4f46e5',label:'indigo'}]}))).toEqual([{name:'A',hex:'#fbbf24'},{name:'indigo',hex:'#4f46e5'}]);
+  const grid=shadeGrid(view({mode:'shades',palette:'tailwind',families:['amber','sky']}));expect(grid.columns).toHaveLength(11);expect(grid.rows.map(r=>r.name)).toEqual(['amber','sky']);expect(grid.rows[0].cells[4]).toEqual({label:'amber 400',shade:'400',hex:'#fbbf24'});expect(grid.cellLabels).toBe('none');expect(shadeGrid(view({mode:'shades',palette:'tailwind',families:['amber'],hex:true})).cellLabels).toBe('hex');
+  expect(shadeGrid(view({mode:'shades',palette:'tailwind'})).rows).toHaveLength(22);
+  expect(roleSteps(view({mode:'roles',scale:'radix:blue'})).map(s=>s.role)[8]).toBe('Solid background');
+  expect(NAMED_GROUPS.flatMap(group=>namedColours(group)).length).toBe(148);expect(namedColours('blues').some(c=>c.name==='royalblue')).toBe(true);expect(namedColours('greys').some(c=>c.name==='gray')).toBe(true);
+  for(const data of [{mode:'variations',base:'royalblue'},{mode:'harmony',base:'tailwind:rose-500'},{mode:'contrast',backgrounds:['#ffffff','#111111'],texts:['#111111','tailwind:sky-600']},{mode:'theme',seed:'#6750a4'},{mode:'named',group:'greens'},{mode:'shades',custom:[{name:'brand',shades:[{label:'light',value:'#eeeeff'},{label:'dark',value:'#111133'}]}]},{mode:'roles',steps:Array(12).fill('#123456')}])expect(colourTokens(view(data)).length,data.mode).toBeGreaterThan(1);
+  for(const bad of [{mode:'options',options:[{value:'#fff'}]},{mode:'shades'},{mode:'shades',palette:'tailwind',families:['nope']},{mode:'roles',scale:'radix:nope'},{mode:'contrast',backgrounds:[],texts:['#000000']},{mode:'variations',base:'tailwind:amber-401'}])expect(()=>view(bad),JSON.stringify(bad)).toThrow();
+ });});
+});

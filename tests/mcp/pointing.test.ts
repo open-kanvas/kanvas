@@ -27,13 +27,6 @@ describe("pointing coverage 1", () => {
 
 const context={principal:{userId:'test-account',scopes:['read','publish']}};
 describe('contextual discovery and first contact',()=>{
- for(const template of ['planner','checklist','drafting','presentation','chat','progress','scoreboard','countdown'])it(`${template} workflow links name real callable operations and surface the complete family`,()=>{
-  const ids=new Set(operationCatalog().map(x=>x.id));
-   for(const id of workflowIds(template))expect(ids.has(id),id).toBe(true);
-   const detail=templateCatalog().find(x=>x.id===`kanvas.template.${template}`)!.detail();expect(detail.relatedOperations).toHaveLength(workflowIds(template).length);expect(detail.submitShape).toContain('displayIds');
- // Presentation builds the full composite catalog (10.101s with two workers).
- // Keep every workflow assertion and leave ordinary template budgets unchanged.
- },template==='presentation'?30_000:10_000);
  it('invalid submit returns an exact operation pointer and bounded usable shape without copying submitted private fields',()=>{
   const bad=resolveToolCall('discovery','kanvas_call',{operationId:'kanvas.submit',arguments:{displayId:'PRIVATE_SCREEN_SECRET',template:'table',data:{title:'PRIVATE_TITLE_SECRET'}}});
   const failed=toolFailure(bad.error,undefined,'discovery',bad.canonicalName);

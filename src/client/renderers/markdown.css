@@ -13,3 +13,5 @@
 .markdown-table-scroll{max-width:100%;overflow:auto;margin:1em 0}.markdown-article table{border-collapse:collapse;font-size:.9em;min-width:50%}.markdown-article th,.markdown-article td{border:1px solid var(--line);padding:.4em .65em;text-align:left;vertical-align:top}.markdown-article th{background:color-mix(in srgb,var(--text) 5%,transparent);font-weight:600}
 .markdown-article .contains-task-list{list-style:none;padding-left:.3em}.markdown-article .task-list-item input{width:1em;height:1em;margin-right:.5em;accent-color:var(--accent);pointer-events:none}
 .is-preview .markdown-content .markdown-article{font-size:3cqw}
+
+.markdown-article th[align="center"],.markdown-article td[align="center"]{text-align:center}.markdown-article th[align="right"],.markdown-article td[align="right"]{text-align:right}

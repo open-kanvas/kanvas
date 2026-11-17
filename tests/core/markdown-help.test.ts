@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { createInterpreter } from '../../src/server/rendering/interpreter.js';
+import { input } from '../rendering/helpers.js';
 import { describe,expect,it } from 'vitest';
 import { validateView,templateViewSchema } from '../../src/shared/view-schemas.js';
 import { visualHelp } from '../../src/server/visual-help.js';
@@ -17,6 +19,14 @@ describe('composed Markdown and plain-text source boundaries',()=>{
     expect(navigationCapabilities(markdown).reading).toBe(true);
     for(const template of ['fact','document'])expect(JSON.stringify(z.toJSONSchema(templateViewSchema(template as never),{unrepresentable:'any'}))).toMatch(/plain|literal/i);
     expect(()=>validateView({version:1,template:'markdown',data:{text,color:'red'}})).toThrow();
+  });
+  it('publishes supplied Markdown through structured, string and context inputs without inventing content from intent',async()=>{
+    const text='  # Exact composed source\n\nKeep **1.2300** and `kanvas.board.read`.\n';
+    for(const content of [{data:{text}},{data:text},{context:text}]){
+      const result=await createInterpreter().interpret(input({submission:{requestId:'markdown-source',sessionId:'s',displayIds:['d'],templateHint:'markdown',...content}}));
+      expect(result.view).toMatchObject({template:'markdown',data:{text}});
+    }
+    await expect(createInterpreter().interpret(input({submission:{requestId:'missing-markdown',sessionId:'s',displayIds:['d'],templateHint:'markdown',intent:'Write a document about a topic without supplied content.'}}))).rejects.toMatchObject({code:'INVALID_SOURCE_CONTENT'});
   });
   it('publishes ordinary help as Markdown with inline operation names and accurate text-size/grid guidance',()=>{
     const help=visualHelp({topic:'text-size'});

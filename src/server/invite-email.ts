@@ -67,7 +67,7 @@ export class InviteEmail {
 export const inviteEmailTools = [{
         name: "kanvas.invite.send", description: 'Explicitly send one invitation email to email using an existing onboarding/group invitationId OR session display shareId. Requires account-level publish authority, current owner/admin permission, confirm:true and requestId. Never sent by invite.create/share.create. Bounded at-most-once dispatch; exact retries check status, not resend. Opening a link never signs in or grants account access.', schema: inviteSendSchema, idempotent: true, openWorld: true,
         domain: "members",
-        requiredScope: "publish",
+        requiredScope: "publish" as const,
         discovery: {"group":"access","hint":"Examples are syntax, NOT authorization. Explicit email dispatch only. Create an onboarding invitation or session display share first. Exact retries check dispatch status without resending.","examples":[{"invitationId":"invitation-id","email":"recipient@example.com","confirm":true,"requestId":"send-onboarding"},{"shareId":"share-id","email":"recipient@example.com","confirm":true,"requestId":"send-display"}]},
         searchAliases: ["kanvas.invite.send"]
     }];

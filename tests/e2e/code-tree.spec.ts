@@ -10,9 +10,11 @@ test('dense repository trees fit thirty rows at 960×540 and fifteen in each spl
   await expect.poll(()=>root.evaluate(el=>el.scrollHeight<=el.clientHeight+2)).toBe(true);
   const size=await root.evaluate(el=>{const style=getComputedStyle(el);return {font:parseFloat(style.fontSize),line:parseFloat(style.lineHeight)};});
   expect(size.font).toBeGreaterThanOrEqual(10);expect(size.font).toBeLessThanOrEqual(22);expect(size.line/size.font).toBeGreaterThanOrEqual(1.2);expect(size.line/size.font).toBeLessThanOrEqual(1.4);
+  await viewer.screenshot({path:test.info().outputPath('code-tree-thirty-rows.png')});
   await show({version:1,template:'split-screen',data:{rows:1,columns:3,panes:['server','client','shared'].map(folder=>({id:folder,view:tree(Array.from({length:14},(_,i)=>({path:`${folder}/file-${i+1}.ts`})))}))}});
   await expect(viewer.locator('iframe.split-pane')).toHaveCount(3);
   for(let i=0;i<3;i++){const pane=viewer.frameLocator('iframe.split-pane').nth(i).getByLabel('File structure');await expect(pane.locator('summary,.tree-file')).toHaveCount(15);await expect.poll(()=>pane.evaluate(el=>el.scrollHeight<=el.clientHeight+2)).toBe(true);}
+  await viewer.screenshot({path:test.info().outputPath('code-tree-three-panes.png')});
   await viewer.setViewportSize({width:390,height:844});
   await show(tree(Array.from({length:100},(_,i)=>({path:`src/long-component-with-an-exact-source-name-${i+1}.tsx`}))));
   const narrow=viewer.getByLabel('File structure');await expect(narrow.locator('.tree-file')).toHaveCount(100);

@@ -19,10 +19,12 @@ test('standard CommonMark/GFM renders with native reading/theme sizing while pla
     await expect(article.getByRole('link',{name:'Documentation'})).toHaveAttribute('href','https://example.com/docs');
     await expect(article.locator('script')).toHaveCount(0);await expect(article.locator('img')).toHaveCount(0);await expect(article).toContainText('<script>window.markdownExecuted=true</script>');expect(await viewer.evaluate(()=>Object.hasOwn(window,'markdownExecuted'))).toBe(false);
     expect(await article.getByText('Unsafe',{exact:true}).getAttribute('href')).not.toMatch(/^javascript:/);
+    await viewer.screenshot({path:test.info().outputPath('markdown-standard-formatting.png')});
     const before=await article.locator('p').first().evaluate(el=>el.getBoundingClientRect().height);
     const result=await client.callTool({name:'kanvas_call',arguments:{operationId:'kanvas.config.update',arguments:{sessionId:s,config:{textSize:150,theme:'light'}}}});expect(result.isError).not.toBe(true);
     await expect(viewer.locator('.viewer-candidate .render-surface')).toHaveAttribute('data-text-scale','1.5');
     await expect.poll(()=>article.locator('p').first().evaluate(el=>el.getBoundingClientRect().height)).toBeGreaterThan(before*1.35);
+    await viewer.screenshot({path:test.info().outputPath('markdown-light-large-text.png')});
     expect(await reader.evaluate(el=>el.scrollHeight>el.clientHeight)).toBe(true);await reader.evaluate(el=>{el.scrollTop=el.scrollHeight;});await expect.poll(()=>reader.evaluate(el=>el.scrollTop)).toBeGreaterThan(100);
     for(const template of ['fact','document'] as const){await publishPrepared(page,s,[d.id],{version:1,template,data:{text:'**literal** and `literal code`'}});await expect(viewer.locator('.viewer-candidate')).toContainText('**literal** and `literal code`');await expect(viewer.locator('.viewer-candidate .markdown-article')).toHaveCount(0);}
   }finally{await client.close();}

@@ -1,6 +1,6 @@
 # Kanvas MCP layer
 
-This folder exposes exactly two MCP tools to agents: **kanvas_discover** finds contracts and guidance, and **kanvas_call** executes a discovered operation. The public-ID operation table in `operations.ts` is the source of truth for roughly 187 executable operations grouped by domain; each entry owns its schema, annotations, required scope and dispatch. Domain services retain authorization and state-transition rules.
+This folder exposes exactly two MCP tools to agents: **kanvas_discover** finds contracts and guidance, and **kanvas_call** executes a discovered operation. The public-ID operation table in `operations.ts` is the source of truth for 189 executable operations grouped by domain; each entry owns its schema, annotations, required scope and dispatch. Domain services retain authorization and state-transition rules.
 
 - **Entry and dispatch:** `index.ts` registers the two tools; `operations.ts` assembles the registry and `canonical.ts` assembles definitions. `wire-arguments`, `call-context`, `active-context`, `types` and `manage-map` support request handling.
 - **Discovery:** `discovery.ts` implements list/search/get; `tool-discovery.ts` derives metadata from definitions and `catalog.ts` validates calls. `local-search`, `intent-resolve` / `intent-schema`, `schema-properties` and `resources` cover ranking, intent and references.

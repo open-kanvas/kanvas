@@ -175,7 +175,6 @@ export function parseCanonicalArguments(name: string, args: unknown): Record<str
 }
 
 /** Keep schema-owned field guidance when a host sends invalid tool arguments. */
-/** Keep schema-owned field guidance when a host sends invalid tool arguments. */
 export function canonicalArgumentError(name: string, args: unknown): InputError | undefined {
     const tool = CANONICAL_TOOLS.find(candidate => candidate.name === name);
     const result = tool?.schema.safeParse(args ?? {});

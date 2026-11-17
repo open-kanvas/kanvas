@@ -2,7 +2,6 @@ import {draftEditSchema,draftReadSchema,draftReviewSchema,draftSuggestSchema,pla
 import type {Definition} from './canonical.js';
 
 /** Server-held drafting: the drafting display's view is the authoritative draft. */
-/** Server-held drafting: the drafting display's view is the authoritative draft. */
 export const documentTools: Definition[] = [
     {
         name: "kanvas.draft.read", readOnly: true, schema: draftReadSchema,
@@ -38,7 +37,6 @@ export const documentTools: Definition[] = [
     },
 ];
 
-/** Server-held schedule planning: the planner display's view is the authoritative plan. */
 /** Server-held schedule planning: the planner display's view is the authoritative plan. */
 export const plannerTools: Definition[] = [
     {

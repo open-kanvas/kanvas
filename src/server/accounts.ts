@@ -19,8 +19,6 @@ const identifier=z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 
 /** Account/group policy is evaluated at use time: inherited access is never
  * copied into the individual member table, and OAuth restrictions still apply. */
-/** Account/group policy is evaluated at use time: inherited access is never
- * copied into the individual member table, and OAuth restrictions still apply. */
 export class Accounts {
     serviceAdmins = new Set<string>();
     private pruneAt = 0;

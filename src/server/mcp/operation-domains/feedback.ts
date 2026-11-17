@@ -6,7 +6,6 @@ import type {Definition} from '../canonical.js';
 import {name} from '../operation-fields.js';
 
 /** feedback operation contracts. Domain services enforce current account, role and scope. */
-/** feedback operation contracts. Domain services enforce current account, role and scope. */
 export const feedbackOperations: readonly Definition[] = [
     {
         name: "kanvas.feedback.submit",

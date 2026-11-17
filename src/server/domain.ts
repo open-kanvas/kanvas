@@ -141,8 +141,6 @@ export function referencedAssets(value: unknown): Set<string> {
 
 /** The same ACL, ordering and validation boundary serves HTTP and MCP. */
 /** The same ACL, ordering and validation boundary serves HTTP and MCP. */
-/** The same ACL, ordering and validation boundary serves HTTP and MCP. */
-/** The same ACL, ordering and validation boundary serves HTTP and MCP. */
 export class KanvasService implements McpService {
     readonly push: SessionPush;
     readonly diagnostics: FrontendDiagnostics;

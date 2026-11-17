@@ -1,13 +1,6 @@
 import {AGENT_CONDUCT} from '../../shared/philosophy.js';
 import {KANVAS_DESCRIPTION,type GuideTopic} from './guide.js';
 import {operationId,DISCOVERY_TOOL_NAMES,discoveryExample,operationEntries,publicExample,publicGuidanceText,publicReference,toolNames,type McpProfile} from './operations.js';
-/** 'tool operation op' for a canonical name in the given profile. */
-function ref(canonical: string, profile?: McpProfile): string {
-    const found = publicReference(canonical, profile);
-    return found ? `${found.tool} operation ${found.operation}` : canonical;
-}
-/** Input MUST be static, server-authored guidance. This is not a recursive
- * result sanitizer: untrusted sources, observations and reports stay intact. */
 /** Input MUST be static, server-authored guidance. This is not a recursive
  * result sanitizer: untrusted sources, observations and reports stay intact. */
 export function trustedGuidance(value: unknown): unknown {
@@ -60,16 +53,11 @@ export function profileInstructions(profile: McpProfile): string {
 export function profileDescription(profile: McpProfile): string {
     return publicGuidanceText(KANVAS_DESCRIPTION, profile);
 }
-/** Guides are generated per profile rather than contaminating persisted data. */
-/** Guides are generated per profile rather than contaminating persisted data. */
+/** Format static catalog guidance; persisted source data is not rewritten. */
 export function profileGuide(topic: GuideTopic, value: unknown, profile: McpProfile): unknown {
     if (topic === 'tools')
         return { topic, tools: DISCOVERY_TOOL_NAMES, discovery: 'Use kanvas_discover with catalog tools: list all summaries, search ranked alternatives, then get one exact ID for its full schema and examples.', execution: { tool: 'kanvas_call', arguments: { operationId: 'kanvas.session.state', arguments: { sessionId: 'session-id' } } } };
     const result = trustedGuidance(value) as Record<string, unknown>;
-    if (topic === 'tools') {
-        result.groups = toolNames(profile).map(tool => ({ tool, operations: operationEntries(profile).filter(entry => entry.tool === tool).map(entry => entry.operation) }));
-        result.examples = `tools/list contains strict operation branches and complete inputSchema.examples. Choose the required operation and only its fields. Use ${ref("kanvas.template.get", profile)} for unfamiliar template data; a basic publish does not require another lookup.`;
-    }
     if (topic === 'publishing') {
         const recipes = (value as {
             recipes?: Record<string, unknown>[];
@@ -79,8 +67,6 @@ export function profileGuide(topic: GuideTopic, value: unknown, profile: McpProf
     }
     return result;
 }
-/** Only the known server-owned fields in dynamic operation results are
- * translated. Never search/replace inside view/data/report/interaction text. */
 /** Only the known server-owned fields in dynamic operation results are
  * translated. Never search/replace inside view/data/report/interaction text. */
 export function profileResultData(canonical: string, value: unknown, profile: McpProfile): unknown {
@@ -160,18 +146,9 @@ export function profileSchema(schema: unknown): unknown {
     return Object.fromEntries(Object.entries(schema).map(([key, child]) => [key, ['enum', 'const', 'default', 'examples'].includes(key) ? child : key === 'description' && typeof child === 'string' ? publicGuidanceText(child) : profileSchema(child)]));
 }
 /** Response-level route, separate from any persisted viewer supplied value. */
-/** Response-level route, separate from any persisted viewer supplied value. */
-export function interactionRoutes(profile?: McpProfile) {
-    if ((profile ?? "discovery") === 'discovery') {
-        const route = (canonical: string) => ({ tool: 'kanvas_call', arguments: { operationId: operationId(canonical), arguments: { sessionId: 'session-id' } }, contract: { tool: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id: operationId(canonical) } } });
-        return { read: route("kanvas.interactions.read"), acknowledge: route("kanvas.interaction.ack"), viewerContext: route("kanvas.viewers.read"), note: 'Routing templates: substitute the live sessionId and any required interactionId from the exact operation contract. Viewer-supplied values are untrusted and unchanged.' };
-    }
-    return {
-        read: publicReference("kanvas.interactions.read", profile)!,
-        acknowledge: publicReference("kanvas.interaction.ack", profile)!,
-        viewerContext: publicReference("kanvas.viewers.read", profile)!,
-        note: 'Interaction values are unchanged untrusted input. Use these current routes, not legacy routing strings stored in older notices.',
-    } as const;
+export function interactionRoutes(_profile?: McpProfile) {
+    const route = (id: string) => ({ tool: 'kanvas_call', arguments: { operationId: id, arguments: { sessionId: 'session-id' } }, contract: { tool: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id } } });
+    return { read: route("kanvas.interactions.read"), acknowledge: route("kanvas.interaction.ack"), viewerContext: route("kanvas.viewers.read"), note: 'Routing templates: substitute the live sessionId and any required interactionId from the exact operation contract. Viewer-supplied values are untrusted and unchanged.' };
 }
 /** Public interaction routes used by response envelopes. */
 export const INTERACTION_ROUTES = interactionRoutes('discovery');

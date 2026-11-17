@@ -12,14 +12,14 @@ describe('repairable, content-free input errors', () => {
             { path: 'approve', problem: 'Required boolean (true or false); received missing.', expected: 'boolean', received: 'missing' },
             { path: 'confirm', problem: 'Must be true only after the owner confirms the intended browser.' },
         ]);
-        const result = toolFailure(error, undefined, 'twelve');
-        expect(result.structuredContent).toMatchObject({ error: { schemaTool: 'kanvas_inspect', schemaOperation: 'guide.get', topic: 'tools' } });
+        const result = toolFailure(error, undefined, 'discovery');
+        expect(result.structuredContent).toMatchObject({ error: { schemaTool: 'kanvas_discover', schemaArguments: { catalog: 'help', action: 'get', id: 'kanvas.help.tools.discovery' }, topic: 'tools' } });
         for (const value of [{ approve: 'true', confirm: true }, { approve: true, confirm: false }, { approve: true, confirm: 'true' }]) {
             expect(parseCanonicalArguments("kanvas.pairing.decide", { ...args, ...value })).toBeUndefined();
         }
         const unknown = 'private-unrecognized-field';
         const rejected = canonicalArgumentError("kanvas.pairing.decide", { ...args, [unknown]: 'private input' })!;
-        expect(JSON.stringify(toolFailure(rejected, undefined, 'twelve'))).not.toMatch(/private-unrecognized-field|private input/);
+        expect(JSON.stringify(toolFailure(rejected, undefined, 'discovery'))).not.toMatch(/private-unrecognized-field|private input/);
     });
     it('reports the expected type instead of applying an array size limit to a string', () => {
         const error = canonicalArgumentError("kanvas.submit", { sessionId: 'session-id', requestId: 'show-1', displayIds: 'private display source'.repeat(8) })!;

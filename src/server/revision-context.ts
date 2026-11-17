@@ -2,8 +2,6 @@ import type {KanvasService} from './domain.js';
 import type {AuthPrincipal} from './auth.js';
 /** Used only for invalid guard syntax, via authorized read paths. Never guesses
  * authority from a submitted ID and never applies a mutation while diagnosing. */
-/** Used only for invalid guard syntax, via authorized read paths. Never guesses
- * authority from a submitted ID and never applies a mutation while diagnosing. */
 export async function revisionContext(s: KanvasService, p: AuthPrincipal, name: string, a: Record<string, any>, field: string): Promise<number | undefined> {
     await s.fullAccount(p);
     if (name.startsWith('kanvas.guidance.')) {

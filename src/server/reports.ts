@@ -41,7 +41,6 @@ export function redactReportText(value: string): string {
     });
 }
 /** Session-private reports remain reviewable across restarts, never auto-executed. */
-/** Session-private reports remain reviewable across restarts, never auto-executed. */
 export class SessionReports {
     constructor(private readonly store: Store, private readonly access: Access) { }
     /** Bounded, content-free recovery for clients that hide isError text. This

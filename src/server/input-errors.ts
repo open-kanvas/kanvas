@@ -176,7 +176,6 @@ export function collapseRepeatedIssues(issues: ValidationIssue[]): ValidationIss
 }
 
 /** Contains only server-selected guidance, never the original exception text. */
-/** Contains only server-selected guidance, never the original exception text. */
 export class InputError extends AppError {
     constructor(public readonly issues: ValidationIssue[] = [], public readonly template?: string, public readonly guidance?: {
         schemaTool: "kanvas.guide" | "kanvas.template.get";

@@ -18,8 +18,6 @@ import { samples } from '../../src/shared/template-examples.js';
 
 /** Independent acceptance manifest, transcribed from the accepted 57→12 plan.
  * Do not generate it from the implementation registry: that would hide omissions. */
-/** Independent acceptance manifest, transcribed from the accepted 57→12 plan.
- * Do not generate it from the implementation registry: that would hide omissions. */
 export const PARITY_MAPPING = [
     ["kanvas.help", 'kanvas_inspect', 'help.read'],
     ["kanvas.navigation.read", 'kanvas_inspect', 'navigation.read'],
@@ -441,8 +439,6 @@ export class ParityWorld {
     async close() { await this.service.close(); this.capture.mockRestore(); (await this.store.close()); await removeTestDatabase(this.database); rmSync(this.directory, { recursive: true, force: true }); }
 }
 
-/** A successful semantic assertion for EVERY mapping, independent of dispatch
- * parity. Equal failures or two equally inert calls cannot satisfy this suite. */
 /** A successful semantic assertion for EVERY mapping, independent of dispatch
  * parity. Equal failures or two equally inert calls cannot satisfy this suite. */
 export async function verifySuccessfulFixture(name: CanonicalFixture, w: ParityWorld, result: unknown) {

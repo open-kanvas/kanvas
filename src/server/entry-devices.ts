@@ -20,8 +20,6 @@ interface Connected {principal:AuthPrincipal;count:number;lastSeenAt:string}
 
 /** A device ID is an address, never authority. Browser sessions bind receivers;
  * account grants authorize targeting. Only live streams establish online state. */
-/** A device ID is an address, never authority. Browser sessions bind receivers;
- * account grants authorize targeting. Only live streams establish online state. */
 export class EntryDevices {
     private readonly events = new EventEmitter();
     private readonly connected = new Map<string, Connected>();

@@ -16,8 +16,6 @@ const place = (value: Place) => ({ sessionId: value.sessionId, displayId: value.
 
 /** Everything the account can see in one bounded read, with the operations
  * that read or change each kind of resource. */
-/** Everything the account can see in one bounded read, with the operations
- * that read or change each kind of resource. */
 export class AccountInventory {
     constructor(private readonly service: KanvasService) { }
     async read(principal: AuthPrincipal, raw: unknown) {

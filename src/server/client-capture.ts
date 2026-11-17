@@ -21,9 +21,6 @@ const resultSchema = z.strictObject({
 /** One fixed, consented operation. No script, URL, selector or arbitrary command
  * is accepted. Ephemeral requests expire after two minutes (and on restart);
  * only the resulting normal session asset is durable. */
-/** One fixed, consented operation. No script, URL, selector or arbitrary command
- * is accepted. Ephemeral requests expire after two minutes (and on restart);
- * only the resulting normal session asset is durable. */
 export class ClientCapture {
     private requests = new Map<string, Capture>();
     constructor(readonly service: KanvasService) { }

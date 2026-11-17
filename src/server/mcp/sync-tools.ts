@@ -2,7 +2,6 @@ import {displaysSyncReadSchema,displaysSyncSchema} from '../display-sync.js';
 import type {Definition} from './canonical.js';
 
 /** Linked displays within a session: slide and step navigation moves together. */
-/** Linked displays within a session: slide and step navigation moves together. */
 export const syncTools: Definition[] = [
     {
         name: "kanvas.displays.sync", schema: displaysSyncSchema,

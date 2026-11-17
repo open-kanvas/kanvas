@@ -90,7 +90,6 @@ function replaceChanges(saved:readonly Item[],next:readonly Item[]):ChecklistCha
  return {added:next.filter(item=>!before.has(item.id)).map(item=>item.id),changed:next.filter(item=>before.has(item.id)&&!same(before.get(item.id)!,item)).map(item=>item.id),removed:saved.filter(item=>!after.has(item.id)).map(item=>item.id),moved:[]};
 }
 /** Independent durable documents. No browser state or agent memory is the source of truth. */
-/** Independent durable documents. No browser state or agent memory is the source of truth. */
 export class Checklists {
     constructor(private service: KanvasService) { }
     private get store() { return this.service.store; }

@@ -174,7 +174,6 @@ function locate(text: string, find: string, which: number, path: string): DraftR
     return hit;
 }
 /** Resolve edits against one text into sorted, non-overlapping changes. */
-/** Resolve edits against one text into sorted, non-overlapping changes. */
 export function resolveDraftEdits(text: string, edits: readonly DraftEdit[]): TextChange[] {
     const changes: TextChange[] = [];
     edits.forEach((edit, order) => {
@@ -254,8 +253,6 @@ export function wordDiff(before: string, after: string, maxCharacters = 12_000):
 const READ = 'draft.read';
 const textOf = (view: ViewSpec | null) => { const value = dataOf(view).text; return typeof value === 'string' ? value : ''; };
 
-/** Drafting: authoritative text, suggestions, focus and status on the server. */
-/** Drafting: authoritative text, suggestions, focus and status on the server. */
 /** Drafting: authoritative text, suggestions, focus and status on the server. */
 /** Drafting: authoritative text, suggestions, focus and status on the server. */
 export class DraftDocuments extends DocumentOps {
@@ -466,12 +463,6 @@ function proposalIssues(problems: readonly PlannerProblem[], offset: number): In
 }
 const withoutNotes = <T extends object>(value: T): T => Object.fromEntries(Object.entries(value).filter(([key]) => key !== 'notes')) as T;
 
-/** Schedule planning: the planner display's view is the authoritative plan.
- * Kanvas holds, versions and applies decisions; it never proposes, resolves
- * conflicts or writes to external calendars. */
-/** Schedule planning: the planner display's view is the authoritative plan.
- * Kanvas holds, versions and applies decisions; it never proposes, resolves
- * conflicts or writes to external calendars. */
 /** Schedule planning: the planner display's view is the authoritative plan.
  * Kanvas holds, versions and applies decisions; it never proposes, resolves
  * conflicts or writes to external calendars. */

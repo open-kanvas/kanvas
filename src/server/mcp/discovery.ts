@@ -105,7 +105,6 @@ const operationExtras: Record<string, string> = {
     "kanvas.toast": 'notification notify toast alert message banner popup icon',
 };
 /** Words people actually use for an operation whose verb is not theirs. Search title only; the id is unchanged. */
-/** Words people actually use for an operation whose verb is not theirs. Search title only; the id is unchanged. */
 const operationTitles: Record<string, string> = {
     "kanvas.display.register": 'create a display, add a new display, second screen',
 };

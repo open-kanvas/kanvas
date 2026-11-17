@@ -19,8 +19,6 @@ const browserInput=z.object({tabId:tab,requestId:tab,expectedRevision:z.number()
 
 /** Bounded navigation is not content editing. Each browser acknowledges its own
  * frame; a stored command never claims all screens have painted it. */
-/** Bounded navigation is not content editing. Each browser acknowledges its own
- * frame; a stored command never claims all screens have painted it. */
 export class Navigation {
     constructor(readonly service: KanvasService) { }
     private key(displayId: string, viewerId?: string) { return hash(`${displayId}:${viewerId ?? 'shared'}`); }

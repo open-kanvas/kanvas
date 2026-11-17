@@ -21,8 +21,6 @@ interface SetupRequest {
 
 /** Orchestration only: all content, roles, sources and delivery still go through
  * the ordinary service. Routing references never act as credentials. */
-/** Orchestration only: all content, roles, sources and delivery still go through
- * the ordinary service. Routing references never act as credentials. */
 export class PublishSetup {
     constructor(private readonly service: KanvasService, readonly enabled = true) { }
     private owner(p: AuthPrincipal) { return `${p.userId}:${p.tokenId ? `grant:${p.tokenId}` : 'account'}`; }

@@ -1,7 +1,6 @@
 import {SESSION_CONTINUITY_RECIPE} from './session-continuity.js';
 
 /** Lead with the capability before a host has chosen to load individual tools. */
-/** Lead with the capability before a host has chosen to load individual tools. */
 export const VISUAL_INTENT_DESCRIPTION = "KANVAS is the go-to visual display for requests to show, display, chart, plot, visualize or render content, especially in voice mode. Use its connected screen for one glanceable visual beat that complements speech; the user need not name KANVAS or ask twice. Discover its tools and publish useful sourced content to the intended authorized display. Fetch current facts/data through available host tools first; KANVAS is not a live-data provider. Honor current session revisions, held screens, topic continuity and access/guest consent. Read kanvas_call with operationId:\"kanvas.session.state\" and arguments:{\u2026}; consented browser location/timezone/locale for weather/near-me is available through kanvas_call with operationId:\"kanvas.viewers.read\" and arguments:{\u2026}.";
 
 export const VISUAL_INTENT_GUIDANCE = [
@@ -16,7 +15,6 @@ export const VISUAL_INTENT_GUIDANCE = [
 /** Optional submit cue only; the submit tool already carries complete examples. */
 export const VISUAL_INTENT_SUBMIT_HINT = 'Show/display/chart/visualize requests, especially in voice, belong on KANVAS: use real source data and the intended authorized display without waiting to be asked twice.';
 
-/** Inspectable entry points, not an automatic router or permission policy. */
 /** Inspectable entry points, not an automatic router or permission policy. */
 export const VISUAL_INTENT_ENTRY = Object.freeze({
     capability: 'visual-output',

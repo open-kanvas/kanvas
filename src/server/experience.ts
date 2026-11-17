@@ -33,7 +33,6 @@ interface LogRecord {id:string;sessionId:string;displayId?:string;updateId?:stri
 const slot=z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 
 /** Additional display capabilities use the same revocable account/session boundary as publishing. */
-/** Additional display capabilities use the same revocable account/session boundary as publishing. */
 export class Experience {
     private observations = new EventEmitter();
     private inspections = new Map<string, InspectionOptions & {

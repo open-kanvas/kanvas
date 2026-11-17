@@ -119,7 +119,6 @@ const renderingMessages: Record<string, string> = {
     INVALID_ASSET_REFERENCE: 'The selected asset does not support this template. Choose compatible media or use its attachment link.',
 };
 /** Domain/transport exceptions may contain credentials, SQL, or private inputs. Never echo them. */
-/** Domain/transport exceptions may contain credentials, SQL, or private inputs. Never echo them. */
 export function safeError(error: unknown): SafeError {
     if (error instanceof LimitError)
         return { code: error.code, message: error.message, limit: error.limitDetails };
@@ -171,9 +170,6 @@ export function safeError(error: unknown): SafeError {
 }
 export function toolFailure(error: unknown, diagnosticId?: string, profile: McpProfile = "discovery", canonicalName?: string): CallToolResult {
     const failure = { ...safeError(error), ...(diagnosticId ? { diagnosticId } : {}) };
-    const grouped = true;
-    const help = publicReference("kanvas.help", profile)!;
-    const state = publicReference("kanvas.session.state", profile)!;
     const operation = canonicalName ? operationCatalog().find(item => item.id === operationId(canonicalName)) : undefined;
     const recovery = failure.code === 'INVALID_ARGUMENT' && operation ? { operationId: operation.id, get: { tool: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id: operation.id } }, ...(operation.id === 'kanvas.submit' ? { shape: SUBMIT_SHAPE } : {}), ...(failure.template ? { template: { tool: 'kanvas_discover', arguments: { catalog: 'templates', action: 'get', id: `kanvas.template.${failure.template}` } } } : {}), examples: ((operation.detail().examples ?? []) as unknown[]).filter(example => JSON.stringify(example).length < 2500).slice(0, 1), note: 'Examples are syntax only and never grant consent. Substitute authorized IDs, preserve source data, and obtain any missing explicit approval rather than copying confirm:true. Validation made no change; do not retry unchanged.' } : undefined;
     const projected = trustedGuidance(failure) as typeof failure;

@@ -6,8 +6,6 @@ export const accountInventorySchema = z.object({
 
 /** Which operations read or change each account resource (canonical names;
  * MCP profiles show their own tool and operation names). */
-/** Which operations read or change each account resource (canonical names;
- * MCP profiles show their own tool and operation names). */
 export const ACCOUNT_MANAGE = {
     sessions: { read: ["kanvas.sessions.list", "kanvas.session.state", "kanvas.session.overview"], change: ["kanvas.session.create", "kanvas.session.rename", "kanvas.config.update", "kanvas.session.context.set", "kanvas.session.end"] },
     displays: { read: ["kanvas.topology.read", "kanvas.display.current", "kanvas.displays.sync.read"], change: ["kanvas.display.register", "kanvas.display.rename", "kanvas.display.update", "kanvas.clear", "kanvas.displays.identify", "kanvas.displays.sync"] },

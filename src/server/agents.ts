@@ -34,7 +34,6 @@ export function agentType(clientName?:string,userAgent?:string):string{
  return 'Custom agent';
 }
 /** Activity worth a line in an agent's log. Names only, no content. */
-/** Activity worth a line in an agent's log. Names only, no content. */
 const NOTABLE: Record<string, string> = { "kanvas.submit": 'published a view', "kanvas.session.create": 'created a session', "kanvas.login.decide": 'decided a device sign-in', "kanvas.pairing.decide": 'decided a browser request', "kanvas.screen.decide": 'decided a screen enrollment', "kanvas.feedback.submit": 'filed feedback', "kanvas.error.report": 'filed an error report', "kanvas.member.add": 'added a member', "kanvas.share.create": 'created a share link', "kanvas.session.end": 'ended a session', "kanvas.agents.revoke": 'revoked an agent', "kanvas.monitor.stream.create": 'created a monitor stream', "kanvas.device.lock": 'locked a device', "kanvas.device.unlock": 'unlocked a device' };
 const identifier=z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 export const agentsReadSchema=z.strictObject({agentId:identifier.optional(),limit:z.number().int().min(1).max(100).default(50)});

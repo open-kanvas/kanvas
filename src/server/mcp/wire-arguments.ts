@@ -20,9 +20,6 @@ function decimal(value: string): string | undefined {
 /** Compatibility for hosts using a cached/untyped parameter projection. Decode
  * one layer of JSON only where the selected canonical schema excludes text.
  * Never recurse into source text, infer consent, or change the REST contract. */
-/** Compatibility for hosts using a cached/untyped parameter projection. Decode
- * one layer of JSON only where the selected canonical schema excludes text.
- * Never recurse into source text, infer consent, or change the REST contract. */
 export function decodeWireArguments(canonicalName: string, raw: unknown): unknown {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw))
         return raw;

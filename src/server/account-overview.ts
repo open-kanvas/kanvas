@@ -18,8 +18,6 @@ export async function sharingLevel(service:KanvasService,session:{id:string;publ
 
 /** No thumbnail executes a renderer, loads media, or fetches remote content.
  * Only bounded scalar projections leave the server; full views stay in storage. */
-/** No thumbnail executes a renderer, loads media, or fetches remote content.
- * Only bounded scalar projections leave the server; full views stay in storage. */
 export async function accountOverview(service: KanvasService, p: AuthPrincipal, offset = 0) {
     await service.fullAccount(p);
     const entryIds = new Set((await service.store.list<{

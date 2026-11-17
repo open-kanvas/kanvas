@@ -23,8 +23,6 @@ interface LiveWindow {principal:AuthPrincipal;count:number}
 
 /** A tab address selects a receiver, never grants access. Each tab has its own
  * command and paint receipt, even when all tabs share the same auth cookie. */
-/** A tab address selects a receiver, never grants access. Each tab has its own
- * command and paint receipt, even when all tabs share the same auth cookie. */
 export class WindowReceivers {
     private live = new Map<string, LiveWindow>();
     private events = new EventEmitter();

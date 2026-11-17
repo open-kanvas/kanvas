@@ -55,8 +55,6 @@ const PUBLISH_OPERATIONS = new Set(["kanvas.submit"]);
 const settled = (status: unknown) => typeof status === 'string' && ['accepted', 'prepared', 'applied', 'delivered', 'painted', 'published'].includes(status);
 /** Pure decision: returns the structured result to send. `structured` is the
  * tool's own result; it is never mutated. */
-/** Pure decision: returns the structured result to send. `structured` is the
- * tool's own result; it is never mutated. */
 export function applyResponsePolicy(structured: Record<string, unknown> | undefined, input: {
     state: ContactState;
     context: ResponseContext;

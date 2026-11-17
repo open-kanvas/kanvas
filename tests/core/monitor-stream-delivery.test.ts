@@ -10,13 +10,6 @@ import type {ViewSpec} from '../../src/shared/types.js';
  *
  * No case sleeps. A request counts as held once the server reports a waiting place taken, and every
  * change is awaited before the sentinel is posted. */
-/** A display bound to a monitor stream holds its request open until an event arrives (up to 20 s).
- * The request was admitted when it started. These cases change what the caller may see while the
- * request is held, then post a distinct sentinel event to wake it. The answer must be the one a
- * new request would get: the sentinel is delivered only to a caller who may still read it.
- *
- * No case sleeps. A request counts as held once the server reports a waiting place taken, and every
- * change is awaited before the sentinel is posted. */
 describe('monitor stream: a held request is admitted again when it is answered', () => {
     let h: Harness, o: Browser, s: string, d: string, p: {
         userId: string;

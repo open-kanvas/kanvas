@@ -1,7 +1,5 @@
 /** Annotation-only guidance. The host owns conversation memory and output;
  * this module neither creates URLs nor tracks whether a human received one. */
-/** Annotation-only guidance. The host owns conversation memory and output;
- * this module neither creates URLs nor tracks whether a human received one. */
 export const FIRST_DISPLAY_LINK_GUIDANCE = [
     "First contact: prefer an authenticated connected receiver. Ask the human to open the bare environment startUrl and sign in; then use account.begin/devices.read and kanvas_call with operationId:\"kanvas.window.present\" and arguments:{\u2026} (one tab) or kanvas_call with operationId:\"kanvas.device.present\" and arguments:{\u2026} (all intended windows). Do not read long session/view paths aloud.",
     "When a direct link is actually needed, prefer the returned shortUrl (or kanvas_call with operationId:\"kanvas.address.get\" and arguments:{\u2026} url), as literal, clickable, copyable text. Use returned viewerUrl only when no short locator is available. In voice mode also provide the actual URL as text; if the host cannot provide text, explain that limitation.",
@@ -12,7 +10,6 @@ export const FIRST_DISPLAY_LINK_GUIDANCE = [
 
 export const MAX_VIEWER_LINK_GUIDANCE_CHARACTERS = 2048;
 
-/** Operation-specific suffixes, kept independent of the catalogue/guide cycle. */
 /** Operation-specific suffixes, kept independent of the catalogue/guide cycle. */
 export const VIEWER_LINK_TOOL_GUIDANCE = Object.freeze({
     "kanvas.session.create": "kanvas_call with operationId:\"kanvas.session.create\" and arguments:{\u2026} returns an initial blank Main display and its real viewerUrl by default. Set initialDisplay:false only for an intentionally headless session. A locator never grants access or proves paint; use the returned initial display instead of registering a duplicate.",

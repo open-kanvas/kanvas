@@ -2,7 +2,6 @@
 
 /** Independent operation inventories used by HTTP contract scenarios. */
 /** Independent operation inventories used by HTTP contract scenarios. */
-/** Independent operation inventories used by HTTP contract scenarios. */
 export const ACCOUNT_MAPPING = [
     ["kanvas.archive.list", "kanvas_call", "kanvas.archive.list"],
     ["kanvas.archive.manage", "kanvas_call", "kanvas.archive.manage"],

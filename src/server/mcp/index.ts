@@ -103,7 +103,6 @@ function authorizationSnapshot(req: Request): Request {
     return snapshot;
 }
 /** Mount one authenticated endpoint; the SDK classifies and serves each protocol era. */
-/** Mount one authenticated endpoint; the SDK classifies and serves each protocol era. */
 export function mountMcp(app: Express, service: McpService, options: McpOptions = {}): McpMount {
     const path = options.path ?? '/mcp';
     mcpProfile(options.profile); // Validate historical settings; the wire contract is always discovery.

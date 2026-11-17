@@ -5,7 +5,6 @@ import {accountInventorySchema} from '../../shared/account-inventory.js';
 import type {Definition} from './canonical.js';
 
 /** Account-level reach: one inventory read, and moving a live browser window across sessions. */
-/** Account-level reach: one inventory read, and moving a live browser window across sessions. */
 export const homeTools: Definition[] = [
     {
         name: "kanvas.account.details", readOnly: true, description: 'Read only YOUR signed-in account email, display name, quota tier and configured limits. No accountId argument; account-wide permission required. Returns a ready account-details view recipe: publish only on a private display chosen by the user, since email is personal.', schema: z.strictObject({}),

@@ -16,11 +16,11 @@ function inlineExamples(description: string): Record<string, unknown>[] {
         return match ? [JSON.parse(match[1]) as Record<string, unknown>] : [];
     });
 }
-describe('legacy discovery compatibility and usable examples', () => {
-    // Full per-operation schema/runtime parity is owned by twelve-schema.test.
-    // Check legacy-specific inline delivery, plus materializable content; do not
+describe('operation discovery metadata and usable examples', () => {
+    // Full per-operation schema/runtime contracts are owned by public-operation-contracts.test.
+    // Check inline discovery metadata and materializable content; do not
     // repeat 57 tests comparing metadata with the constants that generated it.
-    it('supplies usable legacy examples, including prepared source and reproduction prose', () => {
+    it('supplies usable operation examples, including prepared source and reproduction prose', () => {
         for (const name of ["kanvas.submit", "kanvas.display.register", "kanvas.presentation.create", "kanvas.display.edit", "kanvas.pairing.decide", "kanvas.error.report", "kanvas.monitoring.start"]) {
             const tool = published.find(item => item.name === name)!, definition = MCP_TOOLS.find(item => item.name === name)!;
             const examples = inlineExamples(tool.description!);

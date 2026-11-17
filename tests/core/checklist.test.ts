@@ -263,17 +263,13 @@ describe("checklist coverage 4", () => {
     async function principal(a: Browser) { const session = await h.runtime.auth.issueBrowser(a.user!.id, { cookie: () => { } } as unknown as Response); return { userId: a.user!.id, browserId: session.id }; }
     const view = { version: 1 as const, template: 'checklist' as const, title: 'Release tasks', data: { items: [{ id: 'a', text: 'Review', checked: false }, { id: 'b', text: 'Test', checked: false }] } };
     describe("checklist contracts", () => {
-        it('discovers account details and checklist operations in all profiles', () => {
-            for (const [canonical, domain, op, twelve, args] of [
-                ["kanvas.account.details", 'kanvas_account', 'details', 'account.details', {}],
-                ["kanvas.checklist.read", 'kanvas_checklist', 'read', 'checklist.read', { sessionId: 's' }],
-                ["kanvas.checklist.update", 'kanvas_checklist', 'update', 'checklist.update', { sessionId: 's', checklistId: 'c', expectedRevision: 0, requestId: 'r', items: [] }],
-                ["kanvas.checklist.show", 'kanvas_checklist', 'show', 'checklist.show', { sessionId: 's', checklistId: 'c', displayId: 'd', expectedRevision: 0, requestId: 'r' }],
-            ] as const) {
-                expect(resolveToolCall('legacy', canonical, args).error).toBeUndefined();
-                expect(resolveToolCall('domains', domain, { operation: op, ...args }).error).toBeUndefined();
-                expect(resolveToolCall('twelve', op === 'details' || op === 'read' ? 'kanvas_inspect' : 'kanvas_publish', { operation: twelve, ...args }).error).toBeUndefined();
-            }
+        it('discovers account details and checklist operations through the public dispatcher', () => {
+            for (const [operationId, args] of [
+                ['kanvas.account.details', {}],
+                ['kanvas.checklist.read', {sessionId:'s'}],
+                ['kanvas.checklist.update', {sessionId:'s',checklistId:'c',expectedRevision:0,requestId:'r',items:[]}],
+                ['kanvas.checklist.show', {sessionId:'s',checklistId:'c',displayId:'d',expectedRevision:0,requestId:'r'}],
+            ] as const) expect(resolveToolCall('discovery','kanvas_call',{operationId,arguments:args}).error).toBeUndefined();
         });
         it('saved checklist survives display replacement, fresh module instance and show on another screen', async () => {
             h = await startHarness();

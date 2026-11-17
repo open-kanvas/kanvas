@@ -27,7 +27,6 @@ export const KANVAS_INSTRUCTIONS = [
 ].join('\n\n');
 
 /** A bounded push-layer hint; does not alter the operation's data or embed live settings. */
-/** A bounded push-layer hint; does not alter the operation's data or embed live settings. */
 export function orientationFor(tool: string): Record<string, unknown> | undefined {
     if (!["kanvas.sessions.list", "kanvas.session.create", "kanvas.session.overview", "kanvas.display.register", "kanvas.submit", "kanvas.display.current", "kanvas.session.state", "kanvas.template.get", "kanvas.address.get"].includes(tool))
         return;

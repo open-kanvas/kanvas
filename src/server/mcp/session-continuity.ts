@@ -1,7 +1,5 @@
 /** Static host guidance, not a session matcher. MCP connections and credentials
  * are not conversation IDs; this module never chooses or mutates a session. */
-/** Static host guidance, not a session matcher. MCP connections and credentials
- * are not conversation IDs; this module never chooses or mutates a session. */
 export const SESSION_CONTINUITY_GUIDANCE = [
     "New unrelated topic, or a new host conversation without continuation evidence: default to a clean session with a short, human-meaningful subject name, using kanvas_call with operationId:\"kanvas.submit\" and arguments:{\u2026} with newSession:true and sessionName when authorized (kanvas_call with operationId:\"kanvas.session.create\" and arguments:{\u2026} remains for explicit management). Do not select the most recently updated session.",
     'Continue the intended current session/display within the same ongoing topic; do not create a session for every message, content revision or MCP reconnect. Reuse a previous session only on explicit user continuation or an inspected, unambiguous name/content match. Resolve a named reference to the intended accessible session, not just any identical name.',
@@ -17,8 +15,6 @@ export const MAX_SESSION_CONTINUITY_RECIPE_CHARACTERS = 6144;
 
 /** Suffixes have no dependency on the catalogue or guide. Grants describe
  * access, not whether a particular session belongs to the current topic. */
-/** Suffixes have no dependency on the catalogue or guide. Grants describe
- * access, not whether a particular session belongs to the current topic. */
 export const SESSION_CONTINUITY_TOOL_GUIDANCE = Object.freeze({
     "kanvas.session.create": 'For a new unrelated topic/conversation, default to a new session unless continuation is explicit or unambiguous. Give it a meaningful subject name, such as "Kanvas Demo for Alex", not a generic label or timestamp. Creation requires publish authority and is unavailable to a selected-session connection; it does not end or reuse an old session.',
     "kanvas.sessions.list": "Use names to discover deliberate continuation candidates, not to choose the latest updatedAt or first result. An accessible or uniquely selected session may still be unrelated. For a fresh topic prefer authorized creation; inspect plausible matches with kanvas_call with operationId:\"kanvas.session.overview\" and arguments:{\u2026} instead of treating name equality or recency as proof.",
@@ -31,8 +27,6 @@ export function sessionContinuityGuidanceFor(tool: string): string | undefined {
   return `${SESSION_CONTINUITY_GUIDANCE}\n${SESSION_CONTINUITY_TOOL_GUIDANCE[tool as keyof typeof SESSION_CONTINUITY_TOOL_GUIDANCE]}`;
 }
 
-/** Ordered reasoning prompts and illustrative outcomes, not executable rules
- * or claims that a host can be automatically identified across platforms. */
 /** Ordered reasoning prompts and illustrative outcomes, not executable rules
  * or claims that a host can be automatically identified across platforms. */
 export const SESSION_CONTINUITY_RECIPE = Object.freeze({

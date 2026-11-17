@@ -1,5 +1,6 @@
+import type {Definition} from './canonical.js';
 import {invitationSchema} from '../../shared/invitations.js';
-export const invitationTools = [{
+export const invitationTools: readonly Definition[] = [{
         name: "kanvas.invite.create", description: 'Create a general onboarding invitation or, with groupId, a single-use member invitation for an administered group. Explicit acceptance follows account verification. Creates an artifact only; sends no message and grants no session access.', schema: invitationSchema, idempotent: true,
         domain: "members",
         requiredScope: "publish" as const,

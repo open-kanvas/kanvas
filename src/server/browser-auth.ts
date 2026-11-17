@@ -1,3 +1,4 @@
+import type {Definition} from './mcp/canonical.js';
 import {z} from 'zod';
 import {hash,fullBrowser,type AuthPrincipal,type BrowserSession,type Token} from './auth.js';
 import type {KanvasService} from './domain.js';
@@ -38,7 +39,7 @@ export class BrowserAuth {
   return {revoked:true,count:rows.length};
  });}
 }
-export const browserAuthTools = [
+export const browserAuthTools: readonly Definition[] = [
     {
         name: "kanvas.browser.auth.list", description: 'List your actual full-account browser sign-ins (not view-only pairings or OAuth clients). Requires account-level publish authority. Returns management IDs, never cookies or CSRF secrets.', schema: browserListSchema, readOnly: true,
         domain: "account",

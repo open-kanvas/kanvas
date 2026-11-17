@@ -1,3 +1,4 @@
+import type {Definition} from './canonical.js';
 import {TOAST_TYPES} from '../../shared/viewer-experience.js';
 import {loginReadSchema,loginDecideSchema} from '../device-login.js';
 import {screenReadSchema,screenDecideSchema} from '../screen-enrollment.js';
@@ -10,7 +11,7 @@ import {configPatchSchema} from '../../shared/preferences.js';
 import {PROCEDURE_ACTIONS} from '../../shared/procedure.js';
 const id=z.string().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/),revision=z.number().int().nonnegative(),session={sessionId:id},display={...session,displayId:id};
 const requestId=z.string().min(1).max(128);
-export const experienceTools = [
+export const experienceTools: readonly Definition[] = [
     {
         name: "kanvas.notifications.targets", description: "List your named active browser/PWA push targets, without endpoints or keys. Each subscription is one browser profile/app, not necessarily one physical device. To enable a target, kanvas_call with operationId:\"kanvas.screen.control\" and arguments:{\u2026} action notifications opens native setup for the user to click.", schema: z.strictObject({}), readOnly: true,
         domain: "notifications",

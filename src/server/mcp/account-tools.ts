@@ -1,7 +1,8 @@
+import type {Definition} from './canonical.js';
 import {z} from 'zod';
 import {activityQuerySchema,analyticsQuerySchema,groupCreateSchema,groupUpdateSchema,groupMemberSchema,groupGrantSchema,sessionContextSchema,profileUpdateSchema,topologyQuerySchema} from '../../shared/accounts.js';
 const id=z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
-export const accountTools = [
+export const accountTools: readonly Definition[] = [
     {
         name: "kanvas.profile.read", description: 'Read the current account profile and optional avatar. Account-wide authorization required.', schema: z.object({}).strict(), readOnly: true,
         domain: "profile",

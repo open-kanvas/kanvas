@@ -1,3 +1,4 @@
+import type {Definition} from './mcp/canonical.js';
 import {readFile} from 'node:fs/promises';
 import {z} from 'zod';
 import {hash,type AuthPrincipal} from './auth.js';
@@ -64,7 +65,7 @@ export class InviteEmail {
  });}
  private async finish(key:string,status:'sent'|'failed'){await this.service.store.atomic(async()=>{const row=await this.service.store.get<Dispatch>('invite-email-dispatch',key);if(row){row.status=status;await this.service.store.put('invite-email-dispatch',row);}});}
 }
-export const inviteEmailTools = [{
+export const inviteEmailTools: readonly Definition[] = [{
         name: "kanvas.invite.send", description: 'Explicitly send one invitation email to email using an existing onboarding/group invitationId OR session display shareId. Requires account-level publish authority, current owner/admin permission, confirm:true and requestId. Never sent by invite.create/share.create. Bounded at-most-once dispatch; exact retries check status, not resend. Opening a link never signs in or grants account access.', schema: inviteSendSchema, idempotent: true, openWorld: true,
         domain: "members",
         requiredScope: "publish" as const,

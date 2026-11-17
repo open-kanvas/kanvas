@@ -1,10 +1,11 @@
+import type {Definition} from './canonical.js';
 import {pointingConfigureSchema,pointingReadSchema} from '../../shared/pointing.js';
 import {z} from 'zod';
 import {autoplayControlSchema,autoplayReadSchema} from '../autoplay.js';
 import {toolLogAppendSchema,toolLogReadSchema} from '../tool-log.js';
 import {publicAccessSchema} from '../public-sessions.js';
 const id=z.string().min(1).max(128);
-export const eventTools = [
+export const eventTools: readonly Definition[] = [
     {
         name: "kanvas.pointing.configure", description: 'Pointing is ON by default: a tap leaves a fading named mark, a long press or double tap pins it, and what was pointed at arrives in a pointing block on your next response. OWNER: disable/enable a session, or show the on-screen Point tools, with confirm:true and settings expectedRevision (initially 0). Overlay only: no source/history edits.', schema: pointingConfigureSchema,
         domain: "viewers",

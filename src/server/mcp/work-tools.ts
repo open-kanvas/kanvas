@@ -1,3 +1,4 @@
+import type {Definition} from './canonical.js';
 import {deviceLockSchema} from '../device-privacy.js';
 import {clientDetailsSchema} from '../../shared/agent-context.js';
 import {z} from 'zod';
@@ -10,7 +11,7 @@ const id=z.string().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/),revision=z.number(
 const target={sessionId:id,displayId:id,expectedRevision:revision.optional(),requestId:id};
 export const chatAppendSchema=z.object({...target,messages:z.array(chatMessageSchema).min(1).max(100)}).strict();
 export const selectionInputSchema=z.object({...target,selection:selectionSchema.nullable()}).strict();
-export const workTools = [
+export const workTools: readonly Definition[] = [
     {
         name: "kanvas.client.context.update", description: 'Optional unverified client hints for this connection. Separate observed User-Agent/MCP identity; conflicts flagged. Private account history. Sharing helps adaptation, diagnosis and session recognition; omit unknowns.', schema: z.object({ sessionId: id, clientDetails: clientDetailsSchema }).strict(),
         domain: "session",

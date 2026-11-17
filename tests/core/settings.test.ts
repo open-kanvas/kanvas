@@ -243,7 +243,7 @@ describe("settings coverage 3", () => {
             expect(serverWebsiteUrl(false)).toBeUndefined();
             expect(serverWebsiteUrl('http://insecure.example')).toBeUndefined();
             expect(serverWebsiteUrl('javascript:alert(1)')).toBeUndefined();
-            expect(KANVAS_VERSION).toBe('0.38.0');
+            expect(KANVAS_VERSION).toBe('0.39.0');
             expect(mailSenderAddress('KANVAS <noreply@example.com>')).toBe('noreply@example.com');
             expect(mailSenderAddress('kanvas@open-kanvas.ai')).toBe('kanvas@open-kanvas.ai');
             expect(mailSenderAddress('not an address')).toBeUndefined();

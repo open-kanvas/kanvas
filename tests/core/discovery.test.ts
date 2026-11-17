@@ -47,14 +47,14 @@ import { resolveToolCall } from '../../src/server/mcp/catalog.js';
 describe("discovery coverage 1", () => {
     let h!: Harness;
     afterEach(async () => { await h?.close(); });
-    it('describes document-only reading settings and current-view zoom in discoverable schemas', () => {
+    it('describes document and Markdown reading settings separately from current-view zoom', () => {
         const tools = canonicalToolDefinitions();
         const config = tools.find(t => t.name === "kanvas.config.update")!;
-        expect(config.description).toContain('only to documents');
+        expect(config.description).toContain('documents using the reading layout and markdown reading views');
         for (const field of ['readingFontSize', 'readingWpm', 'readingZoom']) {
             const serialized = JSON.stringify(config.inputSchema);
             expect(serialized).toContain(field);
-            expect(serialized).toContain('only documents using the reading layout');
+            expect(serialized).toContain('documents using the reading layout and Markdown views');
         }
         expect(tools.find(t => t.name === "kanvas.navigation.control")!.description).toContain('enlarge the current view');
     });

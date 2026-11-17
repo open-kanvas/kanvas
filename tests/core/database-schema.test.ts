@@ -20,11 +20,11 @@ import { rawEvent } from '../../src/server/raw-events.js';
 import { recordHttpOperation } from '../../src/server/raw-events.js';
 
 describe("database schema coverage 1", () => {
-
-const toastSchema=experienceTools.find(t=>t.name==='kanvas_toast')!.schema;
-it('database schema preserves 12+ columns and validates explicit relationship endpoints',()=>{
- const columns=Array.from({length:14},(_,i)=>({schema:'public',table:'events',column:'field'+i,type:'text',nullable:i>0,primaryKey:i===0}));
- const v=validateView({template:'database-schema',data:{columns,relationships:[{from:{schema:'public',table:'events',column:'field1'},to:{schema:'public',table:'events',column:'field0'},kind:'inferred'}]}});expect(v.data.columns).toEqual(columns);
- expect(()=>validateView({...v,data:{...v.data,relationships:[{from:{table:'missing',column:'id'},to:{table:'missing',column:'id'},kind:'declared'}]}})).toThrow();
-});
+    const toastSchema = experienceTools.find(t => t.name === "kanvas.toast")!.schema;
+    it('database schema preserves 12+ columns and validates explicit relationship endpoints', () => {
+        const columns = Array.from({ length: 14 }, (_, i) => ({ schema: 'public', table: 'events', column: 'field' + i, type: 'text', nullable: i > 0, primaryKey: i === 0 }));
+        const v = validateView({ template: 'database-schema', data: { columns, relationships: [{ from: { schema: 'public', table: 'events', column: 'field1' }, to: { schema: 'public', table: 'events', column: 'field0' }, kind: 'inferred' }] } });
+        expect(v.data.columns).toEqual(columns);
+        expect(() => validateView({ ...v, data: { ...v.data, relationships: [{ from: { table: 'missing', column: 'id' }, to: { table: 'missing', column: 'id' }, kind: 'declared' }] } })).toThrow();
+    });
 });

@@ -120,43 +120,79 @@ describe("events contracts",()=>{
 });
 
 describe("events coverage 2", () => {
-
-const toastSchema=experienceTools.find(t=>t.name==='kanvas_toast')!.schema;
-describe("events contracts",()=>{
- let h!:Harness,owner:Browser,s:string,d:string;const p=()=>({userId:owner.user!.id});
- beforeEach(async()=>{h=await startHarness();owner=await h.account();s=(await owner.session()).id;d=(await owner.display(s)).id;await vi.waitFor(async()=>expect((await h.runtime.store.query("SELECT count(*)::int n FROM events WHERE event_type='browser.operation' AND operation='kanvas_display_register'")).rows[0].n).toBe(1));});afterEach(async()=>{await h?.close();});
- it('suppresses housekeeping only, retains failures/actions and preserves historical rows',async()=>{
-  const store=h.runtime.store;await rawEvent(store,'historical.fixture',{sessionId:s,properties:{sentinel:'preserved'}});
-  const before=await store.query('SELECT * FROM events ORDER BY occurred_at,event_id');
-  for(let i=0;i<50;i++){await store.put('navigation-viewport',{id:'v',sessionId:s,width:390});await store.put('registered-window',{id:'w',sessionId:s});await store.put('connection-history',{id:'c',sessionId:s});await h.runtime.service.accounts.recordRequest('api',200,1,'fixture');}
-  expect((await store.query('SELECT count(*)::int n FROM events')).rows[0].n).toBe(before.rows.length);
-  await h.runtime.service.accounts.recordRequest('api',500,2,'fixture-failure');await rawEvent(store,'tool.call',{sessionId:s,operation:'fixture.operation',status:'success'});
-  const after=await store.query('SELECT * FROM events ORDER BY occurred_at,event_id');expect(after.rows.slice(0,before.rows.length)).toEqual(before.rows);expect(after.rows).toHaveLength(before.rows.length+2);
-  expect(after.rows.at(-1)?.properties.serverVersion).toBe(KANVAS_VERSION);
- });
- it('retains an authenticated browser upload operation without copying uploaded bytes or filename',async()=>{
-  const result=await owner.request('POST',`/api/sessions/${s}/assets`,{name:'private-upload-name-7721.png',mimeType:'image/png',base64:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6Ot8AAAAASUVORK5CYII='});expect(result.status).toBe(201);
-  await vi.waitFor(async()=>{const rows=(await h.runtime.store.query("SELECT * FROM events WHERE event_type='browser.operation' AND operation='POST /api/sessions/:id/assets'")).rows;expect(rows).toHaveLength(1);expect(rows[0].user_id).toBe(owner.user!.id);expect(JSON.stringify(rows)).not.toContain('private-upload-name-7721');expect(JSON.stringify(rows)).not.toContain('iVBORw0KGgo');});
- });
- it('omits credential renewal snapshots while retaining creation and explicit authentication changes',async()=>{
-  const store=h.runtime.store,browser=await h.runtime.auth.issueBrowser(owner.user!.id,{cookie:()=>{}} as any);const count=async()=>Number((await store.query("SELECT count(*) n FROM events WHERE event_type='document.browser'")).rows[0].n),before=await count();
-  const current=await store.get<any>('browser',browser.id);current.lastActiveAt=new Date().toISOString();current.renewedAt=Date.now()+1;current.expiresAt+=1000;current.idleExpiresAt=current.expiresAt;await store.put('browser',current);expect(await count()).toBe(before);current.authenticatedAt+=1000;await store.put('browser',current);expect(await count()).toBe(before+1);
- });});
-
-describe('event privacy and idle-volume boundaries',()=>{
- let h!:Harness;afterEach(async()=>{await h?.close();});
- it('keeps connect/disconnect, but sixty simulated heartbeat touches write no event rows',async()=>{
-  h=await startHarness();const owner=await h.account(),s=(await owner.session()).id,d=(await owner.display(s)).id;
-  const browser=await h.runtime.auth.issueBrowser(owner.user!.id,{cookie:()=>{}} as any);
-  const connection=await h.runtime.service.experience.receiving.connect({userId:owner.user!.id,browserId:browser.id},s,d,'idle-tab','Synthetic Browser');
-  const count=Number((await h.runtime.store.query('SELECT count(*) n FROM events')).rows[0].n);for(let i=0;i<60;i++)connection.touch();
-  expect(Number((await h.runtime.store.query('SELECT count(*) n FROM events')).rows[0].n)).toBe(count);expect((await h.runtime.store.query("SELECT event_type FROM events WHERE event_type='connection.connect'")).rows).toHaveLength(1);connection.disconnect();
- });
- it('meaningful HTTP event context excludes test credentials, body, query and raw IP',async()=>{
-  h=await startHarness();const owner=await h.account();const secrets=['private-query-7721','private-body-7721','private-header-7721','203.0.113.77'];
-  success(await owner.request('POST','/api/sessions?private='+secrets[0],{name:secrets[1]},{headers:{'X-API-Key':secrets[2],'X-Forwarded-For':secrets[3]}}));
-  const rows=(await h.runtime.store.query('SELECT * FROM events')).rows;expect(rows.some(r=>r.event_type==='document.session')).toBe(true);const serialized=JSON.stringify(rows);for(const secret of secrets)expect(serialized).not.toContain(secret);for(const cookie of owner.cookies.values())expect(serialized).not.toContain(cookie);
- });});
+    const toastSchema = experienceTools.find(t => t.name === "kanvas.toast")!.schema;
+    describe("events contracts", () => {
+        let h!: Harness, owner: Browser, s: string, d: string;
+        const p = () => ({ userId: owner.user!.id });
+        beforeEach(async () => { h = await startHarness(); owner = await h.account(); s = (await owner.session()).id; d = (await owner.display(s)).id; await vi.waitFor(async () => expect((await h.runtime.store.query("SELECT count(*)::int n FROM events WHERE event_type='browser.operation' AND operation='kanvas_display_register'")).rows[0].n).toBe(1)); });
+        afterEach(async () => { await h?.close(); });
+        it('suppresses housekeeping only, retains failures/actions and preserves historical rows', async () => {
+            const store = h.runtime.store;
+            await rawEvent(store, 'historical.fixture', { sessionId: s, properties: { sentinel: 'preserved' } });
+            const before = await store.query('SELECT * FROM events ORDER BY occurred_at,event_id');
+            for (let i = 0; i < 50; i++) {
+                await store.put('navigation-viewport', { id: 'v', sessionId: s, width: 390 });
+                await store.put('registered-window', { id: 'w', sessionId: s });
+                await store.put('connection-history', { id: 'c', sessionId: s });
+                await h.runtime.service.accounts.recordRequest('api', 200, 1, 'fixture');
+            }
+            expect((await store.query('SELECT count(*)::int n FROM events')).rows[0].n).toBe(before.rows.length);
+            await h.runtime.service.accounts.recordRequest('api', 500, 2, 'fixture-failure');
+            await rawEvent(store, 'tool.call', { sessionId: s, operation: 'fixture.operation', status: 'success' });
+            const after = await store.query('SELECT * FROM events ORDER BY occurred_at,event_id');
+            expect(after.rows.slice(0, before.rows.length)).toEqual(before.rows);
+            expect(after.rows).toHaveLength(before.rows.length + 2);
+            expect(after.rows.at(-1)?.properties.serverVersion).toBe(KANVAS_VERSION);
+        });
+        it('retains an authenticated browser upload operation without copying uploaded bytes or filename', async () => {
+            const result = await owner.request('POST', `/api/sessions/${s}/assets`, { name: 'private-upload-name-7721.png', mimeType: 'image/png', base64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6Ot8AAAAASUVORK5CYII=' });
+            expect(result.status).toBe(201);
+            await vi.waitFor(async () => { const rows = (await h.runtime.store.query("SELECT * FROM events WHERE event_type='browser.operation' AND operation='POST /api/sessions/:id/assets'")).rows; expect(rows).toHaveLength(1); expect(rows[0].user_id).toBe(owner.user!.id); expect(JSON.stringify(rows)).not.toContain('private-upload-name-7721'); expect(JSON.stringify(rows)).not.toContain('iVBORw0KGgo'); });
+        });
+        it('omits credential renewal snapshots while retaining creation and explicit authentication changes', async () => {
+            const store = h.runtime.store, browser = await h.runtime.auth.issueBrowser(owner.user!.id, { cookie: () => { } } as any);
+            const count = async () => Number((await store.query("SELECT count(*) n FROM events WHERE event_type='document.browser'")).rows[0].n), before = await count();
+            const current = await store.get<any>('browser', browser.id);
+            current.lastActiveAt = new Date().toISOString();
+            current.renewedAt = Date.now() + 1;
+            current.expiresAt += 1000;
+            current.idleExpiresAt = current.expiresAt;
+            await store.put('browser', current);
+            expect(await count()).toBe(before);
+            current.authenticatedAt += 1000;
+            await store.put('browser', current);
+            expect(await count()).toBe(before + 1);
+        });
+    });
+    describe('event privacy and idle-volume boundaries', () => {
+        let h!: Harness;
+        afterEach(async () => { await h?.close(); });
+        it('keeps connect/disconnect, but sixty simulated heartbeat touches write no event rows', async () => {
+            h = await startHarness();
+            const owner = await h.account(), s = (await owner.session()).id, d = (await owner.display(s)).id;
+            const browser = await h.runtime.auth.issueBrowser(owner.user!.id, { cookie: () => { } } as any);
+            const connection = await h.runtime.service.experience.receiving.connect({ userId: owner.user!.id, browserId: browser.id }, s, d, 'idle-tab', 'Synthetic Browser');
+            const count = Number((await h.runtime.store.query('SELECT count(*) n FROM events')).rows[0].n);
+            for (let i = 0; i < 60; i++)
+                connection.touch();
+            expect(Number((await h.runtime.store.query('SELECT count(*) n FROM events')).rows[0].n)).toBe(count);
+            expect((await h.runtime.store.query("SELECT event_type FROM events WHERE event_type='connection.connect'")).rows).toHaveLength(1);
+            connection.disconnect();
+        });
+        it('meaningful HTTP event context excludes test credentials, body, query and raw IP', async () => {
+            h = await startHarness();
+            const owner = await h.account();
+            const secrets = ['private-query-7721', 'private-body-7721', 'private-header-7721', '203.0.113.77'];
+            success(await owner.request('POST', '/api/sessions?private=' + secrets[0], { name: secrets[1] }, { headers: { 'X-API-Key': secrets[2], 'X-Forwarded-For': secrets[3] } }));
+            const rows = (await h.runtime.store.query('SELECT * FROM events')).rows;
+            expect(rows.some(r => r.event_type === 'document.session')).toBe(true);
+            const serialized = JSON.stringify(rows);
+            for (const secret of secrets)
+                expect(serialized).not.toContain(secret);
+            for (const cookie of owner.cookies.values())
+                expect(serialized).not.toContain(cookie);
+        });
+    });
 });
 
 describe("events coverage 3", () => {
@@ -200,19 +236,35 @@ describe("events contracts",()=>{
 });
 
 describe("events coverage 6", () => {
-
-
-describe("events contracts",()=>{
-  let h!:Harness,owner:Browser,sessionId:string,displayId:string,p:AuthPrincipal;
-  const path=()=>`/api/sessions/${sessionId}/displays/${displayId}`;
-  const call=async (name:string,args:unknown)=>(await h.runtime.service.execute(name,args,p));
-  beforeEach(async()=>{h=await startHarness();owner=await h.account();sessionId=(await owner.session()).id;displayId=(await owner.display(sessionId)).id;p={userId:owner.user!.id};});
-  afterEach(async()=>{await h?.close();});
-  it('logs receipt, preparation, push and actual acknowledgement with pagination and scoped access',async()=>{
-    const requestId=randomUUID();await owner.submit(sessionId,[displayId],fact('Logged source'),requestId);
-    let log=await call('kanvas_session_log',{sessionId,requestId}) as {entries:{stage:string}[]};expect(log.entries.map(x=>x.stage)).toEqual(expect.arrayContaining(['submission.received','render.started','render.prepared','view.pushed']));expect(log.entries.some(x=>x.stage==='viewer.acknowledged')).toBe(false);
-    success(await owner.request('POST',`${path()}/applied`,{revision:1}));log=await call('kanvas_session_log',{sessionId}) as typeof log;expect(log.entries.some(x=>x.stage==='viewer.acknowledged')).toBe(true);
-    const first=await call('kanvas_session_log',{sessionId,limit:2}) as {entries:{id:string}[];nextCursor:string};const next=await call('kanvas_session_log',{sessionId,afterId:first.nextCursor,limit:2}) as typeof first;expect(next.entries.some(x=>x.id===first.entries[0].id)).toBe(false);
-    const stranger=await h.account();await expect(h.runtime.service.execute('kanvas_session_log',{sessionId},{userId:stranger.user!.id})).rejects.toBeTruthy();
-  });});
+    describe("events contracts", () => {
+        let h!: Harness, owner: Browser, sessionId: string, displayId: string, p: AuthPrincipal;
+        const path = () => `/api/sessions/${sessionId}/displays/${displayId}`;
+        const call = async (name: string, args: unknown) => (await h.runtime.service.execute(name, args, p));
+        beforeEach(async () => { h = await startHarness(); owner = await h.account(); sessionId = (await owner.session()).id; displayId = (await owner.display(sessionId)).id; p = { userId: owner.user!.id }; });
+        afterEach(async () => { await h?.close(); });
+        it('logs receipt, preparation, push and actual acknowledgement with pagination and scoped access', async () => {
+            const requestId = randomUUID();
+            await owner.submit(sessionId, [displayId], fact('Logged source'), requestId);
+            let log = await call("kanvas.session.log", { sessionId, requestId }) as {
+                entries: {
+                    stage: string;
+                }[];
+            };
+            expect(log.entries.map(x => x.stage)).toEqual(expect.arrayContaining(['submission.received', 'render.started', 'render.prepared', 'view.pushed']));
+            expect(log.entries.some(x => x.stage === 'viewer.acknowledged')).toBe(false);
+            success(await owner.request('POST', `${path()}/applied`, { revision: 1 }));
+            log = await call("kanvas.session.log", { sessionId }) as typeof log;
+            expect(log.entries.some(x => x.stage === 'viewer.acknowledged')).toBe(true);
+            const first = await call("kanvas.session.log", { sessionId, limit: 2 }) as {
+                entries: {
+                    id: string;
+                }[];
+                nextCursor: string;
+            };
+            const next = await call("kanvas.session.log", { sessionId, afterId: first.nextCursor, limit: 2 }) as typeof first;
+            expect(next.entries.some(x => x.id === first.entries[0].id)).toBe(false);
+            const stranger = await h.account();
+            await expect(h.runtime.service.execute("kanvas.session.log", { sessionId }, { userId: stranger.user!.id })).rejects.toBeTruthy();
+        });
+    });
 });

@@ -21,15 +21,17 @@ import { CANONICAL_TOOLS } from '../../src/server/mcp/canonical';
 import { z } from 'zod';
 
 describe("vocabulary coverage 1", () => {
-
-describe("vocabulary contracts",()=>{
- let h!:Harness,o:Browser,s:string,d:string,p:{userId:string};
- beforeEach(async()=>{h=await startHarness();o=await h.account();s=(await o.session()).id;d=(await o.display(s)).id;p={userId:o.user!.id};});
- afterEach(async()=>{await h?.close();});
- const call=(name:string,args:Record<string,unknown>={})=>h.runtime.service.execute(name,args,p) as Promise<any>;
- const update=(name:string,args:Record<string,unknown>)=>call(name,{sessionId:s,displayId:d,...args});
- const publish=async(template:any,data:any)=>{const result=await o.submit(s,[d],{version:1,template,data});expect(result.update.status).toBe('prepared');return result.detail.displays.find(x=>x.id===d)!;};
- const current=async()=> (await o.detail(s)).displays.find(x=>x.id===d)!;
- const definition={name:'Team list',schema:{type:'object',properties:{title:{type:'string'},items:{type:'array',items:{type:'object',properties:{name:{type:'string'}},required:['name']}}},required:['title','items']},html:'<article><h1>{{title}}</h1><ul>{{#each items}}<li>{{name}}</li>{{/each}}</ul></article>',css:'article {padding: 24px; color: white;} h1 {font-size: 48px;}'};
- it('vocabulary help shares definitions with visual source',async()=>{const result=await call('kanvas_help',{topic:'vocabulary'});expect(JSON.stringify(result)).toContain(VOCABULARY[1].definition);await publish('vocabulary',{highlight:'Display'});});});
+    describe("vocabulary contracts", () => {
+        let h!: Harness, o: Browser, s: string, d: string, p: {
+            userId: string;
+        };
+        beforeEach(async () => { h = await startHarness(); o = await h.account(); s = (await o.session()).id; d = (await o.display(s)).id; p = { userId: o.user!.id }; });
+        afterEach(async () => { await h?.close(); });
+        const call = (name: string, args: Record<string, unknown> = {}) => h.runtime.service.execute(name, args, p) as Promise<any>;
+        const update = (name: string, args: Record<string, unknown>) => call(name, { sessionId: s, displayId: d, ...args });
+        const publish = async (template: any, data: any) => { const result = await o.submit(s, [d], { version: 1, template, data }); expect(result.update.status).toBe('prepared'); return result.detail.displays.find(x => x.id === d)!; };
+        const current = async () => (await o.detail(s)).displays.find(x => x.id === d)!;
+        const definition = { name: 'Team list', schema: { type: 'object', properties: { title: { type: 'string' }, items: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } } }, required: ['title', 'items'] }, html: '<article><h1>{{title}}</h1><ul>{{#each items}}<li>{{name}}</li>{{/each}}</ul></article>', css: 'article {padding: 24px; color: white;} h1 {font-size: 48px;}' };
+        it('vocabulary help shares definitions with visual source', async () => { const result = await call("kanvas.help", { topic: 'vocabulary' }); expect(JSON.stringify(result)).toContain(VOCABULARY[1].definition); await publish('vocabulary', { highlight: 'Display' }); });
+    });
 });

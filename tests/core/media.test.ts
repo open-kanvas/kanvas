@@ -69,26 +69,41 @@ import { readFileSync } from 'node:fs';
 import { samples } from '../../src/shared/template-examples.js';
 
 describe("media coverage 1", () => {
-
-
-describe("media contracts",()=>{
-  let h!:Harness,owner:Browser,s:string,d:string,p:AuthPrincipal;
-  const path=()=>`/api/sessions/${s}/displays/${d}`;
-  const call=async <T=Record<string,unknown>>(name:string,args:unknown)=>(await h.runtime.service.execute(name,args,p)) as Promise<T>;
-  const current=async()=> (await owner.detail(s)).displays.find(x=>x.id===d)!;
-  const settle=async(update:UpdateRecord)=>owner.settle(s,update.requestId);
-  beforeEach(async()=>{h=await startHarness();owner=await h.account();s=(await owner.session()).id;d=(await owner.display(s)).id;p={userId:owner.user!.id};});
-  afterEach(async()=>{await h?.close();});
-  async function guest(interactive:boolean){
-    const share=await call<{id:string}>('kanvas_share_create',{sessionId:s,displayId:d,allowInteraction:interactive});const g=h.browser();
-    const pair=success(await g.request<{id:string}>('POST','/api/pairings',{shareId:share.id,deviceName:'Evening test screen',requestedInteractive:interactive}));
-    await call('kanvas_pairing_decide',{sessionId:s,pairingId:pair.id,approve:true,confirm:true,interactive});success(await g.request('GET',`/api/pairings/${pair.id}/status`));g.csrf=success(await g.request<{csrfToken:string}>('GET','/api/auth/me')).csrfToken;return g;
-  }
-  it('authorizes only actually rendered menu and join assets for paired screens',async()=>{
-    const a=success(await owner.request<{id:string;url:string}>('POST',`/api/sessions/${s}/assets`,{name:'Menu image',mimeType:'image/png',base64:PNG}));
-    await owner.submit(s,[d],{version:1,template:'menu',data:{groups:[{title:'Lunch',items:[{name:'Soup',image:{url:a.url,alt:'Supplied soup'}}]}]}});const g=await guest(false);expect((await g.raw(a.url)).status).toBe(200);
-    await owner.submit(s,[d],fact('Image no longer displayed'));expect((await g.raw(a.url)).status).toBe(404);
-  });});
+    describe("media contracts", () => {
+        let h!: Harness, owner: Browser, s: string, d: string, p: AuthPrincipal;
+        const path = () => `/api/sessions/${s}/displays/${d}`;
+        const call = async <T = Record<string, unknown>>(name: string, args: unknown) => (await h.runtime.service.execute(name, args, p)) as Promise<T>;
+        const current = async () => (await owner.detail(s)).displays.find(x => x.id === d)!;
+        const settle = async (update: UpdateRecord) => owner.settle(s, update.requestId);
+        beforeEach(async () => { h = await startHarness(); owner = await h.account(); s = (await owner.session()).id; d = (await owner.display(s)).id; p = { userId: owner.user!.id }; });
+        afterEach(async () => { await h?.close(); });
+        async function guest(interactive: boolean) {
+            const share = await call<{
+                id: string;
+            }>("kanvas.share.create", { sessionId: s, displayId: d, allowInteraction: interactive });
+            const g = h.browser();
+            const pair = success(await g.request<{
+                id: string;
+            }>('POST', '/api/pairings', { shareId: share.id, deviceName: 'Evening test screen', requestedInteractive: interactive }));
+            await call("kanvas.pairing.decide", { sessionId: s, pairingId: pair.id, approve: true, confirm: true, interactive });
+            success(await g.request('GET', `/api/pairings/${pair.id}/status`));
+            g.csrf = success(await g.request<{
+                csrfToken: string;
+            }>('GET', '/api/auth/me')).csrfToken;
+            return g;
+        }
+        it('authorizes only actually rendered menu and join assets for paired screens', async () => {
+            const a = success(await owner.request<{
+                id: string;
+                url: string;
+            }>('POST', `/api/sessions/${s}/assets`, { name: 'Menu image', mimeType: 'image/png', base64: PNG }));
+            await owner.submit(s, [d], { version: 1, template: 'menu', data: { groups: [{ title: 'Lunch', items: [{ name: 'Soup', image: { url: a.url, alt: 'Supplied soup' } }] }] } });
+            const g = await guest(false);
+            expect((await g.raw(a.url)).status).toBe(200);
+            await owner.submit(s, [d], fact('Image no longer displayed'));
+            expect((await g.raw(a.url)).status).toBe(404);
+        });
+    });
 });
 
 describe("media coverage 2", () => {
@@ -135,72 +150,88 @@ describe("media contracts",()=>{
 });
 
 describe("media coverage 4", () => {
-
-describe("media contracts",()=>{
- let h!:Harness,o:Browser,s:string,d:string,p:{userId:string};
- beforeEach(async()=>{h=await startHarness();o=await h.account();s=(await o.session()).id;d=(await o.display(s)).id;p={userId:o.user!.id};});
- afterEach(async()=>{await h?.close();});
- const call=(name:string,args:Record<string,unknown>={})=>h.runtime.service.execute(name,args,p) as Promise<any>;
- const update=(name:string,args:Record<string,unknown>)=>call(name,{sessionId:s,displayId:d,...args});
- const publish=async(template:any,data:any)=>{const result=await o.submit(s,[d],{version:1,template,data});expect(result.update.status).toBe('prepared');return result.detail.displays.find(x=>x.id===d)!;};
- const current=async()=> (await o.detail(s)).displays.find(x=>x.id===d)!;
- it('browser upload enforces CSRF/raster validation and account/session isolation with stable references',async()=>{
-  expect((await o.request('POST','/api/media-library',{name:'dish.png',mimeType:'image/png',base64:PNG},{csrf:null})).status).toBe(403);
-  const media=success(await o.request<any>('POST','/api/media-library',{name:'dish.png',mimeType:'image/png',base64:PNG,tags:['lunch']}));
-  expect((await call('kanvas_media_list',{query:'lunch'})).media).toHaveLength(1);
-  const stranger=await h.account();expect((await stranger.raw(media.url)).status).toBe(404);
-  expect((await o.raw(media.url)).status).toBe(200);
-  const token=await h.runtime.auth.issueToken(p.userId,'Selected',['read','publish'],[s]);
-  const stored=(await h.runtime.store.list<any>('token')).find(t=>t.name==='Selected')!;
-  const restricted={userId:p.userId,tokenId:stored.id};
-  await expect(h.runtime.service.mediaLibrary.list(restricted)).rejects.toMatchObject({code:'FORBIDDEN'});
-  expect(await h.runtime.service.customTemplateCatalog(restricted)).toEqual([]);
-  await publish('todays-special',{item:{image:media.url}});
-  expect((await current()).view!.data.item).toMatchObject({image:media.url});
-  await expect(h.runtime.service.mediaLibrary.own({userId:stranger.user!.id},media.id)).rejects.toMatchObject({code:'NOT_FOUND'});
-  const bad=await o.request('POST','/api/media-library',{name:'bad.png',mimeType:'image/png',base64:Buffer.from('<script>bad</script>').toString('base64')});expect(bad.status).toBeGreaterThanOrEqual(400);
- });
- const definition={name:'Team list',schema:{type:'object',properties:{title:{type:'string'},items:{type:'array',items:{type:'object',properties:{name:{type:'string'}},required:['name']}}},required:['title','items']},html:'<article><h1>{{title}}</h1><ul>{{#each items}}<li>{{name}}</li>{{/each}}</ul></article>',css:'article {padding: 24px; color: white;} h1 {font-size: 48px;}'};});
+    describe("media contracts", () => {
+        let h!: Harness, o: Browser, s: string, d: string, p: {
+            userId: string;
+        };
+        beforeEach(async () => { h = await startHarness(); o = await h.account(); s = (await o.session()).id; d = (await o.display(s)).id; p = { userId: o.user!.id }; });
+        afterEach(async () => { await h?.close(); });
+        const call = (name: string, args: Record<string, unknown> = {}) => h.runtime.service.execute(name, args, p) as Promise<any>;
+        const update = (name: string, args: Record<string, unknown>) => call(name, { sessionId: s, displayId: d, ...args });
+        const publish = async (template: any, data: any) => { const result = await o.submit(s, [d], { version: 1, template, data }); expect(result.update.status).toBe('prepared'); return result.detail.displays.find(x => x.id === d)!; };
+        const current = async () => (await o.detail(s)).displays.find(x => x.id === d)!;
+        it('browser upload enforces CSRF/raster validation and account/session isolation with stable references', async () => {
+            expect((await o.request('POST', '/api/media-library', { name: 'dish.png', mimeType: 'image/png', base64: PNG }, { csrf: null })).status).toBe(403);
+            const media = success(await o.request<any>('POST', '/api/media-library', { name: 'dish.png', mimeType: 'image/png', base64: PNG, tags: ['lunch'] }));
+            expect((await call("kanvas.media.list", { query: 'lunch' })).media).toHaveLength(1);
+            const stranger = await h.account();
+            expect((await stranger.raw(media.url)).status).toBe(404);
+            expect((await o.raw(media.url)).status).toBe(200);
+            const token = await h.runtime.auth.issueToken(p.userId, 'Selected', ['read', 'publish'], [s]);
+            const stored = (await h.runtime.store.list<any>('token')).find(t => t.name === 'Selected')!;
+            const restricted = { userId: p.userId, tokenId: stored.id };
+            await expect(h.runtime.service.mediaLibrary.list(restricted)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+            expect(await h.runtime.service.customTemplateCatalog(restricted)).toEqual([]);
+            await publish('todays-special', { item: { image: media.url } });
+            expect((await current()).view!.data.item).toMatchObject({ image: media.url });
+            await expect(h.runtime.service.mediaLibrary.own({ userId: stranger.user!.id }, media.id)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+            const bad = await o.request('POST', '/api/media-library', { name: 'bad.png', mimeType: 'image/png', base64: Buffer.from('<script>bad</script>').toString('base64') });
+            expect(bad.status).toBeGreaterThanOrEqual(400);
+        });
+        const definition = { name: 'Team list', schema: { type: 'object', properties: { title: { type: 'string' }, items: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } } }, required: ['title', 'items'] }, html: '<article><h1>{{title}}</h1><ul>{{#each items}}<li>{{name}}</li>{{/each}}</ul></article>', css: 'article {padding: 24px; color: white;} h1 {font-size: 48px;}' };
+    });
 });
 
 describe("media coverage 5", () => {
-
-it('protected media is a safe image URL, not an arbitrary relative URL',()=>{
- expect(safeUrl('/api/media/abc',true)).toBe('/api/media/abc');expect(safeUrl('/api/assets/abc',true)).toBe('/api/assets/abc');expect(safeUrl('/api/media/../tokens',true)).toBeUndefined();
- expect(bindTemplate('<ul>{{#each points}}<li>{{value}}</li>{{/each}}</ul>',{points:['A','<B>']})).toBe('<ul><li>A</li><li>&lt;B&gt;</li></ul>');
- expect(CANONICAL_TOOLS.find(t=>t.name==='kanvas_account_templates_create')!.description).toContain('{{value}}');
-});
-
-it('rejects corrupt PNG header/framing accepted by the previous signature-only check',()=>{
- const valid=Buffer.from(PNG,'base64');expect(validateMedia({name:'pixel.png',mimeType:'image/png',base64:PNG}).width).toBe(1);
- const header=Buffer.from(valid);header[29]^=1;
- expect(()=>validateMedia({name:'bad-header.png',mimeType:'image/png',base64:header.toString('base64')})).toThrow();
- const chunk=Buffer.from(valid);chunk.writeUInt32BE(0xffffffff,33);
- expect(()=>validateMedia({name:'bad-chunk.png',mimeType:'image/png',base64:chunk.toString('base64')})).toThrow();
- const truncated=Buffer.concat([valid.subarray(0,37),valid.subarray(valid.length-12)]);
- expect(()=>validateMedia({name:'truncated.png',mimeType:'image/png',base64:truncated.toString('base64')})).toThrow();
-});
+    it('protected media is a safe image URL, not an arbitrary relative URL', () => {
+        expect(safeUrl('/api/media/abc', true)).toBe('/api/media/abc');
+        expect(safeUrl('/api/assets/abc', true)).toBe('/api/assets/abc');
+        expect(safeUrl('/api/media/../tokens', true)).toBeUndefined();
+        expect(bindTemplate('<ul>{{#each points}}<li>{{value}}</li>{{/each}}</ul>', { points: ['A', '<B>'] })).toBe('<ul><li>A</li><li>&lt;B&gt;</li></ul>');
+        expect(CANONICAL_TOOLS.find(t => t.name === "kanvas.account.templates.create")!.description).toContain('{{value}}');
+    });
+    it('rejects corrupt PNG header/framing accepted by the previous signature-only check', () => {
+        const valid = Buffer.from(PNG, 'base64');
+        expect(validateMedia({ name: 'pixel.png', mimeType: 'image/png', base64: PNG }).width).toBe(1);
+        const header = Buffer.from(valid);
+        header[29] ^= 1;
+        expect(() => validateMedia({ name: 'bad-header.png', mimeType: 'image/png', base64: header.toString('base64') })).toThrow();
+        const chunk = Buffer.from(valid);
+        chunk.writeUInt32BE(0xffffffff, 33);
+        expect(() => validateMedia({ name: 'bad-chunk.png', mimeType: 'image/png', base64: chunk.toString('base64') })).toThrow();
+        const truncated = Buffer.concat([valid.subarray(0, 37), valid.subarray(valid.length - 12)]);
+        expect(() => validateMedia({ name: 'truncated.png', mimeType: 'image/png', base64: truncated.toString('base64') })).toThrow();
+    });
 });
 
 describe("media coverage 6", () => {
-
-let h!:Harness;
-afterEach(async()=>{vi.restoreAllMocks();delete process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT;delete process.env.KANVAS_MAX_VIEWS_PER_SESSION;await h?.close();});
-async function principal(a:Browser){const session=await h.runtime.auth.issueBrowser(a.user!.id,{cookie:()=>{}} as unknown as Response);return {userId:a.user!.id,browserId:session.id};}
-const pixel='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6Ot8AAAAASUVORK5CYII=';
-describe("media contracts",()=>{
- it('portable asset chunks preserve bytes and original session authorization',async()=>{
-  h=await startHarness();const owner=await h.account(),other=await h.account(),p=await principal(owner),q=await principal(other),s=await owner.session();
-  const asset=await h.runtime.service.importAsset(p,s.id,{name:'pixel.png',mimeType:'image/png',base64:pixel});
-  const chunks:Buffer[]=[];let offset=0;
-  for(;;){const r:any=await h.runtime.service.execute('kanvas_asset_export',{sessionId:s.id,assetId:asset.id,offset,length:13},p);chunks.push(Buffer.from(r.base64,'base64'));if(r.complete)break;offset=r.nextOffset;}
-  expect(Buffer.concat(chunks).toString('base64')).toBe(pixel);
-  await expect(h.runtime.service.execute('kanvas_asset_export',{sessionId:s.id,assetId:asset.id},q)).rejects.toBeDefined();
-  await expect(h.runtime.service.execute('kanvas_asset_export',{sessionId:s.id,assetId:asset.id,offset:999},p)).rejects.toMatchObject({code:'INVALID_ARGUMENT'});
-  const d=await owner.display(s.id);vi.spyOn(h.runtime.service.visualCapture,'capture').mockResolvedValue(new VisualCaptureResult({readiness:'ready'},Buffer.from(pixel,'base64'),'image/png'));
-  const snapshot:any=await h.runtime.service.execute('kanvas_display_snapshot',{sessionId:s.id,displayId:d.id,includeBase64:true},p);
-  expect(snapshot.metadata.export).toMatchObject({base64:pixel,mimeType:'image/png',size:Buffer.from(pixel,'base64').length});
- });});
+    let h!: Harness;
+    afterEach(async () => { vi.restoreAllMocks(); delete process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT; delete process.env.KANVAS_MAX_VIEWS_PER_SESSION; await h?.close(); });
+    async function principal(a: Browser) { const session = await h.runtime.auth.issueBrowser(a.user!.id, { cookie: () => { } } as unknown as Response); return { userId: a.user!.id, browserId: session.id }; }
+    const pixel = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6Ot8AAAAASUVORK5CYII=';
+    describe("media contracts", () => {
+        it('portable asset chunks preserve bytes and original session authorization', async () => {
+            h = await startHarness();
+            const owner = await h.account(), other = await h.account(), p = await principal(owner), q = await principal(other), s = await owner.session();
+            const asset = await h.runtime.service.importAsset(p, s.id, { name: 'pixel.png', mimeType: 'image/png', base64: pixel });
+            const chunks: Buffer[] = [];
+            let offset = 0;
+            for (;;) {
+                const r: any = await h.runtime.service.execute("kanvas.asset.export", { sessionId: s.id, assetId: asset.id, offset, length: 13 }, p);
+                chunks.push(Buffer.from(r.base64, 'base64'));
+                if (r.complete)
+                    break;
+                offset = r.nextOffset;
+            }
+            expect(Buffer.concat(chunks).toString('base64')).toBe(pixel);
+            await expect(h.runtime.service.execute("kanvas.asset.export", { sessionId: s.id, assetId: asset.id }, q)).rejects.toBeDefined();
+            await expect(h.runtime.service.execute("kanvas.asset.export", { sessionId: s.id, assetId: asset.id, offset: 999 }, p)).rejects.toMatchObject({ code: 'INVALID_ARGUMENT' });
+            const d = await owner.display(s.id);
+            vi.spyOn(h.runtime.service.visualCapture, 'capture').mockResolvedValue(new VisualCaptureResult({ readiness: 'ready' }, Buffer.from(pixel, 'base64'), 'image/png'));
+            const snapshot: any = await h.runtime.service.execute("kanvas.display.snapshot", { sessionId: s.id, displayId: d.id, includeBase64: true }, p);
+            expect(snapshot.metadata.export).toMatchObject({ base64: pixel, mimeType: 'image/png', size: Buffer.from(pixel, 'base64').length });
+        });
+    });
 });
 
 describe("media coverage 7", () => {
@@ -283,19 +314,40 @@ it('accepts bounded passive SVG logos while rejecting active, external, namespac
 });
 
 describe("media coverage 11", () => {
-
-let h!:Harness;const id=()=>randomUUID();afterEach(async()=>{await h?.close();});
-
-it('imports real Pillow RGB PNG bytes and returns actionable safe errors for invalid encodings and files',async()=>{
- const bytes=readFileSync(new URL('../fixtures/feedback-plot.png',import.meta.url)),media=validateMedia({name:'plot.png',mimeType:'image/png',base64:bytes.toString('base64')});expect(media).toMatchObject({width:240,height:100});
- h=await startHarness();const a=await h.account(),s=await a.session();const asset:any=await h.runtime.service.execute('kanvas_asset_import',{sessionId:s.id,name:'plot.png',mimeType:'image/png',base64:bytes.toString('base64')},{userId:a.user!.id});expect(asset.mimeType).toBe('image/png');expect(asset.size).toBe(bytes.length);
- for(const base64 of ['data:image/png;base64,'+bytes.toString('base64'),bytes.toString('base64')+'\n',Buffer.from('not a png').toString('base64')]){let error:unknown;try{validateMedia({name:'plot.png',mimeType:'image/png',base64});}catch(e){error=e;}const result=safeError(error);expect(result.code).toMatch(/^INVALID_MEDIA/);expect(result.message).toMatch(/base64/);expect(result.message).not.toContain(bytes.toString('base64'));}
-});
-
-it('preserves generic record fields, source activity and optional story/recipe media while keeping strict contracts',()=>{
- const record={version:1,template:'record-detail',data:{id:'A-1',title:'Ticket',status:'Review',statusColor:'#123456',description:'Full\nthread',fields:{Exact:'1.2300'},activity:[{id:'a',author:'Kim',timestamp:'Yesterday (source)',text:'Exact note.'}],related:[{id:'b',type:'Contract',title:'Deal'}]}};
- expect(validateView(record).data).toEqual(record.data);expect(()=>validateView({...record,data:{...record.data,statusColor:'red'}})).toThrow();
- for(const name of ['story-cards','recipe','itinerary','website'] as const)expect(validateView(samples[name]).template).toBe(name);
- const images=Array.from({length:20},(_,i)=>({url:`https://example.com/${i}.png`}));const gallery=validateView({version:1,template:'image-gallery',data:{images}});expect(gallery.data.images).toHaveLength(20);expect(()=>validateView({...gallery,data:{...gallery.data,images:[...images,images[0]]}})).toThrow();
-});
+    let h!: Harness;
+    const id = () => randomUUID();
+    afterEach(async () => { await h?.close(); });
+    it('imports real Pillow RGB PNG bytes and returns actionable safe errors for invalid encodings and files', async () => {
+        const bytes = readFileSync(new URL('../fixtures/feedback-plot.png', import.meta.url)), media = validateMedia({ name: 'plot.png', mimeType: 'image/png', base64: bytes.toString('base64') });
+        expect(media).toMatchObject({ width: 240, height: 100 });
+        h = await startHarness();
+        const a = await h.account(), s = await a.session();
+        const asset: any = await h.runtime.service.execute("kanvas.asset.import", { sessionId: s.id, name: 'plot.png', mimeType: 'image/png', base64: bytes.toString('base64') }, { userId: a.user!.id });
+        expect(asset.mimeType).toBe('image/png');
+        expect(asset.size).toBe(bytes.length);
+        for (const base64 of ['data:image/png;base64,' + bytes.toString('base64'), bytes.toString('base64') + '\n', Buffer.from('not a png').toString('base64')]) {
+            let error: unknown;
+            try {
+                validateMedia({ name: 'plot.png', mimeType: 'image/png', base64 });
+            }
+            catch (e) {
+                error = e;
+            }
+            const result = safeError(error);
+            expect(result.code).toMatch(/^INVALID_MEDIA/);
+            expect(result.message).toMatch(/base64/);
+            expect(result.message).not.toContain(bytes.toString('base64'));
+        }
+    });
+    it('preserves generic record fields, source activity and optional story/recipe media while keeping strict contracts', () => {
+        const record = { version: 1, template: 'record-detail', data: { id: 'A-1', title: 'Ticket', status: 'Review', statusColor: '#123456', description: 'Full\nthread', fields: { Exact: '1.2300' }, activity: [{ id: 'a', author: 'Kim', timestamp: 'Yesterday (source)', text: 'Exact note.' }], related: [{ id: 'b', type: 'Contract', title: 'Deal' }] } };
+        expect(validateView(record).data).toEqual(record.data);
+        expect(() => validateView({ ...record, data: { ...record.data, statusColor: 'red' } })).toThrow();
+        for (const name of ['story-cards', 'recipe', 'itinerary', 'website'] as const)
+            expect(validateView(samples[name]).template).toBe(name);
+        const images = Array.from({ length: 20 }, (_, i) => ({ url: `https://example.com/${i}.png` }));
+        const gallery = validateView({ version: 1, template: 'image-gallery', data: { images } });
+        expect(gallery.data.images).toHaveLength(20);
+        expect(() => validateView({ ...gallery, data: { ...gallery.data, images: [...images, images[0]] } })).toThrow();
+    });
 });

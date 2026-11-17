@@ -34,38 +34,64 @@ import { privacyBackoffMs } from '../../src/client/device-privacy-check.js';
 import { PRIVACY_DEADLINE_MS } from '../../src/client/device-privacy-check.js';
 
 describe("privacy coverage 1", () => {
-
-
-describe("privacy contracts",()=>{
- let h!:Harness,owner:Browser,sessionId:string,displayId:string;
- beforeEach(async()=>{h=await startHarness();owner=await h.account();sessionId=(await owner.session()).id;displayId=(await owner.display(sessionId)).id;});
- afterEach(async()=>{await h?.close();});
- it('closes already-open event streams and keeps device lock through a real runtime restart',async()=>{
-  const device=success(await owner.request<{id:string}>('POST','/api/devices/register',{installationId:randomUUID(),provisionHome:false}));
-  const controller=new AbortController(),response=await owner.raw(`/api/sessions/${sessionId}/events`,{},{signal:controller.signal});expect(response.status).toBe(200);
-  const reader=response.body!.getReader();let closed=false;const finished=(async()=>{try{while(!(await reader.read()).done){}}finally{closed=true;}})();
-  try{await h.runtime.service.privacy.set({userId:owner.user!.id},{deviceId:device.id},true);await vi.waitFor(()=>expect(closed).toBe(true));await finished;}finally{controller.abort();}
-  await h.shutdown();const restarted=await createApp({database:h.database});
-  try{expect(await restarted.service.privacy.locked(device.id)).toBe(true);expect((await restarted.store.list('device-privacy-binding')).length).toBeGreaterThan(0);await restarted.service.privacy.set({userId:owner.user!.id},{deviceId:device.id},false);expect(await restarted.service.privacy.locked(device.id)).toBe(false);}finally{await restarted.close();}
- });
- it('kiosk remains separate from privacy and only the owner may configure it',async()=>{
-  const p={userId:owner.user!.id};await owner.submit(sessionId,[displayId],fact('Visible kiosk'));
-  await h.runtime.service.execute('kanvas_display_lockdown',{sessionId,displayId,locked:true},p);
-  expect((await owner.detail(sessionId)).displays[0]).toMatchObject({lockdown:true,view:{data:{text:'Visible kiosk'}}});
-  await owner.submit(sessionId,[displayId],fact('Owner replacement'));
-  expect((await owner.detail(sessionId)).displays[0].view?.data.text).toBe('Owner replacement');
-  await expect(h.runtime.service.execute('kanvas_display_lockdown',{sessionId,displayId,locked:false},{userId:(await h.account()).user!.id})).rejects.toMatchObject({code:'NOT_FOUND'});
- });
- it('omits routine privacy status polls while retaining attributed sign-in requests',async()=>{
-  success(await owner.request('GET','/api/device-privacy/status'));
-  success(await h.browser().request('GET','/api/device-privacy/status'));
-  await vi.waitFor(async()=>{
-   const rows=(await h.runtime.store.query("SELECT user_id FROM events WHERE event_type='http.request' AND operation='GET /api/device-privacy/status'")).rows;
-   expect(rows).toHaveLength(0);
-   const signins=(await h.runtime.store.query("SELECT user_id FROM events WHERE event_type='http.request' AND operation='POST /api/auth/register'")).rows;
-   expect(signins).toContainEqual({user_id:owner.user!.id});
-  });
- });});
+    describe("privacy contracts", () => {
+        let h!: Harness, owner: Browser, sessionId: string, displayId: string;
+        beforeEach(async () => { h = await startHarness(); owner = await h.account(); sessionId = (await owner.session()).id; displayId = (await owner.display(sessionId)).id; });
+        afterEach(async () => { await h?.close(); });
+        it('closes already-open event streams and keeps device lock through a real runtime restart', async () => {
+            const device = success(await owner.request<{
+                id: string;
+            }>('POST', '/api/devices/register', { installationId: randomUUID(), provisionHome: false }));
+            const controller = new AbortController(), response = await owner.raw(`/api/sessions/${sessionId}/events`, {}, { signal: controller.signal });
+            expect(response.status).toBe(200);
+            const reader = response.body!.getReader();
+            let closed = false;
+            const finished = (async () => { try {
+                while (!(await reader.read()).done) { }
+            }
+            finally {
+                closed = true;
+            } })();
+            try {
+                await h.runtime.service.privacy.set({ userId: owner.user!.id }, { deviceId: device.id }, true);
+                await vi.waitFor(() => expect(closed).toBe(true));
+                await finished;
+            }
+            finally {
+                controller.abort();
+            }
+            await h.shutdown();
+            const restarted = await createApp({ database: h.database });
+            try {
+                expect(await restarted.service.privacy.locked(device.id)).toBe(true);
+                expect((await restarted.store.list('device-privacy-binding')).length).toBeGreaterThan(0);
+                await restarted.service.privacy.set({ userId: owner.user!.id }, { deviceId: device.id }, false);
+                expect(await restarted.service.privacy.locked(device.id)).toBe(false);
+            }
+            finally {
+                await restarted.close();
+            }
+        });
+        it('kiosk remains separate from privacy and only the owner may configure it', async () => {
+            const p = { userId: owner.user!.id };
+            await owner.submit(sessionId, [displayId], fact('Visible kiosk'));
+            await h.runtime.service.execute("kanvas.display.lockdown", { sessionId, displayId, locked: true }, p);
+            expect((await owner.detail(sessionId)).displays[0]).toMatchObject({ lockdown: true, view: { data: { text: 'Visible kiosk' } } });
+            await owner.submit(sessionId, [displayId], fact('Owner replacement'));
+            expect((await owner.detail(sessionId)).displays[0].view?.data.text).toBe('Owner replacement');
+            await expect(h.runtime.service.execute("kanvas.display.lockdown", { sessionId, displayId, locked: false }, { userId: (await h.account()).user!.id })).rejects.toMatchObject({ code: 'NOT_FOUND' });
+        });
+        it('omits routine privacy status polls while retaining attributed sign-in requests', async () => {
+            success(await owner.request('GET', '/api/device-privacy/status'));
+            success(await h.browser().request('GET', '/api/device-privacy/status'));
+            await vi.waitFor(async () => {
+                const rows = (await h.runtime.store.query("SELECT user_id FROM events WHERE event_type='http.request' AND operation='GET /api/device-privacy/status'")).rows;
+                expect(rows).toHaveLength(0);
+                const signins = (await h.runtime.store.query("SELECT user_id FROM events WHERE event_type='http.request' AND operation='POST /api/auth/register'")).rows;
+                expect(signins).toContainEqual({ user_id: owner.user!.id });
+            });
+        });
+    });
 });
 
 describe("privacy coverage 2", () => {

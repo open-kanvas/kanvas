@@ -20,11 +20,15 @@ import { rawEvent } from '../../src/server/raw-events.js';
 import { recordHttpOperation } from '../../src/server/raw-events.js';
 
 describe("weather coverage 1", () => {
-
-const toastSchema=experienceTools.find(t=>t.name==='kanvas_toast')!.schema;
-it('weather temperature is genuinely optional with precise field errors',()=>{
- expect(validateView({template:'weather',data:{condition:'rain',display:{visualOnly:true}}}).data.temperature).toBeUndefined();
- expect(()=>validateView({template:'weather',data:{condition:'rain',temperature:''}})).toThrow();
- try{validateView({template:'weather',data:{condition:'rain',temperature:17}});}catch(e:any){expect(e.issues[0].path).toEqual(['data','temperature']);}
-});
+    const toastSchema = experienceTools.find(t => t.name === "kanvas.toast")!.schema;
+    it('weather temperature is genuinely optional with precise field errors', () => {
+        expect(validateView({ template: 'weather', data: { condition: 'rain', display: { visualOnly: true } } }).data.temperature).toBeUndefined();
+        expect(() => validateView({ template: 'weather', data: { condition: 'rain', temperature: '' } })).toThrow();
+        try {
+            validateView({ template: 'weather', data: { condition: 'rain', temperature: 17 } });
+        }
+        catch (e: any) {
+            expect(e.issues[0].path).toEqual(['data', 'temperature']);
+        }
+    });
 });

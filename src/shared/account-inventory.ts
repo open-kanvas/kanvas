@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import {z} from 'zod';
 
 export const accountInventorySchema = z.object({
   includeEnded: z.boolean().optional().describe('Also list ended sessions (default false).'),
@@ -6,13 +6,15 @@ export const accountInventorySchema = z.object({
 
 /** Which operations read or change each account resource (canonical names;
  * MCP profiles show their own tool and operation names). */
+/** Which operations read or change each account resource (canonical names;
+ * MCP profiles show their own tool and operation names). */
 export const ACCOUNT_MANAGE = {
-  sessions: { read: ['kanvas_sessions_list', 'kanvas_session_state', 'kanvas_session_overview'], change: ['kanvas_session_create', 'kanvas_session_rename', 'kanvas_config_update', 'kanvas_session_context_set', 'kanvas_session_end'] },
-  displays: { read: ['kanvas_topology_read', 'kanvas_display_current', 'kanvas_displays_sync_read'], change: ['kanvas_display_register', 'kanvas_display_rename', 'kanvas_display_update', 'kanvas_clear', 'kanvas_displays_identify', 'kanvas_displays_sync'] },
-  devices: { read: ['kanvas_devices_read'], change: ['kanvas_device_rename', 'kanvas_device_present', 'kanvas_window_present'] },
-  connections: { read: ['kanvas_topology_read', 'kanvas_viewers_read'], change: ['kanvas_connection_redirect', 'kanvas_window_present', 'kanvas_pairing_revoke'] },
-  people: { read: ['kanvas_participants_read', 'kanvas_group_access_read', 'kanvas_pairings_read'], change: ['kanvas_member_add', 'kanvas_member_remove', 'kanvas_invite_create', 'kanvas_invite_revoke', 'kanvas_group_access_set', 'kanvas_pairing_decide', 'kanvas_share_create', 'kanvas_session_public_access'] },
-  groups: { read: ['kanvas_groups_list', 'kanvas_group_read'], change: ['kanvas_group_create', 'kanvas_group_update', 'kanvas_group_member_set'] },
-  profile: { read: ['kanvas_profile_read', 'kanvas_preferences_get', 'kanvas_activity_read'], change: ['kanvas_profile_update', 'kanvas_preferences_update'] },
+    sessions: { read: ["kanvas.sessions.list", "kanvas.session.state", "kanvas.session.overview"], change: ["kanvas.session.create", "kanvas.session.rename", "kanvas.config.update", "kanvas.session.context.set", "kanvas.session.end"] },
+    displays: { read: ["kanvas.topology.read", "kanvas.display.current", "kanvas.displays.sync.read"], change: ["kanvas.display.register", "kanvas.display.rename", "kanvas.display.update", "kanvas.clear", "kanvas.displays.identify", "kanvas.displays.sync"] },
+    devices: { read: ["kanvas.devices.read"], change: ["kanvas.device.rename", "kanvas.device.present", "kanvas.window.present"] },
+    connections: { read: ["kanvas.topology.read", "kanvas.viewers.read"], change: ["kanvas.connection.redirect", "kanvas.window.present", "kanvas.pairing.revoke"] },
+    people: { read: ["kanvas.participants.read", "kanvas.group.access.read", "kanvas.pairings.read"], change: ["kanvas.member.add", "kanvas.member.remove", "kanvas.invite.create", "kanvas.invite.revoke", "kanvas.group.access.set", "kanvas.pairing.decide", "kanvas.share.create", "kanvas.session.public.access"] },
+    groups: { read: ["kanvas.groups.list", "kanvas.group.read"], change: ["kanvas.group.create", "kanvas.group.update", "kanvas.group.member.set"] },
+    profile: { read: ["kanvas.profile.read", "kanvas.preferences.get", "kanvas.activity.read"], change: ["kanvas.profile.update", "kanvas.preferences.update"] },
 } as const;
 export const ACCOUNT_GAPS = ['Not available through tools yet: deleting registered devices or displays, and renaming individual browser windows.'] as const;

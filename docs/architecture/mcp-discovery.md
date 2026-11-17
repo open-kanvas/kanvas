@@ -1,6 +1,6 @@
 # Two-tool discovery architecture
 
-The two-tool interface supersedes the former seven-tool interface. Every protocol era and deployment profile now exposes and accepts only:
+Both supported MCP transports expose and accept exactly two tools:
 - `kanvas_discover`
 - `kanvas_call`
 
@@ -39,7 +39,7 @@ Providers receive the authenticated principal and cancellation signal. Private t
 
 `kanvas_call` keeps `{operationId, arguments}`; no extra call signature change is needed. The canonical validators and service handlers retain OAuth scope, selected-session authority, CAS/idempotency, consent, cancellation, rich image results and diagnostic instrumentation. Discovery is read-only; the dispatcher conservatively advertises mutation/destruction potential. User/source/report values are never rewritten as guidance. Diagnostic provenance validates the originating kanvas_call operation even when a nested handler fails; recovery summaries translate historical route metadata to current callable routes without modifying stored provenance.
 
-This is an intentional breaking release. Old seven-tool names and former flat/grouped aliases are rejected on every runtime profile, not hidden backdoors. Historical profile configuration values remain accepted only to avoid a configuration migration; they do not alter the public tools. Internal old grouping registries remain schema/guidance migration helpers and are not additional public catalogs. Refresh the MCP connection after deployment.
+This is an intentional breaking release. Old seven-tool names and former flat/grouped aliases are rejected on every runtime profile, not hidden backdoors. Historical profile configuration values remain accepted only to avoid a configuration migration; they do not alter the public tools. There is one public-ID operation table, grouped by domain, with schema, annotations, scopes and dispatch for every executable operation. Definitions own discovery metadata; no twelve-tool, domain-tool or flat-name translation registry remains. The three help/template catalog helpers remain internal definitions and are not executable public operations. Refresh the MCP connection after deployment.
 
 ## Verification
 

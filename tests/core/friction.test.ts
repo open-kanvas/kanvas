@@ -58,37 +58,55 @@ import type { ToastRecord } from '../../src/shared/viewer-experience.js';
 import type { ViewerPresence } from '../../src/shared/viewer-experience.js';
 
 describe("friction coverage 1", () => {
-
-
-const context={principal:{userId:'catalog-reader'}};
-const search=(kind:'tool'|'template'|'help',query:string,limit=3)=>(discoveryCatalog.query(kind,'search',{query,limit},context).results as {id:string;description:string;example?:unknown}[]);
-
-describe('server behaviour behind the exposure reports',()=>{
- let h!:Harness,o:Browser,s:string,d:string,p:{userId:string;agentId?:string;tokenId?:string};
- beforeEach(async()=>{delete process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT;h=await startHarness();o=await h.account();s=(await o.session()).id;d=(await o.display(s)).id;p={userId:o.user!.id};});
- afterEach(async()=>{delete process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT;await h?.close();});
- const call=(name:string,args:Record<string,unknown>={},principal=p)=>h.runtime.service.execute(name,args,principal) as Promise<any>;
- /** A real connection: its token exists, so account checks pass exactly as for an MCP client. */
- const agentPrincipal=async(name:string)=>{const {token}=await h.runtime.auth.issueToken(p.userId,name,['read','publish']);return {userId:p.userId,agentId:token.agentId,tokenId:token.id};};
- it('843a384e: friction is counted as shapes only and read by service administrators',async()=>{
-  expect(fieldShape('items[3].start')).toBe('items[].start');expect(problemClass('Unsupported field.')).toBe('unsupported-field');expect(problemClass('Required string; received missing.',{received:'missing'})).toBe('missing-required');expect(problemClass('Expected ISO 8601 date-time with a UTC offset, e.g. x.')).toBe('format');expect(problemClass('op must be one of: set, remove.')).toBe('enum-mismatch');
-  const friction=h.runtime.service.friction,client={name:'Anthropic/ClaudeAI',version:'1.0.0'},secret='PRIVATE-VALUE-7731';
-  friction.record({operation:'kanvas_submit',template:'list',client,connection:'c1',ok:false,issues:[{path:'view.data.items[0].title',problem:'Unsupported field.'},{path:'view.data.items[1].title',problem:'Unsupported field.'}],status:'INVALID_ARGUMENT',responseBytes:900});
-  friction.record({operation:'kanvas_discover',client,connection:'c1',ok:true,discovery:'search'});friction.record({operation:'kanvas_discover',client,connection:'c1',ok:true,discovery:'get'});
-  friction.record({operation:'kanvas_submit',template:'list',client,connection:'c1',ok:true,status:'accepted',responseBytes:70_000});
-  friction.record({client,connection:'c1',ok:true,discovery:'resolve',resolveStatus:'unsupported'});
-  friction.record({operation:`kanvas_${secret}`,template:secret,client:{name:secret},connection:'c2',ok:false,issues:[{path:`items[0].${secret}`,problem:secret}]});
-  await expect(call('kanvas_friction_read',{kind:'validation'})).rejects.toMatchObject({code:'FORBIDDEN'});
-  h.runtime.service.accounts.serviceAdmins.add(p.userId);
-  const validation=await call('kanvas_friction_read',{kind:'validation',days:1});
-  expect(validation.entries[0]).toMatchObject({subject:'template:list',fieldPath:'view.data.items[].title',problem:'unsupported-field',count:2,clients:{'Anthropic/ClaudeAI 1.0.0':2}});
-  expect((await call('kanvas_friction_read',{kind:'retries',days:1})).entries[0]).toMatchObject({subject:'template:list',median:2,max:2});
-  expect((await call('kanvas_friction_read',{kind:'discovery',days:1})).entries[0]).toMatchObject({subject:'template:list',median:2});
-  expect((await call('kanvas_friction_read',{kind:'resolve',days:1})).entries[0]).toMatchObject({outcome:'unsupported',count:1});
-  const weight=(await call('kanvas_friction_read',{kind:'weight',days:1})).entries.find((e:{subject:string})=>e.subject==='operation:kanvas_submit');expect(weight.p95Bytes).toBe(131072);expect(weight.maxBytes).toBe(70_000);
-  // Only names, classes and numbers are stored: day, kind, subject, detail, client, count, sum, max.
-  const stored=await h.runtime.store.list<Record<string,unknown>>('friction-day');expect(stored.length).toBeGreaterThan(4);
-  for(const row of stored)expect(Object.keys(row).sort()).toEqual(['client','count','day','detail','id','kind','max','subject','sum']);
-  expect(JSON.stringify(stored)).not.toContain(p.userId);expect(JSON.stringify(stored)).not.toContain(s);
- });});
+    const context = { principal: { userId: 'catalog-reader' } };
+    const search = (kind: 'tool' | 'template' | 'help', query: string, limit = 3) => (discoveryCatalog.query(kind, 'search', { query, limit }, context).results as {
+        id: string;
+        description: string;
+        example?: unknown;
+    }[]);
+    describe('server behaviour behind the exposure reports', () => {
+        let h!: Harness, o: Browser, s: string, d: string, p: {
+            userId: string;
+            agentId?: string;
+            tokenId?: string;
+        };
+        beforeEach(async () => { delete process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT; h = await startHarness(); o = await h.account(); s = (await o.session()).id; d = (await o.display(s)).id; p = { userId: o.user!.id }; });
+        afterEach(async () => { delete process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT; await h?.close(); });
+        const call = (name: string, args: Record<string, unknown> = {}, principal = p) => h.runtime.service.execute(name, args, principal) as Promise<any>;
+        /** A real connection: its token exists, so account checks pass exactly as for an MCP client. */
+        const agentPrincipal = async (name: string) => { const { token } = await h.runtime.auth.issueToken(p.userId, name, ['read', 'publish']); return { userId: p.userId, agentId: token.agentId, tokenId: token.id }; };
+        it('843a384e: friction is counted as shapes only and read by service administrators', async () => {
+            expect(fieldShape('items[3].start')).toBe('items[].start');
+            expect(problemClass('Unsupported field.')).toBe('unsupported-field');
+            expect(problemClass('Required string; received missing.', { received: 'missing' })).toBe('missing-required');
+            expect(problemClass('Expected ISO 8601 date-time with a UTC offset, e.g. x.')).toBe('format');
+            expect(problemClass('op must be one of: set, remove.')).toBe('enum-mismatch');
+            const friction = h.runtime.service.friction, client = { name: 'Anthropic/ClaudeAI', version: '1.0.0' }, secret = 'PRIVATE-VALUE-7731';
+            friction.record({ operation: "kanvas.submit", template: 'list', client, connection: 'c1', ok: false, issues: [{ path: 'view.data.items[0].title', problem: 'Unsupported field.' }, { path: 'view.data.items[1].title', problem: 'Unsupported field.' }], status: 'INVALID_ARGUMENT', responseBytes: 900 });
+            friction.record({ operation: 'kanvas_discover', client, connection: 'c1', ok: true, discovery: 'search' });
+            friction.record({ operation: 'kanvas_discover', client, connection: 'c1', ok: true, discovery: 'get' });
+            friction.record({ operation: "kanvas.submit", template: 'list', client, connection: 'c1', ok: true, status: 'accepted', responseBytes: 70000 });
+            friction.record({ client, connection: 'c1', ok: true, discovery: 'resolve', resolveStatus: 'unsupported' });
+            friction.record({ operation: `kanvas_${secret}`, template: secret, client: { name: secret }, connection: 'c2', ok: false, issues: [{ path: `items[0].${secret}`, problem: secret }] });
+            await expect(call("kanvas.friction.read", { kind: 'validation' })).rejects.toMatchObject({ code: 'FORBIDDEN' });
+            h.runtime.service.accounts.serviceAdmins.add(p.userId);
+            const validation = await call("kanvas.friction.read", { kind: 'validation', days: 1 });
+            expect(validation.entries[0]).toMatchObject({ subject: 'template:list', fieldPath: 'view.data.items[].title', problem: 'unsupported-field', count: 2, clients: { 'Anthropic/ClaudeAI 1.0.0': 2 } });
+            expect((await call("kanvas.friction.read", { kind: 'retries', days: 1 })).entries[0]).toMatchObject({ subject: 'template:list', median: 2, max: 2 });
+            expect((await call("kanvas.friction.read", { kind: 'discovery', days: 1 })).entries[0]).toMatchObject({ subject: 'template:list', median: 2 });
+            expect((await call("kanvas.friction.read", { kind: 'resolve', days: 1 })).entries[0]).toMatchObject({ outcome: 'unsupported', count: 1 });
+            const weight = (await call("kanvas.friction.read", { kind: 'weight', days: 1 })).entries.find((e: {
+                subject: string;
+            }) => e.subject === 'operation:kanvas_submit');
+            expect(weight.p95Bytes).toBe(131072);
+            expect(weight.maxBytes).toBe(70000);
+            // Only names, classes and numbers are stored: day, kind, subject, detail, client, count, sum, max.
+            const stored = await h.runtime.store.list<Record<string, unknown>>('friction-day');
+            expect(stored.length).toBeGreaterThan(4);
+            for (const row of stored)
+                expect(Object.keys(row).sort()).toEqual(['client', 'count', 'day', 'detail', 'id', 'kind', 'max', 'subject', 'sum']);
+            expect(JSON.stringify(stored)).not.toContain(p.userId);
+            expect(JSON.stringify(stored)).not.toContain(s);
+        });
+    });
 });

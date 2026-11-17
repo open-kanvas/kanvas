@@ -48,7 +48,7 @@ const responseFields = new Set(['responseState', 'responses', 'participants', 't
 const arrayIndex = /^(?:0|[1-9]\d*)$/;
 
 const unsupported = (message: string): never => { throw new AppError('PATCH_UNSUPPORTED', message); };
-const pathConflict = (): never => { throw new AppError('PATCH_PATH_CONFLICT', 'A patch path no longer names an existing parent/item, or the target is not text. Read kanvas_display_current and rebuild the patch.', 409); };
+const pathConflict = (): never => { throw new AppError('PATCH_PATH_CONFLICT', "A patch path no longer names an existing parent/item, or the target is not text. Read kanvas_call with operationId:\"kanvas.display.current\" and arguments:{\u2026} and rebuild the patch.", 409); };
 
 function parseInput(raw: unknown): ViewPatchInput {
   try {

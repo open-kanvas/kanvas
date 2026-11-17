@@ -9,18 +9,27 @@ import { TEMPLATE_IDS, type ViewSpec, type SessionConfig } from '../../src/share
 import { samples } from '../../src/shared/template-examples';
 import { createDisplay, createSession, expect, openViewer, publishPrepared, register, sessionApi, sessionDetail, tab, test, waitForDisplay } from './support';
 
-async function setup(page:Page,info:TestInfo,baseURL:string,accountWide=false){
-  await register(page);const sessionId=await createSession(page,'Navigation and Help acceptance'),display=await createDisplay(page,sessionId,'Shared source'),viewer=await openViewer(page,sessionId,display.id);
-  const issued=await sessionApi<{token:string}>(page,'/api/tokens','POST',{name:'Disposable navigation checks',scopes:['read','publish'],...(accountWide?{}:{sessionIds:[sessionId]})});expect(issued.status).toBe(201);
-  const headers={Authorization:`Bearer ${issued.data!.token}`};
-  const client=info.project.name.startsWith('phone')?new LegacyClient({name:'navigation-legacy',version:'1'}):new Client({name:'navigation-current',version:'1'});
-  if(client instanceof LegacyClient)await client.connect(new LegacyTransport(new URL('/mcp',baseURL),{requestInit:{headers}}));else await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',baseURL),{requestInit:{headers}}));
-  const call=async<T=any>(tool:string,operation:string,args:Record<string,unknown>={})=>{const result=await client.callTool(operationRequest({name:tool,arguments:{operation,...args}}));expect(result.isError,`${tool} ${operation} succeeds`).not.toBe(true);return (result.structuredContent as {data:T}).data;};
-  const current=()=>waitForDisplay(page,sessionId,display.id,d=>d.revision>0&&d.appliedRevision===d.revision);
-  const show=async(view:ViewSpec)=>{await publishPrepared(page,sessionId,[display.id],view);return current();};
-  const nav=async(navigation:unknown,viewerId?:string)=>{const d=await current();return call('kanvas_control','navigation.control',{sessionId,displayId:display.id,requestId:randomUUID(),expectedRevision:d.revision,navigation,...(viewerId?{viewerId}:{})});};
-  const configure=async(config:Partial<SessionConfig>)=>{const detail=await sessionDetail(page,sessionId);const response=await sessionApi(page,`/api/sessions/${sessionId}/config`,'PATCH',{expectedRevision:detail.session.configRevision,config});expect(response.status).toBe(200);};
-  return {sessionId,display,viewer,client,call,current,show,nav,configure};
+async function setup(page: Page, info: TestInfo, baseURL: string, accountWide = false) {
+    await register(page);
+    const sessionId = await createSession(page, 'Navigation and Help acceptance'), display = await createDisplay(page, sessionId, 'Shared source'), viewer = await openViewer(page, sessionId, display.id);
+    const issued = await sessionApi<{
+        token: string;
+    }>(page, '/api/tokens', 'POST', { name: 'Disposable navigation checks', scopes: ['read', 'publish'], ...(accountWide ? {} : { sessionIds: [sessionId] }) });
+    expect(issued.status).toBe(201);
+    const headers = { Authorization: `Bearer ${issued.data!.token}` };
+    const client = info.project.name.startsWith('phone') ? new LegacyClient({ name: 'navigation-legacy', version: '1' }) : new Client({ name: 'navigation-current', version: '1' });
+    if (client instanceof LegacyClient)
+        await client.connect(new LegacyTransport(new URL('/mcp', baseURL), { requestInit: { headers } }));
+    else
+        await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', baseURL), { requestInit: { headers } }));
+    const call = async <T = any>(tool: string, operation: string, args: Record<string, unknown> = {}) => { const result = await client.callTool(operationRequest({ name: tool, arguments: { operation, ...args } })); expect(result.isError, `${tool} ${operation} succeeds`).not.toBe(true); return (result.structuredContent as {
+        data: T;
+    }).data; };
+    const current = () => waitForDisplay(page, sessionId, display.id, d => d.revision > 0 && d.appliedRevision === d.revision);
+    const show = async (view: ViewSpec) => { await publishPrepared(page, sessionId, [display.id], view); return current(); };
+    const nav = async (navigation: unknown, viewerId?: string) => { const d = await current(); return call("kanvas_call", "kanvas.navigation.control", { sessionId, displayId: display.id, requestId: randomUUID(), expectedRevision: d.revision, navigation, ...(viewerId ? { viewerId } : {}) }); };
+    const configure = async (config: Partial<SessionConfig>) => { const detail = await sessionDetail(page, sessionId); const response = await sessionApi(page, `/api/sessions/${sessionId}/config`, 'PATCH', { expectedRevision: detail.session.configRevision, config }); expect(response.status).toBe(200); };
+    return { sessionId, display, viewer, client, call, current, show, nav, configure };
 }
 async function photo(viewer:Page,info:TestInfo,name:string){await mkdir(info.outputPath('visuals'),{recursive:true});await viewer.screenshot({path:`${info.outputPath('visuals')}/${info.project.name}-${name}.png`,animations:'disabled'});}
 async function expectListMarkersInside(viewer:Page){
@@ -35,62 +44,126 @@ async function expectListMarkersInside(viewer:Page){
 }
 const table:ViewSpec={version:1,template:'table',data:{columns:['Item','Exact amount'],pageSize:10,rows:Array.from({length:51},(_,i)=>({Item:`Item ${i+1}`,'Exact amount':`12345678901234567890.${String(i).padStart(4,'0')}`}))}};
 
-test('table browsing is independent, shared or presenter-led without editing the source or history',async({page,baseURL},info)=>{
-  const s=await setup(page,info,baseURL!),other=await openViewer(page,s.sessionId,s.display.id),pager=(p:Page)=>p.getByRole('navigation',{name:'Table pagination'});
-  try{
-    const original=await s.show(table);await expect(pager(s.viewer)).toContainText('1–10 of 51');await expect(pager(other)).toContainText('1–10 of 51');
-    await pager(s.viewer).getByRole('button',{name:'Next'}).click();await expect(pager(s.viewer)).toContainText('11–20 of 51');await expect(pager(other)).toContainText('1–10 of 51');
-    await s.nav({action:'page',page:6});await expect(s.viewer.locator('tbody')).toContainText('Item 51');await expect(other.locator('tbody')).toContainText('Item 51');
-    await expect.poll(async()=>{const result=await s.call('kanvas_inspect','navigation.read',{sessionId:s.sessionId,displayId:s.display.id});return result.viewers.filter((v:any)=>v.status==='applied').length;}).toBe(2);
-    await s.configure({syncMode:'shared'});await expect(s.viewer.locator('.browsing-root')).toHaveAttribute('data-navigation-mode','shared');await pager(other).getByRole('button',{name:'Previous'}).click();await expect(pager(s.viewer)).toContainText('41–50 of 51');await expect(pager(other)).toContainText('41–50 of 51');
-    const presenter=await s.viewer.locator('.browsing-root').getAttribute('data-navigation-viewer');expect(presenter).toBeTruthy();
-    await s.configure({syncMode:'presenter',presenterViewerId:presenter!});await expect(pager(other).getByRole('button',{name:'Previous'})).toBeDisabled();await pager(s.viewer).getByRole('button',{name:'Previous'}).click();await expect(pager(other)).toContainText('31–40 of 51');
-    await s.configure({syncMode:'independent',presenterViewerId:''});await expect(pager(other).getByRole('button',{name:'Previous'})).toBeEnabled();await pager(other).getByRole('button',{name:'Previous'}).click();await expect(pager(other)).toContainText('21–30 of 51');await expect(pager(s.viewer)).toContainText('31–40 of 51');
-    await s.nav({action:'search',query:'Item 51'});await expect(s.viewer.locator('tbody tr')).toHaveCount(1);await expect(other.locator('tbody')).toContainText('12345678901234567890.0050');
-    const after=await s.current();expect(after.revision).toBe(original.revision);expect(after.view).toEqual(original.view);await photo(s.viewer,info,'table-search');
-  }finally{await s.client.close();await other.close();}
+test('table browsing is independent, shared or presenter-led without editing the source or history', async ({ page, baseURL }, info) => {
+    const s = await setup(page, info, baseURL!), other = await openViewer(page, s.sessionId, s.display.id), pager = (p: Page) => p.getByRole('navigation', { name: 'Table pagination' });
+    try {
+        const original = await s.show(table);
+        await expect(pager(s.viewer)).toContainText('1–10 of 51');
+        await expect(pager(other)).toContainText('1–10 of 51');
+        await pager(s.viewer).getByRole('button', { name: 'Next' }).click();
+        await expect(pager(s.viewer)).toContainText('11–20 of 51');
+        await expect(pager(other)).toContainText('1–10 of 51');
+        await s.nav({ action: 'page', page: 6 });
+        await expect(s.viewer.locator('tbody')).toContainText('Item 51');
+        await expect(other.locator('tbody')).toContainText('Item 51');
+        await expect.poll(async () => { const result = await s.call("kanvas_call", "kanvas.navigation.read", { sessionId: s.sessionId, displayId: s.display.id }); return result.viewers.filter((v: any) => v.status === 'applied').length; }).toBe(2);
+        await s.configure({ syncMode: 'shared' });
+        await expect(s.viewer.locator('.browsing-root')).toHaveAttribute('data-navigation-mode', 'shared');
+        await pager(other).getByRole('button', { name: 'Previous' }).click();
+        await expect(pager(s.viewer)).toContainText('41–50 of 51');
+        await expect(pager(other)).toContainText('41–50 of 51');
+        const presenter = await s.viewer.locator('.browsing-root').getAttribute('data-navigation-viewer');
+        expect(presenter).toBeTruthy();
+        await s.configure({ syncMode: 'presenter', presenterViewerId: presenter! });
+        await expect(pager(other).getByRole('button', { name: 'Previous' })).toBeDisabled();
+        await pager(s.viewer).getByRole('button', { name: 'Previous' }).click();
+        await expect(pager(other)).toContainText('31–40 of 51');
+        await s.configure({ syncMode: 'independent', presenterViewerId: '' });
+        await expect(pager(other).getByRole('button', { name: 'Previous' })).toBeEnabled();
+        await pager(other).getByRole('button', { name: 'Previous' }).click();
+        await expect(pager(other)).toContainText('21–30 of 51');
+        await expect(pager(s.viewer)).toContainText('31–40 of 51');
+        await s.nav({ action: 'search', query: 'Item 51' });
+        await expect(s.viewer.locator('tbody tr')).toHaveCount(1);
+        await expect(other.locator('tbody')).toContainText('12345678901234567890.0050');
+        const after = await s.current();
+        expect(after.revision).toBe(original.revision);
+        expect(after.view).toEqual(original.view);
+        await photo(s.viewer, info, 'table-search');
+    }
+    finally {
+        await s.client.close();
+        await other.close();
+    }
 });
 
-test('agent scroll, section focus, highlighting and pins use real browser acknowledgements',async({page,baseURL},info)=>{
-  const s=await setup(page,info,baseURL!);
-  try{
-    const text='Opening section\n\n'+Array.from({length:35},(_,i)=>`Paragraph ${i+1}. The original exact value is 123.4500. Keep the full supplied prose readable.`).join('\n\n')+'\n\nFinal section\n\nThe final supplied statement.';
-    const start=text.indexOf('Final section'),original=await s.show({version:1,template:'document',data:{text,layout:'reading',headings:[{start:0,end:15,level:2},{start,end:start+13,level:2}]}}),reader=s.viewer.getByRole('region',{name:'Document reader'});
-    const pin=await s.call('kanvas_control','pin.save',{sessionId:s.sessionId,displayId:s.display.id,requestId:randomUUID(),label:'Original document'});
-    await s.nav({action:'scroll',y:1});await expect(s.viewer.getByText('The final supplied statement.',{exact:true})).toBeInViewport();
-    await s.nav({action:'search',query:'Paragraph 20'});await expect.poll(()=>s.viewer.evaluate(()=>((CSS as any).highlights?.get('kanvas-search')?.size??0))).toBeGreaterThan(0);
-    await s.nav({action:'focus',text:'Final section',zoom:1});await expect(s.viewer.getByRole('heading',{name:'Final section'})).toBeInViewport();
-    await s.nav({action:'highlight',text:'The final supplied statement.'});await expect.poll(()=>s.viewer.evaluate(()=>((CSS as any).highlights?.get('kanvas-highlight')?.size??0))).toBeGreaterThan(0);await expect(s.viewer.getByRole('heading',{name:'Final section'})).toBeInViewport();
-    await s.nav({action:'focus',region:{x:0,y:.75,width:1,height:.25},zoom:2});await expect(s.viewer.locator('.render-surface')).toHaveCSS('transform',/matrix\(2,/);await expect.poll(()=>reader.evaluate(el=>el.scrollTop)).toBeGreaterThan(0);await s.nav({action:'reset'});await expect(s.viewer.locator('.render-surface')).toHaveCSS('transform','none');
-    expect((await s.current()).revision).toBe(original.revision);
-    await s.show({version:1,template:'fact',data:{text:'A separate later view'}});const before=await s.current();
-    const receipt=await s.call('kanvas_control','pin.recall',{sessionId:s.sessionId,displayId:s.display.id,pinId:pin.id,requestId:'recall-original',expectedRevision:before.revision});await s.current();await expect(s.viewer.locator('.document-article')).toContainText('The final supplied statement.');
-    const restored=await s.current();expect(restored.revision).toBe(before.revision+1);expect(restored.view?.data.text).toBe(text);
-    const retry=await s.call('kanvas_control','pin.recall',{sessionId:s.sessionId,displayId:s.display.id,pinId:pin.id,requestId:'recall-original',expectedRevision:before.revision});expect(retry.id).toBe(receipt.id);expect((await s.current()).revision).toBe(restored.revision);await photo(s.viewer,info,'document-recalled');
-  }finally{await s.client.close();}
+test('agent scroll, section focus, highlighting and pins use real browser acknowledgements', async ({ page, baseURL }, info) => {
+    const s = await setup(page, info, baseURL!);
+    try {
+        const text = 'Opening section\n\n' + Array.from({ length: 35 }, (_, i) => `Paragraph ${i + 1}. The original exact value is 123.4500. Keep the full supplied prose readable.`).join('\n\n') + '\n\nFinal section\n\nThe final supplied statement.';
+        const start = text.indexOf('Final section'), original = await s.show({ version: 1, template: 'document', data: { text, layout: 'reading', headings: [{ start: 0, end: 15, level: 2 }, { start, end: start + 13, level: 2 }] } }), reader = s.viewer.getByRole('region', { name: 'Document reader' });
+        const pin = await s.call("kanvas_call", "kanvas.pin.save", { sessionId: s.sessionId, displayId: s.display.id, requestId: randomUUID(), label: 'Original document' });
+        await s.nav({ action: 'scroll', y: 1 });
+        await expect(s.viewer.getByText('The final supplied statement.', { exact: true })).toBeInViewport();
+        await s.nav({ action: 'search', query: 'Paragraph 20' });
+        await expect.poll(() => s.viewer.evaluate(() => ((CSS as any).highlights?.get('kanvas-search')?.size ?? 0))).toBeGreaterThan(0);
+        await s.nav({ action: 'focus', text: 'Final section', zoom: 1 });
+        await expect(s.viewer.getByRole('heading', { name: 'Final section' })).toBeInViewport();
+        await s.nav({ action: 'highlight', text: 'The final supplied statement.' });
+        await expect.poll(() => s.viewer.evaluate(() => ((CSS as any).highlights?.get('kanvas-highlight')?.size ?? 0))).toBeGreaterThan(0);
+        await expect(s.viewer.getByRole('heading', { name: 'Final section' })).toBeInViewport();
+        await s.nav({ action: 'focus', region: { x: 0, y: .75, width: 1, height: .25 }, zoom: 2 });
+        await expect(s.viewer.locator('.render-surface')).toHaveCSS('transform', /matrix\(2,/);
+        await expect.poll(() => reader.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+        await s.nav({ action: 'reset' });
+        await expect(s.viewer.locator('.render-surface')).toHaveCSS('transform', 'none');
+        expect((await s.current()).revision).toBe(original.revision);
+        await s.show({ version: 1, template: 'fact', data: { text: 'A separate later view' } });
+        const before = await s.current();
+        const receipt = await s.call("kanvas_call", "kanvas.pin.recall", { sessionId: s.sessionId, displayId: s.display.id, pinId: pin.id, requestId: 'recall-original', expectedRevision: before.revision });
+        await s.current();
+        await expect(s.viewer.locator('.document-article')).toContainText('The final supplied statement.');
+        const restored = await s.current();
+        expect(restored.revision).toBe(before.revision + 1);
+        expect(restored.view?.data.text).toBe(text);
+        const retry = await s.call("kanvas_call", "kanvas.pin.recall", { sessionId: s.sessionId, displayId: s.display.id, pinId: pin.id, requestId: 'recall-original', expectedRevision: before.revision });
+        expect(retry.id).toBe(receipt.id);
+        expect((await s.current()).revision).toBe(restored.revision);
+        await photo(s.viewer, info, 'document-recalled');
+    }
+    finally {
+        await s.client.close();
+    }
 });
 
-test('late within-view input cannot navigate a replacement view or leave a stale error on it',async({page,baseURL},info)=>{
-  const s=await setup(page,info,baseURL!),path=`/api/sessions/${s.sessionId}/displays/${s.display.id}/navigation`;
-  let release=()=>{},arrive=()=>{};const gate=new Promise<void>(resolve=>{release=resolve;}),arrived=new Promise<void>(resolve=>{arrive=resolve;});
-  const revisions:number[]=[];
-  try{
-    const original=await s.show(table);
-    await s.viewer.route(`**${path}`,async route=>{
-      if(route.request().method()!=='POST')return route.continue();
-      revisions.push(route.request().postDataJSON().expectedRevision);
-      if(revisions.length===1){arrive();await gate;}
-      await route.continue();
-    });
-    await s.viewer.getByRole('navigation',{name:'Table pagination'}).getByRole('button',{name:'Next'}).click();await arrived;
-    const replacement=await s.show({version:1,template:'fact',data:{text:'A newer supplied view must stay unchanged.'}});
-    const response=s.viewer.waitForResponse(r=>new URL(r.url()).pathname===path&&r.request().method()==='POST');release();
-    const rejected=await response;expect(rejected.status()).toBe(409);expect((await rejected.json()).error.code).toBe('REVISION_CONFLICT');
-    const cue=await s.nav({action:'reset'});
-    await expect.poll(async()=>{const state=await s.call('kanvas_inspect','navigation.read',{sessionId:s.sessionId,displayId:s.display.id});return state.commandId===cue.commandId&&state.viewers.some((v:any)=>v.status==='applied');}).toBe(true);
-    await expect(s.viewer.locator('.fact-text')).toHaveText('A newer supplied view must stay unchanged.');await expect(s.viewer.getByLabel('Dismiss navigation error')).toHaveCount(0);
-    const current=await s.current();expect(current.revision).toBe(replacement.revision);expect(current.view).toEqual(replacement.view);expect(revisions).toEqual([original.revision]);
-  }finally{release();await s.client.close();}
+test('late within-view input cannot navigate a replacement view or leave a stale error on it', async ({ page, baseURL }, info) => {
+    const s = await setup(page, info, baseURL!), path = `/api/sessions/${s.sessionId}/displays/${s.display.id}/navigation`;
+    let release = () => { }, arrive = () => { };
+    const gate = new Promise<void>(resolve => { release = resolve; }), arrived = new Promise<void>(resolve => { arrive = resolve; });
+    const revisions: number[] = [];
+    try {
+        const original = await s.show(table);
+        await s.viewer.route(`**${path}`, async (route) => {
+            if (route.request().method() !== 'POST')
+                return route.continue();
+            revisions.push(route.request().postDataJSON().expectedRevision);
+            if (revisions.length === 1) {
+                arrive();
+                await gate;
+            }
+            await route.continue();
+        });
+        await s.viewer.getByRole('navigation', { name: 'Table pagination' }).getByRole('button', { name: 'Next' }).click();
+        await arrived;
+        const replacement = await s.show({ version: 1, template: 'fact', data: { text: 'A newer supplied view must stay unchanged.' } });
+        const response = s.viewer.waitForResponse(r => new URL(r.url()).pathname === path && r.request().method() === 'POST');
+        release();
+        const rejected = await response;
+        expect(rejected.status()).toBe(409);
+        expect((await rejected.json()).error.code).toBe('REVISION_CONFLICT');
+        const cue = await s.nav({ action: 'reset' });
+        await expect.poll(async () => { const state = await s.call("kanvas_call", "kanvas.navigation.read", { sessionId: s.sessionId, displayId: s.display.id }); return state.commandId === cue.commandId && state.viewers.some((v: any) => v.status === 'applied'); }).toBe(true);
+        await expect(s.viewer.locator('.fact-text')).toHaveText('A newer supplied view must stay unchanged.');
+        await expect(s.viewer.getByLabel('Dismiss navigation error')).toHaveCount(0);
+        const current = await s.current();
+        expect(current.revision).toBe(replacement.revision);
+        expect(current.view).toEqual(replacement.view);
+        expect(revisions).toEqual([original.revision]);
+    }
+    finally {
+        release();
+        await s.client.close();
+    }
 });
 
 test('lists and four-vendor comparisons retain exact attributes and full URLs at phone width',async({page,baseURL},info)=>{
@@ -157,45 +230,65 @@ test('regional settings format display values and focused Help stays public and 
 });
 
 
-test('device-window zoom isolation and same-content native scroll survive revision updates',async({page,baseURL},info)=>{
-  const s=await setup(page,info,baseURL!),other=await openViewer(page,s.sessionId,s.display.id);
-  try{
-    await s.show({version:1,template:'document',data:{layout:'reading',text:Array.from({length:70},(_,i)=>`Paragraph ${i+1}. Long original supplied text stays in place after an update. `.repeat(2)).join('\n\n')}});
-    await expect(s.viewer.locator('.browsing-root')).toHaveAttribute('data-navigation-viewer',/.+/);
-    const viewerId=(await s.viewer.locator('.browsing-root').getAttribute('data-navigation-viewer'))!;
-    await s.nav({action:'zoom',scale:2},viewerId);
-    await expect.poll(()=>s.viewer.locator('.render-surface').first().evaluate(el=>getComputedStyle(el).zoom)).toBe('2');
-    await expect.poll(()=>other.locator('.render-surface').first().evaluate(el=>getComputedStyle(el).zoom)).toBe('1');
-    const scroller=s.viewer.locator('.document-content');await scroller.evaluate(el=>{el.scrollTop=1200;});await s.viewer.waitForTimeout(1200);
-    const top=await scroller.evaluate(el=>el.scrollTop);expect(top).toBeGreaterThan(500);
-    const d=await s.current();await s.call('kanvas_publish','patch',{sessionId:s.sessionId,displayId:s.display.id,requestId:randomUUID(),expectedRevision:d.revision,operations:[{op:'appendText',path:'/data/text',value:'\n\nUpdated in place.'}]});
-    await s.current();await s.viewer.waitForTimeout(1500);const retained=await scroller.evaluate(el=>el.scrollTop);expect(Math.abs(retained-top),`scroll before ${top}, after ${retained}`).toBeLessThan(6);
-    expect(await other.locator('.document-content').evaluate(el=>el.scrollTop)).toBe(0);
-    await s.show({version:1,template:'document',data:{layout:'reading',text:'New document\n\n'+Array.from({length:80},()=> 'New supplied text. '.repeat(6)).join('\n\n')}});
-    expect(await s.viewer.locator('.document-content').evaluate(el=>el.scrollTop)).toBe(0);
-    await expect.poll(()=>s.viewer.locator('.render-surface').first().evaluate(el=>getComputedStyle(el).zoom)).toBe('2');
-  }finally{await s.client.close();await other.close();}
+test('device-window zoom isolation and same-content native scroll survive revision updates', async ({ page, baseURL }, info) => {
+    const s = await setup(page, info, baseURL!), other = await openViewer(page, s.sessionId, s.display.id);
+    try {
+        await s.show({ version: 1, template: 'document', data: { layout: 'reading', text: Array.from({ length: 70 }, (_, i) => `Paragraph ${i + 1}. Long original supplied text stays in place after an update. `.repeat(2)).join('\n\n') } });
+        await expect(s.viewer.locator('.browsing-root')).toHaveAttribute('data-navigation-viewer', /.+/);
+        const viewerId = (await s.viewer.locator('.browsing-root').getAttribute('data-navigation-viewer'))!;
+        await s.nav({ action: 'zoom', scale: 2 }, viewerId);
+        await expect.poll(() => s.viewer.locator('.render-surface').first().evaluate(el => getComputedStyle(el).zoom)).toBe('2');
+        await expect.poll(() => other.locator('.render-surface').first().evaluate(el => getComputedStyle(el).zoom)).toBe('1');
+        const scroller = s.viewer.locator('.document-content');
+        await scroller.evaluate(el => { el.scrollTop = 1200; });
+        await s.viewer.waitForTimeout(1200);
+        const top = await scroller.evaluate(el => el.scrollTop);
+        expect(top).toBeGreaterThan(500);
+        const d = await s.current();
+        await s.call("kanvas_call", "kanvas.view.patch", { sessionId: s.sessionId, displayId: s.display.id, requestId: randomUUID(), expectedRevision: d.revision, operations: [{ op: 'appendText', path: '/data/text', value: '\n\nUpdated in place.' }] });
+        await s.current();
+        await s.viewer.waitForTimeout(1500);
+        const retained = await scroller.evaluate(el => el.scrollTop);
+        expect(Math.abs(retained - top), `scroll before ${top}, after ${retained}`).toBeLessThan(6);
+        expect(await other.locator('.document-content').evaluate(el => el.scrollTop)).toBe(0);
+        await s.show({ version: 1, template: 'document', data: { layout: 'reading', text: 'New document\n\n' + Array.from({ length: 80 }, () => 'New supplied text. '.repeat(6)).join('\n\n') } });
+        expect(await s.viewer.locator('.document-content').evaluate(el => el.scrollTop)).toBe(0);
+        await expect.poll(() => s.viewer.locator('.render-surface').first().evaluate(el => getComputedStyle(el).zoom)).toBe('2');
+    }
+    finally {
+        await s.client.close();
+        await other.close();
+    }
 });
 
-test('owned root overview viewport receives zoom and scroll without affecting sibling windows',async({page,baseURL},info)=>{
-  const s=await setup(page,info,baseURL!,true);
-  try{
-    await s.show({version:1,template:'fact',data:{text:'Window receipt target'}});
-    await s.nav({action:'zoom',scale:1.5});
-    let devices:any;
-    await expect.poll(async()=>{devices=await s.call('kanvas_devices','list');return devices.devices.flatMap((d:any)=>d.windows).filter((w:any)=>w.current?.displayId===s.display.id).length;}).toBe(1);
-    const device=devices.devices.find((d:any)=>d.windows.some((w:any)=>w.current?.displayId===s.display.id)),w=device.windows.find((w:any)=>w.current?.displayId===s.display.id);
-    await s.call('kanvas_control','window.overview',{deviceId:device.id,windowId:w.id,expectedVersion:w.version,requestId:randomUUID()});
-    await expect(s.viewer).toHaveURL(baseURL!+'/');await expect(s.viewer.locator('.account-overview')).toBeVisible();await expect.poll(()=>s.viewer.locator('.account-overview').evaluate(el=>getComputedStyle(el).zoom)).toBe('1.5');
-    const current=async()=>{const all=await s.call('kanvas_devices','list');return all.devices.find((d:any)=>d.id===device.id).windows.find((x:any)=>x.id===w.id);};
-    await expect.poll(async()=>(await current()).command?.status).toBe('applied');
-    const input={deviceId:device.id,windowId:w.id,expectedVersion:(await current()).version,requestId:randomUUID(),navigation:{action:'zoom',scale:2}};
-    const result=await s.call('kanvas_control','window.viewport',input);expect((await s.call('kanvas_control','window.viewport',input)).commandId).toBe(result.commandId);
-    await expect.poll(()=>s.viewer.locator('.account-overview').evaluate(el=>getComputedStyle(el).zoom)).toBe('2');
-    await expect.poll(async()=>(await current()).command?.status).toBe('applied');
-    await s.call('kanvas_control','window.viewport',{deviceId:device.id,windowId:w.id,expectedVersion:(await current()).version,requestId:randomUUID(),navigation:{action:'scroll',y:1}});
-    await expect.poll(async()=>(await current()).command?.status).toBe('applied');
-    const scroll=await s.viewer.evaluate(()=>({top:document.scrollingElement!.scrollTop,max:document.scrollingElement!.scrollHeight-window.innerHeight}));expect(scroll.max).toBeGreaterThan(0);expect(Math.abs(scroll.top-scroll.max)).toBeLessThan(3);
-    await s.viewer.reload();await expect.poll(()=>s.viewer.locator('.account-overview').evaluate(el=>getComputedStyle(el).zoom)).toBe('2');
-  }finally{await s.client.close();}
+test('owned root overview viewport receives zoom and scroll without affecting sibling windows', async ({ page, baseURL }, info) => {
+    const s = await setup(page, info, baseURL!, true);
+    try {
+        await s.show({ version: 1, template: 'fact', data: { text: 'Window receipt target' } });
+        await s.nav({ action: 'zoom', scale: 1.5 });
+        let devices: any;
+        await expect.poll(async () => { devices = await s.call("kanvas_call", "kanvas.devices.read"); return devices.devices.flatMap((d: any) => d.windows).filter((w: any) => w.current?.displayId === s.display.id).length; }).toBe(1);
+        const device = devices.devices.find((d: any) => d.windows.some((w: any) => w.current?.displayId === s.display.id)), w = device.windows.find((w: any) => w.current?.displayId === s.display.id);
+        await s.call("kanvas_call", "kanvas.window.overview", { deviceId: device.id, windowId: w.id, expectedVersion: w.version, requestId: randomUUID() });
+        await expect(s.viewer).toHaveURL(baseURL! + '/');
+        await expect(s.viewer.locator('.account-overview')).toBeVisible();
+        await expect.poll(() => s.viewer.locator('.account-overview').evaluate(el => getComputedStyle(el).zoom)).toBe('1.5');
+        const current = async () => { const all = await s.call("kanvas_call", "kanvas.devices.read"); return all.devices.find((d: any) => d.id === device.id).windows.find((x: any) => x.id === w.id); };
+        await expect.poll(async () => (await current()).command?.status).toBe('applied');
+        const input = { deviceId: device.id, windowId: w.id, expectedVersion: (await current()).version, requestId: randomUUID(), navigation: { action: 'zoom', scale: 2 } };
+        const result = await s.call("kanvas_call", "kanvas.window.viewport", input);
+        expect((await s.call("kanvas_call", "kanvas.window.viewport", input)).commandId).toBe(result.commandId);
+        await expect.poll(() => s.viewer.locator('.account-overview').evaluate(el => getComputedStyle(el).zoom)).toBe('2');
+        await expect.poll(async () => (await current()).command?.status).toBe('applied');
+        await s.call("kanvas_call", "kanvas.window.viewport", { deviceId: device.id, windowId: w.id, expectedVersion: (await current()).version, requestId: randomUUID(), navigation: { action: 'scroll', y: 1 } });
+        await expect.poll(async () => (await current()).command?.status).toBe('applied');
+        const scroll = await s.viewer.evaluate(() => ({ top: document.scrollingElement!.scrollTop, max: document.scrollingElement!.scrollHeight - window.innerHeight }));
+        expect(scroll.max).toBeGreaterThan(0);
+        expect(Math.abs(scroll.top - scroll.max)).toBeLessThan(3);
+        await s.viewer.reload();
+        await expect.poll(() => s.viewer.locator('.account-overview').evaluate(el => getComputedStyle(el).zoom)).toBe('2');
+    }
+    finally {
+        await s.client.close();
+    }
 });

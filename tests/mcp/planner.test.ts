@@ -15,12 +15,13 @@ import { resolveToolCall } from '../../src/server/mcp/catalog.js';
 import { InputError } from '../../src/server/input-errors.js';
 
 describe("planner coverage 1", () => {
-
-const context={principal:{userId:'test-account',scopes:['read','publish']}};
-describe('contextual discovery and first contact',()=>{
- it('submit success proactively exposes targeted workflow operations and committed planner boundary',()=>{
-  const result=toolSuccess({status:'prepared'},undefined,'kanvas_submit','discovery',{view:{version:1,template:'planner',data:{status:'committed'}}});
-  expect(result.structuredContent).toMatchObject({workflow:{relatedOperations:expect.arrayContaining([{id:'kanvas.planner.review',description:expect.any(String)}])},commitmentBoundary:expect.stringContaining('No external calendar')});
-  expect(toolSuccess({},undefined,'kanvas_planner_finalize','discovery').structuredContent).toHaveProperty('commitmentBoundary');
- });});
+    const context = { principal: { userId: 'test-account', scopes: ['read', 'publish'] } };
+    describe('contextual discovery and first contact', () => {
+        
+        it('submit success proactively exposes targeted workflow operations and committed planner boundary', () => {
+            const result = toolSuccess({ status: 'prepared' }, undefined, "kanvas.submit", 'discovery', { view: { version: 1, template: 'planner', data: { status: 'committed' } } });
+            expect(result.structuredContent).toMatchObject({ workflow: { relatedOperations: expect.arrayContaining([{ id: 'kanvas.planner.review', description: expect.any(String) }]) }, commitmentBoundary: expect.stringContaining('No external calendar') });
+            expect(toolSuccess({}, undefined, "kanvas.planner.finalize", 'discovery').structuredContent).toHaveProperty('commitmentBoundary');
+        });
+    });
 });

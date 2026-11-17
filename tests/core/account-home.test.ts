@@ -26,64 +26,81 @@ import { advanceFlashcards } from '../../src/shared/flashcards';
 import { flashcardControlSchema } from '../../src/shared/flashcards';
 
 describe("account home coverage 1", () => {
-
-
-describe('account home, inventory and live-browser redirect (reported regression)', () => {
-  let h!:Harness, owner: Browser, p: AuthPrincipal & { browserId: string };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const call = async (name: string, args: unknown) => (await h.runtime.service.execute(name, args, p)) as any;
-  const waitFor = async (check: () => boolean) => { for (let attempt = 0; attempt < 100 && !check(); attempt++) await new Promise(resolve => setTimeout(resolve, 20)); };
-  beforeEach(async () => {
-    h = await startHarness(); owner = await h.account();
-    const browser = (await h.runtime.auth.issueBrowser(owner.user!.id, { cookie: () => {} } as unknown as Response));
-    p = { userId: owner.user!.id, browserId: browser.id };
-  });
-  afterEach(async () => { await h?.close(); });
-
-  it('names only real operations and translates them for the twelve profile', () => {
-    const names = new Set(canonicalToolDefinitions().map(tool => tool.name));
-    for (const area of Object.values(ACCOUNT_MANAGE)) for (const name of [...area.read, ...area.change]) expect(names.has(name), name).toBe(true);
-    const translated = profileResultData('kanvas_account_inventory', { manage: ACCOUNT_MANAGE }, 'twelve') as { manage: Record<string, { change: string[] }> };
-    expect(translated.manage.connections!.change).toContain('kanvas_control connection.redirect');
-    expect(translated.manage.devices!.change).toContain('kanvas_control device.present');
-  });
-
-  it('lists sessions with their displays, devices with windows, groups and the manage map', async () => {
-    const planning = await owner.session('Planning'), wall = await owner.display(planning.id, 'Wall');
-    await owner.submit(planning.id, [wall.id], { ...fact('Hello'), title: 'Morning briefing' });
-    const old = await owner.session('Old session');
-    await call('kanvas_session_end', { sessionId: old.id });
-    const device = await h.runtime.service.devices.register(p, { installationId: 'inventory' }, 'Chrome/140');
-    const tab = await h.runtime.service.devices.windows.register(p, device.id, 'inventory-tab');
-    const inventory = await call('kanvas_account_inventory', {});
-    const names = inventory.sessions.map((session: { name: string }) => session.name);
-    expect(names).toContain('Planning'); expect(names).not.toContain('Old session'); expect(inventory.endedHidden).toBeGreaterThanOrEqual(1);
-    expect(inventory.sessions.find((session: { id: string }) => session.id === planning.id)).toMatchObject({ role: 'owner', displays: [{ id: wall.id, name: 'Wall', online: false, shows: 'Morning briefing' }] });
-    expect(inventory.devices).toEqual([expect.objectContaining({ id: device.id, windows: [expect.objectContaining({ id: tab.id, connected: false })] })]);
-    expect(Array.isArray(inventory.groups)).toBe(true);
-    expect(inventory.manage.connections.change).toContain('kanvas_connection_redirect'); expect(inventory.notAvailable.length).toBeGreaterThan(0);
-    expect((await call('kanvas_account_inventory', { includeEnded: true })).sessions.map((session: { name: string }) => session.name)).toContain('Old session');
-  });
-
-  it('redirects the owner’s own live browser window to a display in another session, idempotently', async () => {
-    const first = await owner.session('First'), here = await owner.display(first.id, 'Here');
-    const second = await owner.session('Second'), there = await owner.display(second.id, 'There');
-    const svc = h.runtime.service, device = await svc.devices.register(p, { installationId: 'redirect' }, 'Chrome/140');
-    const tab = await svc.devices.windows.register(p, device.id, 'redirect-tab'), connectionId = hash(`${p.browserId}:redirect-tab`).slice(0, 32);
-    const args = { connectionId, sessionId: second.id, displayId: there.id, requestId: 'redirect-1' };
-    await expect(call('kanvas_connection_redirect', { ...args, requestId: 'while-offline' })).rejects.toMatchObject({ code: 'WINDOW_OFFLINE' });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const seen: any[] = [], stream = await svc.devices.windows.stream(p, device.id, tab.id, event => seen.push(event));
-    try {
-      const sent = await call('kanvas_connection_redirect', args);
-      await waitFor(() => seen.some(event => event?.command?.id === sent.commandId));
-      expect(seen.find(event => event?.command?.id === sent.commandId)?.command).toMatchObject({ sessionId: second.id, displayId: there.id, status: 'pending' });
-      expect((await call('kanvas_connection_redirect', args)).commandId).toBe(sent.commandId);
-      await expect(call('kanvas_connection_redirect', { ...args, sessionId: first.id, displayId: here.id })).rejects.toMatchObject({ code: 'REQUEST_ID_CONFLICT' });
-      await expect(call('kanvas_connection_redirect', { ...args, connectionId: 'not-a-window', requestId: 'unknown' })).rejects.toMatchObject({ code: 'NOT_FOUND' });
-    } finally { stream.close(); }
-  });
-});
+    describe('account home, inventory and live-browser redirect (reported regression)', () => {
+        let h!: Harness, owner: Browser, p: AuthPrincipal & {
+            browserId: string;
+        };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const call = async (name: string, args: unknown) => (await h.runtime.service.execute(name, args, p)) as any;
+        const waitFor = async (check: () => boolean) => { for (let attempt = 0; attempt < 100 && !check(); attempt++)
+            await new Promise(resolve => setTimeout(resolve, 20)); };
+        beforeEach(async () => {
+            h = await startHarness();
+            owner = await h.account();
+            const browser = (await h.runtime.auth.issueBrowser(owner.user!.id, { cookie: () => { } } as unknown as Response));
+            p = { userId: owner.user!.id, browserId: browser.id };
+        });
+        afterEach(async () => { await h?.close(); });
+        it('names only real operations and translates them for the twelve profile', () => {
+            const names = new Set(canonicalToolDefinitions().map(tool => tool.name));
+            for (const area of Object.values(ACCOUNT_MANAGE))
+                for (const name of [...area.read, ...area.change])
+                    expect(names.has(name), name).toBe(true);
+            const translated = profileResultData("kanvas.account.inventory", { manage: ACCOUNT_MANAGE }, 'twelve') as {
+                manage: Record<string, {
+                    change: string[];
+                }>;
+            };
+            expect(translated.manage.connections!.change).toContain('kanvas_control connection.redirect');
+            expect(translated.manage.devices!.change).toContain('kanvas_control device.present');
+        });
+        it('lists sessions with their displays, devices with windows, groups and the manage map', async () => {
+            const planning = await owner.session('Planning'), wall = await owner.display(planning.id, 'Wall');
+            await owner.submit(planning.id, [wall.id], { ...fact('Hello'), title: 'Morning briefing' });
+            const old = await owner.session('Old session');
+            await call("kanvas.session.end", { sessionId: old.id });
+            const device = await h.runtime.service.devices.register(p, { installationId: 'inventory' }, 'Chrome/140');
+            const tab = await h.runtime.service.devices.windows.register(p, device.id, 'inventory-tab');
+            const inventory = await call("kanvas.account.inventory", {});
+            const names = inventory.sessions.map((session: {
+                name: string;
+            }) => session.name);
+            expect(names).toContain('Planning');
+            expect(names).not.toContain('Old session');
+            expect(inventory.endedHidden).toBeGreaterThanOrEqual(1);
+            expect(inventory.sessions.find((session: {
+                id: string;
+            }) => session.id === planning.id)).toMatchObject({ role: 'owner', displays: [{ id: wall.id, name: 'Wall', online: false, shows: 'Morning briefing' }] });
+            expect(inventory.devices).toEqual([expect.objectContaining({ id: device.id, windows: [expect.objectContaining({ id: tab.id, connected: false })] })]);
+            expect(Array.isArray(inventory.groups)).toBe(true);
+            expect(inventory.manage.connections.change).toContain("kanvas.connection.redirect");
+            expect(inventory.notAvailable.length).toBeGreaterThan(0);
+            expect((await call("kanvas.account.inventory", { includeEnded: true })).sessions.map((session: {
+                name: string;
+            }) => session.name)).toContain('Old session');
+        });
+        it('redirects the owner’s own live browser window to a display in another session, idempotently', async () => {
+            const first = await owner.session('First'), here = await owner.display(first.id, 'Here');
+            const second = await owner.session('Second'), there = await owner.display(second.id, 'There');
+            const svc = h.runtime.service, device = await svc.devices.register(p, { installationId: 'redirect' }, 'Chrome/140');
+            const tab = await svc.devices.windows.register(p, device.id, 'redirect-tab'), connectionId = hash(`${p.browserId}:redirect-tab`).slice(0, 32);
+            const args = { connectionId, sessionId: second.id, displayId: there.id, requestId: 'redirect-1' };
+            await expect(call("kanvas.connection.redirect", { ...args, requestId: 'while-offline' })).rejects.toMatchObject({ code: 'WINDOW_OFFLINE' });
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const seen: any[] = [], stream = await svc.devices.windows.stream(p, device.id, tab.id, event => seen.push(event));
+            try {
+                const sent = await call("kanvas.connection.redirect", args);
+                await waitFor(() => seen.some(event => event?.command?.id === sent.commandId));
+                expect(seen.find(event => event?.command?.id === sent.commandId)?.command).toMatchObject({ sessionId: second.id, displayId: there.id, status: 'pending' });
+                expect((await call("kanvas.connection.redirect", args)).commandId).toBe(sent.commandId);
+                await expect(call("kanvas.connection.redirect", { ...args, sessionId: first.id, displayId: here.id })).rejects.toMatchObject({ code: 'REQUEST_ID_CONFLICT' });
+                await expect(call("kanvas.connection.redirect", { ...args, connectionId: 'not-a-window', requestId: 'unknown' })).rejects.toMatchObject({ code: 'NOT_FOUND' });
+            }
+            finally {
+                stream.close();
+            }
+        });
+    });
 });
 
 describe("account home coverage 2", () => {

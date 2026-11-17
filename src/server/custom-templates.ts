@@ -8,11 +8,35 @@ import type {Definition} from './mcp/canonical.js';
 import type {CatalogItem} from './mcp/discovery.js';
 import type {ViewSpec} from '../shared/types.js';
 const key=z.string().min(1).max(128);
-export const customTools:Definition[]=[
-{name:'kanvas_account_templates_create',schema:customDefinitionSchema,description:'Create a private account custom template: name, bounded JSON schema (object/properties/required; arrays/items, string/number/integer/boolean), static well-formed HTML and CSS. Bind escaped fields with {{field}} and repeat arrays of objects with named fields: schema items:{type:"object",properties:{text:{type:"string"}}}, HTML {{#each items}}<li>{{text}}</li>{{/each}}. For primitive arrays use {{#each points}}<li>{{value}}</li>{{/each}}; implicit {{this}} is not supported. No scripts, event handlers, external resources, URLs, raw bindings or CSS escapes/imports. No editing/versioning: create a replacement then explicitly delete the old ID.'},
-{name:'kanvas_account_templates_list',schema:z.object({query:z.string().max(200).optional()}).strict(),readOnly:true,description:'List/search only your own reusable custom templates. Also included alongside built-ins in kanvas_discover templates search/list.'},
-{name:'kanvas_account_templates_delete',schema:z.object({templateId:key}).strict(),destructive:true,description:'Delete your custom template definition. Published snapshots remain visible; new publication or data updates using the deleted definition are unavailable.'},
-{name:'kanvas_account_templates_publish',schema:z.object({templateId:key,values:z.record(z.string(),z.unknown()),sessionId:key,displayIds:z.array(key).min(1).max(20),requestId:key}).strict(),description:'Publish your private template by ID using schema-validated values. Data updates use normal publish.replace / publish.patch with the account-template view data {templateId,values}. Name is separate from built-in templateHint. Creating a definition does not publish it.',idempotent:true},
+export const customTools: Definition[] = [
+    {
+        name: "kanvas.account.templates.create", schema: customDefinitionSchema, description: 'Create a private account custom template: name, bounded JSON schema (object/properties/required; arrays/items, string/number/integer/boolean), static well-formed HTML and CSS. Bind escaped fields with {{field}} and repeat arrays of objects with named fields: schema items:{type:"object",properties:{text:{type:"string"}}}, HTML {{#each items}}<li>{{text}}</li>{{/each}}. For primitive arrays use {{#each points}}<li>{{value}}</li>{{/each}}; implicit {{this}} is not supported. No scripts, event handlers, external resources, URLs, raw bindings or CSS escapes/imports. No editing/versioning: create a replacement then explicitly delete the old ID.',
+        domain: "template",
+        requiredScope: "publish",
+        discovery: {"group":"content","hint":"Use the discovered schema for this account-scoped or live state operation.","examples":[{"name":"My headline","schema":{"type":"object","properties":{"headline":{"type":"string"}},"required":["headline"]},"html":"<h1>{{headline}}</h1>","css":"h1 {font-size: 64px;}"}]},
+        searchAliases: ["kanvas.account.templates.create"]
+    },
+    {
+        name: "kanvas.account.templates.list", schema: z.object({ query: z.string().max(200).optional() }).strict(), readOnly: true, description: 'List/search only your own reusable custom templates. Also included alongside built-ins in kanvas_discover templates search/list.',
+        domain: "template",
+        requiredScope: "read",
+        discovery: {"group":"content","hint":"Use the discovered schema for this account-scoped or live state operation.","examples":[{"query":"headline"}]},
+        searchAliases: ["kanvas.account.templates.list"]
+    },
+    {
+        name: "kanvas.account.templates.delete", schema: z.object({ templateId: key }).strict(), destructive: true, description: 'Delete your custom template definition. Published snapshots remain visible; new publication or data updates using the deleted definition are unavailable.',
+        domain: "template",
+        requiredScope: "publish",
+        discovery: {"group":"content","hint":"Use the discovered schema for this account-scoped or live state operation.","examples":[{"templateId":"template-id"}]},
+        searchAliases: ["kanvas.account.templates.delete"]
+    },
+    {
+        name: "kanvas.account.templates.publish", schema: z.object({ templateId: key, values: z.record(z.string(), z.unknown()), sessionId: key, displayIds: z.array(key).min(1).max(20), requestId: key }).strict(), description: 'Publish your private template by ID using schema-validated values. Data updates use normal publish.replace / publish.patch with the account-template view data {templateId,values}. Name is separate from built-in templateHint. Creating a definition does not publish it.', idempotent: true,
+        domain: "template",
+        requiredScope: "publish",
+        discovery: {"group":"content","hint":"Use the discovered schema for this account-scoped or live state operation.","examples":[{"templateId":"template-id","values":{"headline":"Hello"},"sessionId":"session-id","displayIds":["display-id"]}]},
+        searchAliases: ["kanvas.account.templates.publish"]
+    },
 ];
 const tags=new Set('div span p h1 h2 h3 h4 h5 h6 article section header footer main aside strong b em i u small br hr ul ol li dl dt dd table thead tbody tfoot tr th td caption blockquote pre code figure figcaption time'.split(' '));
 const attrs=new Set(['class','id','title','role','aria-label','colspan','rowspan','scope','datetime']);
@@ -62,18 +86,40 @@ export function validateCustomValues(schema:Record<string,any>,v:unknown,depth=0
  else if(schema.type==='boolean'){if(typeof v!=='boolean')fail();}
  else if(typeof v!=='number'||!Number.isFinite(v)||(schema.type==='integer'&&!Number.isInteger(v))||v<(schema.minimum??-Infinity)||v>(schema.maximum??Infinity))fail();
 }
-export class CustomTemplates{
- constructor(private s:KanvasService){}
- async list(p:AuthPrincipal,query=''){await this.s.accounts.account(p);return (await this.s.store.list<CustomTemplate>('custom-template',p.userId)).filter(t=>t.ownerId===p.userId&&t.name.toLowerCase().includes(query.toLowerCase()));}
- async get(p:AuthPrincipal,key:string){await this.s.accounts.account(p);const t=await this.s.store.get<CustomTemplate>('custom-template',key);if(!t||t.ownerId!==p.userId)throw new AppError('NOT_FOUND','Custom template is unavailable.',404);return t;}
- async resolve(p:AuthPrincipal,view:ViewSpec){if(view.template!=='account-template')return view;const t=await this.get(p,String(view.data.templateId));validateCustomValues(t.schema,view.data.values);let html:string;try{html=bindTemplate(t.html,view.data.values as Record<string,unknown>);}catch{throw new AppError('INVALID_ARGUMENT','Invalid or oversized template binding. Use declared fields and balanced each sections.');}validateStatic(html,t.css);return {...view,data:{templateId:t.id,values:view.data.values,html,css:t.css}};}
- async execute(p:AuthPrincipal,name:string,a:any){
-  if(name==='kanvas_account_templates_list')return {templates:(await this.list(p,a.query)).map(t=>({id:t.id,name:t.name,createdAt:t.createdAt,discoveryId:'account.template.'+t.id}))};
-  await this.s.accounts.account(p,true);
-  if(name==='kanvas_account_templates_create')return this.s.store.atomic(async()=>{const input=customDefinitionSchema.parse(a);validateCustomSchema(input.schema);if(input.schema.type!=='object')throw new AppError('INVALID_ARGUMENT','Root schema must be object.');validateStatic(input.html,input.css);validateBindings(input.html,input.schema);if((await this.list(p)).length>=100)throw new AppError('LIMIT_REACHED','Maximum 100 private templates.',429);const t={...input,id:id(),ownerId:p.userId,sessionId:p.userId,createdAt:now()};await this.s.store.put('custom-template',t);return {id:t.id,name:t.name,createdAt:t.createdAt,discoveryId:'account.template.'+t.id};});
-  if(name==='kanvas_account_templates_delete'){const t=await this.get(p,a.templateId);await this.s.store.delete('custom-template',t.id);return {deleted:true,templateId:t.id};}
-  const view=await this.resolve(p,{version:1,template:'account-template',data:{templateId:a.templateId,values:a.values}});
-  return this.s.submit(p,{sessionId:a.sessionId,displayIds:a.displayIds,requestId:a.requestId,view});
- }
- async catalog(p:AuthPrincipal):Promise<CatalogItem[]>{try{await this.s.accounts.account(p);}catch(error){if(error instanceof AppError&&error.code==='FORBIDDEN')return [];throw error;}const templates=await this.list(p);return templates.map(t=>({id:'account.template.'+t.id,provider:'account',revision:t.createdAt,title:t.name,summary:'Private reusable template: '+t.name,keywords:t.name,text:t.name+' '+JSON.stringify(t.schema),detail:()=>({id:'account.template.'+t.id,templateId:t.id,name:t.name,schema:t.schema,operationId:'kanvas.account.templates.publish',arguments:{templateId:t.id,values:{},sessionId:'SESSION',displayIds:['DISPLAY']},update:'Use normal publish.replace or publish.patch on data.values. Private definition; publishing deliberately shares rendered content with that display.'})}));}
+export class CustomTemplates {
+    constructor(private s: KanvasService) { }
+    async list(p: AuthPrincipal, query = '') { await this.s.accounts.account(p); return (await this.s.store.list<CustomTemplate>('custom-template', p.userId)).filter(t => t.ownerId === p.userId && t.name.toLowerCase().includes(query.toLowerCase())); }
+    async get(p: AuthPrincipal, key: string) { await this.s.accounts.account(p); const t = await this.s.store.get<CustomTemplate>('custom-template', key); if (!t || t.ownerId !== p.userId)
+        throw new AppError('NOT_FOUND', 'Custom template is unavailable.', 404); return t; }
+    async resolve(p: AuthPrincipal, view: ViewSpec) { if (view.template !== 'account-template')
+        return view; const t = await this.get(p, String(view.data.templateId)); validateCustomValues(t.schema, view.data.values); let html: string; try {
+        html = bindTemplate(t.html, view.data.values as Record<string, unknown>);
+    }
+    catch {
+        throw new AppError('INVALID_ARGUMENT', 'Invalid or oversized template binding. Use declared fields and balanced each sections.');
+    } validateStatic(html, t.css); return { ...view, data: { templateId: t.id, values: view.data.values, html, css: t.css } }; }
+    async execute(p: AuthPrincipal, name: string, a: any) {
+        if (name === "kanvas.account.templates.list")
+            return { templates: (await this.list(p, a.query)).map(t => ({ id: t.id, name: t.name, createdAt: t.createdAt, discoveryId: 'account.template.' + t.id })) };
+        await this.s.accounts.account(p, true);
+        if (name === "kanvas.account.templates.create")
+            return this.s.store.atomic(async () => { const input = customDefinitionSchema.parse(a); validateCustomSchema(input.schema); if (input.schema.type !== 'object')
+                throw new AppError('INVALID_ARGUMENT', 'Root schema must be object.'); validateStatic(input.html, input.css); validateBindings(input.html, input.schema); if ((await this.list(p)).length >= 100)
+                throw new AppError('LIMIT_REACHED', 'Maximum 100 private templates.', 429); const t = { ...input, id: id(), ownerId: p.userId, sessionId: p.userId, createdAt: now() }; await this.s.store.put('custom-template', t); return { id: t.id, name: t.name, createdAt: t.createdAt, discoveryId: 'account.template.' + t.id }; });
+        if (name === "kanvas.account.templates.delete") {
+            const t = await this.get(p, a.templateId);
+            await this.s.store.delete('custom-template', t.id);
+            return { deleted: true, templateId: t.id };
+        }
+        const view = await this.resolve(p, { version: 1, template: 'account-template', data: { templateId: a.templateId, values: a.values } });
+        return this.s.submit(p, { sessionId: a.sessionId, displayIds: a.displayIds, requestId: a.requestId, view });
+    }
+    async catalog(p: AuthPrincipal): Promise<CatalogItem[]> { try {
+        await this.s.accounts.account(p);
+    }
+    catch (error) {
+        if (error instanceof AppError && error.code === 'FORBIDDEN')
+            return [];
+        throw error;
+    } const templates = await this.list(p); return templates.map(t => ({ id: 'account.template.' + t.id, provider: 'account', revision: t.createdAt, title: t.name, summary: 'Private reusable template: ' + t.name, keywords: t.name, text: t.name + ' ' + JSON.stringify(t.schema), detail: () => ({ id: 'account.template.' + t.id, templateId: t.id, name: t.name, schema: t.schema, operationId: 'kanvas.account.templates.publish', arguments: { templateId: t.id, values: {}, sessionId: 'SESSION', displayIds: ['DISPLAY'] }, update: 'Use normal publish.replace or publish.patch on data.values. Private definition; publishing deliberately shares rendered content with that display.' }) })); }
 }

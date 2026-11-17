@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { isSafeUrl } from './urls.js';
+import {z} from 'zod';
+import {isSafeUrl} from './urls.js';
 
 // Source contracts, not executable dashboards. Free-form statuses and fields
 // preserve the vocabulary of the connected system instead of inventing states.
@@ -25,7 +25,7 @@ export type RecordDetailData=z.infer<typeof recordDetailDataSchema>;
 export const bookmarksDataSchema=z.object({items:z.array(z.object({id,title:label,url,category:label.optional(),favicon:url.optional()}).strict()).max(500).refine(unique,'Bookmark IDs must be unique.')}).strict();
 const parameter=z.object({name:label,type:label,required:z.boolean(),description:text.optional()}).strict();
 export const toolDetailDataSchema=z.object({name:label,integration:label.optional(),description:text.optional(),parameters:z.array(parameter).max(200),returns:text.optional()}).strict();
-export const toolInventoryDataSchema=z.object({activeGroup:label.optional().describe('Initially selected integration name. The left index remains visible; navigation.control page steps between integrations.'),groups:z.array(z.object({name:label,description:text.optional(),tools:z.array(z.object({name:label,description:text.optional(),detail:toolDetailDataSchema.optional()}).strict()).max(500)}).strict()).max(50)}).strict().refine(v=>!v.activeGroup||v.groups.some(g=>g.name===v.activeGroup),'activeGroup must name a supplied integration.');
+export const toolInventoryDataSchema = z.object({ activeGroup: label.optional().describe("Initially selected integration name. The left index remains visible; kanvas_call with operationId:\"kanvas.navigation.control\" and arguments:{\u2026} page steps between integrations."), groups: z.array(z.object({ name: label, description: text.optional(), tools: z.array(z.object({ name: label, description: text.optional(), detail: toolDetailDataSchema.optional() }).strict()).max(500) }).strict()).max(50) }).strict().refine(v => !v.activeGroup || v.groups.some(g => g.name === v.activeGroup), 'activeGroup must name a supplied integration.');
 const statusItem=z.object({id,name:label,status:label.optional(),detail:text.optional(),fields:fields.optional()}).strict();
 export const developerDataSchema=z.discriminatedUnion('kind',[
   z.object({kind:z.literal('pull-request'),title:label,description:z.string().max(20_000).optional(),status:label.optional(),author:label.optional(),base:label.optional(),head:label.optional(),files:z.array(z.object({path:label,status:label.optional(),additions:value.optional(),deletions:value.optional()}).strict()).max(1000),checks:z.array(statusItem).max(100).default([]),approvals:z.array(statusItem).max(100).default([])}).strict(),

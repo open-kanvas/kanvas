@@ -120,84 +120,136 @@ import type { MonitoringSummary } from '../../src/shared/monitoring.js';
 import type { Token } from '../../src/server/auth.js';
 
 describe("settings coverage 1", () => {
-
-
-describe("settings contracts",()=>{
-  let h!:Harness,owner:Browser,s:string,d:string,p:AuthPrincipal;
-  const path=()=>`/api/sessions/${s}/displays/${d}`;
-  const call=async <T=Record<string,unknown>>(name:string,args:unknown)=>(await h.runtime.service.execute(name,args,p)) as Promise<T>;
-  const current=async()=> (await owner.detail(s)).displays.find(x=>x.id===d)!;
-  const settle=async(update:UpdateRecord)=>owner.settle(s,update.requestId);
-  beforeEach(async()=>{h=await startHarness();owner=await h.account();s=(await owner.session()).id;d=(await owner.display(s)).id;p={userId:owner.user!.id};});
-  afterEach(async()=>{await h?.close();});
-  async function guest(interactive:boolean){
-    const share=await call<{id:string}>('kanvas_share_create',{sessionId:s,displayId:d,allowInteraction:interactive});const g=h.browser();
-    const pair=success(await g.request<{id:string}>('POST','/api/pairings',{shareId:share.id,deviceName:'Evening test screen',requestedInteractive:interactive}));
-    await call('kanvas_pairing_decide',{sessionId:s,pairingId:pair.id,approve:true,confirm:true,interactive});success(await g.request('GET',`/api/pairings/${pair.id}/status`));g.csrf=success(await g.request<{csrfToken:string}>('GET','/api/auth/me')).csrfToken;return g;
-  }
-  it('applies owner settings and records a linked feedback event; rejects stale drafts without partial changes',async()=>{
-    await owner.submit(s,[d],{version:1,template:'settings',data:{}});
-    success(await owner.request('POST',`${path()}/settings`,{expectedRevision:0,config:{style:'iris',theme:'light'}}));
-    const detail=await owner.detail(s);expect(detail.session.config).toMatchObject({style:'iris',theme:'light'});expect(detail.interactions.filter(x=>x.actionId==='settings.changed')).toHaveLength(1);expect(detail.interactions.at(-1)?.value).toMatchObject({applied:true,configRevision:1});
-    denied(await owner.request('POST',`${path()}/settings`,{expectedRevision:0,config:{theme:'dark'}}),[409]);expect((await owner.detail(s)).session.config.theme).toBe('light');
-  });
-  it('lets contributing guests propose settings without granting editing; view-only guests cannot propose',async()=>{
-    await owner.submit(s,[d],{version:1,template:'settings',data:{}});const g=await guest(true),body={revision:1,requestId:randomUUID(),value:{kind:'settings.request',config:{theme:'light'},expectedConfigRevision:0}};
-    success(await g.request('POST',`${path()}/respond`,body));success(await g.request('POST',`${path()}/respond`,body));
-    const detail=await owner.detail(s);expect(detail.session.config.theme).toBe('dark');expect(detail.interactions.filter(x=>x.actionId==='settings.request')).toHaveLength(1);expect(detail.interactions.at(-1)?.value).toMatchObject({applied:false,config:{theme:'light'}});
-    denied(await g.request('POST',`${path()}/settings`,{expectedRevision:0,config:{theme:'light'}}));const readonly=await guest(false);denied(await readonly.request('POST',`${path()}/respond`,{...body,requestId:randomUUID()}));
-  });});
+    describe("settings contracts", () => {
+        let h!: Harness, owner: Browser, s: string, d: string, p: AuthPrincipal;
+        const path = () => `/api/sessions/${s}/displays/${d}`;
+        const call = async <T = Record<string, unknown>>(name: string, args: unknown) => (await h.runtime.service.execute(name, args, p)) as Promise<T>;
+        const current = async () => (await owner.detail(s)).displays.find(x => x.id === d)!;
+        const settle = async (update: UpdateRecord) => owner.settle(s, update.requestId);
+        beforeEach(async () => { h = await startHarness(); owner = await h.account(); s = (await owner.session()).id; d = (await owner.display(s)).id; p = { userId: owner.user!.id }; });
+        afterEach(async () => { await h?.close(); });
+        async function guest(interactive: boolean) {
+            const share = await call<{
+                id: string;
+            }>("kanvas.share.create", { sessionId: s, displayId: d, allowInteraction: interactive });
+            const g = h.browser();
+            const pair = success(await g.request<{
+                id: string;
+            }>('POST', '/api/pairings', { shareId: share.id, deviceName: 'Evening test screen', requestedInteractive: interactive }));
+            await call("kanvas.pairing.decide", { sessionId: s, pairingId: pair.id, approve: true, confirm: true, interactive });
+            success(await g.request('GET', `/api/pairings/${pair.id}/status`));
+            g.csrf = success(await g.request<{
+                csrfToken: string;
+            }>('GET', '/api/auth/me')).csrfToken;
+            return g;
+        }
+        it('applies owner settings and records a linked feedback event; rejects stale drafts without partial changes', async () => {
+            await owner.submit(s, [d], { version: 1, template: 'settings', data: {} });
+            success(await owner.request('POST', `${path()}/settings`, { expectedRevision: 0, config: { style: 'iris', theme: 'light' } }));
+            const detail = await owner.detail(s);
+            expect(detail.session.config).toMatchObject({ style: 'iris', theme: 'light' });
+            expect(detail.interactions.filter(x => x.actionId === 'settings.changed')).toHaveLength(1);
+            expect(detail.interactions.at(-1)?.value).toMatchObject({ applied: true, configRevision: 1 });
+            denied(await owner.request('POST', `${path()}/settings`, { expectedRevision: 0, config: { theme: 'dark' } }), [409]);
+            expect((await owner.detail(s)).session.config.theme).toBe('light');
+        });
+        it('lets contributing guests propose settings without granting editing; view-only guests cannot propose', async () => {
+            await owner.submit(s, [d], { version: 1, template: 'settings', data: {} });
+            const g = await guest(true), body = { revision: 1, requestId: randomUUID(), value: { kind: 'settings.request', config: { theme: 'light' }, expectedConfigRevision: 0 } };
+            success(await g.request('POST', `${path()}/respond`, body));
+            success(await g.request('POST', `${path()}/respond`, body));
+            const detail = await owner.detail(s);
+            expect(detail.session.config.theme).toBe('dark');
+            expect(detail.interactions.filter(x => x.actionId === 'settings.request')).toHaveLength(1);
+            expect(detail.interactions.at(-1)?.value).toMatchObject({ applied: false, config: { theme: 'light' } });
+            denied(await g.request('POST', `${path()}/settings`, { expectedRevision: 0, config: { theme: 'light' } }));
+            const readonly = await guest(false);
+            denied(await readonly.request('POST', `${path()}/respond`, { ...body, requestId: randomUUID() }));
+        });
+    });
 });
 
 describe("settings coverage 2", () => {
-
-let h!:Harness;
-afterEach(async()=>{await h?.close();});
-it('round-trips time format through session and personal config; new templates publish through normal service',async()=>{
-  h=await startHarness();const owner=await h.account(),s=(await owner.session()).id,d=(await owner.display(s)).id;
-  expect(configPatchSchema.parse({timeFormat:'12h'})).toEqual({timeFormat:'12h'});
-  success(await owner.request('PATCH',`/api/sessions/${s}/config`,{expectedRevision:0,config:{timeFormat:'12h'}}));expect((await owner.detail(s)).session.config.timeFormat).toBe('12h');
-
-  const principal={userId:owner.user!.id};const pref=await h.runtime.service.execute('kanvas_preferences_get',{},principal) as any;
-  await h.runtime.service.execute('kanvas_preferences_update',{expectedRevision:pref.revision,config:{timeFormat:'24h'}},principal);
-  expect((await owner.session()).config.timeFormat).toBe('24h');expect((await owner.detail(s)).session.config.timeFormat).toBe('12h');
-  await owner.submit(s,[d],{version:1,template:'inbox',format:{timeFormat:'12h',dateFormat:'dmy'},data:{items:[{id:'m',from:'Sender',subject:'Subject',timestamp:'2026-09-27T14:26:04Z'}]}});expect((await owner.detail(s)).displays[0].view?.format?.timeFormat).toBe('12h');
-  const {samples}=await import('../../src/shared/template-examples.js');for(const key of ['sports-lineup','org-chart','flowchart','network'] as const){await owner.submit(s,[d],samples[key]);expect((await owner.detail(s)).displays[0].view?.template).toBe(key);}
-});
+    let h!: Harness;
+    afterEach(async () => { await h?.close(); });
+    it('round-trips time format through session and personal config; new templates publish through normal service', async () => {
+        h = await startHarness();
+        const owner = await h.account(), s = (await owner.session()).id, d = (await owner.display(s)).id;
+        expect(configPatchSchema.parse({ timeFormat: '12h' })).toEqual({ timeFormat: '12h' });
+        success(await owner.request('PATCH', `/api/sessions/${s}/config`, { expectedRevision: 0, config: { timeFormat: '12h' } }));
+        expect((await owner.detail(s)).session.config.timeFormat).toBe('12h');
+        const principal = { userId: owner.user!.id };
+        const pref = await h.runtime.service.execute("kanvas.preferences.get", {}, principal) as any;
+        await h.runtime.service.execute("kanvas.preferences.update", { expectedRevision: pref.revision, config: { timeFormat: '24h' } }, principal);
+        expect((await owner.session()).config.timeFormat).toBe('24h');
+        expect((await owner.detail(s)).session.config.timeFormat).toBe('12h');
+        await owner.submit(s, [d], { version: 1, template: 'inbox', format: { timeFormat: '12h', dateFormat: 'dmy' }, data: { items: [{ id: 'm', from: 'Sender', subject: 'Subject', timestamp: '2026-09-27T14:26:04Z' }] } });
+        expect((await owner.detail(s)).displays[0].view?.format?.timeFormat).toBe('12h');
+        const { samples } = await import('../../src/shared/template-examples.js');
+        for (const key of ['sports-lineup', 'org-chart', 'flowchart', 'network'] as const) {
+            await owner.submit(s, [d], samples[key]);
+            expect((await owner.detail(s)).displays[0].view?.template).toBe(key);
+        }
+    });
 });
 
 describe("settings coverage 3", () => {
-
-
-const context={principal:{userId:'catalog-reader'}};
-const search=(kind:'tool'|'template'|'help',query:string,limit=3)=>(discoveryCatalog.query(kind,'search',{query,limit},context).results as {id:string;description:string;example?:unknown}[]);
-
-describe('0875e953 response policy and session mode (pure rules)',()=>{
- const orientation={guide:{tool:'kanvas_guide'},viewerLink:'how to connect a receiver',toolSelection:'x',recovery:'y'};
- const guidance={boundary:'b',levels:[{scope:'user',id:'user:1',text:'be proactive',revision:3}]};
- const mode={current:'live',source:'default',guidance:MODE_GUIDANCE.live,set:'kanvas.session.settings.update'};
- const run=(ledger:ContactLedger,overrides:Partial<Parameters<typeof applyResponsePolicy>[1]>={},structured:Record<string,unknown>={data:{status:'accepted',sessionId:'s1'},orientation},key='conn',at=Date.now())=>applyResponsePolicy(structured,{state:ledger.observe(key,at),context:{mode,displayConnected:true},guidance,isError:false,operation:'kanvas_submit',sessionId:'s1',...overrides}).structured!;
- it('a declared full preference keeps every block; a long silence is a new contact; the ledger is bounded',()=>{
-  const ledger=new ContactLedger();run(ledger,{context:{mode,displayConnected:true,preference:'full'}});
-  const again=run(ledger,{context:{mode,displayConnected:true,preference:'full'}});expect(again.orientation).toEqual(orientation);expect((again.agentGuidance as {levels:unknown[]}).levels).toHaveLength(1);
-  const start=Date.now(),idle=new ContactLedger();run(idle,{},undefined,'k',start);expect(run(idle,{},undefined,'k',start+CONTACT_IDLE_MS+1).firstContact).toBeTruthy();
-  for(let i=0;i<5200;i++)idle.observe(`k${i}`);expect(idle.observe('k0').first).toBe(true);
- });});
-
-describe('server behaviour behind the exposure reports',()=>{
- let h!:Harness,o:Browser,s:string,d:string,p:{userId:string;agentId?:string;tokenId?:string};
- beforeEach(async()=>{delete process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT;h=await startHarness();o=await h.account();s=(await o.session()).id;d=(await o.display(s)).id;p={userId:o.user!.id};});
- afterEach(async()=>{delete process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT;await h?.close();});
- const call=(name:string,args:Record<string,unknown>={},principal=p)=>h.runtime.service.execute(name,args,principal) as Promise<any>;
- /** A real connection: its token exists, so account checks pass exactly as for an MCP client. */
- const agentPrincipal=async(name:string)=>{const {token}=await h.runtime.auth.issueToken(p.userId,name,['read','publish']);return {userId:p.userId,agentId:token.agentId,tokenId:token.id};};
- it('8f4962dc / e2573eca / aef9fccb: connector identity and sender address come from configuration',()=>{
-  const icons=serverIcons('https://kanvas.example');
-  expect(icons.map(icon=>icon.sizes[0])).toEqual(['48x48','192x192','512x512','any']);expect(icons.every(icon=>icon.src.startsWith('https://kanvas.example/')&&icon.src.endsWith(`?v=${KANVAS_VERSION}`))).toBe(true);expect(icons.filter(icon=>icon.mimeType==='image/png')).toHaveLength(3);
-  expect(serverWebsiteUrl(undefined)).toBe(DEFAULT_WEBSITE_URL);expect(serverWebsiteUrl('https://example.org/')).toBe('https://example.org');expect(serverWebsiteUrl('')).toBeUndefined();expect(serverWebsiteUrl(false)).toBeUndefined();expect(serverWebsiteUrl('http://insecure.example')).toBeUndefined();expect(serverWebsiteUrl('javascript:alert(1)')).toBeUndefined();
-  expect(KANVAS_VERSION).toBe('0.38.0');
-  expect(mailSenderAddress('KANVAS <noreply@example.com>')).toBe('noreply@example.com');expect(mailSenderAddress('kanvas@open-kanvas.ai')).toBe('kanvas@open-kanvas.ai');expect(mailSenderAddress('not an address')).toBeUndefined();expect(mailSenderAddress(undefined)).toBeUndefined();
- });});
+    const context = { principal: { userId: 'catalog-reader' } };
+    const search = (kind: 'tool' | 'template' | 'help', query: string, limit = 3) => (discoveryCatalog.query(kind, 'search', { query, limit }, context).results as {
+        id: string;
+        description: string;
+        example?: unknown;
+    }[]);
+    describe('0875e953 response policy and session mode (pure rules)', () => {
+        const orientation = { guide: { tool: "kanvas.guide" }, viewerLink: 'how to connect a receiver', toolSelection: 'x', recovery: 'y' };
+        const guidance = { boundary: 'b', levels: [{ scope: 'user', id: 'user:1', text: 'be proactive', revision: 3 }] };
+        const mode = { current: 'live', source: 'default', guidance: MODE_GUIDANCE.live, set: 'kanvas.session.settings.update' };
+        const run = (ledger: ContactLedger, overrides: Partial<Parameters<typeof applyResponsePolicy>[1]> = {}, structured: Record<string, unknown> = { data: { status: 'accepted', sessionId: 's1' }, orientation }, key = 'conn', at = Date.now()) => applyResponsePolicy(structured, { state: ledger.observe(key, at), context: { mode, displayConnected: true }, guidance, isError: false, operation: "kanvas.submit", sessionId: 's1', ...overrides }).structured!;
+        it('a declared full preference keeps every block; a long silence is a new contact; the ledger is bounded', () => {
+            const ledger = new ContactLedger();
+            run(ledger, { context: { mode, displayConnected: true, preference: 'full' } });
+            const again = run(ledger, { context: { mode, displayConnected: true, preference: 'full' } });
+            expect(again.orientation).toEqual(orientation);
+            expect((again.agentGuidance as {
+                levels: unknown[];
+            }).levels).toHaveLength(1);
+            const start = Date.now(), idle = new ContactLedger();
+            run(idle, {}, undefined, 'k', start);
+            expect(run(idle, {}, undefined, 'k', start + CONTACT_IDLE_MS + 1).firstContact).toBeTruthy();
+            for (let i = 0; i < 5200; i++)
+                idle.observe(`k${i}`);
+            expect(idle.observe('k0').first).toBe(true);
+        });
+    });
+    describe('server behaviour behind the exposure reports', () => {
+        let h!: Harness, o: Browser, s: string, d: string, p: {
+            userId: string;
+            agentId?: string;
+            tokenId?: string;
+        };
+        beforeEach(async () => { delete process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT; h = await startHarness(); o = await h.account(); s = (await o.session()).id; d = (await o.display(s)).id; p = { userId: o.user!.id }; });
+        afterEach(async () => { delete process.env.KANVAS_MAX_SESSIONS_PER_ACCOUNT; await h?.close(); });
+        const call = (name: string, args: Record<string, unknown> = {}, principal = p) => h.runtime.service.execute(name, args, principal) as Promise<any>;
+        /** A real connection: its token exists, so account checks pass exactly as for an MCP client. */
+        const agentPrincipal = async (name: string) => { const { token } = await h.runtime.auth.issueToken(p.userId, name, ['read', 'publish']); return { userId: p.userId, agentId: token.agentId, tokenId: token.id }; };
+        it('8f4962dc / e2573eca / aef9fccb: connector identity and sender address come from configuration', () => {
+            const icons = serverIcons('https://kanvas.example');
+            expect(icons.map(icon => icon.sizes[0])).toEqual(['48x48', '192x192', '512x512', 'any']);
+            expect(icons.every(icon => icon.src.startsWith('https://kanvas.example/') && icon.src.endsWith(`?v=${KANVAS_VERSION}`))).toBe(true);
+            expect(icons.filter(icon => icon.mimeType === 'image/png')).toHaveLength(3);
+            expect(serverWebsiteUrl(undefined)).toBe(DEFAULT_WEBSITE_URL);
+            expect(serverWebsiteUrl('https://example.org/')).toBe('https://example.org');
+            expect(serverWebsiteUrl('')).toBeUndefined();
+            expect(serverWebsiteUrl(false)).toBeUndefined();
+            expect(serverWebsiteUrl('http://insecure.example')).toBeUndefined();
+            expect(serverWebsiteUrl('javascript:alert(1)')).toBeUndefined();
+            expect(KANVAS_VERSION).toBe('0.38.0');
+            expect(mailSenderAddress('KANVAS <noreply@example.com>')).toBe('noreply@example.com');
+            expect(mailSenderAddress('kanvas@open-kanvas.ai')).toBe('kanvas@open-kanvas.ai');
+            expect(mailSenderAddress('not an address')).toBeUndefined();
+            expect(mailSenderAddress(undefined)).toBeUndefined();
+        });
+    });
 });
 
 describe("settings coverage 4", () => {
@@ -217,26 +269,29 @@ describe("settings contracts",()=>{
 });
 
 describe("settings coverage 5", () => {
-
-describe("settings contracts",()=>{
- let h!:Harness,o:Browser,s:string,d:string,p:{userId:string};
- beforeEach(async()=>{h=await startHarness();o=await h.account();s=(await o.session()).id;d=(await o.display(s)).id;p={userId:o.user!.id};});
- afterEach(async()=>{await h?.close();});
- const call=(name:string,args:Record<string,unknown>={})=>h.runtime.service.execute(name,args,p) as Promise<any>;
- const update=(name:string,args:Record<string,unknown>)=>call(name,{sessionId:s,displayId:d,...args});
- const publish=async(template:any,data:any)=>{const result=await o.submit(s,[d],{version:1,template,data});expect(result.update.status).toBe('prepared');return result.detail.displays.find(x=>x.id===d)!;};
- const current=async()=> (await o.detail(s)).displays.find(x=>x.id===d)!;
- const definition={name:'Team list',schema:{type:'object',properties:{title:{type:'string'},items:{type:'array',items:{type:'object',properties:{name:{type:'string'}},required:['name']}}},required:['title','items']},html:'<article><h1>{{title}}</h1><ul>{{#each items}}<li>{{name}}</li>{{/each}}</ul></article>',css:'article {padding: 24px; color: white;} h1 {font-size: 48px;}'};
- it('autoplay and settings apply without preflight revision reads, while explicit guards still reject stale writes',async()=>{
-  await publish('presentation',{slides:[{version:1,template:'fact',data:{text:'One'}},{version:1,template:'fact',data:{text:'Two'}}]});
-  const started=await update('kanvas_autoplay_control',{action:'start',intervalSeconds:60});
-  expect(started.status).toBe('running');
-  const paused=await update('kanvas_autoplay_control',{action:'pause'});expect(paused.status).toBe('paused');
-  await expect(update('kanvas_autoplay_control',{action:'resume',expectedVersion:started.version})).rejects.toMatchObject({code:'REVISION_CONFLICT',currentRevision:paused.version});
-  await update('kanvas_autoplay_control',{action:'stop'});
-  await call('kanvas_config_update',{sessionId:s,config:{theme:'light'}});
-  expect((await o.detail(s)).session.config.theme).toBe('light');
- });});
+    describe("settings contracts", () => {
+        let h!: Harness, o: Browser, s: string, d: string, p: {
+            userId: string;
+        };
+        beforeEach(async () => { h = await startHarness(); o = await h.account(); s = (await o.session()).id; d = (await o.display(s)).id; p = { userId: o.user!.id }; });
+        afterEach(async () => { await h?.close(); });
+        const call = (name: string, args: Record<string, unknown> = {}) => h.runtime.service.execute(name, args, p) as Promise<any>;
+        const update = (name: string, args: Record<string, unknown>) => call(name, { sessionId: s, displayId: d, ...args });
+        const publish = async (template: any, data: any) => { const result = await o.submit(s, [d], { version: 1, template, data }); expect(result.update.status).toBe('prepared'); return result.detail.displays.find(x => x.id === d)!; };
+        const current = async () => (await o.detail(s)).displays.find(x => x.id === d)!;
+        const definition = { name: 'Team list', schema: { type: 'object', properties: { title: { type: 'string' }, items: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } } }, required: ['title', 'items'] }, html: '<article><h1>{{title}}</h1><ul>{{#each items}}<li>{{name}}</li>{{/each}}</ul></article>', css: 'article {padding: 24px; color: white;} h1 {font-size: 48px;}' };
+        it('autoplay and settings apply without preflight revision reads, while explicit guards still reject stale writes', async () => {
+            await publish('presentation', { slides: [{ version: 1, template: 'fact', data: { text: 'One' } }, { version: 1, template: 'fact', data: { text: 'Two' } }] });
+            const started = await update("kanvas.autoplay.control", { action: 'start', intervalSeconds: 60 });
+            expect(started.status).toBe('running');
+            const paused = await update("kanvas.autoplay.control", { action: 'pause' });
+            expect(paused.status).toBe('paused');
+            await expect(update("kanvas.autoplay.control", { action: 'resume', expectedVersion: started.version })).rejects.toMatchObject({ code: 'REVISION_CONFLICT', currentRevision: paused.version });
+            await update("kanvas.autoplay.control", { action: 'stop' });
+            await call("kanvas.config.update", { sessionId: s, config: { theme: 'light' } });
+            expect((await o.detail(s)).session.config.theme).toBe('light');
+        });
+    });
 });
 
 describe("settings coverage 6", () => {

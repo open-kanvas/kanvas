@@ -51,15 +51,19 @@ import { geographyCodes } from '../../src/shared/geography/codes';
 import { DIAGRAM_MAX_FILL } from '../../src/client/renderers/Diagrams';
 
 describe("checklist coverage 1", () => {
-
-describe("checklist contracts",()=>{
-  it('exposes checklist item operations and timezone through all public publish profiles',()=>{
-    for(const [profile,name,args] of [['domains','kanvas_publish',{operation:'patch'}],['twelve','kanvas_publish',{operation:'patch'}],['legacy','kanvas_view_patch',{}]] as const){expect(resolveToolCall(profile,name,{...args,sessionId:'s',displayId:'d',expectedRevision:1,requestId:'r',operations:[{op:'checklist',action:'update',itemId:'one',value:{checked:true}}]}).error).toBeUndefined();}
-  });
-  it('emits one-line wind text and an explicit navigable checklist reader',()=>{
-    const html=renderToStaticMarkup(<Renderer view={validateView({version:1,template:'calendar',data:{view:'three-day',anchorDate:'2026-09-27',timeZone:'UTC',items:[],weather:[{time:'2026-09-27T09:00:00Z',condition:'sun',temperature:12,wind:{speed:3,unit:'m/s',direction:'NW'}}]}})}/>);expect(html).toContain('weather-wind');expect(html).not.toContain('<br');
-    expect(renderToStaticMarkup(<Renderer view={validateView({version:1,template:'checklist',data:{items:[{id:'a',text:'First'}]}})}/>)).toContain('aria-label="Checklist items"');
-  });});
+    describe("checklist contracts", () => {
+        it('exposes checklist item operations and timezone through all public publish profiles', () => {
+            for (const [profile, name, args] of [['domains', 'kanvas_publish', { operation: 'patch' }], ['twelve', 'kanvas_publish', { operation: 'patch' }], ['legacy', "kanvas.view.patch", {}]] as const) {
+                expect(resolveToolCall(profile, name, { ...args, sessionId: 's', displayId: 'd', expectedRevision: 1, requestId: 'r', operations: [{ op: 'checklist', action: 'update', itemId: 'one', value: { checked: true } }] }).error).toBeUndefined();
+            }
+        });
+        it('emits one-line wind text and an explicit navigable checklist reader', () => {
+            const html = renderToStaticMarkup(<Renderer view={validateView({ version: 1, template: 'calendar', data: { view: 'three-day', anchorDate: '2026-09-27', timeZone: 'UTC', items: [], weather: [{ time: '2026-09-27T09:00:00Z', condition: 'sun', temperature: 12, wind: { speed: 3, unit: 'm/s', direction: 'NW' } }] } })}/>);
+            expect(html).toContain('weather-wind');
+            expect(html).not.toContain('<br');
+            expect(renderToStaticMarkup(<Renderer view={validateView({ version: 1, template: 'checklist', data: { items: [{ id: 'a', text: 'First' }] } })}/>)).toContain('aria-label="Checklist items"');
+        });
+    });
 });
 
 describe("checklist coverage 2", () => {

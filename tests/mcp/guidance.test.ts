@@ -74,49 +74,93 @@ it.each(['modern','legacy'])('%s repeats authorized distinct guidance on catalog
 });
 
 describe("guidance coverage 3", () => {
-
-
-describe("guidance contracts",()=>{
- let h!:Harness,client:Client|undefined;
- afterEach(async()=>{await client?.close().catch(()=>{});client=undefined;await h?.close();});
- const connect=async()=>{h=await startHarness({mcpProfile:'discovery'});const owner=await h.account(),{value}=await h.runtime.auth.issueToken(owner.user!.id,'Nov10 contract',['read','publish']);
-  client=new Client({name:'nov10-contract',version:'9.9.9'});await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',h.baseUrl),{requestInit:{headers:{Authorization:`Bearer ${value}`}}}));return owner;};
- const use=async(id:string,args:Record<string,unknown>)=>{const result=await client!.callTool({name:'kanvas_call',arguments:{operationId:id,arguments:args}});return {error:result.isError===true,body:result.structuredContent as Record<string,any>};};
- it('every new operation is discoverable by its id and callable; first contact is sent once',async()=>{
-  const owner=await connect(),session=await owner.session('Contract'),display=await owner.display(session.id);
-  const exercised=new Set<string>();
-  const first=await use('kanvas.session.state',{sessionId:session.id});exercised.add('state');
-  expect(first.error).toBe(false);expect(first.body.firstContact.purpose).toBe(AGENT_CONDUCT);expect(first.body.agentGuidance.levels.length).toBeGreaterThan(0);expect(first.body.data.mode.current).toBe('live');expect(first.body.data.manage.displays.change).toContain('kanvas.display.register');
-  const firstBytes=JSON.stringify(first.body).length;
-  const second=await use('kanvas.session.state',{sessionId:session.id});
-  expect(second.body.firstContact).toBeUndefined();expect(second.body.agentGuidance).toMatchObject({unchanged:true});expect(second.body.orientation.help).toBe('kanvas.help.getting-started.steps');
-  // A display connects: the receiver instructions are no longer repeated.
-  const controller=new AbortController();await owner.raw(`/api/sessions/${session.id}/events?displayId=${display.id}&tabId=tv`,{}, {signal:controller.signal});
-  const third=await use('kanvas.session.state',{sessionId:session.id});expect(third.body.orientation).toEqual({guide:third.body.orientation.guide,help:'kanvas.help.getting-started.steps'});expect(JSON.stringify(third.body).length).toBeLessThan(firstBytes*.75);
-  const published=await use('kanvas.submit',{requestId:'contract-task-list',sessionId:session.id,displayIds:[display.id],view:{version:1,template:'task-list',data:{items:[{title:'One'},{title:'Two'}]}}});
-  expect(published.error).toBe(false);expect(published.body.rhythm).toBe(RHYTHM_NUDGE);
-  expect((await use('kanvas.submit',{requestId:'contract-fact',sessionId:session.id,displayIds:[display.id],view:{version:1,template:'fact',data:{text:'Second'}}})).body.rhythm).toBeUndefined();
-  const lists=await use('kanvas.tasklist.read',{sessionId:session.id});const taskListId=lists.body.data.taskLists[0].id;
-  const calls:Record<string,Record<string,unknown>>={
-   kanvas_tasklist_read:{sessionId:session.id,taskListId,item:1},
-   kanvas_tasklist_update:{sessionId:session.id,taskListId,requestId:'contract-check',check:[1]},
-   kanvas_tasklist_show:{sessionId:session.id,taskListId,displayId:display.id,requestId:'contract-show'},
-   kanvas_agents_read:{},
-   kanvas_fonts_list:{category:'mono'},
-   kanvas_monitor_stream_create:{sessionId:session.id,name:'Contract',requestId:'contract-stream'},
-  };
-  for(const [canonical,args] of Object.entries(calls)){const result=await use(operationId(canonical),args);expect(result.error,`${canonical}: ${JSON.stringify(result.body).slice(0,300)}`).toBe(false);exercised.add(canonical);calls[canonical]=result.body.data;}
-  const streamId=(calls.kanvas_monitor_stream_create as {streamId:string}).streamId;
-  for(const [canonical,args] of [['kanvas_monitor_stream_read',{sessionId:session.id,streamId}],['kanvas_monitor_stream_revoke',{sessionId:session.id,streamId}]] as const){const result=await use(operationId(canonical),args);expect(result.error,canonical).toBe(false);exercised.add(canonical);}
-  const agents=calls.kanvas_agents_read as {agents:{agentId:string;thisConnection?:boolean;name:string}[]};expect(agents.agents.some(agent=>agent.thisConnection)).toBe(true);
-  // Declared refusals are still the operation answering: own connection cannot be revoked, friction is for administrators,
-  // and with no outside network in tests the icon search answers that its sets are unavailable.
-  const revoke=await use('kanvas.agents.revoke',{agentId:agents.agents.find(agent=>agent.thisConnection)!.agentId,confirm:true});expect(revoke.error).toBe(true);expect(revoke.body.error.code).toBe('INVALID_ARGUMENT');exercised.add('kanvas_agents_revoke');
-  const friction=await use('kanvas.friction.read',{kind:'validation'});expect(friction.error).toBe(true);expect(friction.body.error.code).toBe('FORBIDDEN');exercised.add('kanvas_friction_read');
-  h.runtime.service.pickers.fetcher=async()=>{throw new Error('no outside network in tests');};
-  const icons=await use('kanvas.icons.search',{query:'settings'});expect(icons.error).toBe(false);expect(icons.body.data.unavailableSets).toHaveLength(5);exercised.add('kanvas_icons_search');
-  expect([...exercised].filter(name=>name.startsWith('kanvas_')).sort()).toEqual(TASK_MAPPING.map(([name])=>name).sort());
-  for(const [name] of TASK_MAPPING)expect(CANONICAL_TOOLS.some(tool=>tool.name===name),name).toBe(true);
-  controller.abort();
- },30000);});
+    describe("guidance contracts", () => {
+        let h!: Harness, client: Client | undefined;
+        afterEach(async () => { await client?.close().catch(() => { }); client = undefined; await h?.close(); });
+        const connect = async () => {
+            h = await startHarness({ mcpProfile: 'discovery' });
+            const owner = await h.account(), { value } = await h.runtime.auth.issueToken(owner.user!.id, 'Nov10 contract', ['read', 'publish']);
+            client = new Client({ name: 'nov10-contract', version: '9.9.9' });
+            await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', h.baseUrl), { requestInit: { headers: { Authorization: `Bearer ${value}` } } }));
+            return owner;
+        };
+        const use = async (id: string, args: Record<string, unknown>) => { const result = await client!.callTool({ name: 'kanvas_call', arguments: { operationId: id, arguments: args } }); return { error: result.isError === true, body: result.structuredContent as Record<string, any> }; };
+        it('every new operation is discoverable by its id and callable; first contact is sent once', async () => {
+            const owner = await connect(), session = await owner.session('Contract'), display = await owner.display(session.id);
+            const exercised = new Set<string>();
+            const first = await use('kanvas.session.state', { sessionId: session.id });
+            exercised.add('state');
+            expect(first.error).toBe(false);
+            expect(first.body.firstContact.purpose).toBe(AGENT_CONDUCT);
+            expect(first.body.agentGuidance.levels.length).toBeGreaterThan(0);
+            expect(first.body.data.mode.current).toBe('live');
+            expect(first.body.data.manage.displays.change).toContain('kanvas.display.register');
+            const firstBytes = JSON.stringify(first.body).length;
+            const second = await use('kanvas.session.state', { sessionId: session.id });
+            expect(second.body.firstContact).toBeUndefined();
+            expect(second.body.agentGuidance).toMatchObject({ unchanged: true });
+            expect(second.body.orientation.help).toBe('kanvas.help.getting-started.steps');
+            // A display connects: the receiver instructions are no longer repeated.
+            const controller = new AbortController();
+            await owner.raw(`/api/sessions/${session.id}/events?displayId=${display.id}&tabId=tv`, {}, { signal: controller.signal });
+            const third = await use('kanvas.session.state', { sessionId: session.id });
+            expect(third.body.orientation).toEqual({ guide: third.body.orientation.guide, help: 'kanvas.help.getting-started.steps' });
+            expect(JSON.stringify(third.body).length).toBeLessThan(firstBytes * .75);
+            const published = await use('kanvas.submit', { requestId: 'contract-task-list', sessionId: session.id, displayIds: [display.id], view: { version: 1, template: 'task-list', data: { items: [{ title: 'One' }, { title: 'Two' }] } } });
+            expect(published.error).toBe(false);
+            expect(published.body.rhythm).toBe(RHYTHM_NUDGE);
+            expect((await use('kanvas.submit', { requestId: 'contract-fact', sessionId: session.id, displayIds: [display.id], view: { version: 1, template: 'fact', data: { text: 'Second' } } })).body.rhythm).toBeUndefined();
+            const lists = await use('kanvas.tasklist.read', { sessionId: session.id });
+            const taskListId = lists.body.data.taskLists[0].id;
+            const calls: Record<string, Record<string, unknown>> = {
+                "kanvas.tasklist.read": { sessionId: session.id, taskListId, item: 1 },
+                "kanvas.tasklist.update": { sessionId: session.id, taskListId, requestId: 'contract-check', check: [1] },
+                "kanvas.tasklist.show": { sessionId: session.id, taskListId, displayId: display.id, requestId: 'contract-show' },
+                "kanvas.agents.read": {},
+                "kanvas.fonts.list": { category: 'mono' },
+                "kanvas.monitor.stream.create": { sessionId: session.id, name: 'Contract', requestId: 'contract-stream' },
+            };
+            for (const [canonical, args] of Object.entries(calls)) {
+                const result = await use(operationId(canonical), args);
+                expect(result.error, `${canonical}: ${JSON.stringify(result.body).slice(0, 300)}`).toBe(false);
+                exercised.add(canonical);
+                calls[canonical] = result.body.data;
+            }
+            const streamId = (calls["kanvas.monitor.stream.create"] as {
+                streamId: string;
+            }).streamId;
+            for (const [canonical, args] of [["kanvas.monitor.stream.read", { sessionId: session.id, streamId }], ["kanvas.monitor.stream.revoke", { sessionId: session.id, streamId }]] as const) {
+                const result = await use(operationId(canonical), args);
+                expect(result.error, canonical).toBe(false);
+                exercised.add(canonical);
+            }
+            const agents = calls["kanvas.agents.read"] as {
+                agents: {
+                    agentId: string;
+                    thisConnection?: boolean;
+                    name: string;
+                }[];
+            };
+            expect(agents.agents.some(agent => agent.thisConnection)).toBe(true);
+            // Declared refusals are still the operation answering: own connection cannot be revoked, friction is for administrators,
+            // and with no outside network in tests the icon search answers that its sets are unavailable.
+            const revoke = await use('kanvas.agents.revoke', { agentId: agents.agents.find(agent => agent.thisConnection)!.agentId, confirm: true });
+            expect(revoke.error).toBe(true);
+            expect(revoke.body.error.code).toBe('INVALID_ARGUMENT');
+            exercised.add("kanvas.agents.revoke");
+            const friction = await use('kanvas.friction.read', { kind: 'validation' });
+            expect(friction.error).toBe(true);
+            expect(friction.body.error.code).toBe('FORBIDDEN');
+            exercised.add("kanvas.friction.read");
+            h.runtime.service.pickers.fetcher = async () => { throw new Error('no outside network in tests'); };
+            const icons = await use('kanvas.icons.search', { query: 'settings' });
+            expect(icons.error).toBe(false);
+            expect(icons.body.data.unavailableSets).toHaveLength(5);
+            exercised.add("kanvas.icons.search");
+            expect([...exercised].filter(name => name.startsWith('kanvas_')).sort()).toEqual(TASK_MAPPING.map(([name]) => name).sort());
+            for (const [name] of TASK_MAPPING)
+                expect(CANONICAL_TOOLS.some(tool => tool.name === name), name).toBe(true);
+            controller.abort();
+        }, 30000);
+    });
 });

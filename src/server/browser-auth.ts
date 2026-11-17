@@ -38,7 +38,19 @@ export class BrowserAuth {
   return {revoked:true,count:rows.length};
  });}
 }
-export const browserAuthTools=[
- {name:'kanvas_browser_auth_list',description:'List your actual full-account browser sign-ins (not view-only pairings or OAuth clients). Requires account-level publish authority. Returns management IDs, never cookies or CSRF secrets.',schema:browserListSchema,readOnly:true},
- {name:'kanvas_browser_auth_revoke',description:'Explicitly log out one full-account browserSessionId or all:true, including the current browser. Requires account-level publish authority, confirm:true and requestId. Does not revoke independent OAuth clients or view-only pairing grants.',schema:browserRevokeSchema,destructive:true,idempotent:true},
+export const browserAuthTools = [
+    {
+        name: "kanvas.browser.auth.list", description: 'List your actual full-account browser sign-ins (not view-only pairings or OAuth clients). Requires account-level publish authority. Returns management IDs, never cookies or CSRF secrets.', schema: browserListSchema, readOnly: true,
+        domain: "account",
+        requiredScope: "read",
+        discovery: {"group":"access","hint":"List full-account browser sign-ins; excludes view-only pairings and independent OAuth grants. Account publish authority required.","examples":[{}]},
+        searchAliases: ["kanvas.browser.auth.list"]
+    },
+    {
+        name: "kanvas.browser.auth.revoke", description: 'Explicitly log out one full-account browserSessionId or all:true, including the current browser. Requires account-level publish authority, confirm:true and requestId. Does not revoke independent OAuth clients or view-only pairing grants.', schema: browserRevokeSchema, destructive: true, idempotent: true,
+        domain: "account",
+        requiredScope: "publish",
+        discovery: {"group":"access","hint":"Explicit logout of one management ID or all account browsers. OAuth/client grants and view-only pairings remain separate.","examples":[{"browserSessionId":"browser-management-id","confirm":true,"requestId":"logout-one"},{"all":true,"confirm":true,"requestId":"logout-all"}]},
+        searchAliases: ["kanvas.browser.auth.revoke"]
+    },
 ];

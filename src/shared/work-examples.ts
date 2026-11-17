@@ -1,5 +1,5 @@
-import type { ViewSpec } from './types.js';
-import type { WORK_TEMPLATE_IDS } from './work-views.js';
+import type {ViewSpec} from './types.js';
+import type {WORK_TEMPLATE_IDS} from './work-views.js';
 type Id=typeof WORK_TEMPLATE_IDS[number];
 const sample=(template:Id,data:Record<string,unknown>):ViewSpec=>({version:1,template,data});
 export const workNames:Record<Id,string>={email:'Email reader',inbox:'Inbox',chat:'Chat thread',cards:'Cards','record-detail':'Record detail',bookmarks:'Web bookmarks','tool-inventory':'Tool inventory','tool-detail':'Tool detail','code-workspace':'Code workspace',developer:'Developer workflow',operations:'Operations'};
@@ -16,16 +16,16 @@ export const workExamples:Record<Id,ViewSpec>={
   developer:sample('developer',{kind:'pull-request',title:'Improve keyboard navigation',status:'Open',author:'Alex',base:'main',head:'keyboard-navigation',description:'Keep every control reachable with the keyboard.',files:[{path:'src/navigation.ts',status:'modified',additions:24,deletions:8}],checks:[{id:'check-1',name:'Browser checks',status:'Passed'}],approvals:[{id:'review-1',name:'Sam',status:'Approved'}]}),
   operations:sample('operations',{kind:'environments',items:[{id:'prod',name:'Production',status:'Healthy',fields:{Version:'v1.8.2',Uptime:'99.98%'}},{id:'stage',name:'Staging',status:'Deploying',fields:{Version:'v1.9.0-rc1'}}]}),
 };
-export const workDescriptions:Record<Id,string>={
-  email:'Read exact supplied messages with From, To, Cc, subject, time and body. Multiple messages form a thread. Snippets are explicitly labelled. No email sending.',
-  inbox:'Messaging-source overview: sender, subject, snippet, timestamp and unread. Prefer sender display names; check full/raw From headers before falling back to an email address. Select an entry to read its supplied message or explicitly labelled snippet. No mailbox connection is implied.',
-  chat:'Choose style lines (default) or bubbles for informal messaging; selfSender explicitly aligns supplied messages. Append-only supplied conversation with sender, timestamp and exact text. Use kanvas_publish chat.append for incremental messages. Follow latest stops when the viewer scrolls away; no external chat sending.',
-  cards:'Flexible records from ticketing, issue tracking, CRM, leads or task systems. Status, labels, assignees and field names retain the source vocabulary; no fixed workflow or status enum. Optional statusColor is an explicit six-digit hex accent; omitted statuses are uncolored.',
-  'record-detail':'One supplied issue, task, ticket, lead or other record: identity, status, assignees, long exact description, fields, optional activity in supplied chronological order and typed related references. Complements cards; no source writes.',
-  bookmarks:'Saved external URLs, not KANVAS history pins. Selecting a bookmark shows its Web view. Open-original is an explicit browser action; never claim the agent can bypass popup restrictions.',
-  'tool-inventory':'Available tools grouped by supplied integration, with actual tool counts and optional drill-down detail. Different from code.kind tools execution status. Do not infer approvals or permissions from a schema.',
-  'tool-detail':'One supplied tool’s name, integration, description and parameter name/type/required/description. Optional return description. Required means an input field, not an approval requirement.',
-  'code-workspace':'A supplied file tree plus activePath and exact code/diff excerpt, with relevant line highlights. Side by side on wide screens and stacked on phones. No editor chrome or repository access.',
-  developer:'kind pull-request for summary/files/checks/approvals; pipeline for stages/jobs; commits for commit log and supplied parent links; review for code-line threads. Use cards for issues. Source statuses are free-form; no repository writes.',
-  operations:'kind environments (health/version/uptime), alerts (severity/service/state), access (roles/review), cost (source values/period), or rollout (canary/blue-green stages). Use source-defined fields. No monitoring, billing query or access grant occurs.',
+export const workDescriptions: Record<Id, string> = {
+    email: 'Read exact supplied messages with From, To, Cc, subject, time and body. Multiple messages form a thread. Snippets are explicitly labelled. No email sending.',
+    inbox: 'Messaging-source overview: sender, subject, snippet, timestamp and unread. Prefer sender display names; check full/raw From headers before falling back to an email address. Select an entry to read its supplied message or explicitly labelled snippet. No mailbox connection is implied.',
+    chat: "Choose style lines (default) or bubbles for informal messaging; selfSender explicitly aligns supplied messages. Append-only supplied conversation with sender, timestamp and exact text. Use kanvas_call with operationId:\"kanvas.chat.append\" and arguments:{\u2026} for incremental messages. Follow latest stops when the viewer scrolls away; no external chat sending.",
+    cards: 'Flexible records from ticketing, issue tracking, CRM, leads or task systems. Status, labels, assignees and field names retain the source vocabulary; no fixed workflow or status enum. Optional statusColor is an explicit six-digit hex accent; omitted statuses are uncolored.',
+    'record-detail': 'One supplied issue, task, ticket, lead or other record: identity, status, assignees, long exact description, fields, optional activity in supplied chronological order and typed related references. Complements cards; no source writes.',
+    bookmarks: 'Saved external URLs, not KANVAS history pins. Selecting a bookmark shows its Web view. Open-original is an explicit browser action; never claim the agent can bypass popup restrictions.',
+    'tool-inventory': 'Available tools grouped by supplied integration, with actual tool counts and optional drill-down detail. Different from code.kind tools execution status. Do not infer approvals or permissions from a schema.',
+    'tool-detail': 'One supplied tool’s name, integration, description and parameter name/type/required/description. Optional return description. Required means an input field, not an approval requirement.',
+    'code-workspace': 'A supplied file tree plus activePath and exact code/diff excerpt, with relevant line highlights. Side by side on wide screens and stacked on phones. No editor chrome or repository access.',
+    developer: 'kind pull-request for summary/files/checks/approvals; pipeline for stages/jobs; commits for commit log and supplied parent links; review for code-line threads. Use cards for issues. Source statuses are free-form; no repository writes.',
+    operations: 'kind environments (health/version/uptime), alerts (severity/service/state), access (roles/review), cost (source values/period), or rollout (canary/blue-green stages). Use source-defined fields. No monitoring, billing query or access grant occurs.',
 };

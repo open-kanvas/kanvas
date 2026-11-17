@@ -56,45 +56,55 @@ import type { AuthPrincipal } from '../../src/server/auth.js';
 import type { ViewerPresence } from '../../src/shared/viewer-experience.js';
 
 describe("charts coverage 1", () => {
-
-describe("charts contracts",()=>{
- let h!:Harness,o:Browser,s:string,d:string,p:{userId:string};
- beforeEach(async()=>{h=await startHarness();o=await h.account();s=(await o.session()).id;d=(await o.display(s)).id;p={userId:o.user!.id};});
- afterEach(async()=>{await h?.close();});
- const call=(name:string,args:Record<string,unknown>={})=>h.runtime.service.execute(name,args,p) as Promise<any>;
- const update=(name:string,args:Record<string,unknown>)=>call(name,{sessionId:s,displayId:d,...args});
- const publish=async(template:any,data:any)=>{const result=await o.submit(s,[d],{version:1,template,data});expect(result.update.status).toBe('prepared');return result.detail.displays.find(x=>x.id===d)!;};
- const current=async()=> (await o.detail(s)).displays.find(x=>x.id===d)!;
- it('place/move occupied auto-swap, explicit swap, clear/remove preserve people, retry dedupe and stale guard',async()=>{
-  await publish('seat-map',{layout:'long-table',seatsPerTable:4,people:[{id:'p',name:'Peter',tags:['family']},{id:'k',name:'Karen'},{id:'r',name:'Ryan'}]});
-  await update('kanvas_seat_map_update',{action:'place',personId:'p',seatId:'seat-1'});
-  await update('kanvas_seat_map_update',{action:'place',personId:'k',seatId:'seat-2'});
-  const a={action:'move',personId:'p',seatId:'seat-2',requestId:'move-once'};
-  const result=await update('kanvas_seat_map_update',a);expect(await update('kanvas_seat_map_update',a)).toEqual(result);
-  expect((await current()).view!.data.seats).toEqual(expect.arrayContaining([expect.objectContaining({id:'seat-1',personId:'k'}),expect.objectContaining({id:'seat-2',personId:'p'})]));
-  await update('kanvas_seat_map_update',{action:'swap',personId:'p',otherPersonId:'r'});
-  await update('kanvas_seat_map_update',{action:'clear-seat',seatId:'seat-1'});
-  await update('kanvas_seat_map_update',{action:'remove-seat',seatId:'seat-2'});
-  await update('kanvas_seat_map_update',{action:'add-seat',seat:{id:'extra',tableId:'table-1'}});
-  const display=await current();expect(display.view!.data.people).toHaveLength(3);
-  await expect(update('kanvas_seat_map_update',{action:'clear-seat',seatId:'seat-1',expectedRevision:0})).rejects.toMatchObject({code:'REVISION_CONFLICT',currentRevision:display.revision});
- });
- const definition={name:'Team list',schema:{type:'object',properties:{title:{type:'string'},items:{type:'array',items:{type:'object',properties:{name:{type:'string'}},required:['name']}}},required:['title','items']},html:'<article><h1>{{title}}</h1><ul>{{#each items}}<li>{{name}}</li>{{/each}}</ul></article>',css:'article {padding: 24px; color: white;} h1 {font-size: 48px;}'};});
+    describe("charts contracts", () => {
+        let h!: Harness, o: Browser, s: string, d: string, p: {
+            userId: string;
+        };
+        beforeEach(async () => { h = await startHarness(); o = await h.account(); s = (await o.session()).id; d = (await o.display(s)).id; p = { userId: o.user!.id }; });
+        afterEach(async () => { await h?.close(); });
+        const call = (name: string, args: Record<string, unknown> = {}) => h.runtime.service.execute(name, args, p) as Promise<any>;
+        const update = (name: string, args: Record<string, unknown>) => call(name, { sessionId: s, displayId: d, ...args });
+        const publish = async (template: any, data: any) => { const result = await o.submit(s, [d], { version: 1, template, data }); expect(result.update.status).toBe('prepared'); return result.detail.displays.find(x => x.id === d)!; };
+        const current = async () => (await o.detail(s)).displays.find(x => x.id === d)!;
+        it('place/move occupied auto-swap, explicit swap, clear/remove preserve people, retry dedupe and stale guard', async () => {
+            await publish('seat-map', { layout: 'long-table', seatsPerTable: 4, people: [{ id: 'p', name: 'Peter', tags: ['family'] }, { id: 'k', name: 'Karen' }, { id: 'r', name: 'Ryan' }] });
+            await update("kanvas.seat.map.update", { action: 'place', personId: 'p', seatId: 'seat-1' });
+            await update("kanvas.seat.map.update", { action: 'place', personId: 'k', seatId: 'seat-2' });
+            const a = { action: 'move', personId: 'p', seatId: 'seat-2', requestId: 'move-once' };
+            const result = await update("kanvas.seat.map.update", a);
+            expect(await update("kanvas.seat.map.update", a)).toEqual(result);
+            expect((await current()).view!.data.seats).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'seat-1', personId: 'k' }), expect.objectContaining({ id: 'seat-2', personId: 'p' })]));
+            await update("kanvas.seat.map.update", { action: 'swap', personId: 'p', otherPersonId: 'r' });
+            await update("kanvas.seat.map.update", { action: 'clear-seat', seatId: 'seat-1' });
+            await update("kanvas.seat.map.update", { action: 'remove-seat', seatId: 'seat-2' });
+            await update("kanvas.seat.map.update", { action: 'add-seat', seat: { id: 'extra', tableId: 'table-1' } });
+            const display = await current();
+            expect(display.view!.data.people).toHaveLength(3);
+            await expect(update("kanvas.seat.map.update", { action: 'clear-seat', seatId: 'seat-1', expectedRevision: 0 })).rejects.toMatchObject({ code: 'REVISION_CONFLICT', currentRevision: display.revision });
+        });
+        const definition = { name: 'Team list', schema: { type: 'object', properties: { title: { type: 'string' }, items: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } } }, required: ['title', 'items'] }, html: '<article><h1>{{title}}</h1><ul>{{#each items}}<li>{{name}}</li>{{/each}}</ul></article>', css: 'article {padding: 24px; color: white;} h1 {font-size: 48px;}' };
+    });
 });
 
 describe("charts coverage 2", () => {
-
-describe('account media reuse and image diagnostics',()=>{
- let h!:Harness,o:Browser,s:string,d:string;
- beforeEach(async()=>{h=await startHarness();o=await h.account();s=(await o.session()).id;d=(await o.display(s)).id;});afterEach(async()=>{await h?.close();});
- it('explicit import copies an asset into private account storage without losing session scope',async()=>{
-  const asset=success(await o.request<any>('POST',`/api/sessions/${s}/assets`,{name:'reuse.png',mimeType:'image/png',base64:PNG}));
-  const p={userId:o.user!.id};const media:any=await h.runtime.service.execute('kanvas_media_import',{sessionId:s,assetId:asset.id,tags:['reuse']},p);
-  expect(media.id).not.toBe(asset.id);expect(media.url).toBe('/api/media/'+media.id);expect((await h.runtime.service.mediaLibrary.list(p,'reuse'))).toHaveLength(1);
-  const stranger=await h.account();await expect(h.runtime.service.mediaLibrary.own({userId:stranger.user!.id},media.id)).rejects.toMatchObject({code:'NOT_FOUND'});
-  await expect(h.runtime.service.mediaLibrary.importAsset({userId:stranger.user!.id},s,asset.id)).rejects.toThrow();
-  expect((await o.request('GET',asset.url)).status).toBe(200);expect((await o.request('GET',media.url)).status).toBe(200);
- });});
+    describe('account media reuse and image diagnostics', () => {
+        let h!: Harness, o: Browser, s: string, d: string;
+        beforeEach(async () => { h = await startHarness(); o = await h.account(); s = (await o.session()).id; d = (await o.display(s)).id; });
+        afterEach(async () => { await h?.close(); });
+        it('explicit import copies an asset into private account storage without losing session scope', async () => {
+            const asset = success(await o.request<any>('POST', `/api/sessions/${s}/assets`, { name: 'reuse.png', mimeType: 'image/png', base64: PNG }));
+            const p = { userId: o.user!.id };
+            const media: any = await h.runtime.service.execute("kanvas.media.import", { sessionId: s, assetId: asset.id, tags: ['reuse'] }, p);
+            expect(media.id).not.toBe(asset.id);
+            expect(media.url).toBe('/api/media/' + media.id);
+            expect((await h.runtime.service.mediaLibrary.list(p, 'reuse'))).toHaveLength(1);
+            const stranger = await h.account();
+            await expect(h.runtime.service.mediaLibrary.own({ userId: stranger.user!.id }, media.id)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+            await expect(h.runtime.service.mediaLibrary.importAsset({ userId: stranger.user!.id }, s, asset.id)).rejects.toThrow();
+            expect((await o.request('GET', asset.url)).status).toBe(200);
+            expect((await o.request('GET', media.url)).status).toBe(200);
+        });
+    });
 });
 
 describe("charts coverage 3", () => {
@@ -120,21 +130,22 @@ it('groups positive/negative and percent stacks independently and never adds a s
 });
 
 describe("charts coverage 5", () => {
-
-
-describe("charts contracts",()=>{
-  let h!:Harness,owner:Browser,sessionId:string,displayId:string,p:AuthPrincipal;
-  const path=()=>`/api/sessions/${sessionId}/displays/${displayId}`;
-  const call=async (name:string,args:unknown)=>(await h.runtime.service.execute(name,args,p));
-  beforeEach(async()=>{h=await startHarness();owner=await h.account();sessionId=(await owner.session()).id;displayId=(await owner.display(sessionId)).id;p={userId:owner.user!.id};});
-  afterEach(async()=>{await h?.close();});
-
-  it('copies the default Ocean style and account defaults into new sessions without modifying old sessions, checks revisions and token scope',async()=>{
-    const before=await owner.detail(sessionId);expect(before.session.config).toMatchObject({style:'ocean',accent:'#38bdf8'});
-    await call('kanvas_preferences_update',{expectedRevision:0,config:{style:'iris',theme:'light',}});
-    const next=await owner.session();expect(next.config).toMatchObject({style:'iris',accent:'#a78bfa',theme:'light'});expect((await owner.detail(sessionId)).session.config).toEqual(before.session.config);
-    await expect(call('kanvas_preferences_update',{expectedRevision:0,config:{style:'lime'}})).rejects.toMatchObject({code:'REVISION_CONFLICT'});
-    const scoped=(await h.runtime.auth.issueToken(p.userId,'Selected',['read','publish'],[sessionId]));
-    await expect(h.runtime.service.execute('kanvas_preferences_update',{expectedRevision:1,config:{style:'lime'}},{userId:p.userId,tokenId:scoped.token.id})).rejects.toMatchObject({code:'FORBIDDEN'});
-  });});
+    describe("charts contracts", () => {
+        let h!: Harness, owner: Browser, sessionId: string, displayId: string, p: AuthPrincipal;
+        const path = () => `/api/sessions/${sessionId}/displays/${displayId}`;
+        const call = async (name: string, args: unknown) => (await h.runtime.service.execute(name, args, p));
+        beforeEach(async () => { h = await startHarness(); owner = await h.account(); sessionId = (await owner.session()).id; displayId = (await owner.display(sessionId)).id; p = { userId: owner.user!.id }; });
+        afterEach(async () => { await h?.close(); });
+        it('copies the default Ocean style and account defaults into new sessions without modifying old sessions, checks revisions and token scope', async () => {
+            const before = await owner.detail(sessionId);
+            expect(before.session.config).toMatchObject({ style: 'ocean', accent: '#38bdf8' });
+            await call("kanvas.preferences.update", { expectedRevision: 0, config: { style: 'iris', theme: 'light', } });
+            const next = await owner.session();
+            expect(next.config).toMatchObject({ style: 'iris', accent: '#a78bfa', theme: 'light' });
+            expect((await owner.detail(sessionId)).session.config).toEqual(before.session.config);
+            await expect(call("kanvas.preferences.update", { expectedRevision: 0, config: { style: 'lime' } })).rejects.toMatchObject({ code: 'REVISION_CONFLICT' });
+            const scoped = (await h.runtime.auth.issueToken(p.userId, 'Selected', ['read', 'publish'], [sessionId]));
+            await expect(h.runtime.service.execute("kanvas.preferences.update", { expectedRevision: 1, config: { style: 'lime' } }, { userId: p.userId, tokenId: scoped.token.id })).rejects.toMatchObject({ code: 'FORBIDDEN' });
+        });
+    });
 });

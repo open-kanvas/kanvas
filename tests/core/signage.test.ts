@@ -40,36 +40,41 @@ import { readingDefaults } from '../../src/shared/reading.js';
 import { liveSurfaceLayout } from '../../src/shared/live-surface.js';
 
 describe("signage coverage 1", () => {
-
-describe("signage contracts",()=>{
- let h!:Harness,o:Browser,s:string,d:string,p:{userId:string};
- beforeEach(async()=>{h=await startHarness();o=await h.account();s=(await o.session()).id;d=(await o.display(s)).id;p={userId:o.user!.id};});
- afterEach(async()=>{await h?.close();});
- const call=(name:string,args:Record<string,unknown>={})=>h.runtime.service.execute(name,args,p) as Promise<any>;
- const update=(name:string,args:Record<string,unknown>)=>call(name,{sessionId:s,displayId:d,...args});
- const publish=async(template:any,data:any)=>{const result=await o.submit(s,[d],{version:1,template,data});expect(result.update.status).toBe('prepared');return result.detail.displays.find(x=>x.id===d)!;};
- const current=async()=> (await o.detail(s)).displays.find(x=>x.id===d)!;
- it('shop switches preserve return view, day updates and custom poster security',async()=>{
-  await publish('fact',{text:'Welcome'});
-  for(const template of ['back-at','closed-sign','hiring','sale-poster','health-notice','custom-sign'])await update('kanvas_signage_update',{action:'set',template,data:{message:'Hello'}});
-  await update('kanvas_signage_update',{action:'set-hours',data:{hours:[{day:'Monday',opens:'09:00',closes:'17:00'}]}});
-  await update('kanvas_signage_update',{action:'set-day',day:{day:'Monday',closed:true}});
-  expect((await current()).view!.data.hours).toEqual([{day:'Monday',closed:true}]);
-  await update('kanvas_signage_update',{action:'clear'});expect((await current()).view).toMatchObject({template:'fact',data:{text:'Welcome'}});
-  await expect(update('kanvas_signage_update',{action:'set',template:'sale-poster',data:{html:'<img src="x" onerror="alert(1)"/>'}})).rejects.toThrow();
- });
- const definition={name:'Team list',schema:{type:'object',properties:{title:{type:'string'},items:{type:'array',items:{type:'object',properties:{name:{type:'string'}},required:['name']}}},required:['title','items']},html:'<article><h1>{{title}}</h1><ul>{{#each items}}<li>{{name}}</li>{{/each}}</ul></article>',css:'article {padding: 24px; color: white;} h1 {font-size: 48px;}'};
- it('temporary signs restore a sign originally published through the ordinary publication path',async()=>{
-  await publish('opening-hours',{heading:'Normal hours',hours:[{day:'Monday',opens:'09:00',closes:'17:00'}]});
-  await update('kanvas_signage_update',{action:'set',template:'back-at',data:{time:'14:30'}});
-  await update('kanvas_signage_update',{action:'clear'});
-  expect((await current()).view).toMatchObject({template:'opening-hours',data:{heading:'Normal hours'}});
- });
- it('signage can set and clear a previously blank display',async()=>{
-  await update('kanvas_signage_update',{action:'set',template:'back-at',data:{time:'14:30'}});
-  expect((await current()).view!.template).toBe('back-at');
-  await update('kanvas_signage_update',{action:'clear'});expect((await current()).view).toBeNull();
- });});
+    describe("signage contracts", () => {
+        let h!: Harness, o: Browser, s: string, d: string, p: {
+            userId: string;
+        };
+        beforeEach(async () => { h = await startHarness(); o = await h.account(); s = (await o.session()).id; d = (await o.display(s)).id; p = { userId: o.user!.id }; });
+        afterEach(async () => { await h?.close(); });
+        const call = (name: string, args: Record<string, unknown> = {}) => h.runtime.service.execute(name, args, p) as Promise<any>;
+        const update = (name: string, args: Record<string, unknown>) => call(name, { sessionId: s, displayId: d, ...args });
+        const publish = async (template: any, data: any) => { const result = await o.submit(s, [d], { version: 1, template, data }); expect(result.update.status).toBe('prepared'); return result.detail.displays.find(x => x.id === d)!; };
+        const current = async () => (await o.detail(s)).displays.find(x => x.id === d)!;
+        it('shop switches preserve return view, day updates and custom poster security', async () => {
+            await publish('fact', { text: 'Welcome' });
+            for (const template of ['back-at', 'closed-sign', 'hiring', 'sale-poster', 'health-notice', 'custom-sign'])
+                await update("kanvas.signage.update", { action: 'set', template, data: { message: 'Hello' } });
+            await update("kanvas.signage.update", { action: 'set-hours', data: { hours: [{ day: 'Monday', opens: '09:00', closes: '17:00' }] } });
+            await update("kanvas.signage.update", { action: 'set-day', day: { day: 'Monday', closed: true } });
+            expect((await current()).view!.data.hours).toEqual([{ day: 'Monday', closed: true }]);
+            await update("kanvas.signage.update", { action: 'clear' });
+            expect((await current()).view).toMatchObject({ template: 'fact', data: { text: 'Welcome' } });
+            await expect(update("kanvas.signage.update", { action: 'set', template: 'sale-poster', data: { html: '<img src="x" onerror="alert(1)"/>' } })).rejects.toThrow();
+        });
+        const definition = { name: 'Team list', schema: { type: 'object', properties: { title: { type: 'string' }, items: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } } }, required: ['title', 'items'] }, html: '<article><h1>{{title}}</h1><ul>{{#each items}}<li>{{name}}</li>{{/each}}</ul></article>', css: 'article {padding: 24px; color: white;} h1 {font-size: 48px;}' };
+        it('temporary signs restore a sign originally published through the ordinary publication path', async () => {
+            await publish('opening-hours', { heading: 'Normal hours', hours: [{ day: 'Monday', opens: '09:00', closes: '17:00' }] });
+            await update("kanvas.signage.update", { action: 'set', template: 'back-at', data: { time: '14:30' } });
+            await update("kanvas.signage.update", { action: 'clear' });
+            expect((await current()).view).toMatchObject({ template: 'opening-hours', data: { heading: 'Normal hours' } });
+        });
+        it('signage can set and clear a previously blank display', async () => {
+            await update("kanvas.signage.update", { action: 'set', template: 'back-at', data: { time: '14:30' } });
+            expect((await current()).view!.template).toBe('back-at');
+            await update("kanvas.signage.update", { action: 'clear' });
+            expect((await current()).view).toBeNull();
+        });
+    });
 });
 
 describe("signage coverage 2", () => {

@@ -1,3 +1,4 @@
+import { operationCatalog } from '../../src/server/mcp/discovery.js';
 import { CANONICAL_TOOLS as MCP_TOOLS } from '../../src/server/mcp/canonical.js';
 import { canonicalToolDefinitions } from '../../src/server/mcp/canonical.js';
 import { profileDescription, profileInstructions } from '../../src/server/mcp/profile-guidance.js';
@@ -19,7 +20,9 @@ describe('actual guide and protocol metadata delivery', () => {
         const submit = canonicalToolDefinitions().find(tool => tool.name === "kanvas.submit")!;
         expect(submit.description).toContain(VISUAL_INTENT_SUBMIT_HINT);
         expect(submit.description).toContain(PUBLISHING_DESCRIPTION);
-        expect(submit.description!.length).toBeLessThanOrEqual(4096);
+        // The wire exposes this operation detail, not the internal metadata with inline examples appended.
+        const publicDetail = operationCatalog().find(entry => entry.id === 'kanvas.submit')!.detail() as { description: string };
+        expect(publicDetail.description.length).toBeLessThanOrEqual(4096);
         expect(submit.description!.split('Example arguments JSON:')).toHaveLength(2);
         expect(submit.inputSchema.examples).toHaveLength(4);
         expect(MCP_TOOLS.find(tool => tool.name === "kanvas.guide")!.schema.safeParse({ topic: 'visual-intent' }).success).toBe(true);

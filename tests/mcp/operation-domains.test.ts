@@ -55,7 +55,8 @@ describe('public operation domains', () => {
         expect(annotations('kanvas.sessions.list')).toMatchObject({readOnlyHint:true,destructiveHint:false,idempotentHint:true});
         expect(annotations('kanvas.clear')).toMatchObject({readOnlyHint:false,destructiveHint:true});
         expect(annotations('kanvas.session.end')).toMatchObject({destructiveHint:true});
-        expect(annotations('kanvas.feedback.submit')).toMatchObject({readOnlyHint:false,destructiveHint:false,idempotentHint:true,openWorldHint:false});
+        // An omitted requestId intentionally creates a new report; a stable explicit ID deduplicates retries.
+        expect(annotations('kanvas.feedback.submit')).toMatchObject({readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:false});
     });
     it('rejects former grouped and flat callable names instead of installing hidden aliases', () => {
         for(const name of ['kanvas_session_history','kanvas_inspect','kanvas_feedback','kanvas_session_state','kanvas.session.state'])

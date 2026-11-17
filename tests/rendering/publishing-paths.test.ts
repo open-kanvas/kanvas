@@ -1,3 +1,4 @@
+import { operationCatalog } from '../../src/server/mcp/discovery.js';
 import { CANONICAL_TOOLS as MCP_TOOLS } from '../../src/server/mcp/canonical.js';
 import { canonicalToolDefinitions } from '../../src/server/mcp/canonical.js';
 import { readFileSync } from 'node:fs';
@@ -47,7 +48,9 @@ describe('inspectable publishing recipes without mandatory schema lookup', () =>
         expect(guide.commonDataShapes).toEqual(COMMON_DATA_SHAPES);
         const submit = canonicalToolDefinitions().find(tool => tool.name === "kanvas.submit")!;
         expect(submit.description).toContain(PUBLISHING_DESCRIPTION);
-        expect(submit.description!.length).toBeLessThanOrEqual(4096);
+        // The wire exposes this operation detail, not the internal metadata with inline examples appended.
+        const publicDetail = operationCatalog().find(entry => entry.id === 'kanvas.submit')!.detail() as { description: string };
+        expect(publicDetail.description.length).toBeLessThanOrEqual(4096);
         expect(PUBLISHING_DESCRIPTION.length).toBeLessThanOrEqual(1400);
         expect(COMMON_DATA_SHAPES).toHaveLength(7);
         expect(JSON.stringify({ PUBLISHING_GUIDANCE, PUBLISHING_RECIPES, COMMON_DATA_SHAPES }).length).toBeLessThan(20000);

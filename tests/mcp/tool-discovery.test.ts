@@ -1,3 +1,4 @@
+import { operationCatalog } from '../../src/server/mcp/discovery.js';
 import { CANONICAL_TOOLS as MCP_TOOLS } from '../../src/server/mcp/canonical.js';
 import { canonicalToolDefinitions } from '../../src/server/mcp/canonical.js';
 import { discoveryToolDefinitions } from '../../src/server/mcp/discovery.js';
@@ -26,7 +27,9 @@ describe('operation discovery metadata and usable examples', () => {
             const examples = inlineExamples(tool.description!);
             expect(examples.length).toBeGreaterThan(0);
             expect(tool.inputSchema.examples).toEqual(examples);
-            expect(tool.description!.length).toBeLessThanOrEqual(4096);
+            // The wire exposes this operation detail, not the internal metadata with inline examples appended.
+        const publicDetail = operationCatalog().find(entry => entry.id === name)!.detail() as { description: string };
+        expect(publicDetail.description.length).toBeLessThanOrEqual(4096);
             for (const example of examples) {
                 expect(definition.schema.safeParse(example).success, name).toBe(true);
                 if (example.view)

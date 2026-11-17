@@ -157,7 +157,7 @@ describe("guidance coverage 3", () => {
             expect(icons.error).toBe(false);
             expect(icons.body.data.unavailableSets).toHaveLength(5);
             exercised.add("kanvas.icons.search");
-            expect([...exercised].filter(name => name.startsWith('kanvas_')).sort()).toEqual(TASK_MAPPING.map(([name]) => name).sort());
+            expect([...exercised].filter(name => name.startsWith('kanvas.')).sort()).toEqual(TASK_MAPPING.map(([name]) => name).sort());
             for (const [name] of TASK_MAPPING)
                 expect(CANONICAL_TOOLS.some(tool => tool.name === name), name).toBe(true);
             controller.abort();

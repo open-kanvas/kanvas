@@ -243,7 +243,7 @@ describe("device coverage 4", () => {
     describe("device contracts", () => {
         let h!: Harness, owner: Browser, s: string, d: string;
         const p = () => ({ userId: owner.user!.id });
-        beforeEach(async () => { h = await startHarness(); owner = await h.account(); s = (await owner.session()).id; d = (await owner.display(s)).id; await vi.waitFor(async () => expect((await h.runtime.store.query("SELECT count(*)::int n FROM events WHERE event_type='browser.operation' AND operation='kanvas_display_register'")).rows[0].n).toBe(1)); });
+        beforeEach(async () => { h = await startHarness(); owner = await h.account(); s = (await owner.session()).id; d = (await owner.display(s)).id; await vi.waitFor(async () => expect((await h.runtime.store.query("SELECT count(*)::int n FROM events WHERE event_type='browser.operation' AND operation='kanvas.display.register'")).rows[0].n).toBe(1)); });
         afterEach(async () => { await h?.close(); });
         it('stamps new sessions/window reports without inventing a historical release', async () => {
             expect((await h.runtime.service.access(p(), s)).serverVersion).toBe(KANVAS_VERSION);

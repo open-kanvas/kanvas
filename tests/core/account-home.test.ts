@@ -41,18 +41,18 @@ describe("account home coverage 1", () => {
             p = { userId: owner.user!.id, browserId: browser.id };
         });
         afterEach(async () => { await h?.close(); });
-        it('names only real operations and translates them for the twelve profile', () => {
+        it('names only public operations and formats callable inventory guidance', () => {
             const names = new Set(canonicalToolDefinitions().map(tool => tool.name));
             for (const area of Object.values(ACCOUNT_MANAGE))
                 for (const name of [...area.read, ...area.change])
                     expect(names.has(name), name).toBe(true);
-            const translated = profileResultData("kanvas.account.inventory", { manage: ACCOUNT_MANAGE }, 'twelve') as {
+            const translated = profileResultData("kanvas.account.inventory", { manage: ACCOUNT_MANAGE }, 'discovery') as {
                 manage: Record<string, {
                     change: string[];
                 }>;
             };
-            expect(translated.manage.connections!.change).toContain('kanvas_control connection.redirect');
-            expect(translated.manage.devices!.change).toContain('kanvas_control device.present');
+            expect(translated.manage.connections!.change).toContain('kanvas_call with operationId:"kanvas.connection.redirect" and arguments:{…}');
+            expect(translated.manage.devices!.change).toContain('kanvas_call with operationId:"kanvas.device.present" and arguments:{…}');
         });
         it('lists sessions with their displays, devices with windows, groups and the manage map', async () => {
             const planning = await owner.session('Planning'), wall = await owner.display(planning.id, 'Wall');

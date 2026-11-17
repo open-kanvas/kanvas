@@ -36,7 +36,7 @@ it('keeps catalog, copies and active guidance distinct, guards revisions and adm
 
 it('supports omitted current-state guards while preserving explicit CAS, retries and administration',async()=>{
  h=await startHarness();const admin=await h.account(),reader=await h.account(),ap={userId:admin.user!.id},p={userId:reader.user!.id},service=h.runtime.service;service.accounts.serviceAdmins.add(ap.userId);
- const call=(who:typeof p,name:string,args:Record<string,unknown>)=>service.execute('kanvas_guidance_suggestions_'+name,args,who);
+ const call=(who:typeof p,name:string,args:Record<string,unknown>)=>service.execute('kanvas.guidance.suggestions.'+name,args,who);
  const create={suggestionId:'optional',name:'Optional',text:'Original',requestId:'create'};
  await expect(call(p,'save',create)).rejects.toMatchObject({code:'FORBIDDEN'});
  const created:any=await call(ap,'save',create);expect(created.revision).toBe(1);expect(await call(ap,'save',create)).toEqual(created);

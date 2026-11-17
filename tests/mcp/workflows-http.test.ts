@@ -171,8 +171,11 @@ describe('workflows over both MCP protocols', () => {
             expect(current.view!.data.messages).toEqual([original, append.messages[0]]);
             expect(current.view!.selection?.where?.[0].value).toBe('Other author');
             expect((await c.callTool(operationRequest({ name: 'kanvas_publish', arguments: { operation: 'selection.set', ...select } }))).isError).toBe(true);
-            for (const [tool, operation, args] of [['kanvas_publish', 'chat.append', append], ['kanvas_control', 'selection.set', select]] as const)
-                expect((await reader.callTool(operationRequest({ name: tool, arguments: { operation, ...args, expectedRevision: current.revision, requestId: randomUUID() } }))).isError).toBe(true);
+            for (const [operationId, args] of [['kanvas.chat.append', append], ['kanvas.selection.set', select]] as const) {
+                const denied = await reader.callTool({ name: 'kanvas_call', arguments: { operationId, arguments: { ...args, expectedRevision: current.revision, requestId: randomUUID() } } });
+                expect(denied.isError).toBe(true);
+                expect((denied.structuredContent as any).error.code).toBe('FORBIDDEN');
+            }
             expect([...seen].sort()).toEqual(WORK_MAPPING.map(([, tool, op]) => `${tool}:${op}`).sort());
         }
         finally {

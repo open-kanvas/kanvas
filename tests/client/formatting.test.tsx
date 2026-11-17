@@ -31,10 +31,10 @@ describe("formatting coverage 1", () => {
     const base = { anchorDate: '2026-09-01', timeZone: 'UTC', view: 'month', items: [{ id: 'roma', title: 'Roma', allDay: true, start: '2026-09-20', end: '2026-09-27' }] };
     const render = (template: string, data: unknown) => renderToStaticMarkup(<Renderer view={validateView({ version: 1, template, data })}/>);
     describe("formatting contracts", () => {
-        it('accepts formatting overrides through every public MCP profile', () => { for (const [profile, name, args] of [['domains', 'kanvas_publish', { operation: 'show' }], ['twelve', 'kanvas_publish', { operation: 'show' }], ['legacy', "kanvas.submit", {}]] as const) {
-            const result = resolveToolCall(profile, name, { ...args, sessionId: 's', displayIds: ['d'], requestId: 'r', view: { version: 1, template: 'inbox', format: { timeFormat: '12h' }, data: { items: [] } } });
+        it('accepts formatting overrides through the public submit operation', () => {
+            const result = resolveToolCall('discovery', 'kanvas_call', { operationId: 'kanvas.submit', arguments: { sessionId: 's', displayIds: ['d'], requestId: 'r', view: { version: 1, template: 'inbox', format: { timeFormat: '12h' }, data: { items: [] } } } });
             expect(result.error).toBeUndefined();
-        } });
+        });
     });
 });
 

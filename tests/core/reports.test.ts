@@ -124,7 +124,7 @@ describe("reports coverage 1", () => {
     describe("reports contracts", () => {
         let h!: Harness, owner: Browser, s: string, d: string;
         const p = () => ({ userId: owner.user!.id });
-        beforeEach(async () => { h = await startHarness(); owner = await h.account(); s = (await owner.session()).id; d = (await owner.display(s)).id; await vi.waitFor(async () => expect((await h.runtime.store.query("SELECT count(*)::int n FROM events WHERE event_type='browser.operation' AND operation='kanvas_display_register'")).rows[0].n).toBe(1)); });
+        beforeEach(async () => { h = await startHarness(); owner = await h.account(); s = (await owner.session()).id; d = (await owner.display(s)).id; await vi.waitFor(async () => expect((await h.runtime.store.query("SELECT count(*)::int n FROM events WHERE event_type='browser.operation' AND operation='kanvas.display.register'")).rows[0].n).toBe(1)); });
         afterEach(async () => { await h?.close(); });
         it('reports public pages one-based without changing internal browser indices or history', async () => {
             await owner.submit(s, [d], { version: 1, template: 'table', data: { columns: ['N'], rows: Array.from({ length: 30 }, (_, i) => ({ N: i })), pageSize: 10 } });

@@ -156,14 +156,15 @@ describe("discovery coverage 5", () => {
     async function principal(a: Browser) { const session = await h.runtime.auth.issueBrowser(a.user!.id, { cookie: () => { } } as unknown as Response); return { userId: a.user!.id, browserId: session.id }; }
     const pixel = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6Ot8AAAAASUVORK5CYII=';
     describe("discovery contracts", () => {
-        it('discovers the new operations in every MCP profile', () => {
-            for (const [canonical, tool, operation, args] of [
-                ["kanvas.report.patch", 'kanvas_feedback', 'patch', { reportId: 'r', expectedRevision: 0, note: 'Finding' }],
-                ["kanvas.asset.export", 'kanvas_import', 'asset.export', { sessionId: 's', assetId: 'a' }],
-                ["kanvas.account.begin", 'kanvas_account', 'begin', { requestId: 'start' }],
+        it('validates report, asset and account operations through the public contract', () => {
+            for (const [operationId, args] of [
+                ['kanvas.report.patch', { reportId: 'r', expectedRevision: 0, note: 'Finding' }],
+                ['kanvas.asset.export', { sessionId: 's', assetId: 'a' }],
+                ['kanvas.account.begin', { requestId: 'start' }],
             ] as const) {
-                expect(resolveToolCall('legacy', canonical, args).error).toBeUndefined();
-                expect(resolveToolCall('domains', tool, { operation, ...args }).error).toBeUndefined();
+                const result = resolveToolCall('discovery', 'kanvas_call', { operationId, arguments: args });
+                expect(result.error).toBeUndefined();
+                expect(result.canonicalName).toBe(operationId);
             }
         });
     });

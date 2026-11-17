@@ -297,7 +297,7 @@ describe("account coverage 5", () => {
     it('keeps optional context per connection, distinguishes inferred hints, and confines it to its account', async () => {
         h = await startHarness();
         const owner = await h.account(), other = await h.account(), s = await owner.session('Client history'), service = h.runtime.service, p = { userId: owner.user!.id, agentId: 'agent-one' };
-        const context = { tool: 'kanvas_session' as const, operation: 'client.context.update', canonicalName: "kanvas.client.context.update", connectionId: 'connection-one', inferred: { clientName: 'MCP runtime', clientVersion: '1', userAgent: 'Test agent' } };
+        const context = { tool: 'kanvas_call' as const, operation: 'kanvas.client.context.update', canonicalName: "kanvas.client.context.update", connectionId: 'connection-one', inferred: { clientName: 'MCP runtime', clientVersion: '1', userAgent: 'Test agent' } };
         const first: any = await inToolContext(context, () => service.execute("kanvas.client.context.update", { sessionId: s.id, clientDetails: { agent: 'Voice agent', model: 'Example', interaction_mode: 'voice' } }, p));
         expect(first).toMatchObject({ selfReported: { agent: 'Voice agent' }, inferred: { clientName: 'MCP runtime' }, verified: false });
         expect(first.conflicts).toHaveLength(1);

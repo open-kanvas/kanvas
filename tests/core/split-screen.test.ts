@@ -78,7 +78,7 @@ describe("split screen coverage 1", () => {
     describe("split screen contracts", () => {
         let h!: Harness, owner: Browser, s: string, d: string;
         const p = () => ({ userId: owner.user!.id });
-        beforeEach(async () => { h = await startHarness(); owner = await h.account(); s = (await owner.session()).id; d = (await owner.display(s)).id; await vi.waitFor(async () => expect((await h.runtime.store.query("SELECT count(*)::int n FROM events WHERE event_type='browser.operation' AND operation='kanvas_display_register'")).rows[0].n).toBe(1)); });
+        beforeEach(async () => { h = await startHarness(); owner = await h.account(); s = (await owner.session()).id; d = (await owner.display(s)).id; await vi.waitFor(async () => expect((await h.runtime.store.query("SELECT count(*)::int n FROM events WHERE event_type='browser.operation' AND operation='kanvas.display.register'")).rows[0].n).toBe(1)); });
         afterEach(async () => { await h?.close(); });
         it('bounds the whole split after dataset expansion, without publishing a partial screen', async () => {
             const dataset = { ...parseDataset({ name: 'Large supplied data', rows: Array.from({ length: 100 }, () => ({ value: 'x'.repeat(12000) })) }), id: 'large', sessionId: s, createdAt: new Date().toISOString() };

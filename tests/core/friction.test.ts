@@ -97,7 +97,7 @@ describe("friction coverage 1", () => {
             expect((await call("kanvas.friction.read", { kind: 'resolve', days: 1 })).entries[0]).toMatchObject({ outcome: 'unsupported', count: 1 });
             const weight = (await call("kanvas.friction.read", { kind: 'weight', days: 1 })).entries.find((e: {
                 subject: string;
-            }) => e.subject === 'operation:kanvas_submit');
+            }) => e.subject === 'operation:kanvas.submit');
             expect(weight.p95Bytes).toBe(131072);
             expect(weight.maxBytes).toBe(70000);
             // Only names, classes and numbers are stored: day, kind, subject, detail, client, count, sum, max.

@@ -85,7 +85,7 @@ describe("toasts coverage 1", () => {
     describe("toasts contracts", () => {
         let h!: Harness, owner: Browser, s: string, d: string;
         const p = () => ({ userId: owner.user!.id });
-        beforeEach(async () => { h = await startHarness(); owner = await h.account(); s = (await owner.session()).id; d = (await owner.display(s)).id; await vi.waitFor(async () => expect((await h.runtime.store.query("SELECT count(*)::int n FROM events WHERE event_type='browser.operation' AND operation='kanvas_display_register'")).rows[0].n).toBe(1)); });
+        beforeEach(async () => { h = await startHarness(); owner = await h.account(); s = (await owner.session()).id; d = (await owner.display(s)).id; await vi.waitFor(async () => expect((await h.runtime.store.query("SELECT count(*)::int n FROM events WHERE event_type='browser.operation' AND operation='kanvas.display.register'")).rows[0].n).toBe(1)); });
         afterEach(async () => { await h?.close(); });
         it('paired media authority includes split current slides and public live toast icons only', async () => {
             const store = h.runtime.store, browser = await h.runtime.auth.issueBrowser(owner.user!.id, { cookie: () => { } } as any), pairId = 'fixture-pair';

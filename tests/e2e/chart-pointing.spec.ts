@@ -23,7 +23,12 @@ test('chart pointing follows wedge/bar/point geometry, snaps real line observati
   await show({kind:'bar',orientation:'horizontal',series:[{name:'Revenue',points:[{x:'March',y:42},{x:'April',y:55}]}]});
   const bar=viewer.locator('rect[data-chart-series="Revenue"][data-chart-x="March"]');await bar.click();
   await expect(overlay.locator('[data-pointer-shape="rect"]')).toHaveCount(1);await expect(overlay.locator('.semantic-pointer-mark')).toHaveCount(0);
-  const painted=await overlay.locator('[data-pointer-shape="rect"]').boundingBox(),original=await bar.boundingBox();expect(Math.abs(painted!.width-original!.width)).toBeLessThan(1);expect(Math.abs(painted!.height-original!.height)).toBeLessThan(1);
+  // Playwright's painted box includes the highlight's intentional 2.5px stroke.
+  // Compare the SVG geometry in screen coordinates, including its position, instead.
+  const screenGeometry=(node:Element)=>{const el=node as SVGGraphicsElement,box=el.getBBox(),matrix=el.getScreenCTM()!;return [new DOMPoint(box.x,box.y),new DOMPoint(box.x+box.width,box.y+box.height)].flatMap(point=>{const screen=point.matrixTransform(matrix);return [screen.x,screen.y];});};
+  const painted=await overlay.locator('[data-pointer-shape="rect"]').evaluate(screenGeometry),original=await bar.evaluate(screenGeometry);
+  for(let i=0;i<original.length;i++)expect(painted[i]).toBeCloseTo(original[i],2);
+  await expect(overlay.locator('[data-pointer-shape="rect"]')).toHaveAttribute('stroke-width','2.5');
   await viewer.screenshot({path:test.info().outputPath('chart-pointing-bar.png')});
   await show({kind:'line',series:[{name:'Site A',points:[{x:'March',y:42},{x:'April',y:55}]},{name:'Site B',points:[{x:'March',y:12},{x:'April',y:22}]}]});
   const line=viewer.locator('path[data-chart-line="Site A"]');

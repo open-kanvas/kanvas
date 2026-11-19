@@ -32,6 +32,19 @@ function expandLocalReferences(value: unknown, root: Record<string, unknown>, an
     const adjacent=expandLocalReferences(siblings,root,ancestors) as Record<string,unknown>;
     expanded={...referenced,...adjacent};
   }else expanded=Object.fromEntries(Object.entries(node).map(([key, child]) => [key, expandLocalReferences(child, root, ancestors)]));
+  // Invert the closed-object property-bundle rewrite exactly. Required lists
+  // remain local; bundle keys must be disjoint and contain only properties.
+  if(expanded.type==='object'&&expanded.unevaluatedProperties===false&&Array.isArray(expanded.allOf)&&expanded.properties){
+    expect(expanded.additionalProperties).toBeUndefined();
+    const properties=expanded.properties as Record<string,unknown>;
+    for(const bundle of expanded.allOf as Record<string,unknown>[]){
+      expect(Object.keys(bundle)).toEqual(['properties']);
+      for(const [key,field] of Object.entries(bundle.properties as Record<string,unknown>)){
+        expect(Object.hasOwn(properties,key),key).toBe(false);properties[key]=field;
+      }
+    }
+    expanded.additionalProperties=false;delete expanded.unevaluatedProperties;delete expanded.allOf;
+  }
   const keyword=Array.isArray(expanded.anyOf)?'anyOf':Array.isArray(expanded.oneOf)?'oneOf':undefined;
   if(keyword&&expanded.type==='object'&&expanded.properties){
     const branches=expanded[keyword] as Record<string,unknown>[];

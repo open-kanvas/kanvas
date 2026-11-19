@@ -244,7 +244,7 @@ describe("settings coverage 3", () => {
             expect(serverWebsiteUrl(false)).toBeUndefined();
             expect(serverWebsiteUrl('http://insecure.example')).toBeUndefined();
             expect(serverWebsiteUrl('javascript:alert(1)')).toBeUndefined();
-            expect(KANVAS_VERSION).toBe('0.39.0');
+            expect(KANVAS_VERSION).toBe('0.40.0');
             // Public release identity must agree in server discovery, dependency manifests and the served HTML shell.
             const packageJson = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
             const packageLock = JSON.parse(readFileSync(new URL('../../package-lock.json', import.meta.url), 'utf8'));

@@ -184,6 +184,33 @@ export function compactSchemaReferences(schema: Record<string, unknown>): Record
       }
     });
     pruneAliases();
+    // Share repeated property bundles in otherwise closed objects. In2020-12,
+    // unevaluatedProperties closes the union of local and allOf-evaluated names,
+    // so the same keys/validators remain allowed; required stays on the object.
+    // Never apply this rewrite to unions, existing intersections or open objects.
+    if(String(schema.$schema).includes('/2020-12/'))for(let round=0;round<16;round++){
+      const objects:Record<string,any>[]=[];
+      schemas(result,node=>{if(node.type==='object'&&node.additionalProperties===false&&node.properties&&typeof node.properties==='object'&&!node.$ref&&!node.anyOf&&!node.oneOf&&!node.allOf&&node.unevaluatedProperties===undefined)objects.push(node);});
+      const encoded=objects.map(node=>new Map(Object.entries(node.properties).map(([key,value])=>[key,JSON.stringify(value)])));
+      const bundles=new Map<string,{properties:Record<string,unknown>;nodes:Set<number>}>();
+      for(let a=0;a<objects.length;a++)for(let b=a+1;b<objects.length;b++){
+        const keys=[...encoded[a].keys()].filter(key=>encoded[a].get(key)===encoded[b].get(key));
+        if(keys.length<2)continue;
+        const properties=Object.fromEntries(keys.map(key=>[key,objects[a].properties[key]])),wire=JSON.stringify(properties),bundle=bundles.get(wire)??{properties,nodes:new Set<number>()};
+        bundle.nodes.add(a);bundle.nodes.add(b);bundles.set(wire,bundle);
+      }
+      let ordinal=round;while(Object.hasOwn(result.$defs,'p'+ordinal.toString(36)))ordinal++;
+      const name='p'+ordinal.toString(36),reference={$ref:'#/$defs/'+name};
+      const candidates=[...bundles.values()].map(bundle=>{
+        const definition={properties:structuredClone(bundle.properties)},keys=new Set(Object.keys(bundle.properties)),nodes=[...bundle.nodes].map(index=>objects[index]);
+        const replacements=nodes.map(node=>{const {additionalProperties:_closed,...rest}=node;return {...rest,properties:Object.fromEntries(Object.entries(node.properties).filter(([key])=>!keys.has(key))),allOf:[{...reference}],unevaluatedProperties:false};});
+        const savings=nodes.reduce((sum,node,index)=>sum+JSON.stringify(node).length-JSON.stringify(replacements[index]).length,0)-JSON.stringify({[name]:definition}).length;
+        return {definition,nodes,replacements,savings};
+      }).filter(candidate=>candidate.savings>0).sort((a,b)=>b.savings-a.savings);
+      const best=candidates[0];if(!best)break;
+      best.nodes.forEach((node,index)=>{for(const key of Object.keys(node))delete node[key];Object.assign(node,best.replacements[index]);});
+      (result.$defs as Record<string,unknown>)[name]=best.definition;
+    }
     const alphabet='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
     const names=new Map(Object.keys(result.$defs).map((key,index)=>[key,alphabet[index%alphabet.length]+(index<alphabet.length?'':Math.floor(index/alphabet.length).toString(36))]));
     schemas(result,node=>{if(typeof node.$ref==='string'){const match=/^#\/\$defs\/([^/]+)$/.exec(node.$ref);if(match&&names.has(match[1]))node.$ref=`#${names.get(match[1])}`;}});
@@ -214,7 +241,7 @@ export function compactSchemaReferences(schema: Record<string, unknown>): Record
     // scopes, where a local anchor might otherwise resolve against another $id.
     let nestedResource=false;schemas(result,node=>{if(node!==result&&typeof node.$id==='string')nestedResource=true;});
     if(!nestedResource){
-      const groups=[['maxLength'],['maxItems'],['minItems','maxItems'],['type','minLength','maxLength'],['type','minimum'],['pattern'],['type'],['required'],['type','required'],['type','minItems','maxItems','uniqueItems'],['type','minLength','maxLength','pattern'],['type','minimum','maximum','exclusiveMinimum','exclusiveMaximum','multipleOf']];
+      const groups=[['enum'],['const'],['minimum'],['maximum'],['minimum','maximum'],['minLength'],['minLength','maxLength'],['minItems'],['format'],['maxLength'],['maxItems'],['minItems','maxItems'],['type','minLength','maxLength'],['type','minimum'],['pattern'],['type'],['required'],['type','required'],['type','minItems','maxItems','uniqueItems'],['type','minLength','maxLength','pattern'],['type','minimum','maximum','exclusiveMinimum','exclusiveMaximum','multipleOf']];
       for(let iteration=0;iteration<schemaNodes;iteration++){
         let ordinal=0,name:string;
         do{name=alphabet[ordinal%alphabet.length]+(ordinal<alphabet.length?'':Math.floor(ordinal/alphabet.length).toString(36));ordinal++;}while(Object.hasOwn(result.$defs,name));

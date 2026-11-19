@@ -55,3 +55,8 @@ describe('new template renderers',()=>{
   expect(markup).toContain('class="task-detail-toggle" aria-expanded="true"');expect(markup).not.toContain('<input');
  });});
 });
+
+it('keeps legacy custom reference columns separate from optional built-in reference metadata',()=>{
+ const markup=renderToStaticMarkup(<TaskList data={{showNumber:false,showReference:true,columns:[{key:'reference',label:'Legacy reference'}],items:[{id:'t1',number:1,title:'One',reference:'JIRA-42',checked:false,fields:{reference:'Legacy-17'}}]}}/>);
+ expect(markup).toContain('Legacy reference');expect(markup).toContain('Legacy-17');expect(markup).toContain('JIRA-42');expect(markup).not.toContain('class="task-number"');
+});

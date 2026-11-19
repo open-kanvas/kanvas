@@ -6,7 +6,7 @@ import {z} from 'zod';
 const identifier=z.string().min(1).max(128).regex(/^[a-zA-Z0-9_.:-]+$/);
 export const TASK_LIST_MAX_ITEMS=200,TASK_DETAIL_MAX=8000,STATUS_COLOURS_MAX=16;
 /** Columns the list always has. Naming one in `columns` adds nothing: it is already on screen. */
-export const TASK_BUILTIN_COLUMNS=new Set(['number','#','no','item','title','status','tags','tag','summary','reference','done','checked','check']);
+export const TASK_BUILTIN_COLUMNS=new Set(['number','#','no','item','title','status','tags','tag','summary','done','checked','check']);
 export const isBuiltinTaskColumn=(key:string)=>TASK_BUILTIN_COLUMNS.has(key.trim().toLowerCase());
 /** Own columns worth a place on screen: not a built-in, and at least one item has a value for it. */
 export function taskCustomColumns<C extends {key:string}>(columns:readonly C[]|undefined,items?:readonly {fields?:Record<string,string>}[]):C[]{

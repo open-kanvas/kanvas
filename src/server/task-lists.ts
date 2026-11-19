@@ -188,7 +188,7 @@ export class TaskLists{
    const final=next.data.items as Stored[];
    const result={id:next.id,sessionId:next.sessionId,revision:next.revision,previousRevision:list.revision,title:next.title,changes,
     counts:{total:final.length,open:final.filter(item=>!item.checked).length,done:final.filter(item=>item.checked).length},
-    ...(next.data.highlight?{highlight:{id:next.data.highlight,number:final.find(item=>item.id===next.data.highlight)!.number}}:{}),...(unchanged?{unchanged:true}:{}),...(ignoredColumns.length?{ignoredColumns,columnsNote:'Number, item, status and tags are always shown. columns is only for your own extra columns, filled from each item\'s fields.'}:{}),updatedAt:next.updatedAt,
+    ...(next.data.highlight?{highlight:{id:next.data.highlight,number:final.find(item=>item.id===next.data.highlight)!.number}}:{}),...(unchanged?{unchanged:true}:{}),...(ignoredColumns.length?{ignoredColumns,columnsNote:'Use showNumber/showReference for built-in number/reference visibility. columns is only for your own extra columns, filled from each item\'s fields.'}:{}),updatedAt:next.updatedAt,
     note:unchanged?'Nothing differed from the saved list; revision unchanged.':'Saved. Items not listed in changes are exactly as before; item numbers never change.'};
    await this.store.put('task-list-request',{id:key,sessionId:a.sessionId,digest,result});return result;
   }));

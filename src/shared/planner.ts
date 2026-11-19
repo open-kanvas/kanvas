@@ -19,7 +19,7 @@ const itemObject = z.object({
   title: z.string().min(1).max(120),
   start: moment,
   end: moment,
-  allDay: z.boolean().optional().describe('start and end are dates; end is exclusive'),
+  allDay: z.boolean().optional().describe('start and end are dates; end is exclusive. For a multi-day trip or conference use allDay:true with date-only bounds. Timed cross-midnight items occupy their full interval and can conflict with other timed items.'),
   category: z.string().min(1).max(40).optional(),
   color: color.optional(),
   notes: z.string().max(500).optional(),

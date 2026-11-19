@@ -3,7 +3,7 @@ import type {KanvasService} from './domain.js';
 import type {AuthPrincipal} from './auth.js';
 import {hash} from './auth.js';
 import type {DisplayRecord,ViewSpec} from '../shared/types.js';
-import {isBuiltinTaskColumn,projectTasks,taskItemSchema,taskListDataSchema,TASK_DETAIL_MAX,TASK_LIST_MAX_ITEMS,type TaskItem,type TaskListData} from '../shared/task-list.js';
+import {isBuiltinTaskColumn,projectTasks,taskItemSchema,taskSubtaskSchema,taskListDataSchema,TASK_DETAIL_MAX,TASK_LIST_MAX_ITEMS,type TaskItem,type TaskListData} from '../shared/task-list.js';
 import {AppError,id,now,required} from './store.js';
 import {InputError} from './input-errors.js';
 import type {Definition} from './mcp/canonical.js';
@@ -12,13 +12,21 @@ const identifier=z.string().regex(/^[A-Za-z0-9_.:-]{1,128}$/),sessionKey=z.strin
 /** An item is addressed by its id or by the number people say aloud. */
 const ref=z.union([identifier,z.number().int().min(1).max(100000)]);
 const shape=taskItemSchema.shape;
-const newItem=z.strictObject({id:shape.id,title:shape.title,summary:shape.summary,detail:shape.detail,source:shape.source,checked:z.boolean().optional(),status:shape.status,tags:shape.tags,fields:shape.fields,index:z.number().int().min(0).optional()});
+const newItem=z.strictObject({id:shape.id,title:shape.title,reference:shape.reference,subtasks:shape.subtasks,summary:shape.summary,detail:shape.detail,source:shape.source,checked:z.boolean().optional(),status:shape.status,tags:shape.tags,fields:shape.fields,index:z.number().int().min(0).optional()});
 const text=(max:number)=>z.string().max(max).nullable().optional();
-const change=z.strictObject({item:ref,title:shape.title.optional(),summary:text(500),detail:text(TASK_DETAIL_MAX),source:text(500),checked:z.boolean().optional(),status:text(40),tags:shape.tags,fields:z.record(z.string().max(40),z.string().max(200).nullable()).optional(),index:z.number().int().min(0).max(TASK_LIST_MAX_ITEMS).optional()});
+const change=z.strictObject({item:ref,title:shape.title.optional(),reference:text(200),summary:text(500),detail:text(TASK_DETAIL_MAX),source:text(500),checked:z.boolean().optional(),status:text(40),tags:shape.tags,fields:z.record(z.string().max(40),z.string().max(200).nullable()).optional(),index:z.number().int().min(0).max(TASK_LIST_MAX_ITEMS).optional()});
 const dataShape=taskListDataSchema.shape;
 export const taskListReadSchema=z.strictObject({sessionId:sessionKey,taskListId:identifier.optional(),item:ref.optional(),status:z.array(z.string().max(40)).max(12).optional(),tags:z.array(z.string().max(30)).max(12).optional(),done:z.boolean().optional(),sort:dataShape.sort,offset:z.number().int().min(0).max(TASK_LIST_MAX_ITEMS).default(0),limit:z.number().int().min(1).max(TASK_LIST_MAX_ITEMS).default(50)});
 export const taskListUpdateSchema=z.strictObject({sessionId:sessionKey,taskListId:identifier,expectedRevision:revision.optional(),requestId:identifier,
  title:z.string().max(500).optional(),
+ showNumber:z.boolean().optional(),showReference:z.boolean().optional(),
+ subtasks:z.array(z.strictObject({
+  item:ref,
+  add:z.array(taskSubtaskSchema).max(50).optional(),
+  items:z.array(taskSubtaskSchema.partial().required({id:true})).max(50).optional(),
+  check:z.array(identifier).max(50).optional(),uncheck:z.array(identifier).max(50).optional(),
+  remove:z.array(identifier).max(50).optional(),highlight:identifier.nullable().optional(),
+ })).max(50).optional(),
  add:z.array(newItem).max(50).optional(),
  items:z.array(change).max(50).optional(),
  check:z.array(ref).max(50).optional(),uncheck:z.array(ref).max(50).optional(),
@@ -37,7 +45,7 @@ export const taskListTools: Definition[] = [
         searchAliases: ["kanvas.tasklist.read"]
     },
     {
-        name: "kanvas.tasklist.update", idempotent: true, schema: taskListUpdateSchema, description: 'Change a saved task list by item (add, items, check, uncheck, remove, index, highlight, sort, filter, columns); unnamed items stay untouched and numbers never change. Create one by publishing a task-list view.',
+        name: "kanvas.tasklist.update", idempotent: true, schema: taskListUpdateSchema, description: 'Change a saved task list by item (add, items, check, uncheck, remove, index, highlight, sort, filter, columns, showNumber, showReference). subtasks:[{item,add,items,check,uncheck,remove,highlight}] addresses stable subtask ids within a parent; unnamed items stay untouched and numbers never change. Create one by publishing a task-list view.',
         domain: "checklist",
         requiredScope: "publish",
         discovery: {"group":"content","hint":"Change single items of a saved task list: add, edit fields, check, uncheck, remove, highlight, sort, filter. Never republish the list.","examples":[{"sessionId":"session-id","taskListId":"task-list-id","requestId":"check-7","check":[7],"highlight":8}]},
@@ -53,14 +61,19 @@ export const taskListTools: Definition[] = [
 ];
 interface TaskList {id:string;sessionId:string;revision:number;title?:string;data:TaskListData;nextNumber:number;createdAt:string;updatedAt:string}
 type Stored=TaskItem&{id:string;number:number};
-const row=(item:Stored)=>({number:item.number,id:item.id,title:item.title,...(item.summary?{summary:item.summary}:{}),checked:Boolean(item.checked),...(item.status?{status:item.status}:{}),...(item.tags?.length?{tags:item.tags}:{}),...(item.fields&&Object.keys(item.fields).length?{fields:item.fields}:{}),hasDetail:Boolean(item.detail),...(item.source?{source:item.source}:{})});
+const row=(item:Stored)=>({number:item.number,id:item.id,title:item.title,...(item.reference?{reference:item.reference}:{}),...(item.subtasks?.length?{subtaskProgress:{total:item.subtasks.length,done:item.subtasks.filter(s=>s.checked).length}}:{}),...(item.summary?{summary:item.summary}:{}),checked:Boolean(item.checked),...(item.status?{status:item.status}:{}),...(item.tags?.length?{tags:item.tags}:{}),...(item.fields&&Object.keys(item.fields).length?{fields:item.fields}:{}),hasDetail:Boolean(item.detail||item.subtasks?.length),...(item.source?{source:item.source}:{})});
 /** Persistent task lists: the server holds the list, agents send only deltas. */
 export class TaskLists{
  constructor(private service:KanvasService){}
  private get store(){return this.service.store;}
  /** The view a display receives: every row, full detail only for the highlighted item. */
  view(list:TaskList):ViewSpec{
-  const data=list.data,items=(data.items as Stored[]).map(item=>{const {detail,...rest}=item;return item.id===data.highlight||!detail?{...rest,...(detail?{detail}:{})}:{...rest,hasDetail:true};});
+  const data=list.data,items=(data.items as Stored[]).map(item=>{
+   const {detail,subtasks,...rest}=item;
+   const hasDetail=Boolean(detail||subtasks?.length);
+   return {...rest,hasDetail,...(subtasks?.length?{subtaskProgress:{total:subtasks.length,done:subtasks.filter(s=>s.checked).length}}:{}),
+    ...(item.id===data.highlight?{...(detail?{detail}:{}),...(subtasks?{subtasks}:{})}:{})};
+  });
   return {version:1,template:'task-list',...(list.title?{title:list.title}:{}),data:{...data,items,taskListId:list.id,taskListRevision:list.revision}} as ViewSpec;
  }
  /** Called inside the publication transaction (through Checklists.capture). A
@@ -71,12 +84,12 @@ export class TaskLists{
   if(data.taskListId){
    const saved=await this.store.get<TaskList>('task-list',data.taskListId);
    if(!saved||saved.sessionId!==sessionId)throw new AppError('NOT_FOUND','This task list is unavailable in this session.',404);
-   return {...this.view(saved),...(input.showTitle!==undefined?{showTitle:input.showTitle}:{})} as ViewSpec;
+   return {...input,...this.view(saved),...(input.showTitle!==undefined?{showTitle:input.showTitle}:{})} as ViewSpec;
   }
   if((await this.store.list<TaskList>('task-list',sessionId)).length>=50)throw new AppError('LIMIT_REACHED','This session supports up to 50 task lists.',429);
   let next=Math.max(0,...data.items.map(item=>item.number??0))+1;
   const used=new Set(data.items.flatMap(item=>item.id?[item.id]:[]));
-  const items:Stored[]=data.items.map(item=>{const number=item.number??next++;let key=item.id;if(!key){key=`t${number}`;while(used.has(key))key=`t${number}-${id().slice(0,4)}`;used.add(key);}const {hasDetail:_flag,...rest}=item;return {...rest,id:key,number};});
+  const items:Stored[]=data.items.map(item=>{const number=item.number??next++;let key=item.id;if(!key){key=`t${number}`;while(used.has(key))key=`t${number}-${id().slice(0,4)}`;used.add(key);}const {hasDetail:_flag,...rest}=item;return {...rest,id:key,number,...(item.subtasks?{subtasks:item.subtasks.map(s=>({...s,id:s.id??id()}))}:{})};});
   if(data.highlight&&!items.some(item=>item.id===data.highlight))throw new InputError([{path:'view.data.highlight',problem:'Must be the id of an item in this list.'}]);
   const stamp=now(),list:TaskList={id:id(),sessionId,revision:0,title:input.title,data:{...data,items,taskListId:undefined,taskListRevision:undefined},nextNumber:next,createdAt:stamp,updatedAt:stamp};
   await this.store.put('task-list',list);
@@ -120,12 +133,12 @@ export class TaskLists{
    (a.add??[]).forEach((entry,index)=>{
     const {index:position,...fields}=entry,number=nextNumber++;let itemId=fields.id??`t${number}`;
     if(items.some(item=>item.id===itemId)){if(fields.id)throw new InputError([{path:`add[${index}].id`,problem:'An item with this id already exists. Change it through items, or omit id to have one assigned.'}]);itemId=`t${number}-${id().slice(0,4)}`;}
-    items.splice(Math.min(position??items.length,items.length),0,{...fields,id:itemId,number,checked:fields.checked??false});changes.added.push(number);
+    items.splice(Math.min(position??items.length,items.length),0,{...fields,id:itemId,number,checked:fields.checked??false,...(fields.subtasks?{subtasks:fields.subtasks.map(s=>({...s,id:s.id??id()}))}:{})});changes.added.push(number);
    });
    (a.items??[]).forEach((entry,index)=>{
     const item=this.find(items,entry.item,`items[${index}].item`),snapshot=JSON.stringify(item);
     if(entry.title!==undefined)item.title=entry.title;
-    for(const field of ['summary','detail','source','status'] as const){const value=entry[field];if(value===null)delete item[field];else if(value!==undefined)item[field]=value;}
+    for(const field of ['reference','summary','detail','source','status'] as const){const value=entry[field];if(value===null)delete item[field];else if(value!==undefined)item[field]=value;}
     if(entry.checked!==undefined)item.checked=entry.checked;
     if(entry.tags!==undefined){if(entry.tags.length)item.tags=entry.tags;else delete item.tags;}
     if(entry.fields){const merged={...item.fields};for(const [name,value] of Object.entries(entry.fields)){if(value===null)delete merged[name];else merged[name]=value;}if(Object.keys(merged).length)item.fields=merged;else delete item.fields;}
@@ -137,9 +150,24 @@ export class TaskLists{
    if(items.length>TASK_LIST_MAX_ITEMS)throw new InputError([{path:'add',problem:`A task list holds at most ${TASK_LIST_MAX_ITEMS} items.`,maximum:TASK_LIST_MAX_ITEMS,actual:items.length,unit:'items'}]);
    let highlight=list.data.highlight;
    if(a.highlight===null)highlight=undefined;else if(a.highlight!==undefined)highlight=this.find(items,a.highlight,'highlight').id;
+   let highlightSubtask=list.data.highlightSubtask;
+   for(const group of a.subtasks??[]){
+    const parent=this.find(items,group.item,'subtasks.item'),subtasks=(parent.subtasks??[]).map(s=>({...s}));
+    const find=(key:string)=>{const s=subtasks.find(s=>s.id===key);if(!s)throw new InputError([{path:'subtasks',problem:'Subtask id is unavailable in this parent.'}]);return s;};
+    for(const key of group.remove??[]){const s=find(key);subtasks.splice(subtasks.indexOf(s),1);}
+    for(const s of group.add??[]){const next={...s,id:s.id??id()};if(subtasks.some(x=>x.id===next.id))throw new InputError([{path:'subtasks.add',problem:'Subtask id already exists in this parent.'}]);subtasks.push(next);}
+    for(const s of group.items??[])Object.assign(find(s.id),s);
+    for(const key of group.check??[])find(key).checked=true;
+    for(const key of group.uncheck??[])find(key).checked=false;
+    if(group.highlight===null)highlightSubtask=undefined;
+    else if(group.highlight!==undefined){highlightSubtask=find(group.highlight).id;highlight=parent.id;}
+    parent.subtasks=subtasks;
+    if(!changes.changed.includes(parent.number))changes.changed.push(parent.number);
+   }
+   if(highlightSubtask&&!items.find(i=>i.id===highlight)?.subtasks?.some(s=>s.id===highlightSubtask))highlightSubtask=undefined;
    if(highlight&&!items.some(item=>item.id===highlight))highlight=undefined;
-   const {highlight:_h,sort:_s,filter:_f,...rest}=list.data;
-   const data=taskListDataSchema.parse({...rest,items,...(highlight?{highlight}:{}),
+   const {highlight:_h,highlightSubtask:_hs,sort:_s,filter:_f,...rest}=list.data;
+   const data=taskListDataSchema.parse({...rest,items,...(highlight?{highlight}:{}),...(highlightSubtask?{highlightSubtask}:{}),...(a.showNumber!==undefined?{showNumber:a.showNumber}:{}),...(a.showReference!==undefined?{showReference:a.showReference}:{}),
     ...(a.sort===null?{}:a.sort?{sort:a.sort}:list.data.sort?{sort:list.data.sort}:{}),...(a.filter===null?{}:a.filter?{filter:a.filter}:list.data.filter?{filter:list.data.filter}:{}),
     ...(a.columns?{columns:a.columns.filter(column=>!isBuiltinTaskColumn(column.key))}:{}),...(a.doneLast!==undefined?{doneLast:a.doneLast}:{})});
    const ignoredColumns=(a.columns??[]).filter(column=>isBuiltinTaskColumn(column.key)).map(column=>column.key);
@@ -151,7 +179,7 @@ export class TaskLists{
     for(const display of await this.store.list<DisplayRecord>('display',a.sessionId)){
      if(display.view?.template!=='task-list'||display.view.data.taskListId!==next.id)continue;
      display.navigationRoot??=display.revision;display.zoomRoot??=display.revision;
-     display.view={...structuredClone(view),...(display.view.showTitle!==undefined?{showTitle:display.view.showTitle}:{})} as ViewSpec;display.revision++;display.updatedAt=now();
+     display.view={...display.view,...structuredClone(view),...(display.view.showTitle!==undefined?{showTitle:display.view.showTitle}:{})} as ViewSpec;display.revision++;display.updatedAt=now();
      display.delivery={revision:display.revision,status:'pending',updatedAt:display.updatedAt};
      await this.store.put('display',display);
      this.store.afterCommit(()=>this.service.emit({type:'display',sessionId:a.sessionId,displayId:display.id,revision:display.revision}));
@@ -164,6 +192,13 @@ export class TaskLists{
     note:unchanged?'Nothing differed from the saved list; revision unchanged.':'Saved. Items not listed in changes are exactly as before; item numbers never change.'};
    await this.store.put('task-list-request',{id:key,sessionId:a.sessionId,digest,result});return result;
   }));
+ }
+ async displayItem(p:AuthPrincipal,sessionId:string,displayId:string,itemId:string){
+  const display=await this.service.display(p,sessionId,displayId);
+  const leaf=display.view?.template==='presentation'?(display.view.data.slides as ViewSpec[])[Number(display.view.data.index??0)]:display.view;
+  if(leaf?.template!=='task-list'||typeof leaf.data.taskListId!=='string')throw new AppError('NOT_FOUND','No task list on this display.',404);
+  const list=await this.get(sessionId,leaf.data.taskListId);
+  return this.find(list.data.items as Stored[],itemId,'item');
  }
  async show(p:AuthPrincipal,raw:unknown){
   const a=taskListShowSchema.parse(raw);

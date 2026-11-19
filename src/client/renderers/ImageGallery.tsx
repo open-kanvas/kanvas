@@ -9,7 +9,7 @@ export function galleryColumns(count:number,width:number,height:number){
   if(count===4)return 2;
   if(count===6)return width>=height?3:2;
   let best=Infinity,chosen=1;
-  for(let c=1;c<=Math.min(8,count);c++){
+  for(let c=1;c<=Math.min(16,count);c++){
     const rows=Math.ceil(count/c),ratio=(width/c)/(height/rows),empty=rows*c-count;
     const score=Math.abs(Math.log(Math.max(.05,ratio)/(4/3)))+empty/count*3;
     if(score<best){best=score;chosen=c;}

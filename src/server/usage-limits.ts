@@ -38,3 +38,9 @@ export function limitMessage(code:LimitCode,limit:number):string{
  if(code==='SESSION_STORAGE_LIMIT_REACHED')return `You've reached the free limit of ${limit} stored sessions on this account, counting archived ones, so a new session can't be created. You can keep using your existing sessions, or permanently delete an archived session you no longer need to free up space. ${more}`;
  return `You've reached the free limit of ${limit} views in this session, so a new view can't be added. Everything already shown stays available. You can permanently delete views you no longer need, or continue in a new session. ${more}`;
 }
+
+/** Capture count is a plan quota, unlike byte budgets, concurrency or rate limits. */
+export async function sessionCaptureLimit(store:Store,sessionId:string):Promise<number>{
+ const {tier}=await sessionUsageLimits(store,sessionId);
+ return tier==='admin'?Infinity:tier==='free'?1000:100;
+}

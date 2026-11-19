@@ -40,7 +40,7 @@ const interactiveTemplates = new Set<string>(['json', 'session-topology', 'form'
  * viewport: views composed to fill the screen are laid out for a proportionally smaller (or larger) screen, so text
  * set in fixed sizes changes while content sized to the screen keeps filling it instead of being cut off. */
 export function textSizeMode(view: ViewSpec): 'content' | 'viewport' {
-  if (['colour','icon-picker','font-picker'].includes(view.template)) return 'content';
+  if (['image','image-gallery','colour','icon-picker','font-picker'].includes(view.template)) return 'content';
   const mode = liveSurfaceLayout(view).mode;
   return mode === 'reading' || mode === 'interactive' ? 'content' : 'viewport';
 }

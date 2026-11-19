@@ -6,7 +6,7 @@ import {z} from 'zod';
 const identifier=z.string().min(1).max(128).regex(/^[a-zA-Z0-9_.:-]+$/);
 export const TASK_LIST_MAX_ITEMS=200,TASK_DETAIL_MAX=8000,STATUS_COLOURS_MAX=16;
 /** Columns the list always has. Naming one in `columns` adds nothing: it is already on screen. */
-export const TASK_BUILTIN_COLUMNS=new Set(['number','#','no','item','title','status','tags','tag','summary','done','checked','check']);
+export const TASK_BUILTIN_COLUMNS=new Set(['number','#','no','item','title','status','tags','tag','summary','reference','done','checked','check']);
 export const isBuiltinTaskColumn=(key:string)=>TASK_BUILTIN_COLUMNS.has(key.trim().toLowerCase());
 /** Own columns worth a place on screen: not a built-in, and at least one item has a value for it. */
 export function taskCustomColumns<C extends {key:string}>(columns:readonly C[]|undefined,items?:readonly {fields?:Record<string,string>}[]):C[]{
@@ -16,10 +16,18 @@ export const taskColumnSchema=z.object({key:z.string().min(1).max(40),label:z.st
 /** A small map of text to text: an item's own column values, and a list's own status colours. */
 const textMap=z.record(z.string(),z.string().max(200));
 const longKey=(map:Record<string,string>|undefined)=>Object.keys(map??{}).some(key=>key.length>40);
+export const taskSubtaskSchema=z.object({
+ id:identifier.optional(),title:z.string().min(1).max(300),checked:z.boolean().default(false),
+ status:z.string().min(1).max(40).optional(),description:z.string().max(2000).optional(),detail:z.string().max(TASK_DETAIL_MAX).optional(),
+}).strict();
+export type TaskSubtask=z.infer<typeof taskSubtaskSchema>;
 export const taskItemSchema=z.object({
  id:identifier.optional(),
  number:z.number().int().min(1).optional(),
  title:z.string().min(1).max(300),
+ reference:z.string().max(200).optional(),
+ subtasks:z.array(taskSubtaskSchema).max(100).optional(),
+ subtaskProgress:z.object({total:z.number().int().nonnegative(),done:z.number().int().nonnegative()}).optional(),
  summary:z.string().max(500).optional(),
  detail:z.string().max(TASK_DETAIL_MAX).optional(),
  source:z.string().max(500).optional(),
@@ -50,6 +58,9 @@ export const taskListDataSchema=z.object({
  colors:textMap.optional(),
  items:z.array(taskItemSchema).max(TASK_LIST_MAX_ITEMS),
  highlight:identifier.optional(),
+ highlightSubtask:identifier.optional(),
+ showNumber:z.boolean().optional().describe('Default true; permanent task numbers remain unchanged when hidden.'),
+ showReference:z.boolean().optional().describe('Default false; shows plain-text reference metadata independently of permanent numbers.'),
  sort:sortSchema.optional(),filter:filterSchema.optional(),
  doneLast:z.boolean().optional().describe('true moves checked items to the bottom. Default: every item stays where it was written.'),
 }).strict().superRefine((data,ctx)=>{
@@ -57,6 +68,8 @@ export const taskListDataSchema=z.object({
  if(data.colors&&(Object.keys(data.colors).length>STATUS_COLOURS_MAX||longKey(data.colors)||Object.entries(data.colors).some(([value,colour])=>!value.trim()||!/^#[0-9a-fA-F]{6}$/.test(colour))))ctx.addIssue({code:'custom',path:['colors'],message:`colors maps up to ${STATUS_COLOURS_MAX} status values to #rrggbb colours, e.g. {"waiting":"#d9a441"}.`});
  for(const [index,entry] of (data.filter?.fields??[]).entries())if(!fieldFilter(entry))ctx.addIssue({code:'custom',path:['filter','fields',index],message:'A column filter is written column=value, e.g. "owner=Anna".'});
  data.items.forEach((item,index)=>{
+  const subIds=(item.subtasks??[]).flatMap(s=>s.id?[s.id]:[]);
+  if(new Set(subIds).size!==subIds.length)ctx.addIssue({code:'custom',path:['items',index,'subtasks'],message:'Subtask ids must be unique within their parent.'});
   if(longKey(item.fields))ctx.addIssue({code:'custom',path:['items',index,'fields'],message:'A column key has at most 40 characters.'});
   if(item.id){if(ids.has(item.id))ctx.addIssue({code:'custom',path:['items',index,'id'],message:'Task ids must be unique.'});ids.add(item.id);}
   if(item.number!==undefined){if(numbers.has(item.number))ctx.addIssue({code:'custom',path:['items',index,'number'],message:'Task numbers must be unique.'});numbers.add(item.number);}

@@ -1,10 +1,11 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import type { TemplateResponseState } from '../../shared/types';
 import type { FormData as FormViewData, FormField, PollData, QAData } from '../../shared/view-schemas';
+import {FileField} from '../SessionUploads';
 import { errorMessage } from '../api';
 
 export type Respond = (value: Record<string, unknown>) => Promise<unknown>;
-interface ResponseProps { actionable?: boolean; preview?: boolean; onRespond?: Respond; responseState?: TemplateResponseState }
+interface ResponseProps { sessionId?:string;displayId?:string;revision?:number; actionable?: boolean; preview?: boolean; onRespond?: Respond; responseState?: TemplateResponseState }
 function useResponse(enabled: boolean, onRespond?: Respond) {
   const [busy, setBusy] = useState(false), [sent, setSent] = useState(false), [error, setError] = useState<string | null>(null);
   const sending = useRef(false);
@@ -21,18 +22,18 @@ function ResponseMessage({ error, message }: { error?: string | null; message?: 
   return <>{message && <p className="response-status" role="status">{message}</p>}{error && <p className="inline-error" role="alert">{error}</p>}</>;
 }
 type FieldValue = string | boolean | string[];
-const initialValues = (fields: FormField[]): Record<string, FieldValue> => Object.fromEntries(fields.map(field => [field.id, field.type === 'range' ? String(field.min) : field.type === 'checkbox' ? false : field.type === 'multi-choice' ? [] : '']));
+const initialValues = (fields: FormField[]): Record<string, FieldValue> => Object.fromEntries(fields.map(field => [field.id, field.type === 'range' ? String(field.min) : field.type === 'checkbox' ? false : ['multi-choice','file'].includes(field.type) ? [] : '']));
 
 /** Source-defined field IDs and option IDs are sent exactly; aggregate/identity data is never accepted. */
-export function FormRenderer({ data, actionable, preview, onRespond, responseState }: ResponseProps & { data: FormViewData }) {
-  const prefix = useId(), [values, setValues] = useState(() => initialValues(data.fields));
+export function FormRenderer({ data, actionable, preview, onRespond, responseState,sessionId,displayId,revision }: ResponseProps & { data: FormViewData }) {
+  const prefix = useId(), [values, setValues] = useState(() => initialValues(data.fields)),[uploading,setUploading]=useState<Record<string,boolean>>({});
   const canRespond = Boolean(actionable && onRespond && !preview && !data.closed);
   const response = useResponse(canRespond, onRespond), submitted = response.sent || responseState?.form?.submitted;
   const disabled = !canRespond || response.busy || Boolean(submitted);
   const change = (field: string, value: FieldValue) => setValues(previous => ({ ...previous, [field]: value }));
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (disabled || !event.currentTarget.reportValidity()) return;
+    if (disabled || Object.values(uploading).some(Boolean) || !event.currentTarget.reportValidity()) return;
     const payload: Record<string, string | boolean | number | string[]> = {};
     for (const field of data.fields) {
       const value = values[field.id];
@@ -48,7 +49,7 @@ export function FormRenderer({ data, actionable, preview, onRespond, responseSta
         const id = `${prefix}-${field.id}`, label = <>{field.label}{field.required && <span className="required-field" aria-label="required"> *</span>}</>;
         const describedBy = field.help ? `${id}-help` : undefined;
         return <div className={`response-field field-${field.type}`} key={field.id}>
-          {field.type === 'multi-choice' ? <fieldset aria-describedby={describedBy}><legend>{label}</legend><div className="response-choices">{field.options.map(option => {
+          {field.type==='file'?<><label htmlFor={id}>{label}</label><FileField id={id} required={field.required} disabled={disabled} limits={field} target={sessionId&&displayId&&revision!==undefined?{sessionId,displayId,revision,fieldId:field.id}:undefined} onChange={ids=>change(field.id,ids)} onBusy={busy=>setUploading(old=>({...old,[field.id]:busy}))}/></>:field.type === 'multi-choice' ? <fieldset aria-describedby={describedBy}><legend>{label}</legend><div className="response-choices">{field.options.map(option => {
             const selected = Array.isArray(values[field.id]) ? values[field.id] as string[] : [];
             return <label key={option.id}><input type="checkbox" name={field.id} value={option.id} checked={selected.includes(option.id)} disabled={disabled || Boolean(field.maxChoices && selected.length >= field.maxChoices && !selected.includes(option.id))} onChange={event => change(field.id, event.target.checked ? [...selected, option.id] : selected.filter(value => value !== option.id))} />{option.label}</label>;
           })}</div>{field.required && !(values[field.id] as string[])?.length && <span className="field-hint">Choose at least one option.</span>}</fieldset>
@@ -61,7 +62,7 @@ export function FormRenderer({ data, actionable, preview, onRespond, responseSta
           {field.help && <p id={`${id}-help`} className="field-hint">{field.help}</p>}
         </div>;
       })}</fieldset>
-      {!preview && <div className="response-actions"><button className="response-submit" type="submit" disabled={disabled || data.fields.some(field => field.type === 'multi-choice' && field.required && !(values[field.id] as string[])?.length)}>{response.busy ? 'Sending…' : data.submitLabel ?? 'Submit response'}</button><ResponseMessage error={response.error} message={submitted ? 'Response sent' : data.closed ? 'This form is closed.' : !canRespond ? 'View-only access' : undefined} /></div>}
+      {!preview && <div className="response-actions"><button className="response-submit" type="submit" disabled={disabled || Object.values(uploading).some(Boolean) || data.fields.some(field => ['multi-choice','file'].includes(field.type) && field.required && !(values[field.id] as string[])?.length)}>{response.busy ? 'Sending…' : data.submitLabel ?? 'Submit response'}</button><ResponseMessage error={response.error} message={submitted ? 'Response sent' : data.closed ? 'This form is closed.' : !canRespond ? 'View-only access' : undefined} /></div>}
     </form>
   </div>;
 }

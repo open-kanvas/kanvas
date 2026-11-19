@@ -56,7 +56,7 @@ export function wrapChartLabel(text: string, characters: number): string[] {
   return result;
 }
 function SvgLabel({ text, x, y, characters, anchor = 'middle', className = '' }: { text: string; x: number; y: number; characters: number; anchor?: 'start' | 'middle' | 'end'; className?: string }) {
-  return <text className={`advanced-label ${className}`} x={x} y={y} textAnchor={anchor} aria-label={text}><title>{text}</title>{wrapChartLabel(text, characters).map((line, index) => <tspan key={index} x={x} dy={index ? 19 : 0}>{line}</tspan>)}</text>;
+  return <text className={`advanced-label ${className}`} x={x} y={y} textAnchor={anchor} aria-label={text}><title>{text}</title>{wrapChartLabel(text, characters).map((line, index) => <tspan key={index} x={x} dy={index ? '1.2em' : 0}>{line}</tspan>)}</text>;
 }
 function Svg({ width, height, title, children }: { width: number; height: number; title: string; children: ReactNode }) {
   return <svg className="chart-svg advanced-chart-svg" width={width} height={height} style={{ width, height }} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title}><title>{title}</title>{children}</svg>;
@@ -118,14 +118,16 @@ function CartesianPlot({ data, width, height, inspect }: PlotProps) {
   if (lo === Infinity) return <p className="content-empty">No numeric observations supplied.</p>;
   if (!Number.isFinite(hi - lo)) return <ExactDataTable data={data} />;
   const yTicks = lo === hi ? [lo] : Array.from({ length: 5 }, (_, i) => lo + (hi - lo) * (i / 4));
-  const left = Math.max(65, ...yTicks.map(value => pretty(value).length * 8.5 + 12)) + (data.yLabel || data.unit ? 27 : 0), right = data.kind === 'bubble' ? 34 : 22, top = 28;
+  const left = Math.max(65, ...yTicks.map(value => pretty(value).length * 8.5*(data.textScale??1) + 12)) + (data.yLabel || data.unit ? 27*(data.textScale??1) : 0), right = data.kind === 'bubble' ? 34 : 22, top = 28;
   // Label length affects wrapping, not bar width. Only genuinely dense charts
   // need horizontal scrolling; thirteen monthly categories fit a desktop.
+  const scale=data.textScale??1,fitFinancial=['candlestick','ohlc'].includes(data.kind)&&data.fitWidth!==false;
   const slot = data.kind === 'waterfall' ? 52 : 68;
-  const plotWidth = continuous ? Math.max(180, width - left - right) : Math.max(width - left - right, labels.length * slot);
+  const plotWidth = continuous||fitFinancial ? Math.max(180, width - left - right) : Math.max(width - left - right, labels.length * slot);
   const actualWidth = left + plotWidth + right, categoryWidth = plotWidth / labels.length;
-  const labelLines = continuous ? 3 : Math.max(...labels.map(label => wrapChartLabel(String(label), (categoryWidth - 12) / 8).length));
-  const bottomMargin = Math.max(65, labelLines * 19 + 30 + (data.xLabel ? 28 : 0));
+  const labelStride=fitFinancial?Math.max(1,Math.ceil(110*scale/categoryWidth)):1;
+  const labelLines = fitFinancial ? 1 : continuous ? 3 : Math.max(...labels.map(label => wrapChartLabel(String(label), (categoryWidth - 12) / 8).length));
+  const bottomMargin = Math.max(65, labelLines * 19*scale + 30 + (data.xLabel ? 28*scale : 0));
   const plotHeight = Math.max(140, height - top - bottomMargin), bottom = top + plotHeight, actualHeight = bottom + bottomMargin;
   // Radius is in real CSS pixels. Reserve its full extent at every data edge,
   // including an extremal observation whose size is the largest in the set.
@@ -179,7 +181,7 @@ function CartesianPlot({ data, width, height, inspect }: PlotProps) {
   return <Svg width={actualWidth} height={actualHeight} title={`${data.kind} chart${data.yLabel ? ` of ${data.yLabel}` : ''}`}>
     {data.kind==='area'&&<rect data-chart-snap-plot x={left} y={top} width={plotWidth} height={plotHeight} fill="transparent"/>}
     {yTicks.map((value, i) => <g key={i} className="advanced-axis"><line x1={left} x2={actualWidth - right} y1={y(value)} y2={y(value)} /><text x={left - 10} y={y(value) + 5} textAnchor="end">{pretty(value)}</text></g>)}
-    {continuous ? ticks.map((tick, i) => <SvgLabel key={i} text={tick.label} x={continuousX(tick.value)} y={bottom + 27} characters={dateX ? 10 : 12} anchor={i === 0 ? 'start' : i === ticks.length - 1 ? 'end' : 'middle'} />) : labels.map((label, index) => <SvgLabel key={index} text={String(label)} x={left + (index + .5) * categoryWidth} y={bottom + 28} characters={(categoryWidth - 12) / 8} />)}
+    {continuous ? ticks.map((tick, i) => <SvgLabel key={i} text={tick.label} x={continuousX(tick.value)} y={bottom + 27} characters={dateX ? 10 : 12} anchor={i === 0 ? 'start' : i === ticks.length - 1 ? 'end' : 'middle'} />) : labels.map((label, index) => index%labelStride?null:<SvgLabel key={index} text={String(label)} x={left + (index + .5) * categoryWidth} y={bottom + 28} characters={fitFinancial?100:(categoryWidth - 12) / (8*scale)} />)}
     {(data.yLabel || data.unit) && <text className="advanced-label" x="17" y={top + plotHeight / 2} transform={`rotate(-90 17 ${top + plotHeight / 2})`} textAnchor="middle">{[data.yLabel, data.unit].filter(Boolean).join(' · ')}</text>}
     {data.xLabel && <text className="advanced-label" x={left + plotWidth / 2} y={actualHeight - 9} textAnchor="middle">{data.xLabel}</text>}
     {content}

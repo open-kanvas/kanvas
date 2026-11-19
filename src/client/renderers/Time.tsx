@@ -233,21 +233,23 @@ function ScheduleMonths({ data, view, showTitle }: { data: ScheduleData; view: '
   </div>;
 }
 
-function countdownUnits(seconds: number | undefined) {
+export function countdownUnits(seconds: number | undefined, precision: 'seconds' | 'minutes' = 'seconds') {
   const parts = countdownParts(seconds ?? 0);
-  return [
+  const units = [
     ...(parts.days ? [{ name: 'days', value: String(parts.days), separator: 'd ' }] : []),
     { name: 'hours', value: seconds === undefined ? '—' : String(parts.hours).padStart(2, '0'), separator: ':' },
     { name: 'minutes', value: seconds === undefined ? '—' : String(parts.minutes).padStart(2, '0'), separator: ':' },
     { name: 'seconds', value: seconds === undefined ? '—' : String(parts.seconds).padStart(2, '0'), separator: '' },
   ];
+  if(precision==='minutes'){units.pop();units[units.length-1].separator='';}
+  return units;
 }
 
 /** Fit the actual free timer area, not a guessed fraction of the viewport.
  * Glyph widths are measured from the receiving browser's font at 1px.
  */
-export function fitCountdown(seconds: number | undefined, width: number, height: number, digitWidth = .64, separatorWidth = .3) {
-  const units = countdownUnits(seconds), w = Math.max(1, width), h = Math.max(1, height);
+export function fitCountdown(seconds: number | undefined, width: number, height: number, digitWidth = .64, separatorWidth = .3, precision: 'seconds' | 'minutes' = 'seconds') {
+  const units = countdownUnits(seconds, precision), w = Math.max(1, width), h = Math.max(1, height);
   const portrait = h > w * 1.05;
   const hiddenHours = portrait && seconds !== undefined && units[0].name === 'hours' && units[0].value === '00';
   const visibleCount = units.length - (hiddenHours ? 1 : 0);
@@ -300,7 +302,9 @@ export function CountdownRenderer({ data, serverNow, preview, showControls = fal
   const invalid = typeof instant !== 'string' || !isTimerTimestamp(instant) || value !== undefined && !Number.isFinite(value);
   // A future start is not elapsed time and is never converted into a countdown.
   const seconds = invalid || phase === 'scheduled' ? undefined : value;
-  const units = countdownUnits(seconds), canonical = seconds === undefined ? '—:—:—' : formatCountdown(seconds);
+  const precision=data.precision==='minutes'||data.precision==='auto'&&(seconds??0)>=600?'minutes':'seconds';
+  const displayedSeconds=precision==='minutes'&&seconds!==undefined?(up?Math.floor(seconds/60):Math.ceil(seconds/60))*60:seconds;
+  const units = countdownUnits(displayedSeconds,precision), canonical = units.map(unit=>unit.value+unit.separator).join('');
   const shape = `${units.map(unit => unit.value.length).join(',')}:${seconds !== undefined && seconds < 3600}`;
   useLayoutEffect(() => {
     const target = frame.current;
@@ -314,7 +318,7 @@ export function CountdownRenderer({ data, serverNow, preview, showControls = fal
       const glyphs = seconds === undefined ? '—' : '0123456789';
       const digit = context ? Math.max(...Array.from(glyphs, glyph => context.measureText(glyph).width)) / 100 : .64;
       const separator = context ? Math.max(...Array.from(':d ', glyph => context.measureText(glyph).width)) / 100 : .64;
-      const next = fitCountdown(seconds, width, height, digit, separator);
+      const next = fitCountdown(displayedSeconds, width, height, digit, separator, precision);
       setFit(previous => JSON.stringify(previous) === JSON.stringify(next) ? previous : next);
     };
     measure();
@@ -324,7 +328,7 @@ export function CountdownRenderer({ data, serverNow, preview, showControls = fal
     void document.fonts?.ready.then(measure);
     return () => { active = false; observer?.disconnect(); window.removeEventListener('resize', measure); };
     // Tabular glyph widths change only with unit count/digit count or layout.
-  }, [shape]);
+  }, [shape,precision]);
   const complete = !up && phase === 'complete' && !invalid;
   const invalidMessage = up ? 'Invalid count-up start time' : 'Invalid countdown time';
   const status = invalid ? invalidMessage : paused ? !up && seconds === 0 ? 'Paused · no time remaining' : 'Paused' : complete ? data.completeText ?? 'Time is up' : !clock ? preview ? up ? 'Count-up preview' : 'Countdown preview' : 'Syncing time…' : phase === 'scheduled' ? 'Not started yet' : up ? 'Elapsed time' : undefined;

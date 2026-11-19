@@ -52,6 +52,6 @@ describe('new template renderers',()=>{
   const markup=renderToStaticMarkup(<TaskList data={data('task-list')}/>);
   expect(markup.indexOf('data-task-number="1"')).toBeLessThan(markup.indexOf('data-task-number="2"'));const sunk=renderToStaticMarkup(<TaskList data={{...(data('task-list') as Record<string,unknown>),doneLast:true} as never}/>);expect(sunk.indexOf('data-task-number="2"')).toBeLessThan(sunk.indexOf('data-task-number="1"'));expect(markup).toMatch(/data-task-number="1" class="is-done"/);
   expect(markup).toMatch(/data-task-number="2" class="is-current" aria-current="true"/);expect(markup).toContain('task-detail');expect(markup).toContain('class="task-pill"');expect(markup).toContain('<b>2</b> open');expect(markup).toContain('<b>1</b> done');
-  expect(markup).not.toContain('<button');expect(markup).not.toContain('<input');
+  expect(markup).toContain('class="task-detail-toggle" aria-expanded="true"');expect(markup).not.toContain('<input');
  });});
 });

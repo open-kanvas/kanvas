@@ -98,3 +98,11 @@ describe('countdown container fit', () => {
     expect(fitCountdown(1234567 * 86400, 411, 700).fontSizes[0]).toBeLessThan(fitCountdown(1234567 * 86400, 411, 700).fontSizes[1]);
   });
 });
+
+it('minute precision rounds down-counts up without altering stored seconds, while auto keeps the final seconds visible',()=>{
+ const base=countdownDownDataSchema.parse({endsAt,pausedRemainingSeconds:3599,precision:'minutes'});
+ const minutes=renderToStaticMarkup(<CountdownRenderer data={base}/>);
+ expect(minutes).not.toContain('data-unit="seconds"');expect(minutes).toContain('data-seconds="3599"');expect(minutes).toContain('data-duration="01:00"');
+ const auto=renderToStaticMarkup(<CountdownRenderer data={{...base,precision:'auto',pausedRemainingSeconds:599}}/>);
+ expect(auto).toContain('data-unit="seconds"');
+});

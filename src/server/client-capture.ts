@@ -1,3 +1,4 @@
+import {sessionCaptureLimit} from './usage-limits.js';
 import type {Express,Request} from 'express';
 import {z} from 'zod';
 import type {AuthPrincipal} from './auth.js';
@@ -115,8 +116,8 @@ export class ClientCapture {
                 const bytes = Buffer.from(a.base64, 'base64');
                 if (bytes.length > 2 * 1024 * 1024 || bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[bytes.length - 2] !== 0xff || bytes[bytes.length - 1] !== 0xd9)
                     throw new AppError('INVALID_CAPTURE', 'Only a JPEG frame up to 2 MiB is accepted.');
-                if ((await this.service.store.list('capture-asset', sessionId)).length >= 100)
-                    throw new AppError('LIMIT_REACHED', 'Remove unused captures before saving more; maximum 100 per session.', 429);
+                if ((await this.service.store.list('capture-asset', sessionId)).length >= await sessionCaptureLimit(this.service.store,sessionId))
+                    throw new AppError('LIMIT_REACHED', 'Remove unused captures before saving more; the session owner’s capture quota is reached.', 429);
                 const input = { name: 'Consented client screen capture.jpg', mimeType: 'image/jpeg', base64: a.base64 };
                 const media = validateMedia(input);
                 if (media.width !== a.width || media.height !== a.height)

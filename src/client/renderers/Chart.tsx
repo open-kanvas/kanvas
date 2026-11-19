@@ -2,7 +2,7 @@ import {DistributionChart} from './DistributionChart';
 import {ComposableChart} from './ComposableChart';
 import { pointEmphasis } from '../../shared/emphasis';
 import { useRegional } from './Regional';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState,type CSSProperties } from 'react';
 import { AdvancedChartRenderer } from './AdvancedCharts';
 import { isAdvancedChartKind } from '../../shared/chart-contract';
 import type { ChartData, ChartPoint } from '../../shared/chart-contract';
@@ -20,10 +20,13 @@ const numeric = (value: unknown): value is number => typeof value === 'number' &
 const unique = <T,>(items: T[]) => [...new Set(items)];
 const format = (n: number) => new Intl.NumberFormat(undefined, { notation: Math.abs(n) >= 10000 ? 'compact' : 'standard', maximumSignificantDigits: 4 }).format(n);
 
-export function ChartRenderer(props: { data: ChartData; showControls?: boolean }) {
+function ChartBody(props: { data: ChartData; showControls?: boolean }) {
   if(props.data.distribution)return <DistributionChart data={props.data}/>;
   if(['bar','line','area'].includes(props.data.kind)&&(props.data.stacking||props.data.orientation||props.data.showValues!==undefined||props.data.showTotals!==undefined||props.data.legend!==undefined||props.data.numberFormat||props.data.yMin!==undefined||props.data.yMax!==undefined||props.data.series.some(s=>s.stackGroup||s.kind||s.axis||s.color||s.lineWidth||s.dashed)))return <ComposableChart data={props.data}/>;
   return isAdvancedChartKind(props.data.kind) ? <AdvancedChartRenderer {...props} /> : <LegacyChartRenderer {...props} />;
+}
+export function ChartRenderer(props:{data:ChartData;showControls?:boolean}){
+ return <div className="chart-text-surface" style={{display:'contents','--chart-text-scale':props.data.textScale??1} as CSSProperties}><ChartBody {...props}/></div>;
 }
 export type ChartTextMeasure = (text: string) => number;
 /** Wrap by measured glyph width, including identifiers with no spaces. Source text stays in the accessible label. */
@@ -143,7 +146,7 @@ function LegacyChartRenderer({ data, showControls = false }: { data: ChartData; 
     const measure = (fontsChanged = false) => {
       if (disposed || !element.clientWidth || !element.clientHeight) return;
       const fontFamily = getComputedStyle(element).fontFamily;
-      const fontSize = element.closest('.is-preview') ? 7 : 16;
+      const fontSize = (element.closest('.is-preview') ? 7 : 16)*(data.textScale??1);
       setViewport(old => {
         const next = { width: element.clientWidth, height: element.clientHeight, fontFamily, fontSize, fontRevision: old.fontRevision + Number(fontsChanged) };
         return Object.keys(next).every(key => next[key as keyof typeof next] === old[key as keyof typeof old]) ? old : next;
@@ -158,7 +161,7 @@ function LegacyChartRenderer({ data, showControls = false }: { data: ChartData; 
     void document.fonts?.ready.then(fontsChanged);
     measure();
     return () => { disposed = true; observer?.disconnect(); window.removeEventListener('resize', resize); document.fonts?.removeEventListener('loadingdone', fontsChanged); };
-  }, [showControls, data.kind, hasPoints]);
+  }, [showControls, data.kind, hasPoints,data.textScale]);
   useEffect(() => { setSelected(null); }, [data]);
   const measure = useMemo(() => chartMeasure(viewport.fontSize, viewport.fontFamily), [viewport.fontSize, viewport.fontFamily, viewport.fontRevision]);
   const all = data.series.flatMap(series => series.points);

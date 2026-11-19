@@ -285,6 +285,8 @@ export async function createApp(options: AppOptions = {}) {
     app.post('/api/sessions/:id/displays/:displayId/chat', operation("kanvas.chat.append", displayArgs));
     app.post('/api/sessions/:id/displays/:displayId/selection', operation("kanvas.selection.set", displayArgs));
     const tiles = mapConfig();
+    app.post('/api/sessions/:sessionId/displays/:displayId/uploads',async(req,res)=>send(res,await service.sessionUploads.upload(await browser(req),String(req.params.sessionId),String(req.params.displayId),req.body),201));
+    app.get('/api/sessions/:sessionId/displays/:displayId/task-items/:itemId',async(req,res)=>send(res,await service.taskLists.displayItem(await browser(req),String(req.params.sessionId),String(req.params.displayId),String(req.params.itemId))));
     app.get('/api/map/config', (_req, res) => res.json({ data: tiles }));
     app.get('/healthz', (_req, res) => res.json({ status: 'ok', version: KANVAS_VERSION, mcpProfile: 'discovery' }));
     app.get('/readyz', async (_req, res) => {
@@ -559,6 +561,7 @@ export async function createApp(options: AppOptions = {}) {
     const mcp = mountMcp(app, service, { profile, allowedHosts, allowedOrigins: [...origins], resourceMetadataUrl: `${publicUrl}/.well-known/oauth-protected-resource` });
     const staticDirectory = resolve(options.staticDirectory ?? 'dist/client');
     if (existsSync(resolve(staticDirectory, 'index.html'))) {
+        app.use('/fonts',(_req,res,next)=>{res.set('Access-Control-Allow-Origin','*');next();});
         app.use(express.static(staticDirectory, { index: false, dotfiles: 'deny', etag: false, cacheControl: false }));
         // Path bookmarks stay on the canonical application origin.
         app.get('/admin', (req, res) => res.redirect(302, `/console${req.originalUrl.slice('/admin'.length)}`));

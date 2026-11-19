@@ -1,3 +1,4 @@
+import {CaptureTiles,isCaptureTileUrl} from './capture-providers.js';
 import type { Response } from 'express';
 import type { DisplayRecord } from '../shared/types.js';
 import { Auth } from './auth.js';
@@ -32,19 +33,23 @@ export class VisualCapture {
       (await this.store.put('pairing', {...capturePairing, browserSessionId: session.id}));
       await context.addCookies([{ name: this.auth.cookieName, value: cookieValue, url: this.origin, httpOnly: true, secure: this.origin.startsWith('https:'), sameSite: 'Strict' }]);
       cookieValue = '';
-      let blockedExternal = 0;
+      let blockedExternal = 0,allowedMapTiles=0;const tiles=new CaptureTiles();
       const prefix = `/api/sessions/${encodeURIComponent(display.sessionId)}`;
-      await context.route('**/*', route => {
+      await context.route('**/*', async route => {
         const request = route.request();
         let url: URL; try { url = new URL(request.url()); } catch { return route.abort(); }
         // This reads our own renderer only. Never let user-selected media URLs
         // turn the headless browser into an internal-network/credential proxy.
-        if (url.origin !== this.origin) { blockedExternal++; return route.abort(); }
+        if(url.origin!==this.origin){
+          if(request.method()==='GET'&&request.resourceType()==='image'&&isCaptureTileUrl(url.href))try{const body=await tiles.fetch(url.href);allowedMapTiles++;return route.fulfill({status:200,contentType:'image/png',body});}catch{}
+          blockedExternal++;return route.abort();
+        }
         // The normal privacy boundary must obtain status; never bypass it for capture.
-        const allowed = url.pathname === `/view/${display.sessionId}/${display.id}` || url.pathname === '/api/auth/me' || url.pathname === '/api/device-privacy/status' || url.pathname === '/api/map/config' || url.pathname === `${prefix}/displays/${display.id}/overview` || url.pathname === prefix || url.pathname === `${prefix}/events` || url.pathname.startsWith('/api/assets/') || url.pathname.startsWith('/assets/');
+        const allowed = url.pathname === `/view/${display.sessionId}/${display.id}` || url.pathname === '/api/auth/me' || url.pathname === '/api/device-privacy/status' || url.pathname === '/api/map/config' || url.pathname === `${prefix}/displays/${display.id}/overview` || url.pathname === prefix || url.pathname === `${prefix}/events` || url.pathname.startsWith('/api/assets/') || url.pathname.startsWith('/assets/') || url.pathname === '/fonts/Inter-Regular-Variable.ttf' || /^\/browser-icons\/[a-z]+\.svg$/.test(url.pathname);
         if (!allowed || !['GET', 'HEAD'].includes(request.method())) return route.abort();
         return route.continue();
       });
+      await context.routeWebSocket('**/*',socket=>socket.close());
       const page = await context.newPage();
       page.on('pageerror', () => {});
       await page.goto(`${this.origin}/view/${encodeURIComponent(display.sessionId)}/${encodeURIComponent(display.id)}`, { waitUntil: 'domcontentloaded', timeout: 15_000 });
@@ -58,8 +63,9 @@ export class VisualCapture {
           new Promise(resolve => setTimeout(resolve, 2500)),
         ]);
       });
+      await Promise.all(page.frames().map(frame=>frame.evaluate(async()=>{await Promise.race([document.fonts.ready,new Promise(resolve=>setTimeout(resolve,2500))]);}).catch(()=>{})));
       await page.waitForTimeout(1500);
-      const observed = await page.locator('.viewer-shell').evaluate(element => ({ revision: Number((element as HTMLElement).dataset.revision), renderedRevision: Number((element as HTMLElement).dataset.renderedRevision), status: (element as HTMLElement).dataset.renderStatus ?? 'unavailable' })).catch(() => null);
+      const observed = await page.locator('.viewer-shell').evaluate(element => ({ revision: Number((element as HTMLElement).dataset.revision), renderedRevision: Number((element as HTMLElement).dataset.renderedRevision), status: (element as HTMLElement).dataset.renderStatus ?? 'unavailable',textScale:Number(element.querySelector<HTMLElement>('.viewer-candidate .render-surface')?.dataset.textScale??1),bundledFontReady:document.fonts.check('700 32px Inter') })).catch(() => null);
       if (observed) readiness = observed.status;
       const current = (await recheck());
       if (current.revision !== display.revision || observed?.revision !== display.revision) throw new AppError('SNAPSHOT_CHANGED', 'The display changed during capture. Retry against the new revision.', 409);
@@ -68,7 +74,7 @@ export class VisualCapture {
       // while Chromium encodes the image. Never return a revoked/stale capture.
       if ((await recheck()).revision !== display.revision) throw new AppError('SNAPSHOT_CHANGED', 'The display changed during capture. Retry against the new revision.', 409);
       if (bytes.length > 2 * 1024 * 1024) throw new AppError('SNAPSHOT_TOO_LARGE', 'Capture exceeds the supported image limit. Use a smaller viewport.', 413);
-      return new VisualCaptureResult({ displayId: display.id, sessionId: display.sessionId, revision: display.revision, renderedRevision: observed?.renderedRevision, capturedAt: now(), width, height, source: 'isolated-server-browser', settleMs: 1500, readiness, blockedExternalRequests: blockedExternal, observedViewer: { online: display.online, appliedRevision: display.appliedRevision, delivery: display.delivery }, note: 'Actual KANVAS renderer in an isolated browser, not the physical audience screen. No viewer acknowledgement was sent. External media is blocked in this capture.' }, bytes);
+      return new VisualCaptureResult({ displayId: display.id, sessionId: display.sessionId, revision: display.revision, renderedRevision: observed?.renderedRevision, capturedAt: now(), width, height, source: 'isolated-server-browser', settleMs: 1500, readiness,appliedTextScale:observed?.textScale,bundledFontReady:observed?.bundledFontReady, blockedExternalRequests: blockedExternal,allowedMapTiles, observedViewer: { online: display.online, appliedRevision: display.appliedRevision, delivery: display.delivery }, note: 'Actual KANVAS renderer in an isolated browser, not the physical audience screen. No viewer acknowledgement was sent. External media is blocked except bounded, anonymous, DNS-pinned built-in OpenStreetMap raster tiles.' }, bytes);
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError('SNAPSHOT_UNAVAILABLE', 'The server browser could not capture this view. Verify Chromium installation and use the viewer URL for inspection.', 503);

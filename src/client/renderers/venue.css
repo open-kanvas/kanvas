@@ -61,3 +61,18 @@
 
 /* Phone-sized song sheets start at 75% of the supplied type size. Agent zoom remains independent. */
 @container (max-width: 600px){.sing-along{padding:12px;gap:12px}.sing-along .song-lines{font-size:clamp(16px,calc(var(--song-font) * .75),54px)}.sing-along header{gap:8px}.sing-along footer{gap:8px;font-size:14px}}
+
+/* Keep each menu section intact: multicolumn fragmentation must not collapse only the first heading margin. */
+.menu-board .menu-sections>section{display:block;break-inside:avoid; margin:0 0 1.2em}
+.menu-board .menu-sections>section>h3{margin-top:0}
+.menu-item.sold-out h3,.menu-item.sold-out .menu-price{text-decoration:line-through;text-decoration-thickness:.07em}
+.special:has(.hero-image) .hero-copy{background:linear-gradient(90deg,#000e 0%,#000a 60%,#0005);align-self:stretch;align-items:center}
+.special:has(.hero-image) .venue-tags span{background:#151515e6;color:#fff;border-color:var(--venue-accent);font-weight:650}
+.special.image-left:has(.hero-image),.special.image-right:has(.hero-image){grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:stretch}
+.special.image-left>.hero-image,.special.image-right>.hero-image{position:relative;inset:auto;z-index:auto;min-height:0;object-fit:cover}
+.special.image-right>.hero-image{grid-column:2;grid-row:1}
+.special.image-left>.hero-copy,.special.image-right>.hero-copy{grid-row:1;background:none;color:inherit;padding:clamp(20px,3cqw,60px)}
+.special.image-left>.hero-copy{grid-column:2}
+.special.image-right>.hero-copy{grid-column:1}
+.special.image-left .hero-copy h3,.special.image-right .hero-copy h3{font-size:clamp(28px,5cqw,90px)}
+@media(max-width:640px){.special.image-left:has(.hero-image),.special.image-right:has(.hero-image){grid-template-columns:1fr;grid-template-rows:minmax(0,40%) minmax(0,1fr)}.special.image-left>.hero-image,.special.image-right>.hero-image{grid-column:1;grid-row:1}.special.image-left>.hero-copy,.special.image-right>.hero-copy{grid-column:1;grid-row:2}}

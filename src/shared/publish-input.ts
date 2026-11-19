@@ -20,7 +20,7 @@ export const publishInputSchema = z.strictObject({
   targetRef: id.optional(), contextId: z.string().min(1).max(128).optional(), resolution: resolution.optional(),
   context: z.string().max(12000).optional(), intent: z.string().max(1000).optional(), data: z.unknown().optional(),
   datasetId: id.optional(), assetIds: z.array(id).max(32).optional(), templateHint: z.enum(TEMPLATE_IDS).optional(),
-  view: z.strictObject({ format:viewFormatSchema.optional(), selection:selectionSchema.optional(), version: z.literal(1), template: z.enum(TEMPLATE_IDS), title: z.string().max(500).optional(),
+  view: z.strictObject({ theme:z.enum(['light','dark']).optional(), format:viewFormatSchema.optional(), selection:selectionSchema.optional(), version: z.literal(1), template: z.enum(TEMPLATE_IDS), title: z.string().max(500).optional(),
     showTitle: z.boolean().optional(), showCaption: z.boolean().optional(), showControls: z.boolean().optional(),
     data: z.record(z.string(), z.unknown()), actions: z.array(actionSchema).max(8).optional(),
   }).optional(),

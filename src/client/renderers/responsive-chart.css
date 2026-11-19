@@ -26,3 +26,6 @@
 /* SVG layouts measure their own scaled type; do not override it with global axis defaults. */
 .chart-text-surface .composable-chart .chart-axis text,.chart-text-surface .distribution-chart .chart-axis text{font-size:inherit}
 .chart-text-surface .chart-legend button{font-size:inherit}
+
+/* Override the shared glance chrome size only inside an explicitly scaled chart. */
+.render-surface:not(.is-preview) .chart-text-surface .legacy-chart .chart-legend{font-size:calc(16px * var(--chart-text-scale,1))}

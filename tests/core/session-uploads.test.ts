@@ -9,11 +9,14 @@ it('authenticates file upload, validates MIME/bytes/field limits and binds form 
  denied(await owner.request('POST',path+'/uploads',body,{csrf:null}));
  const other=await h.account();denied(await other.request('POST',path+'/uploads',body));
  const uploaded=success(await owner.request<any>('POST',path+'/uploads',body));
+ denied(await other.request('GET','/api/assets/'+uploaded.assetId));
  expect(uploaded).toMatchObject({name:'photo.png',mimeType:'image/png',assetId:expect.any(String)});
  expect(success(await owner.request('POST',path+'/uploads',body))).toEqual(uploaded);
  expect((await owner.request('POST',path+'/uploads',{...body,requestId:randomUUID(),mimeType:'text/html'})).status).toBe(400);
  expect((await owner.request('POST',path+'/uploads',{...body,requestId:randomUUID(),base64:Buffer.from('<h1>bad</h1>').toString('base64')})).status).toBe(400);
  expect((await owner.request('POST',path+'/uploads',{...body,requestId:randomUUID(),name:'../photo.png'})).status).toBe(400);
+ expect((await owner.request('POST',path+'/uploads',{...body,requestId:randomUUID(),base64:Buffer.concat([Buffer.from(PNG,'base64'),Buffer.alloc(1001)]).toString('base64')})).status).toBe(400);
+ expect((await owner.request('POST',path+'/uploads',{...body,requestId:randomUUID(),revision:revision+1})).status).toBe(409);
  const service=h.runtime.service,p={userId:owner.user!.id};
  await expect(service.respond(p,sessionId,displayId,{revision,requestId:randomUUID(),value:{kind:'form.submit',values:{photo:['not-an-upload']}}})).rejects.toMatchObject({code:'INVALID_RESPONSE'});
  const answer=await service.respond(p,sessionId,displayId,{revision,requestId:randomUUID(),value:{kind:'form.submit',values:{photo:[uploaded.assetId]}}});

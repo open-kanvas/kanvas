@@ -4,7 +4,7 @@ import {z} from 'zod';
  * list holds every item's full detail; what a display receives is a projection
  * that carries full detail only for the highlighted item. */
 const identifier=z.string().min(1).max(128).regex(/^[a-zA-Z0-9_.:-]+$/);
-export const TASK_LIST_MAX_ITEMS=200,TASK_DETAIL_MAX=8000,STATUS_COLOURS_MAX=16;
+export const TASK_LIST_MAX_ITEMS=200,TASK_DETAIL_MAX=8000,STATUS_COLOURS_MAX=16,TASK_ITEM_MAX_BYTES=64*1024,TASK_LIST_MAX_BYTES=2*1024*1024;
 /** Columns the list always has. Naming one in `columns` adds nothing: it is already on screen. */
 export const TASK_BUILTIN_COLUMNS=new Set(['number','#','no','item','title','status','tags','tag','summary','done','checked','check']);
 export const isBuiltinTaskColumn=(key:string)=>TASK_BUILTIN_COLUMNS.has(key.trim().toLowerCase());
@@ -26,7 +26,7 @@ export const taskItemSchema=z.object({
  number:z.number().int().min(1).optional(),
  title:z.string().min(1).max(300),
  reference:z.string().max(200).optional(),
- subtasks:z.array(taskSubtaskSchema).max(100).optional(),
+ subtasks:z.array(taskSubtaskSchema).max(100).optional().describe('Up to100 stable subtasks; the parent with all detail is bounded to64KiB, the saved list to2MiB.'),
  subtaskProgress:z.object({total:z.number().int().nonnegative(),done:z.number().int().nonnegative()}).optional(),
  summary:z.string().max(500).optional(),
  detail:z.string().max(TASK_DETAIL_MAX).optional(),
@@ -65,9 +65,11 @@ export const taskListDataSchema=z.object({
  doneLast:z.boolean().optional().describe('true moves checked items to the bottom. Default: every item stays where it was written.'),
 }).strict().superRefine((data,ctx)=>{
  const ids=new Set<string>(),numbers=new Set<number>();
+ if(new TextEncoder().encode(JSON.stringify(data)).byteLength>TASK_LIST_MAX_BYTES)ctx.addIssue({code:'custom',path:['items'],message:'Saved task list exceeds its 2 MiB byte limit.'});
  if(data.colors&&(Object.keys(data.colors).length>STATUS_COLOURS_MAX||longKey(data.colors)||Object.entries(data.colors).some(([value,colour])=>!value.trim()||!/^#[0-9a-fA-F]{6}$/.test(colour))))ctx.addIssue({code:'custom',path:['colors'],message:`colors maps up to ${STATUS_COLOURS_MAX} status values to #rrggbb colours, e.g. {"waiting":"#d9a441"}.`});
  for(const [index,entry] of (data.filter?.fields??[]).entries())if(!fieldFilter(entry))ctx.addIssue({code:'custom',path:['filter','fields',index],message:'A column filter is written column=value, e.g. "owner=Anna".'});
  data.items.forEach((item,index)=>{
+  if(item.subtasks?.length&&new TextEncoder().encode(JSON.stringify(item)).byteLength>TASK_ITEM_MAX_BYTES)ctx.addIssue({code:'custom',path:['items',index,'subtasks'],message:'Parent task and subtask detail exceed the 64 KiB read budget.'});
   const subIds=(item.subtasks??[]).flatMap(s=>s.id?[s.id]:[]);
   if(new Set(subIds).size!==subIds.length)ctx.addIssue({code:'custom',path:['items',index,'subtasks'],message:'Subtask ids must be unique within their parent.'});
   if(longKey(item.fields))ctx.addIssue({code:'custom',path:['items',index,'fields'],message:'A column key has at most 40 characters.'});

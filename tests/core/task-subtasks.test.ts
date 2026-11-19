@@ -19,3 +19,14 @@ it('subtask deltas preserve permanent parent numbers and stable subtask ids whil
  const other=await h.account();await expect(tasks.displayItem({userId:other.user!.id},sessionId,displayId,before.item.id)).rejects.toMatchObject({code:'NOT_FOUND'});
  await expect(update({subtasks:[{item:1,check:['missing']}]})).rejects.toThrow();
 });
+
+it('bounds nested task detail and cumulative delta size without partially saving an oversized update',async()=>{
+ h=await startHarness();const owner=await h.account(),sessionId=(await owner.session()).id,displayId=(await owner.display(sessionId)).id,p={userId:owner.user!.id};
+ const published=await owner.submit(sessionId,[displayId],{version:1,template:'task-list',data:{items:Array.from({length:40},(_,i)=>({title:'Group '+i}))}});
+ const taskListId=String(published.detail.displays[0].view!.data.taskListId),tasks=h.runtime.service.taskLists;
+ const groups=(prefix:string,count=4)=>Array.from({length:40},(_,i)=>({item:i+1,add:Array.from({length:count},(_,j)=>({id:prefix+j,title:'Child '+j,detail:'x'.repeat(8000)}))}));
+ await tasks.update(p,{sessionId,taskListId,requestId:randomUUID(),subtasks:groups('a')});
+ await expect(tasks.update(p,{sessionId,taskListId,requestId:randomUUID(),subtasks:groups('b')})).rejects.toThrow('2 MiB');
+ await expect(tasks.update(p,{sessionId,taskListId,requestId:randomUUID(),subtasks:[groups('c',5)[0]]})).rejects.toThrow('64 KiB');
+ expect((await tasks.read(p,{sessionId,taskListId,item:1}) as any).item.subtasks).toHaveLength(4);
+});

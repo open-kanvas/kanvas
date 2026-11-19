@@ -90,6 +90,7 @@ export class TaskLists{
   let next=Math.max(0,...data.items.map(item=>item.number??0))+1;
   const used=new Set(data.items.flatMap(item=>item.id?[item.id]:[]));
   const items:Stored[]=data.items.map(item=>{const number=item.number??next++;let key=item.id;if(!key){key=`t${number}`;while(used.has(key))key=`t${number}-${id().slice(0,4)}`;used.add(key);}const {hasDetail:_flag,...rest}=item;return {...rest,id:key,number,...(item.subtasks?{subtasks:item.subtasks.map(s=>({...s,id:s.id??id()}))}:{})};});
+  taskListDataSchema.parse({...data,items}); // Assigned stable IDs count toward the saved/read byte budgets too.
   if(data.highlight&&!items.some(item=>item.id===data.highlight))throw new InputError([{path:'view.data.highlight',problem:'Must be the id of an item in this list.'}]);
   const stamp=now(),list:TaskList={id:id(),sessionId,revision:0,title:input.title,data:{...data,items,taskListId:undefined,taskListRevision:undefined},nextNumber:next,createdAt:stamp,updatedAt:stamp};
   await this.store.put('task-list',list);

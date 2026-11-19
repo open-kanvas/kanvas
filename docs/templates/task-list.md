@@ -25,3 +25,5 @@ Use `kanvas.tasklist.update` with `subtasks:[{item:7,add:[{title:"Bars"}],items:
 `items[].reference` is free plain text, never an operational key. `showNumber` defaults true and `showReference` defaults false; both can be set independently at creation or through tasklist.update. Hiding a number never changes it, and moving/removing items does not reuse their permanent numbers.
 
 Storage stays in existing JSON documents; no SQL migration is needed. Older binaries reject new fields on mutation, so retain the newer binary when editing lists that contain subtasks/references.
+
+A parent plus its subtask detail is bounded to64KiB so an item read remains complete within MCP's response limit. The stored list is bounded to2MiB across cumulative delta updates; rejected updates save nothing.

@@ -88,9 +88,9 @@ test('chart text scales independently and dense financial observations fit the f
 test('scaled chart labels fit measured gutters and wrapped text stays inside its SVG',async({page},info)=>{
  const {s,d,viewer}=await setup(page);
  const views:ViewSpec[]=[
-  ...(['vertical','horizontal'] as const).map(orientation=>({version:1 as const,template:'chart',data:{kind:'bar',orientation,stacking:'stacked',textScale:2,numberFormat:{notation:'standard'},yLabel:'Revenue',unit:'USD',xLabel:'Period',series:[{name:'First',points:[{x:'Alpha',y:1000},{x:'Beta',y:1500}]},{name:'Second',points:[{x:'Alpha',y:500},{x:'Beta',y:500}]}]}})),
-  {version:1,template:'chart',data:{kind:'waterfall',textScale:2,unit:'USD',series:[{name:'Balance',points:[{x:'Opening balance carried forward',y:2000,total:true},{x:'Customer onboarding and deployment review',y:500},{x:'Closing balance',y:2500,total:true}]}]}},
-  {version:1,template:'chart',data:{kind:'line',textScale:2,legend:false,yLabel:'Density',unit:'USD',xLabel:'Value',distribution:{ranges:[],bands:[]},series:[{name:'Supplied',points:[{x:0.0001,y:10000},{x:0.0003,y:30000},{x:0.0006,y:15000}]}]}}
+  ...(['vertical','horizontal'] as const).map(orientation=>({version:1 as const,template:'chart' as const,data:{kind:'bar',orientation,stacking:'stacked',textScale:2,numberFormat:{notation:'standard'},yLabel:'Revenue',unit:'USD',xLabel:'Period',series:[{name:'First',points:[{x:'Alpha',y:1000},{x:'Beta',y:1500}]},{name:'Second',points:[{x:'Alpha',y:500},{x:'Beta',y:500}]}]}})),
+  {version:1,template:'chart' as const,data:{kind:'waterfall',textScale:2,unit:'USD',series:[{name:'Balance',points:[{x:'Opening balance carried forward',y:2000,total:true},{x:'Customer onboarding and deployment review',y:500},{x:'Closing balance',y:2500,total:true}]}]}},
+  {version:1,template:'chart' as const,data:{kind:'line',textScale:2,legend:false,yLabel:'Density',unit:'USD',xLabel:'Value',distribution:{ranges:[],bands:[]},series:[{name:'Supplied',points:[{x:0.0001,y:10000},{x:0.0003,y:30000},{x:0.0006,y:15000}]}]}}
  ];
  for(const [index,view] of views.entries()){
   await show(page,viewer,s,d.id,view);await viewer.evaluate(()=>document.fonts.ready.then(()=>undefined));

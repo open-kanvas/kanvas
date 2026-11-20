@@ -85,6 +85,23 @@ test('chart text scales independently and dense financial observations fit the f
  }expect(fonts[1]/fonts[0]).toBe(2);
  await viewer.screenshot({path:info.outputPath('stacked-chart-text-scale.png'),animations:'disabled'});
 });
+test('scaled chart labels fit measured gutters and wrapped text stays inside its SVG',async({page},info)=>{
+ const {s,d,viewer}=await setup(page);
+ const views:ViewSpec[]=[
+  ...(['vertical','horizontal'] as const).map(orientation=>({version:1 as const,template:'chart',data:{kind:'bar',orientation,stacking:'stacked',textScale:2,numberFormat:{notation:'standard'},yLabel:'Revenue',unit:'USD',xLabel:'Period',series:[{name:'First',points:[{x:'Alpha',y:1000},{x:'Beta',y:1500}]},{name:'Second',points:[{x:'Alpha',y:500},{x:'Beta',y:500}]}]}})),
+  {version:1,template:'chart',data:{kind:'waterfall',textScale:2,unit:'USD',series:[{name:'Balance',points:[{x:'Opening balance carried forward',y:2000,total:true},{x:'Customer onboarding and deployment review',y:500},{x:'Closing balance',y:2500,total:true}]}]}},
+  {version:1,template:'chart',data:{kind:'line',textScale:2,legend:false,yLabel:'Density',unit:'USD',xLabel:'Value',distribution:{ranges:[],bands:[]},series:[{name:'Supplied',points:[{x:0.0001,y:10000},{x:0.0003,y:30000},{x:0.0006,y:15000}]}]}}
+ ];
+ for(const [index,view] of views.entries()){
+  await show(page,viewer,s,d.id,view);await viewer.evaluate(()=>document.fonts.ready.then(()=>undefined));
+  const svg=viewer.locator('.viewer-candidate .chart-svg,.viewer-candidate .distribution-chart svg').first();await expect(svg).toBeVisible();
+  const box=(await svg.boundingBox())!,labels=await svg.locator('text').evaluateAll(nodes=>nodes.filter(n=>n.textContent?.trim()).map(n=>{const r=n.getBoundingClientRect();return {text:n.getAttribute('aria-label')??n.textContent,left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height};}));
+  expect(labels.length).toBeGreaterThan(2);
+  expect(labels.filter(b=>b.width<=0||b.height<=0||b.left<box.x-1||b.right>box.x+box.width+1||b.top<box.y-1||b.bottom>box.y+box.height+1)).toEqual([]);
+  expect(await viewer.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  await viewer.screenshot({path:info.outputPath('scaled-label-gutters-'+index+'.png'),animations:'disabled'});
+ }
+});
 test('form file selection and viewer drop create private session assets and notify the agent',async({page},info)=>{
  const {s,d,viewer}=await setup(page),buffer=Buffer.from(png.split(',')[1],'base64');
  await show(page,viewer,s,d.id,{version:1,template:'form',data:{fields:[{id:'photo',label:'Photo',type:'file',required:true,accept:['image/png'],maxCount:2,maxSize:1024}]}});

@@ -125,9 +125,13 @@ function CartesianPlot({ data, width, height, inspect }: PlotProps) {
   const slot = data.kind === 'waterfall' ? 52 : 68;
   const plotWidth = continuous||fitFinancial ? Math.max(180, width - left - right) : Math.max(width - left - right, labels.length * slot);
   const actualWidth = left + plotWidth + right, categoryWidth = plotWidth / labels.length;
-  const labelStride=fitFinancial?Math.max(1,Math.ceil(110*scale/categoryWidth)):1;
-  const labelLines = fitFinancial ? 1 : continuous ? 3 : Math.max(...labels.map(label => wrapChartLabel(String(label), (categoryWidth - 12) / 8).length));
-  const bottomMargin = Math.max(65, labelLines * 19*scale + 30 + (data.xLabel ? 28*scale : 0));
+  // Thin category labels evenly while retaining both range endpoints. Edge labels
+  // anchor inward, and wrapped text has a bounded allocation in the bottom gutter.
+  const financialTickCount = Math.min(labels.length, Math.max(2, Math.floor(plotWidth / (110 * scale))));
+  const financialTicks = new Set(Array.from({length:financialTickCount}, (_,i) => Math.round(i * (labels.length - 1) / Math.max(1, financialTickCount - 1))));
+  const financialCharacters = Math.max(3, Math.floor(plotWidth / Math.max(2, financialTickCount) / (11 * scale)));
+  const labelLines = fitFinancial ? Math.max(...[...financialTicks].map(index => wrapChartLabel(String(labels[index]), financialCharacters).length)) : continuous ? 3 : Math.max(...labels.map(label => wrapChartLabel(String(label), (categoryWidth - 12) / 8).length));
+  const bottomMargin = Math.max(65, labelLines * 19*scale + 30*(fitFinancial?scale:1) + (data.xLabel ? 28*scale : 0));
   const plotHeight = Math.max(140, height - top - bottomMargin), bottom = top + plotHeight, actualHeight = bottom + bottomMargin;
   // Radius is in real CSS pixels. Reserve its full extent at every data edge,
   // including an extremal observation whose size is the largest in the set.
@@ -181,7 +185,7 @@ function CartesianPlot({ data, width, height, inspect }: PlotProps) {
   return <Svg width={actualWidth} height={actualHeight} title={`${data.kind} chart${data.yLabel ? ` of ${data.yLabel}` : ''}`}>
     {data.kind==='area'&&<rect data-chart-snap-plot x={left} y={top} width={plotWidth} height={plotHeight} fill="transparent"/>}
     {yTicks.map((value, i) => <g key={i} className="advanced-axis"><line x1={left} x2={actualWidth - right} y1={y(value)} y2={y(value)} /><text x={left - 10} y={y(value) + 5} textAnchor="end">{pretty(value)}</text></g>)}
-    {continuous ? ticks.map((tick, i) => <SvgLabel key={i} text={tick.label} x={continuousX(tick.value)} y={bottom + 27} characters={dateX ? 10 : 12} anchor={i === 0 ? 'start' : i === ticks.length - 1 ? 'end' : 'middle'} />) : labels.map((label, index) => index%labelStride?null:<SvgLabel key={index} text={String(label)} x={left + (index + .5) * categoryWidth} y={bottom + 28} characters={fitFinancial?100:(categoryWidth - 12) / (8*scale)} />)}
+    {continuous ? ticks.map((tick, i) => <SvgLabel key={i} text={tick.label} x={continuousX(tick.value)} y={bottom + 27} characters={dateX ? 10 : 12} anchor={i === 0 ? 'start' : i === ticks.length - 1 ? 'end' : 'middle'} />) : labels.map((label, index) => fitFinancial&&!financialTicks.has(index)?null:<SvgLabel key={index} text={String(label)} x={fitFinancial&&labels.length>1&&index===0?left:fitFinancial&&labels.length>1&&index===labels.length-1?left+plotWidth:left + (index + .5) * categoryWidth} y={bottom + 28*(fitFinancial?scale:1)} characters={fitFinancial?financialCharacters:(categoryWidth - 12) / (8*scale)} anchor={fitFinancial&&labels.length>1?(index===0?'start':index===labels.length-1?'end':'middle'):'middle'} />)}
     {(data.yLabel || data.unit) && <text className="advanced-label" x="17" y={top + plotHeight / 2} transform={`rotate(-90 17 ${top + plotHeight / 2})`} textAnchor="middle">{[data.yLabel, data.unit].filter(Boolean).join(' · ')}</text>}
     {data.xLabel && <text className="advanced-label" x={left + plotWidth / 2} y={actualHeight - 9} textAnchor="middle">{data.xLabel}</text>}
     {content}

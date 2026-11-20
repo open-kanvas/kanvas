@@ -72,6 +72,11 @@ test('chart text scales independently and dense financial observations fit the f
  await expect(root.locator('[data-chart-part="open-close-body"]')).toHaveCount(50);
  expect(await root.evaluate(e=>e.scrollWidth<=e.clientWidth+2)).toBe(true);
  await expect(root.locator('.advanced-axis text').first()).toHaveCSS('font-size','28px');
+ const dates=root.locator('.advanced-label[aria-label]');
+ await expect(dates.first()).toHaveAttribute('aria-label',series[0].points[0].x);await expect(dates.last()).toHaveAttribute('aria-label',series[0].points.at(-1)!.x);
+ const dateBounds=await dates.evaluateAll(nodes=>nodes.map(node=>{const r=node.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom};})),frame=(await root.boundingBox())!;
+ expect(dateBounds.every(b=>b.left>=frame.x-1&&b.right<=frame.x+frame.width+1&&b.top>=frame.y-1&&b.bottom<=frame.y+frame.height+1)).toBe(true);
+ expect(dateBounds.every((b,i)=>i===0||dateBounds[i-1].right<=b.left+1)).toBe(true);
  await viewer.screenshot({path:info.outputPath('financial-text-scale.png'),animations:'disabled'});
  const fonts:number[]=[];for(const textScale of [1,2]){
   await show(page,viewer,s,d.id,{version:1,template:'chart',data:{kind:'bar',stacking:'stacked',textScale,xLabel:'Category',yLabel:'Units',series:[{name:'First',points:[{x:'A',y:20},{x:'B',y:40}]},{name:'Second',points:[{x:'A',y:15},{x:'B',y:25}]}]}});

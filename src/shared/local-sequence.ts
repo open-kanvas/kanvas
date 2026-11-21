@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import {z} from 'zod';
 
 export const sequenceId = z.string().min(1).max(80).regex(/^[a-zA-Z0-9_.:-]+$/);
 export const sequenceItemSchema = z.object({
@@ -29,11 +29,11 @@ export function sequenceStatus(items:TimedItem[], playback:Playback, nowMs:numbe
   if(complete) index=items.length-1;
   return {positionMs,durationMs,index,activeId:items[index]?.id??null,queued:Math.max(0,items.length-index-1),phase:!items.length?'empty':complete?'complete':playback.state==='playing'&&Date.parse(playback.startedAt!)>nowMs?'scheduled':playback.state};
 }
-export const sequenceOperationSchema=z.object({
-  op:z.literal('sequence'),action:z.enum(['append','replace-future','replace','pause','resume','seek','clear']),
-  chunks:z.array(sequenceItemSchema).max(1000).optional(),
-  positionMs:z.number().finite().nonnegative().max(120000000).optional(),
-}).strict().describe('Live captions only. append retains clock; replace-future retains current/past; replace resets paused at zero. pause/resume/seek use server time. clear empties and pauses. Read display.current.sequenceStatus. All mutations use the ordinary patch revision/requestId.');
+export const sequenceOperationSchema = z.object({
+    op: z.literal('sequence'), action: z.enum(['append', 'replace-future', 'replace', 'pause', 'resume', 'seek', 'clear']),
+    chunks: z.array(sequenceItemSchema).max(1000).optional(),
+    positionMs: z.number().finite().nonnegative().max(120000000).optional(),
+}).strict().describe("Live captions only. append retains clock; replace-future retains current/past; replace resets paused at zero. pause/resume/seek use server time. clear empties and pauses. Read kanvas_call with operationId:\"kanvas.display.current\" and arguments:{\u2026}.sequenceStatus. All mutations use the ordinary patch revision/requestId.");
 export type SequenceOperation=z.infer<typeof sequenceOperationSchema>;
 /** Shared only by captions and supplied instrument frames; no server slide timer. */
 export function changeTimedSequence<T extends TimedItem>(items:T[],current:Playback,action:SequenceOperation['action'],supplied:T[]|undefined,position:number|undefined,nowMs:number):{items:T[];playback:Playback} {

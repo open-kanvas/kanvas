@@ -1,4 +1,4 @@
-import { AGENT_CONDUCT, AGENT_EXAMPLE, AGENT_RULES, RHYTHM_NUDGE } from '../../shared/philosophy.js';
+import {AGENT_CONDUCT,AGENT_EXAMPLE,AGENT_RULES,RHYTHM_NUDGE} from '../../shared/philosophy.js';
 
 /** Which repeated blocks a response carries. State decides, never a guess
  * about how capable the client model is: first contact, a change, an error, a
@@ -51,38 +51,54 @@ const guidanceSignature = (guidance: unknown, mode?: string): string => {
   const levels = guidance && typeof guidance === 'object' && Array.isArray((guidance as { levels?: unknown }).levels) ? (guidance as { levels: { scope?: string; id?: string; revision?: number }[] }).levels : [];
   return `${levels.map(level => `${level.scope}:${level.id ?? ''}:${level.revision ?? 0}`).join('|')}#${mode ?? ''}`;
 };
-const PUBLISH_OPERATIONS = new Set(['kanvas_submit']);
+const PUBLISH_OPERATIONS = new Set(["kanvas.submit"]);
 const settled = (status: unknown) => typeof status === 'string' && ['accepted', 'prepared', 'applied', 'delivered', 'painted', 'published'].includes(status);
 /** Pure decision: returns the structured result to send. `structured` is the
  * tool's own result; it is never mutated. */
-export function applyResponsePolicy(structured: Record<string, unknown> | undefined, input: { state: ContactState; context: ResponseContext; guidance: unknown; isError: boolean; operation?: string; sessionId?: string }): { structured?: Record<string, unknown>; extra?: Record<string, unknown> } {
-  // A service that reports no preference still honours the installation default.
-  const { state, context, guidance } = input, full = (context.preference ?? (process.env.KANVAS_GUIDANCE_DEFAULT === 'full' ? 'full' : 'concise')) === 'full';
-  const signature = guidanceSignature(guidance, context.mode?.current), changed = state.contact.guidance !== undefined && state.contact.guidance !== signature;
-  const sendGuidance = full || state.first || changed;
-  state.contact.guidance = signature;
-  const additions: Record<string, unknown> = {};
-  if (guidance) additions.agentGuidance = sendGuidance
-    ? { ...(guidance as Record<string, unknown>), ...(context.mode ? { mode: context.mode } : {}), ...(changed && !state.first ? { changed: true } : {}) }
-    : { unchanged: true, ...(context.mode ? { mode: context.mode.current } : {}), note: 'Same guidance and mode as sent earlier on this connection.' };
-  if (state.first) additions.firstContact = firstContactBlock(context);
-  if (context.pointing && !input.isError) additions.pointing = context.pointing;
-  // Opt-in only, and once per number: at the start of a conversation or when a session is created.
-  if (context.messageBoard && !input.isError && (state.first || input.operation === 'kanvas_session_create') && state.contact.board !== context.messageBoard.newMessages) {
-    state.contact.board = context.messageBoard.newMessages; additions.messageBoard = context.messageBoard;
-  }
-  const data = structured?.data && typeof structured.data === 'object' ? structured.data as Record<string, unknown> : undefined;
-  if (!input.isError && input.operation && PUBLISH_OPERATIONS.has(input.operation) && input.sessionId && settled(data?.status) && !state.contact.rhythm.has(input.sessionId)) {
-    state.contact.rhythm.add(input.sessionId); additions.rhythm = RHYTHM_NUDGE;
-  }
-  if (!structured) return { extra: Object.keys(additions).length ? additions : undefined };
-  let result: Record<string, unknown> = { ...structured };
-  const orientation = structured.orientation && typeof structured.orientation === 'object' ? structured.orientation as Record<string, unknown> : undefined;
-  if (orientation && !full && !state.first && !input.isError) {
-    const needsTarget = data?.status === 'needs_target' || data?.status === 'needs_template';
-    const keepViewerLink = (needsTarget || context.displayConnected === false) && orientation.viewerLink !== undefined;
-    result.orientation = { ...(orientation.guide !== undefined ? { guide: orientation.guide } : {}), help: 'kanvas.help.getting-started.steps', ...(keepViewerLink ? { viewerLink: orientation.viewerLink } : {}), ...(input.operation === 'kanvas_session_create' && orientation.sessionContinuity !== undefined ? { sessionContinuity: orientation.sessionContinuity } : {}) };
-  }
-  result = { ...result, ...additions };
-  return { structured: result };
+export function applyResponsePolicy(structured: Record<string, unknown> | undefined, input: {
+    state: ContactState;
+    context: ResponseContext;
+    guidance: unknown;
+    isError: boolean;
+    operation?: string;
+    sessionId?: string;
+}): {
+    structured?: Record<string, unknown>;
+    extra?: Record<string, unknown>;
+} {
+    // A service that reports no preference still honours the installation default.
+    const { state, context, guidance } = input, full = (context.preference ?? (process.env.KANVAS_GUIDANCE_DEFAULT === 'full' ? 'full' : 'concise')) === 'full';
+    const signature = guidanceSignature(guidance, context.mode?.current), changed = state.contact.guidance !== undefined && state.contact.guidance !== signature;
+    const sendGuidance = full || state.first || changed;
+    state.contact.guidance = signature;
+    const additions: Record<string, unknown> = {};
+    if (guidance)
+        additions.agentGuidance = sendGuidance
+            ? { ...(guidance as Record<string, unknown>), ...(context.mode ? { mode: context.mode } : {}), ...(changed && !state.first ? { changed: true } : {}) }
+            : { unchanged: true, ...(context.mode ? { mode: context.mode.current } : {}), note: 'Same guidance and mode as sent earlier on this connection.' };
+    if (state.first)
+        additions.firstContact = firstContactBlock(context);
+    if (context.pointing && !input.isError)
+        additions.pointing = context.pointing;
+    // Opt-in only, and once per number: at the start of a conversation or when a session is created.
+    if (context.messageBoard && !input.isError && (state.first || input.operation === "kanvas.session.create") && state.contact.board !== context.messageBoard.newMessages) {
+        state.contact.board = context.messageBoard.newMessages;
+        additions.messageBoard = context.messageBoard;
+    }
+    const data = structured?.data && typeof structured.data === 'object' ? structured.data as Record<string, unknown> : undefined;
+    if (!input.isError && input.operation && PUBLISH_OPERATIONS.has(input.operation) && input.sessionId && settled(data?.status) && !state.contact.rhythm.has(input.sessionId)) {
+        state.contact.rhythm.add(input.sessionId);
+        additions.rhythm = RHYTHM_NUDGE;
+    }
+    if (!structured)
+        return { extra: Object.keys(additions).length ? additions : undefined };
+    let result: Record<string, unknown> = { ...structured };
+    const orientation = structured.orientation && typeof structured.orientation === 'object' ? structured.orientation as Record<string, unknown> : undefined;
+    if (orientation && !full && !state.first && !input.isError) {
+        const needsTarget = data?.status === 'needs_target' || data?.status === 'needs_template';
+        const keepViewerLink = (needsTarget || context.displayConnected === false) && orientation.viewerLink !== undefined;
+        result.orientation = { ...(orientation.guide !== undefined ? { guide: orientation.guide } : {}), help: 'kanvas.help.getting-started.steps', ...(keepViewerLink ? { viewerLink: orientation.viewerLink } : {}), ...(input.operation === "kanvas.session.create" && orientation.sessionContinuity !== undefined ? { sessionContinuity: orientation.sessionContinuity } : {}) };
+    }
+    result = { ...result, ...additions };
+    return { structured: result };
 }

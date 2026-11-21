@@ -114,49 +114,87 @@ test('stacked columns show real segment totals and combo charts keep a labeled s
 });
 
 test.describe("charts coverage 4", () => {
-
-
-async function setup(page:Page,info:TestInfo,baseURL:string){
-  await register(page);const s=await createSession(page,'September 23 feedback'),d=await createDisplay(page,s,'Acceptance screen'),v=await openViewer(page,s,d.id);
-  const issued=await sessionApi<{token:string}>(page,'/api/tokens','POST',{name:'Disposable September acceptance',scopes:['read','publish']});expect(issued.status).toBe(201);
-  const headers={Authorization:`Bearer ${issued.data!.token}`},client=info.project.name.startsWith('phone')?new LegacyClient({name:'september-legacy',version:'1'}):new Client({name:'september-current',version:'1'});
-  if(client instanceof LegacyClient)await client.connect(new LegacyTransport(new URL('/mcp',baseURL),{requestInit:{headers}}));else await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',baseURL),{requestInit:{headers}}));
-  const call=async(name:string,operation:string,args:Record<string,unknown>={})=>{const r=await client.callTool(operationRequest({name,arguments:{operation,...args}}));expect(r.isError,`${name}/${operation}: ${JSON.stringify(r.isError?r.content:[])}`).not.toBe(true);expect((r.structuredContent as any).truncated).not.toBe(true);return(r.structuredContent as any).data;};
-  const current=async()=>{const r=(await sessionDetail(page,s)).displays.find(x=>x.id===d.id)!;return r;};
-  const painted=async(revision:number)=>{await expect(v.locator('.viewer-shell')).toHaveAttribute('data-rendered-revision',String(revision));await expect(v.locator('.viewer-shell')).toHaveAttribute('data-render-status','ready');};
-  const show=async(view:ViewSpec)=>{const before=await current();await publishPrepared(page,s,[d.id],view);const next=await waitForDisplay(page,s,d.id,x=>x.revision>before.revision&&x.appliedRevision===x.revision);await painted(next.revision);return next;};
-  const nav=async(navigation:unknown)=>call('kanvas_control','navigation.control',{sessionId:s,displayId:d.id,expectedRevision:(await current()).revision,requestId:randomUUID(),navigation});
-  return{s,d,v,client,call,current,painted,show,nav};
-}
-type Fixture=Awaited<ReturnType<typeof setup>>;
-test.setTimeout(180_000);
-
-async function stable(page:Page,selector:string){
-  const sizes=await page.locator(selector).evaluate(async el=>{const values:string[]=[];for(let i=0;i<65;i++){await new Promise(requestAnimationFrame);const r=el.getBoundingClientRect();if(i>=20)values.push([r.width,r.height,el.scrollWidth,el.scrollHeight].map(x=>Math.round(x*2)/2).join(':'));}return [...new Set(values)];});
-  expect(sizes,'Settled chart geometry must not oscillate between scrollbar sizes').toHaveLength(1);
-}
-async function contained(page:Page,selector:string){
-  expect(await page.locator(selector).evaluate(el=>({horizontal:el.scrollWidth-el.clientWidth,vertical:el.scrollHeight-el.clientHeight}))).toEqual({horizontal:0,vertical:0});
-}
-
-test('windowed charts fit the measured viewport, use full funnel height and omit raw data by default',async({page,baseURL},info)=>{
- const a=await setup(page,info,baseURL!);try{
-  const phone=info.project.name.startsWith('phone');if(!phone)await a.v.setViewportSize({width:1280,height:720});
-  const tree:ViewSpec={version:1,template:'chart',data:{kind:'treemap',nodes:[{id:'root',label:'Budget',value:120},...Array.from({length:3},(_,g)=>({id:`g${g}`,parent:'root',label:`Group ${g+1}`,value:40})),...Array.from({length:9},(_,i)=>({id:`n${i}`,parent:`g${Math.floor(i/3)}`,label:`Work ${i+1}`,value:i%3?13:14}))]}};
-  for(const view of [advancedChartExamples.gauge,tree]){await a.show(view);await stable(a.v,'.advanced-chart-body');await contained(a.v,'.advanced-chart-body');await expect(a.v.locator('.advanced-chart-key,.exact-data-table')).toHaveCount(0);await photo(a.v,info,String(view.data.kind));}
-  for(const count of [3,5,10]){
-   await a.show({version:1,template:'chart',data:{kind:'funnel',series:[{name:'Participants',points:Array.from({length:count},(_,i)=>({x:`Stage ${i+1}`,y:1000-i*80}))}]}});
-   await stable(a.v,'.advanced-chart-body');await contained(a.v,'.advanced-chart-body');
-   expect(await a.v.locator('.advanced-chart-body').evaluate(el=>el.querySelector('svg')!.getBoundingClientRect().height/el.clientHeight)).toBeGreaterThan(.85);
-  }await photo(a.v,info,'funnel');
-  const waterfall:ViewSpec={version:1,template:'chart',data:{kind:'waterfall',series:[{name:'Balance',points:Array.from({length:13},(_,i)=>({x:`Monthly financial period ${i+1}`,y:i===0?180:i%2?-12:24,...(i===0?{total:true}:{})}))}]}};
-  await a.show(waterfall);await stable(a.v,'.advanced-chart-body');if(!phone)await contained(a.v,'.advanced-chart-body');await photo(a.v,info,'waterfall');
-  for(const view of [samples.chart,{...samples.chart,data:{...samples.chart.data,kind:'bar'}},samples.timeline]){await a.show(view);const selector=view.template==='timeline'?'.temporal-timeline':'.legacy-chart-plot';await stable(a.v,selector);}
-  await photo(a.v,info,'timeline');
-  if(!phone){await a.v.setViewportSize({width:1920,height:1080});await a.show(advancedChartExamples.gauge);await contained(a.v,'.advanced-chart-body');await stable(a.v,'.advanced-chart-body');await photo(a.v,info,'gauge-tv');}
-  await a.show({...tree,showControls:true});await expect(a.v.locator('.advanced-chart-key')).toBeVisible();
- }finally{await a.client.close();}
-});
-async function photo(page:Page,info:TestInfo,name:string){for(const notice of await page.getByRole('button',{name:'Dismiss notification',exact:true}).all())await notice.click();await page.evaluate(()=>document.fonts.ready);await mkdir(info.outputPath('visuals'),{recursive:true});await page.screenshot({path:`${info.outputPath('visuals')}/${info.project.name}-${name}.png`,animations:'disabled'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2)).toBe(true);}
-async function asset(a:Fixture,color='#267f9f',w=240,h=120){return a.call('kanvas_import','asset.import',{sessionId:a.s,name:'Acceptance logo.svg',mimeType:'image/svg+xml',base64:Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect x="1" y="1" width="${w-2}" height="${h-2}" fill="${color}" stroke="#ffffff" stroke-width="2"/><circle cx="${w/2}" cy="${h/2}" r="${h/3}" fill="#ffffff"/><text x="${w/2}" y="${h/2+5}" text-anchor="middle" fill="${color}" font-size="16">K</text></svg>`).toString('base64')});}
+    async function setup(page: Page, info: TestInfo, baseURL: string) {
+        await register(page);
+        const s = await createSession(page, 'September 23 feedback'), d = await createDisplay(page, s, 'Acceptance screen'), v = await openViewer(page, s, d.id);
+        const issued = await sessionApi<{
+            token: string;
+        }>(page, '/api/tokens', 'POST', { name: 'Disposable September acceptance', scopes: ['read', 'publish'] });
+        expect(issued.status).toBe(201);
+        const headers = { Authorization: `Bearer ${issued.data!.token}` }, client = info.project.name.startsWith('phone') ? new LegacyClient({ name: 'september-legacy', version: '1' }) : new Client({ name: 'september-current', version: '1' });
+        if (client instanceof LegacyClient)
+            await client.connect(new LegacyTransport(new URL('/mcp', baseURL), { requestInit: { headers } }));
+        else
+            await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', baseURL), { requestInit: { headers } }));
+        const call = async (name: string, operation: string, args: Record<string, unknown> = {}) => { const r = await client.callTool(operationRequest({ name, arguments: { operation, ...args } })); expect(r.isError, `${name}/${operation}: ${JSON.stringify(r.isError ? r.content : [])}`).not.toBe(true); expect((r.structuredContent as any).truncated).not.toBe(true); return (r.structuredContent as any).data; };
+        const current = async () => { const r = (await sessionDetail(page, s)).displays.find(x => x.id === d.id)!; return r; };
+        const painted = async (revision: number) => { await expect(v.locator('.viewer-shell')).toHaveAttribute('data-rendered-revision', String(revision)); await expect(v.locator('.viewer-shell')).toHaveAttribute('data-render-status', 'ready'); };
+        const show = async (view: ViewSpec) => { const before = await current(); await publishPrepared(page, s, [d.id], view); const next = await waitForDisplay(page, s, d.id, x => x.revision > before.revision && x.appliedRevision === x.revision); await painted(next.revision); return next; };
+        const nav = async (navigation: unknown) => call("kanvas_call", "kanvas.navigation.control", { sessionId: s, displayId: d.id, expectedRevision: (await current()).revision, requestId: randomUUID(), navigation });
+        return { s, d, v, client, call, current, painted, show, nav };
+    }
+    type Fixture = Awaited<ReturnType<typeof setup>>;
+    test.setTimeout(180000);
+    async function stable(page: Page, selector: string) {
+        const sizes = await page.locator(selector).evaluate(async (el) => { const values: string[] = []; for (let i = 0; i < 65; i++) {
+            await new Promise(requestAnimationFrame);
+            const r = el.getBoundingClientRect();
+            if (i >= 20)
+                values.push([r.width, r.height, el.scrollWidth, el.scrollHeight].map(x => Math.round(x * 2) / 2).join(':'));
+        } return [...new Set(values)]; });
+        expect(sizes, 'Settled chart geometry must not oscillate between scrollbar sizes').toHaveLength(1);
+    }
+    async function contained(page: Page, selector: string) {
+        expect(await page.locator(selector).evaluate(el => ({ horizontal: el.scrollWidth - el.clientWidth, vertical: el.scrollHeight - el.clientHeight }))).toEqual({ horizontal: 0, vertical: 0 });
+    }
+    test('windowed charts fit the measured viewport, use full funnel height and omit raw data by default', async ({ page, baseURL }, info) => {
+        const a = await setup(page, info, baseURL!);
+        try {
+            const phone = info.project.name.startsWith('phone');
+            if (!phone)
+                await a.v.setViewportSize({ width: 1280, height: 720 });
+            const tree: ViewSpec = { version: 1, template: 'chart', data: { kind: 'treemap', nodes: [{ id: 'root', label: 'Budget', value: 120 }, ...Array.from({ length: 3 }, (_, g) => ({ id: `g${g}`, parent: 'root', label: `Group ${g + 1}`, value: 40 })), ...Array.from({ length: 9 }, (_, i) => ({ id: `n${i}`, parent: `g${Math.floor(i / 3)}`, label: `Work ${i + 1}`, value: i % 3 ? 13 : 14 }))] } };
+            for (const view of [advancedChartExamples.gauge, tree]) {
+                await a.show(view);
+                await stable(a.v, '.advanced-chart-body');
+                await contained(a.v, '.advanced-chart-body');
+                await expect(a.v.locator('.advanced-chart-key,.exact-data-table')).toHaveCount(0);
+                await photo(a.v, info, String(view.data.kind));
+            }
+            for (const count of [3, 5, 10]) {
+                await a.show({ version: 1, template: 'chart', data: { kind: 'funnel', series: [{ name: 'Participants', points: Array.from({ length: count }, (_, i) => ({ x: `Stage ${i + 1}`, y: 1000 - i * 80 })) }] } });
+                await stable(a.v, '.advanced-chart-body');
+                await contained(a.v, '.advanced-chart-body');
+                expect(await a.v.locator('.advanced-chart-body').evaluate(el => el.querySelector('svg')!.getBoundingClientRect().height / el.clientHeight)).toBeGreaterThan(.85);
+            }
+            await photo(a.v, info, 'funnel');
+            const waterfall: ViewSpec = { version: 1, template: 'chart', data: { kind: 'waterfall', series: [{ name: 'Balance', points: Array.from({ length: 13 }, (_, i) => ({ x: `Monthly financial period ${i + 1}`, y: i === 0 ? 180 : i % 2 ? -12 : 24, ...(i === 0 ? { total: true } : {}) })) }] } };
+            await a.show(waterfall);
+            await stable(a.v, '.advanced-chart-body');
+            if (!phone)
+                await contained(a.v, '.advanced-chart-body');
+            await photo(a.v, info, 'waterfall');
+            for (const view of [samples.chart, { ...samples.chart, data: { ...samples.chart.data, kind: 'bar' } }, samples.timeline]) {
+                await a.show(view);
+                const selector = view.template === 'timeline' ? '.temporal-timeline' : '.legacy-chart-plot';
+                await stable(a.v, selector);
+            }
+            await photo(a.v, info, 'timeline');
+            if (!phone) {
+                await a.v.setViewportSize({ width: 1920, height: 1080 });
+                await a.show(advancedChartExamples.gauge);
+                await contained(a.v, '.advanced-chart-body');
+                await stable(a.v, '.advanced-chart-body');
+                await photo(a.v, info, 'gauge-tv');
+            }
+            await a.show({ ...tree, showControls: true });
+            await expect(a.v.locator('.advanced-chart-key')).toBeVisible();
+        }
+        finally {
+            await a.client.close();
+        }
+    });
+    async function photo(page: Page, info: TestInfo, name: string) { for (const notice of await page.getByRole('button', { name: 'Dismiss notification', exact: true }).all())
+        await notice.click(); await page.evaluate(() => document.fonts.ready); await mkdir(info.outputPath('visuals'), { recursive: true }); await page.screenshot({ path: `${info.outputPath('visuals')}/${info.project.name}-${name}.png`, animations: 'disabled' }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2)).toBe(true); }
+    async function asset(a: Fixture, color = '#267f9f', w = 240, h = 120) { return a.call("kanvas_call", "kanvas.asset.import", { sessionId: a.s, name: 'Acceptance logo.svg', mimeType: 'image/svg+xml', base64: Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect x="1" y="1" width="${w - 2}" height="${h - 2}" fill="${color}" stroke="#ffffff" stroke-width="2"/><circle cx="${w / 2}" cy="${h / 2}" r="${h / 3}" fill="#ffffff"/><text x="${w / 2}" y="${h / 2 + 5}" text-anchor="middle" fill="${color}" font-size="16">K</text></svg>`).toString('base64') }); }
 });

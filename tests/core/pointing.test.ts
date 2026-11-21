@@ -105,26 +105,35 @@ import { normalizedScroll } from '../../src/client/renderers/Navigation.js';
 import { navigationCapabilities } from '../../src/shared/navigation.js';
 
 describe("pointing coverage 1", () => {
-
-
-const context={principal:{userId:'catalog-reader'}};
-const search=(kind:'tool'|'template'|'help',query:string,limit=3)=>(discoveryCatalog.query(kind,'search',{query,limit},context).results as {id:string;description:string;example?:unknown}[]);
-
-describe('0875e953 response policy and session mode (pure rules)',()=>{
- const orientation={guide:{tool:'kanvas_guide'},viewerLink:'how to connect a receiver',toolSelection:'x',recovery:'y'};
- const guidance={boundary:'b',levels:[{scope:'user',id:'user:1',text:'be proactive',revision:3}]};
- const mode={current:'live',source:'default',guidance:MODE_GUIDANCE.live,set:'kanvas.session.settings.update'};
- const run=(ledger:ContactLedger,overrides:Partial<Parameters<typeof applyResponsePolicy>[1]>={},structured:Record<string,unknown>={data:{status:'accepted',sessionId:'s1'},orientation},key='conn',at=Date.now())=>applyResponsePolicy(structured,{state:ledger.observe(key,at),context:{mode,displayConnected:true},guidance,isError:false,operation:'kanvas_submit',sessionId:'s1',...overrides}).structured!;
- it('first contact carries the purpose, full guidance and full orientation; later calls carry a pointer',()=>{
-  const ledger=new ContactLedger(),first=run(ledger);
-  expect(first.firstContact).toMatchObject({purpose:AGENT_CONDUCT,rules:expect.any(Array),help:expect.objectContaining({philosophy:'kanvas.help.philosophy'})});
-  expect((first.agentGuidance as {levels:unknown[]}).levels).toHaveLength(1);expect(first.orientation).toEqual(orientation);expect(first.rhythm).toBe(RHYTHM_NUDGE);
-  const second=run(ledger);
-  expect(second.firstContact).toBeUndefined();expect(second.agentGuidance).toMatchObject({unchanged:true,mode:'live'});expect(second.orientation).toEqual({guide:orientation.guide,help:'kanvas.help.getting-started.steps'});expect(second.rhythm).toBeUndefined();
-  expect(JSON.stringify(second).length).toBeLessThan(JSON.stringify(first).length/2);
-  // The rhythm line is said once per session, again for another session.
-  expect(run(ledger,{sessionId:'s2'},{data:{status:'accepted',sessionId:'s2'},orientation}).rhythm).toBe(RHYTHM_NUDGE);
- });});
+    const context = { principal: { userId: 'catalog-reader' } };
+    const search = (kind: 'tool' | 'template' | 'help', query: string, limit = 3) => (discoveryCatalog.query(kind, 'search', { query, limit }, context).results as {
+        id: string;
+        description: string;
+        example?: unknown;
+    }[]);
+    describe('0875e953 response policy and session mode (pure rules)', () => {
+        const orientation = { guide: { tool: "kanvas.guide" }, viewerLink: 'how to connect a receiver', toolSelection: 'x', recovery: 'y' };
+        const guidance = { boundary: 'b', levels: [{ scope: 'user', id: 'user:1', text: 'be proactive', revision: 3 }] };
+        const mode = { current: 'live', source: 'default', guidance: MODE_GUIDANCE.live, set: 'kanvas.session.settings.update' };
+        const run = (ledger: ContactLedger, overrides: Partial<Parameters<typeof applyResponsePolicy>[1]> = {}, structured: Record<string, unknown> = { data: { status: 'accepted', sessionId: 's1' }, orientation }, key = 'conn', at = Date.now()) => applyResponsePolicy(structured, { state: ledger.observe(key, at), context: { mode, displayConnected: true }, guidance, isError: false, operation: "kanvas.submit", sessionId: 's1', ...overrides }).structured!;
+        it('first contact carries the purpose, full guidance and full orientation; later calls carry a pointer', () => {
+            const ledger = new ContactLedger(), first = run(ledger);
+            expect(first.firstContact).toMatchObject({ purpose: AGENT_CONDUCT, rules: expect.any(Array), help: expect.objectContaining({ philosophy: 'kanvas.help.philosophy' }) });
+            expect((first.agentGuidance as {
+                levels: unknown[];
+            }).levels).toHaveLength(1);
+            expect(first.orientation).toEqual(orientation);
+            expect(first.rhythm).toBe(RHYTHM_NUDGE);
+            const second = run(ledger);
+            expect(second.firstContact).toBeUndefined();
+            expect(second.agentGuidance).toMatchObject({ unchanged: true, mode: 'live' });
+            expect(second.orientation).toEqual({ guide: orientation.guide, help: 'kanvas.help.getting-started.steps' });
+            expect(second.rhythm).toBeUndefined();
+            expect(JSON.stringify(second).length).toBeLessThan(JSON.stringify(first).length / 2);
+            // The rhythm line is said once per session, again for another session.
+            expect(run(ledger, { sessionId: 's2' }, { data: { status: 'accepted', sessionId: 's2' }, orientation }).rhythm).toBe(RHYTHM_NUDGE);
+        });
+    });
 });
 
 describe("pointing coverage 2", () => {

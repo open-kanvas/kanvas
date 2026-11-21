@@ -49,16 +49,23 @@ export const moleculeLibrary:Readonly<Record<string,MoleculeStructure>>=Object.f
  bonds:bonds?bonds.split(' ').map((token,i)=>{const [a,b,n]=token.split('-');return {id:'b'+i,from:'a'+a,to:'a'+b,order:Number(n) as 1|2|3};}):[],
 }]));
 export const moleculeLibraryIds=Object.keys(moleculeLibrary);
-export const moleculeDataSchema=z.object({
- libraryId:z.enum(moleculeLibraryIds as [string,...string[]]).optional().describe('Immutable prepared schematic seeds. template.get exposes available IDs; explicit structure overrides are not allowed.'),
- structure:moleculeStructureSchema.optional(),
- highlightAtoms:z.array(id).max(500).default([]),highlightBonds:z.array(id).max(1000).default([]),
- viewport:z.object({zoom:z.number().finite().min(0.25).max(8).default(1),focusAtoms:z.array(id).min(1).max(500).optional()}).strict().default({zoom:1}),
-}).strict().superRefine((d,c)=>{
- if(!!d.libraryId===!!d.structure){c.addIssue({code:'custom',message:'Supply exactly one of libraryId or structure'});return;}
- const s=resolveMolecule(d);
- const atoms=new Set(s.atoms.map(a=>a.id)),bonds=new Set(s.bonds.map(b=>b.id));
- if([...d.highlightAtoms,...d.viewport.focusAtoms??[]].some(id=>!atoms.has(id))||d.highlightBonds.some(id=>!bonds.has(id)))c.addIssue({code:'custom',message:'Highlights and focus require retained stable IDs'});
+export const moleculeDataSchema = z.object({
+    libraryId: z.enum(moleculeLibraryIds as [
+        string,
+        ...string[]
+    ]).optional().describe("Immutable prepared schematic seeds. kanvas_discover catalog templates action get by exact template ID exposes available IDs; explicit structure overrides are not allowed."),
+    structure: moleculeStructureSchema.optional(),
+    highlightAtoms: z.array(id).max(500).default([]), highlightBonds: z.array(id).max(1000).default([]),
+    viewport: z.object({ zoom: z.number().finite().min(0.25).max(8).default(1), focusAtoms: z.array(id).min(1).max(500).optional() }).strict().default({ zoom: 1 }),
+}).strict().superRefine((d, c) => {
+    if (!!d.libraryId === !!d.structure) {
+        c.addIssue({ code: 'custom', message: 'Supply exactly one of libraryId or structure' });
+        return;
+    }
+    const s = resolveMolecule(d);
+    const atoms = new Set(s.atoms.map(a => a.id)), bonds = new Set(s.bonds.map(b => b.id));
+    if ([...d.highlightAtoms, ...d.viewport.focusAtoms ?? []].some(id => !atoms.has(id)) || d.highlightBonds.some(id => !bonds.has(id)))
+        c.addIssue({ code: 'custom', message: 'Highlights and focus require retained stable IDs' });
 });
 export type MoleculeData=z.infer<typeof moleculeDataSchema>;
 export function resolveMolecule(d:{libraryId?:string;structure?:MoleculeStructure}):MoleculeStructure{return d.structure??moleculeLibrary[d.libraryId!];}

@@ -44,49 +44,105 @@ test('a failed video replacement retains the actual previously painted DOM and h
 });
 
 test('MCP visual readback returns real renderer pixels without impersonating physical viewer delivery', async ({ page, baseURL }) => {
-  test.setTimeout(180_000);
-  await register(page); const sessionId = await createSession(page, 'Visual inspection scope'), display = await createDisplay(page, sessionId, 'Only this display');
-  await tab(page, 'Library');
-  await publishPrepared(page, sessionId, [display.id], {version: 1, template: 'code', title: 'Exact code capture', data: {kind: 'code', language: 'typescript', code: 'const exact = "9007199254740993.123456789";\n'}});
-  const before = (await sessionDetail(page, sessionId)).displays.find(item => item.id === display.id)!;
-  expect(before.online).toBe(false); expect(before.appliedRevision ?? 0).toBeLessThan(before.revision);
-  const issued = await sessionApi<{token: string}>(page, '/api/tokens', 'POST', {name: 'Read-only visual inspection', scopes: ['read'], sessionIds: [sessionId]});
-  expect(issued.status).toBe(201);
-  const client = new Client({name: 'visual-readback-gate', version: '1'});
-  await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', baseURL), {requestInit: {headers: {Authorization: `Bearer ${issued.data!.token}`}}}));
-  const inspect = async () => {
-    const result = await client.callTool(operationRequest({name: 'kanvas_capture', arguments: {operation:'snapshot', sessionId, displayId: display.id, width: 640, height: 480}}), {timeout: 60_000});
-    expect(result.isError).not.toBe(true);
-    const metadata = (result.structuredContent as {data: {readiness: string; source: string; revision: number; blockedExternalRequests: number; observedViewer: {online: boolean}; reusable: boolean; assetId: string; assetUrl: string; assetPath: string}}).data;
-    const image = result.content.find(item => item.type === 'image'); expect(Boolean(image)).toBe(true);
-    if (!image || image.type !== 'image') throw new Error('No screenshot image returned');
-    const decoded = Buffer.from(image.data, 'base64'); expect(decoded.length).toBeGreaterThan(1000); expect(decoded.length).toBeLessThan(2 * 1024 * 1024);
-    expect(decoded[0]).toBe(0xff); expect(decoded[1]).toBe(0xd8);
-    const size = await page.evaluate(async data => { const image = new Image(); image.src = `data:image/jpeg;base64,${data}`; await image.decode(); return {width: image.naturalWidth, height: image.naturalHeight}; }, image.data);
-    expect(size).toEqual({width: 640, height: 480});
-    expect(metadata.source).toBe('isolated-server-browser');
-    expect(metadata.reusable).toBe(true); expect(metadata.assetPath).toBe(`/api/assets/${metadata.assetId}`);
-    expect(metadata.assetUrl).toBe(new URL(metadata.assetPath, baseURL).href);
-    const saved = await fetch(metadata.assetUrl, {headers: {Authorization: `Bearer ${issued.data!.token}`}});
-    expect(saved.ok).toBe(true); expect(Buffer.from(await saved.arrayBuffer())).toEqual(decoded);
-    expect((await fetch(metadata.assetUrl)).ok).toBe(false);
-    return metadata;
-  };
-  try {
-    const code = await inspect(); expect(code.readiness).toBe('ready'); expect(code.revision).toBe(before.revision); expect(code.observedViewer.online).toBe(false);
-    let after = (await sessionDetail(page, sessionId)).displays.find(item => item.id === display.id)!; expect(after.online).toBe(false); expect(after.appliedRevision).toBe(before.appliedRevision); expect(after.viewportRevision).toBe(before.viewportRevision);
-    // Own protected media is available to the isolated browser, not anonymously.
-    const asset = await sessionApi<AssetRecord>(page, `/api/sessions/${sessionId}/assets`, 'POST', {name: 'Private capture.png', mimeType: 'image/png', base64: PNG.toString('base64')}); expect(asset.status).toBe(201);
-    await publishPrepared(page, sessionId, [display.id], {version: 1, template: 'image', data: {images: [{url: asset.data!.url, alt: 'Private captured image'}]}});
-    expect((await inspect()).readiness).toBe('ready');
-    await publishPrepared(page, sessionId, [display.id], {version: 1, template: 'image', data: {images: [{url: 'https://example.com/not-fetched-for-capture.png', alt: 'External media blocked'}]}});
-    // Accepted image policy renders an explicit unavailable placeholder. Ready
-    // describes that local surface, not successful external media or delivery.
-    const blocked = await inspect(); expect(blocked.readiness).toBe('ready'); expect(blocked.blockedExternalRequests).toBeGreaterThan(0);
-    after = (await sessionDetail(page, sessionId)).displays.find(item => item.id === display.id)!; expect(after.online).toBe(false); expect(after.appliedRevision).toBe(before.appliedRevision);
-    const other = await createSession(page, 'Not granted to capture identity');
-    const forbidden = await client.callTool(operationRequest({name: 'kanvas_capture', arguments: {operation:'snapshot', sessionId: other, displayId: display.id}})); expect(forbidden.isError).toBe(true);
-  } finally { await client.close(); }
+    test.setTimeout(180000);
+    await register(page);
+    const sessionId = await createSession(page, 'Visual inspection scope'), display = await createDisplay(page, sessionId, 'Only this display');
+    await tab(page, 'Library');
+    await publishPrepared(page, sessionId, [display.id], { version: 1, template: 'code', title: 'Exact code capture', data: { kind: 'code', language: 'typescript', code: 'const exact = "9007199254740993.123456789";\n' } });
+    const before = (await sessionDetail(page, sessionId)).displays.find(item => item.id === display.id)!;
+    expect(before.online).toBe(false);
+    expect(before.appliedRevision ?? 0).toBeLessThan(before.revision);
+    const issued = await sessionApi<{
+        token: string;
+    }>(page, '/api/tokens', 'POST', { name: 'Read-only visual inspection', scopes: ['read'], sessionIds: [sessionId] });
+    expect(issued.status).toBe(201);
+    const client = new Client({ name: 'visual-readback-gate', version: '1' });
+    await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', baseURL), { requestInit: { headers: { Authorization: `Bearer ${issued.data!.token}` } } }));
+    const inspect = async () => {
+        const result = await client.callTool(operationRequest({
+            name: "kanvas_call",
+            arguments: {
+                operationId: "kanvas.display.snapshot",
+                arguments: {
+                    sessionId, displayId: display.id, width: 640, height: 480
+                }
+            }
+        }), { timeout: 60000 });
+        expect(result.isError).not.toBe(true);
+        const metadata = (result.structuredContent as {
+            data: {
+                readiness: string;
+                source: string;
+                revision: number;
+                blockedExternalRequests: number;
+                observedViewer: {
+                    online: boolean;
+                };
+                reusable: boolean;
+                assetId: string;
+                assetUrl: string;
+                assetPath: string;
+            };
+        }).data;
+        const image = result.content.find(item => item.type === 'image');
+        expect(Boolean(image)).toBe(true);
+        if (!image || image.type !== 'image')
+            throw new Error('No screenshot image returned');
+        const decoded = Buffer.from(image.data, 'base64');
+        expect(decoded.length).toBeGreaterThan(1000);
+        expect(decoded.length).toBeLessThan(2 * 1024 * 1024);
+        expect(decoded[0]).toBe(0xff);
+        expect(decoded[1]).toBe(0xd8);
+        const size = await page.evaluate(async (data) => { const image = new Image(); image.src = `data:image/jpeg;base64,${data}`; await image.decode(); return { width: image.naturalWidth, height: image.naturalHeight }; }, image.data);
+        expect(size).toEqual({ width: 640, height: 480 });
+        expect(metadata.source).toBe('isolated-server-browser');
+        expect(metadata.reusable).toBe(true);
+        expect(metadata.assetPath).toBe(`/api/assets/${metadata.assetId}`);
+        expect(metadata.assetUrl).toBe(new URL(metadata.assetPath, baseURL).href);
+        const saved = await fetch(metadata.assetUrl, { headers: { Authorization: `Bearer ${issued.data!.token}` } });
+        expect(saved.ok).toBe(true);
+        expect(Buffer.from(await saved.arrayBuffer())).toEqual(decoded);
+        expect((await fetch(metadata.assetUrl)).ok).toBe(false);
+        return metadata;
+    };
+    try {
+        const code = await inspect();
+        expect(code.readiness).toBe('ready');
+        expect(code.revision).toBe(before.revision);
+        expect(code.observedViewer.online).toBe(false);
+        let after = (await sessionDetail(page, sessionId)).displays.find(item => item.id === display.id)!;
+        expect(after.online).toBe(false);
+        expect(after.appliedRevision).toBe(before.appliedRevision);
+        expect(after.viewportRevision).toBe(before.viewportRevision);
+        // Own protected media is available to the isolated browser, not anonymously.
+        const asset = await sessionApi<AssetRecord>(page, `/api/sessions/${sessionId}/assets`, 'POST', { name: 'Private capture.png', mimeType: 'image/png', base64: PNG.toString('base64') });
+        expect(asset.status).toBe(201);
+        await publishPrepared(page, sessionId, [display.id], { version: 1, template: 'image', data: { images: [{ url: asset.data!.url, alt: 'Private captured image' }] } });
+        expect((await inspect()).readiness).toBe('ready');
+        await publishPrepared(page, sessionId, [display.id], { version: 1, template: 'image', data: { images: [{ url: 'https://example.com/not-fetched-for-capture.png', alt: 'External media blocked' }] } });
+        // Accepted image policy renders an explicit unavailable placeholder. Ready
+        // describes that local surface, not successful external media or delivery.
+        const blocked = await inspect();
+        expect(blocked.readiness).toBe('ready');
+        expect(blocked.blockedExternalRequests).toBeGreaterThan(0);
+        after = (await sessionDetail(page, sessionId)).displays.find(item => item.id === display.id)!;
+        expect(after.online).toBe(false);
+        expect(after.appliedRevision).toBe(before.appliedRevision);
+        const other = await createSession(page, 'Not granted to capture identity');
+        const forbidden = await client.callTool(operationRequest({
+            name: "kanvas_call",
+            arguments: {
+                operationId: "kanvas.display.snapshot",
+                arguments: {
+                    sessionId: other, displayId: display.id
+                }
+            }
+        }));
+        expect(forbidden.isError).toBe(true);
+    }
+    finally {
+        await client.close();
+    }
 });
 
 test('a cleared display and revoked viewer never resurrect retained visual content', async ({ page, diagnostics }) => {

@@ -102,73 +102,153 @@ import { TEMPLATE_IDS } from '../../src/shared/types.js';
 import type { ViewSpec } from '../../src/shared/types.js';
 
 describe("task list coverage 1", () => {
-
-
-describe('e2ba79e1 task list: saved state, narrow operations, stable numbers',()=>{
- let h!:Harness,o:Browser,s:string,d:string,p:{userId:string},listId:string;
- const detail='Original section of the release email. '.repeat(40);
- beforeEach(async()=>{h=await startHarness();o=await h.account();s=(await o.session()).id;d=(await o.display(s)).id;p={userId:o.user!.id};
-  const published=await o.submit(s,[d],{version:1,template:'task-list',title:'Release',data:{statusPalette:'testing',columns:[{key:'owner',label:'Owner'}],items:[{title:'Sign in',status:'passed',tags:['auth'],detail,source:'Release email, section 1'},{title:'Tick one item',status:'testing',tags:['checklist'],fields:{owner:'Ada'}},{title:'Dismiss a toast',status:'untested',tags:['toast']},{title:'Reopen the app',status:'untested',tags:['auth']}]}} as never);
-  expect(published.update.status).toBe('prepared');listId=String(published.detail.displays[0].view!.data.taskListId);});
- afterEach(async()=>{await h?.close();});
- const call=(name:string,args:Record<string,unknown>={})=>h.runtime.service.execute(name,args,p) as Promise<any>;
- const update=(args:Record<string,unknown>)=>call('kanvas_tasklist_update',{sessionId:s,taskListId:listId,requestId:randomUUID(),...args});
- const shown=async()=>(await o.detail(s)).displays.find(x=>x.id===d)!.view!.data as {items:{id:string;number:number;title:string;checked:boolean;detail?:string;hasDetail?:boolean}[];highlight?:string};
- it('numbers are assigned once and stay with the item; the display carries detail only for the highlighted item',async()=>{
-  const view=await shown();expect(view.items.map(item=>item.number)).toEqual([1,2,3,4]);expect(view.items[0]).toMatchObject({id:'t1',hasDetail:true});expect(view.items[0].detail).toBeUndefined();
-  const marked=await update({highlight:1});expect(marked.highlight).toEqual({id:'t1',number:1});
-  expect((await shown()).items[0].detail).toBe(detail);
-  // The agent reads one item back in full instead of re-fetching the source.
-  const one=await call('kanvas_tasklist_read',{sessionId:s,taskListId:listId,item:1});expect(one.item).toMatchObject({number:1,title:'Sign in',detail,source:'Release email, section 1'});
-  expect((await call('kanvas_tasklist_read',{sessionId:s,taskListId:listId,item:'t2'})).item.fields).toEqual({owner:'Ada'});
- });
- it('single-item operations touch only what they name and report it; nothing is deleted by omission',async()=>{
-  const result=await update({expectedRevision:0,check:[2],items:[{item:3,status:'passed',tags:['toast','done']}],add:[{title:'New finding',status:'untested'}]});
-  expect(result).toMatchObject({revision:1,changes:{added:[5],changed:[3],checked:[2],removed:[],unchecked:[]},counts:{total:5,open:4,done:1}});
-  const rows=(await call('kanvas_tasklist_read',{sessionId:s,taskListId:listId})).items;
-  expect(rows.map((r:{number:number})=>r.number)).toEqual([1,2,3,4,5]);expect(rows[1]).toMatchObject({number:2,checked:true});
-  expect(rows.find((r:{number:number})=>r.number===1)).toMatchObject({title:'Sign in',status:'passed',hasDetail:true});
-  const removed=await update({remove:[4]});expect(removed.changes.removed).toEqual([4]);
-  const added=await update({add:[{title:'After a removal'}]});expect(added.changes.added).toEqual([6]);
-  let missing:unknown;try{await update({check:[99]});}catch(error){missing=error;}expect(safeError(missing).issues?.[0]).toMatchObject({path:'check[0]'});
-  let stale:unknown;try{await update({expectedRevision:0,check:[1]});}catch(error){stale=error;}expect(safeError(stale)).toMatchObject({code:'REVISION_CONFLICT',currentRevision:3});
-  const same={sessionId:s,taskListId:listId,requestId:'retry-1',check:[1]};const first=await call('kanvas_tasklist_update',same);expect((await call('kanvas_tasklist_update',same)).revision).toBe(first.revision);
- });
- it('sort and filter run on stored data, deterministically, on the server and for the display',async()=>{
-  await update({filter:{status:['UNTESTED']},sort:{by:'title',direction:'desc'}});
-  const filtered=await call('kanvas_tasklist_read',{sessionId:s,taskListId:listId});
-  expect(filtered.items.map((r:{title:string})=>r.title)).toEqual(['Reopen the app','Dismiss a toast']);expect(filtered.counts).toMatchObject({total:4,matching:2,hiddenByFilter:2});
-  const view=await shown();expect(projectTasks(view.items as never,view as never).items.map(item=>item.title)).toEqual(['Reopen the app','Dismiss a toast']);
-  expect((await call('kanvas_tasklist_read',{sessionId:s,taskListId:listId,tags:['auth'],sort:{by:'number',direction:'asc'}})).items.map((r:{number:number})=>r.number)).toEqual([1,4]);
-  await update({filter:null,sort:null});expect((await call('kanvas_tasklist_read',{sessionId:s,taskListId:listId})).items).toHaveLength(4);
-  expect(projectTasks([{title:'b',checked:true,number:1},{title:'a',checked:false,number:2}] as never,{doneLast:true}).items.map(item=>item.number)).toEqual([2,1]);
- });
- it('own columns filter like status and tags: column=value, alternatives within a column, every column must match; own status colours are validated',async()=>{
-  await update({items:[{item:3,fields:{owner:'Bo'}},{item:4,fields:{owner:'ada'}}]});
-  await update({filter:{fields:['owner=ADA']}});
-  expect((await call('kanvas_tasklist_read',{sessionId:s,taskListId:listId})).items.map((r:{number:number})=>r.number)).toEqual([2,4]);
-  await update({filter:{fields:['owner=Ada','owner = Bo'],status:['untested']}});
-  const filtered=await call('kanvas_tasklist_read',{sessionId:s,taskListId:listId});expect(filtered.items.map((r:{number:number})=>r.number)).toEqual([3,4]);expect(filtered.counts).toMatchObject({matching:2,hiddenByFilter:2});
-  const view=await shown() as never as {items:never[];filter:never};expect(projectTasks(view.items,view).items.map((item:{number:number})=>item.number)).toEqual([3,4]);
-  let bad:unknown;try{await update({filter:{fields:['owner']}});}catch(error){bad=error;}expect(bad).toBeTruthy();
-  await update({filter:null});expect((await call('kanvas_tasklist_read',{sessionId:s,taskListId:listId})).items).toHaveLength(4);
-  const list=(colors:Record<string,string>)=>validateView({template:'task-list',data:{colors,items:[{title:'One',status:'waiting'}]}} as never);
-  expect((list({waiting:'#d9a441',Shipped:'#4caf7d'}).data as {colors:unknown}).colors).toEqual({waiting:'#d9a441',Shipped:'#4caf7d'});
-  for(const wrong of [{waiting:'orange'},{'':'#000000'},{['x'.repeat(41)]:'#000000'},Object.fromEntries(Array.from({length:17},(_,i)=>[`s${i}`,'#000000']))])expect(()=>list(wrong),JSON.stringify(wrong).slice(0,60)).toThrow();
- });
- it('survives clearing the display, re-shows on another display, and stays inside its session',async()=>{
-  await o.submit(s,[d],{version:1,template:'fact',data:{text:'Something else'}} as never);
-  const second=(await o.display(s,'Second')).id;
-  const result=await call('kanvas_tasklist_show',{sessionId:s,taskListId:listId,displayId:second,requestId:randomUUID()});expect(result.status).toBe('prepared');
-  expect((await o.detail(s)).displays.find(x=>x.id===second)!.view!.data.taskListId).toBe(listId);
-  await update({check:[1]});
-  expect(((await o.detail(s)).displays.find(x=>x.id===second)!.view!.data.items as {number:number;checked:boolean}[]).find(item=>item.number===1)!.checked).toBe(true);
-  expect((await o.detail(s)).displays.find(x=>x.id===d)!.view!.template).toBe('fact');
-  const other=await h.account(),otherSession=(await other.session()).id;
-  await expect(h.runtime.service.execute('kanvas_tasklist_read',{sessionId:otherSession,taskListId:listId},{userId:other.user!.id})).rejects.toMatchObject({code:'NOT_FOUND'});
-  await expect(h.runtime.service.execute('kanvas_tasklist_read',{sessionId:s,taskListId:listId},{userId:other.user!.id})).rejects.toBeTruthy();
-  expect((await call('kanvas_tasklist_read',{sessionId:s})).taskLists).toEqual([expect.objectContaining({id:listId,items:4,done:1})]);
- });});
+    describe('e2ba79e1 task list: saved state, narrow operations, stable numbers', () => {
+        let h!: Harness, o: Browser, s: string, d: string, p: {
+            userId: string;
+        }, listId: string;
+        const detail = 'Original section of the release email. '.repeat(40);
+        beforeEach(async () => {
+            h = await startHarness();
+            o = await h.account();
+            s = (await o.session()).id;
+            d = (await o.display(s)).id;
+            p = { userId: o.user!.id };
+            const published = await o.submit(s, [d], { version: 1, template: 'task-list', title: 'Release', data: { statusPalette: 'testing', columns: [{ key: 'owner', label: 'Owner' }], items: [{ title: 'Sign in', status: 'passed', tags: ['auth'], detail, source: 'Release email, section 1' }, { title: 'Tick one item', status: 'testing', tags: ['checklist'], fields: { owner: 'Ada' } }, { title: 'Dismiss a toast', status: 'untested', tags: ['toast'] }, { title: 'Reopen the app', status: 'untested', tags: ['auth'] }] } } as never);
+            expect(published.update.status).toBe('prepared');
+            listId = String(published.detail.displays[0].view!.data.taskListId);
+        });
+        afterEach(async () => { await h?.close(); });
+        const call = (name: string, args: Record<string, unknown> = {}) => h.runtime.service.execute(name, args, p) as Promise<any>;
+        const update = (args: Record<string, unknown>) => call("kanvas.tasklist.update", { sessionId: s, taskListId: listId, requestId: randomUUID(), ...args });
+        const shown = async () => (await o.detail(s)).displays.find(x => x.id === d)!.view!.data as {
+            items: {
+                id: string;
+                number: number;
+                title: string;
+                checked: boolean;
+                detail?: string;
+                hasDetail?: boolean;
+            }[];
+            highlight?: string;
+        };
+        it('numbers are assigned once and stay with the item; the display carries detail only for the highlighted item', async () => {
+            const view = await shown();
+            expect(view.items.map(item => item.number)).toEqual([1, 2, 3, 4]);
+            expect(view.items[0]).toMatchObject({ id: 't1', hasDetail: true });
+            expect(view.items[0].detail).toBeUndefined();
+            const marked = await update({ highlight: 1 });
+            expect(marked.highlight).toEqual({ id: 't1', number: 1 });
+            expect((await shown()).items[0].detail).toBe(detail);
+            // The agent reads one item back in full instead of re-fetching the source.
+            const one = await call("kanvas.tasklist.read", { sessionId: s, taskListId: listId, item: 1 });
+            expect(one.item).toMatchObject({ number: 1, title: 'Sign in', detail, source: 'Release email, section 1' });
+            expect((await call("kanvas.tasklist.read", { sessionId: s, taskListId: listId, item: 't2' })).item.fields).toEqual({ owner: 'Ada' });
+        });
+        it('single-item operations touch only what they name and report it; nothing is deleted by omission', async () => {
+            const result = await update({ expectedRevision: 0, check: [2], items: [{ item: 3, status: 'passed', tags: ['toast', 'done'] }], add: [{ title: 'New finding', status: 'untested' }] });
+            expect(result).toMatchObject({ revision: 1, changes: { added: [5], changed: [3], checked: [2], removed: [], unchecked: [] }, counts: { total: 5, open: 4, done: 1 } });
+            const rows = (await call("kanvas.tasklist.read", { sessionId: s, taskListId: listId })).items;
+            expect(rows.map((r: {
+                number: number;
+            }) => r.number)).toEqual([1, 2, 3, 4, 5]);
+            expect(rows[1]).toMatchObject({ number: 2, checked: true });
+            expect(rows.find((r: {
+                number: number;
+            }) => r.number === 1)).toMatchObject({ title: 'Sign in', status: 'passed', hasDetail: true });
+            const removed = await update({ remove: [4] });
+            expect(removed.changes.removed).toEqual([4]);
+            const added = await update({ add: [{ title: 'After a removal' }] });
+            expect(added.changes.added).toEqual([6]);
+            let missing: unknown;
+            try {
+                await update({ check: [99] });
+            }
+            catch (error) {
+                missing = error;
+            }
+            expect(safeError(missing).issues?.[0]).toMatchObject({ path: 'check[0]' });
+            let stale: unknown;
+            try {
+                await update({ expectedRevision: 0, check: [1] });
+            }
+            catch (error) {
+                stale = error;
+            }
+            expect(safeError(stale)).toMatchObject({ code: 'REVISION_CONFLICT', currentRevision: 3 });
+            const same = { sessionId: s, taskListId: listId, requestId: 'retry-1', check: [1] };
+            const first = await call("kanvas.tasklist.update", same);
+            expect((await call("kanvas.tasklist.update", same)).revision).toBe(first.revision);
+        });
+        it('sort and filter run on stored data, deterministically, on the server and for the display', async () => {
+            await update({ filter: { status: ['UNTESTED'] }, sort: { by: 'title', direction: 'desc' } });
+            const filtered = await call("kanvas.tasklist.read", { sessionId: s, taskListId: listId });
+            expect(filtered.items.map((r: {
+                title: string;
+            }) => r.title)).toEqual(['Reopen the app', 'Dismiss a toast']);
+            expect(filtered.counts).toMatchObject({ total: 4, matching: 2, hiddenByFilter: 2 });
+            const view = await shown();
+            expect(projectTasks(view.items as never, view as never).items.map(item => item.title)).toEqual(['Reopen the app', 'Dismiss a toast']);
+            expect((await call("kanvas.tasklist.read", { sessionId: s, taskListId: listId, tags: ['auth'], sort: { by: 'number', direction: 'asc' } })).items.map((r: {
+                number: number;
+            }) => r.number)).toEqual([1, 4]);
+            await update({ filter: null, sort: null });
+            expect((await call("kanvas.tasklist.read", { sessionId: s, taskListId: listId })).items).toHaveLength(4);
+            expect(projectTasks([{ title: 'b', checked: true, number: 1 }, { title: 'a', checked: false, number: 2 }] as never, { doneLast: true }).items.map(item => item.number)).toEqual([2, 1]);
+        });
+        it('own columns filter like status and tags: column=value, alternatives within a column, every column must match; own status colours are validated', async () => {
+            await update({ items: [{ item: 3, fields: { owner: 'Bo' } }, { item: 4, fields: { owner: 'ada' } }] });
+            await update({ filter: { fields: ['owner=ADA'] } });
+            expect((await call("kanvas.tasklist.read", { sessionId: s, taskListId: listId })).items.map((r: {
+                number: number;
+            }) => r.number)).toEqual([2, 4]);
+            await update({ filter: { fields: ['owner=Ada', 'owner = Bo'], status: ['untested'] } });
+            const filtered = await call("kanvas.tasklist.read", { sessionId: s, taskListId: listId });
+            expect(filtered.items.map((r: {
+                number: number;
+            }) => r.number)).toEqual([3, 4]);
+            expect(filtered.counts).toMatchObject({ matching: 2, hiddenByFilter: 2 });
+            const view = await shown() as never as {
+                items: never[];
+                filter: never;
+            };
+            expect(projectTasks(view.items, view).items.map((item: {
+                number: number;
+            }) => item.number)).toEqual([3, 4]);
+            let bad: unknown;
+            try {
+                await update({ filter: { fields: ['owner'] } });
+            }
+            catch (error) {
+                bad = error;
+            }
+            expect(bad).toBeTruthy();
+            await update({ filter: null });
+            expect((await call("kanvas.tasklist.read", { sessionId: s, taskListId: listId })).items).toHaveLength(4);
+            const list = (colors: Record<string, string>) => validateView({ template: 'task-list', data: { colors, items: [{ title: 'One', status: 'waiting' }] } } as never);
+            expect((list({ waiting: '#d9a441', Shipped: '#4caf7d' }).data as {
+                colors: unknown;
+            }).colors).toEqual({ waiting: '#d9a441', Shipped: '#4caf7d' });
+            for (const wrong of [{ waiting: 'orange' }, { '': '#000000' }, { ['x'.repeat(41)]: '#000000' }, Object.fromEntries(Array.from({ length: 17 }, (_, i) => [`s${i}`, '#000000']))])
+                expect(() => list(wrong), JSON.stringify(wrong).slice(0, 60)).toThrow();
+        });
+        it('survives clearing the display, re-shows on another display, and stays inside its session', async () => {
+            await o.submit(s, [d], { version: 1, template: 'fact', data: { text: 'Something else' } } as never);
+            const second = (await o.display(s, 'Second')).id;
+            const result = await call("kanvas.tasklist.show", { sessionId: s, taskListId: listId, displayId: second, requestId: randomUUID() });
+            expect(result.status).toBe('prepared');
+            expect((await o.detail(s)).displays.find(x => x.id === second)!.view!.data.taskListId).toBe(listId);
+            await update({ check: [1] });
+            expect(((await o.detail(s)).displays.find(x => x.id === second)!.view!.data.items as {
+                number: number;
+                checked: boolean;
+            }[]).find(item => item.number === 1)!.checked).toBe(true);
+            expect((await o.detail(s)).displays.find(x => x.id === d)!.view!.template).toBe('fact');
+            const other = await h.account(), otherSession = (await other.session()).id;
+            await expect(h.runtime.service.execute("kanvas.tasklist.read", { sessionId: otherSession, taskListId: listId }, { userId: other.user!.id })).rejects.toMatchObject({ code: 'NOT_FOUND' });
+            await expect(h.runtime.service.execute("kanvas.tasklist.read", { sessionId: s, taskListId: listId }, { userId: other.user!.id })).rejects.toBeTruthy();
+            expect((await call("kanvas.tasklist.read", { sessionId: s })).taskLists).toEqual([expect.objectContaining({ id: listId, items: 4, done: 1 })]);
+        });
+    });
 });
 
 describe("task list coverage 2", () => {

@@ -72,60 +72,67 @@ test('diagram zoom enlarges, text scale grows the whole diagram, a small diagram
 });
 
 test.describe("diagram coverage 2", () => {
-
-
-const view=(template:string,data:Record<string,unknown>,extra:Record<string,unknown>={})=>validateView({version:1,template,data,...extra} as never) as ViewSpec;
-const shown=async(page:Page,viewer:Page,s:string,displayId:string,spec:ViewSpec)=>{await publishPrepared(page,s,[displayId],spec);const current=await waitForDisplay(page,s,displayId,x=>x.revision>0&&x.appliedRevision===x.revision);await expect(viewer.locator('.viewer-shell')).toHaveAttribute('data-rendered-revision',String(current.revision));return current;};
-const setup=async(page:Page,name:string)=>{await register(page);const s=await createSession(page,name),d=await createDisplay(page,s,'Display'),viewer=await openViewer(page,s,d.id);return {s,d,viewer};};
-const mcp=async(page:Page,baseURL:string)=>{const token=await sessionApi<{token:string}>(page,'/api/tokens','POST',{name:'Nov14 fixture',scopes:['read','publish']});const {Client,StreamableHTTPClientTransport}=await import('@modelcontextprotocol/client');const client=new Client({name:'nov14-fixture',version:'1'});await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',baseURL),{requestInit:{headers:{Authorization:'Bearer '+token.data!.token}}}));return client;};
-const use=async(client:Awaited<ReturnType<typeof mcp>>,canonical:string,args:Record<string,unknown>)=>{const result=await client.callTool({name:'kanvas_call',arguments:{operationId:operationId(canonical),arguments:args}});return {isError:result.isError===true,structured:result.structuredContent as Record<string,any>};};
-const fact=(text:string)=>({version:1,template:'fact',data:{text}});
-const pane=(id:string,inner:Record<string,unknown>=fact(id))=>({id,view:inner});
-const pie=(kind:'pie'|'donut')=>({version:1,template:'chart',data:{kind,series:[{name:'Share',points:[{x:'Alpha',y:40},{x:'Beta',y:30},{x:'Gamma',y:20},{x:'Delta',y:10}]}]}});
-
-test('text size applies to every template and survives a reload; fit shows a whole diagram (0448f65b, 363457fe)',async({page,baseURL})=>{
- const {s,d,viewer}=await setup(page,'Text size');const client=await mcp(page,baseURL!);
- try{
-  await shown(page,viewer,s,d.id,view('task-list',{items:[{title:'First task'},{title:'Second task'}]}));
-  const title=viewer.locator('.viewer-candidate .task-item strong').first(),surface=viewer.locator('.viewer-candidate .render-surface');
-  const before=(await title.boundingBox())!.height;
-  const state=(await use(client,'kanvas_session_state',{sessionId:s})).structured.data;
-  const set=await use(client,'kanvas_config_update',{sessionId:s,expectedRevision:state.session?.configRevision??state.configRevision??0,config:{textSize:150}});
-  expect(set.isError,JSON.stringify(set.structured).slice(0,300)).toBe(false);
-  await expect(surface).toHaveAttribute('data-text-scale','1.5');await expect(surface).toHaveAttribute('data-text-mode','content');
-  await expect.poll(async()=>(await title.boundingBox())!.height/before).toBeGreaterThan(1.35);
-  // The enlarged list still occupies exactly its area and scrolls inside it.
-  expect(await viewer.locator('.viewer-candidate .render-body').evaluate(el=>{const body=el.getBoundingClientRect(),surface=el.closest('.render-surface')!.getBoundingClientRect();return body.right<=surface.right+1&&body.bottom<=surface.bottom+1;})).toBe(true);
-  // Other templates honour it too, and it is a saved setting.
-  await shown(page,viewer,s,d.id,view('fact',{text:'One idea'}));
-  await expect(viewer.locator('.viewer-candidate .render-surface')).toHaveAttribute('data-text-mode','viewport');
-  expect(await viewer.locator('.viewer-candidate .render-surface').evaluate(el=>(el as HTMLElement).style.zoom)).toBe('1.5');
-  await shown(page,viewer,s,d.id,view('font-picker',{fonts:[{family:'inter',weight:400},{family:'inter',weight:700}],text:'Sample'}));
-  await expect(viewer.locator('.viewer-candidate .render-surface')).toHaveAttribute('data-text-mode','content');
-  const sample=viewer.locator('.viewer-candidate .font-sample').first(),large=parseFloat(await sample.evaluate(el=>getComputedStyle(el).fontSize))*1.5;
-  await shown(page,viewer,s,d.id,view('font-picker',{fonts:[{family:'inter',weight:400},{family:'inter',weight:700}],text:'Sample',sampleSize:18}));
-  expect(parseFloat(await viewer.locator('.viewer-candidate .font-sample').first().evaluate(el=>getComputedStyle(el).fontSize))).toBe(18);expect(large).toBeGreaterThan(18);
-  await shown(page,viewer,s,d.id,view('table',{columns:['A','B'],rows:[['one','two']]}));
-  await expect(viewer.locator('.viewer-candidate .render-surface')).toHaveAttribute('data-text-scale','1.5');
-  await viewer.reload();await expect(viewer.locator('.viewer-candidate .render-surface')).toHaveAttribute('data-text-scale','1.5');
-  // The enlarged surface still fits its window: no page-level overflow.
-  expect(await viewer.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
-  const reset=(await use(client,'kanvas_session_state',{sessionId:s})).structured.data;
-  await use(client,'kanvas_config_update',{sessionId:s,expectedRevision:reset.session?.configRevision??reset.configRevision??1,config:{textSize:100}});
-  await expect(viewer.locator('.viewer-candidate .render-surface')).toHaveAttribute('data-text-scale','1');
-  // Diagram that overflows because of its own textScale.
-  const nodes=Array.from({length:13},(_,i)=>({id:`n${i}`,label:`Service number ${i}`,type:'service'})),edges=Array.from({length:12},(_,i)=>({from:`n${i}`,to:`n${i+1}`}));
-  const diagram=await shown(page,viewer,s,d.id,view('architecture',{layout:'left-right',textScale:1.5,nodes,edges}));
-  const scroll=viewer.locator('.viewer-candidate .diagram-scroll');
-  await expect.poll(async()=>scroll.evaluate(el=>el.scrollWidth-el.clientWidth)).toBeGreaterThan(20);
-  const fitted=await use(client,'kanvas_navigation_control',{sessionId:s,displayId:d.id,requestId:'fit-1',expectedRevision:diagram.revision,navigation:{action:'fit'}});
-  expect(fitted.isError,JSON.stringify(fitted.structured).slice(0,300)).toBe(false);
-  await expect(scroll).toHaveAttribute('data-diagram-fitted','true');
-  await expect.poll(async()=>scroll.evaluate(el=>({x:el.scrollWidth-el.clientWidth,y:el.scrollHeight-el.clientHeight}))).toEqual({x:0,y:0});
-  const svg=(await scroll.locator('svg.relationship-diagram').boundingBox())!,frame=(await scroll.boundingBox())!;
-  expect(svg.width).toBeLessThanOrEqual(frame.width+1);expect(svg.height).toBeLessThanOrEqual(frame.height+1);
- }finally{await client.close();}
-});
+    const view = (template: string, data: Record<string, unknown>, extra: Record<string, unknown> = {}) => validateView({ version: 1, template, data, ...extra } as never) as ViewSpec;
+    const shown = async (page: Page, viewer: Page, s: string, displayId: string, spec: ViewSpec) => { await publishPrepared(page, s, [displayId], spec); const current = await waitForDisplay(page, s, displayId, x => x.revision > 0 && x.appliedRevision === x.revision); await expect(viewer.locator('.viewer-shell')).toHaveAttribute('data-rendered-revision', String(current.revision)); return current; };
+    const setup = async (page: Page, name: string) => { await register(page); const s = await createSession(page, name), d = await createDisplay(page, s, 'Display'), viewer = await openViewer(page, s, d.id); return { s, d, viewer }; };
+    const mcp = async (page: Page, baseURL: string) => { const token = await sessionApi<{
+        token: string;
+    }>(page, '/api/tokens', 'POST', { name: 'Nov14 fixture', scopes: ['read', 'publish'] }); const { Client, StreamableHTTPClientTransport } = await import('@modelcontextprotocol/client'); const client = new Client({ name: 'nov14-fixture', version: '1' }); await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', baseURL), { requestInit: { headers: { Authorization: 'Bearer ' + token.data!.token } } })); return client; };
+    const use = async (client: Awaited<ReturnType<typeof mcp>>, canonical: string, args: Record<string, unknown>) => { const result = await client.callTool({ name: 'kanvas_call', arguments: { operationId: operationId(canonical), arguments: args } }); return { isError: result.isError === true, structured: result.structuredContent as Record<string, any> }; };
+    const fact = (text: string) => ({ version: 1, template: 'fact', data: { text } });
+    const pane = (id: string, inner: Record<string, unknown> = fact(id)) => ({ id, view: inner });
+    const pie = (kind: 'pie' | 'donut') => ({ version: 1, template: 'chart', data: { kind, series: [{ name: 'Share', points: [{ x: 'Alpha', y: 40 }, { x: 'Beta', y: 30 }, { x: 'Gamma', y: 20 }, { x: 'Delta', y: 10 }] }] } });
+    test('text size applies to every template and survives a reload; fit shows a whole diagram (0448f65b, 363457fe)', async ({ page, baseURL }) => {
+        const { s, d, viewer } = await setup(page, 'Text size');
+        const client = await mcp(page, baseURL!);
+        try {
+            await shown(page, viewer, s, d.id, view('task-list', { items: [{ title: 'First task' }, { title: 'Second task' }] }));
+            const title = viewer.locator('.viewer-candidate .task-item strong').first(), surface = viewer.locator('.viewer-candidate .render-surface');
+            const before = (await title.boundingBox())!.height;
+            const state = (await use(client, "kanvas.session.state", { sessionId: s })).structured.data;
+            const set = await use(client, "kanvas.config.update", { sessionId: s, expectedRevision: state.session?.configRevision ?? state.configRevision ?? 0, config: { textSize: 150 } });
+            expect(set.isError, JSON.stringify(set.structured).slice(0, 300)).toBe(false);
+            await expect(surface).toHaveAttribute('data-text-scale', '1.5');
+            await expect(surface).toHaveAttribute('data-text-mode', 'content');
+            await expect.poll(async () => (await title.boundingBox())!.height / before).toBeGreaterThan(1.35);
+            // The enlarged list still occupies exactly its area and scrolls inside it.
+            expect(await viewer.locator('.viewer-candidate .render-body').evaluate(el => { const body = el.getBoundingClientRect(), surface = el.closest('.render-surface')!.getBoundingClientRect(); return body.right <= surface.right + 1 && body.bottom <= surface.bottom + 1; })).toBe(true);
+            // Other templates honour it too, and it is a saved setting.
+            await shown(page, viewer, s, d.id, view('fact', { text: 'One idea' }));
+            await expect(viewer.locator('.viewer-candidate .render-surface')).toHaveAttribute('data-text-mode', 'viewport');
+            expect(await viewer.locator('.viewer-candidate .render-surface').evaluate(el => (el as HTMLElement).style.zoom)).toBe('1.5');
+            await shown(page, viewer, s, d.id, view('font-picker', { fonts: [{ family: 'inter', weight: 400 }, { family: 'inter', weight: 700 }], text: 'Sample' }));
+            await expect(viewer.locator('.viewer-candidate .render-surface')).toHaveAttribute('data-text-mode', 'content');
+            const sample = viewer.locator('.viewer-candidate .font-sample').first(), large = parseFloat(await sample.evaluate(el => getComputedStyle(el).fontSize)) * 1.5;
+            await shown(page, viewer, s, d.id, view('font-picker', { fonts: [{ family: 'inter', weight: 400 }, { family: 'inter', weight: 700 }], text: 'Sample', sampleSize: 18 }));
+            expect(parseFloat(await viewer.locator('.viewer-candidate .font-sample').first().evaluate(el => getComputedStyle(el).fontSize))).toBe(18);
+            expect(large).toBeGreaterThan(18);
+            await shown(page, viewer, s, d.id, view('table', { columns: ['A', 'B'], rows: [['one', 'two']] }));
+            await expect(viewer.locator('.viewer-candidate .render-surface')).toHaveAttribute('data-text-scale', '1.5');
+            await viewer.reload();
+            await expect(viewer.locator('.viewer-candidate .render-surface')).toHaveAttribute('data-text-scale', '1.5');
+            // The enlarged surface still fits its window: no page-level overflow.
+            expect(await viewer.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+            const reset = (await use(client, "kanvas.session.state", { sessionId: s })).structured.data;
+            await use(client, "kanvas.config.update", { sessionId: s, expectedRevision: reset.session?.configRevision ?? reset.configRevision ?? 1, config: { textSize: 100 } });
+            await expect(viewer.locator('.viewer-candidate .render-surface')).toHaveAttribute('data-text-scale', '1');
+            // Diagram that overflows because of its own textScale.
+            const nodes = Array.from({ length: 13 }, (_, i) => ({ id: `n${i}`, label: `Service number ${i}`, type: 'service' })), edges = Array.from({ length: 12 }, (_, i) => ({ from: `n${i}`, to: `n${i + 1}` }));
+            const diagram = await shown(page, viewer, s, d.id, view('architecture', { layout: 'left-right', textScale: 1.5, nodes, edges }));
+            const scroll = viewer.locator('.viewer-candidate .diagram-scroll');
+            await expect.poll(async () => scroll.evaluate(el => el.scrollWidth - el.clientWidth)).toBeGreaterThan(20);
+            const fitted = await use(client, "kanvas.navigation.control", { sessionId: s, displayId: d.id, requestId: 'fit-1', expectedRevision: diagram.revision, navigation: { action: 'fit' } });
+            expect(fitted.isError, JSON.stringify(fitted.structured).slice(0, 300)).toBe(false);
+            await expect(scroll).toHaveAttribute('data-diagram-fitted', 'true');
+            await expect.poll(async () => scroll.evaluate(el => ({ x: el.scrollWidth - el.clientWidth, y: el.scrollHeight - el.clientHeight }))).toEqual({ x: 0, y: 0 });
+            const svg = (await scroll.locator('svg.relationship-diagram').boundingBox())!, frame = (await scroll.boundingBox())!;
+            expect(svg.width).toBeLessThanOrEqual(frame.width + 1);
+            expect(svg.height).toBeLessThanOrEqual(frame.height + 1);
+        }
+        finally {
+            await client.close();
+        }
+    });
 });
 
 test.describe("diagram coverage 3", () => {
@@ -177,41 +184,75 @@ test('whiteboard starts on the supplied diagram and preserves a chosen camera th
 });
 
 test.describe("diagram coverage 4", () => {
-
-
-async function setup(page:Page,info:TestInfo,baseURL:string){
-  await register(page);const s=await createSession(page,'September improvements'),d=await createDisplay(page,s,'Acceptance screen'),v=await openViewer(page,s,d.id);
-  const issued=await sessionApi<{token:string}>(page,'/api/tokens','POST',{name:'Disposable September acceptance',scopes:['read','publish']});expect(issued.status).toBe(201);
-  const headers={Authorization:`Bearer ${issued.data!.token}`},client=info.project.name.startsWith('phone')?new LegacyClient({name:'september-legacy',version:'1'}):new Client({name:'september-current',version:'1'});
-  if(client instanceof LegacyClient)await client.connect(new LegacyTransport(new URL('/mcp',baseURL),{requestInit:{headers}}));else await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',baseURL),{requestInit:{headers}}));
-  const call=async(name:string,operation:string,args:Record<string,unknown>={})=>{const r=await client.callTool(operationRequest({name,arguments:{operation,...args}}));expect(r.isError,`${name}/${operation}: ${JSON.stringify(r.isError?r.content:[])}`).not.toBe(true);expect((r.structuredContent as any).truncated).not.toBe(true);return(r.structuredContent as any).data;};
-  const current=async()=>{const r=(await sessionDetail(page,s)).displays.find(x=>x.id===d.id)!;return r;};
-  const painted=async(revision:number)=>{await expect(v.locator('.viewer-shell')).toHaveAttribute('data-rendered-revision',String(revision));await expect(v.locator('.viewer-shell')).toHaveAttribute('data-render-status','ready');};
-  const show=async(view:ViewSpec)=>{const before=await current();await publishPrepared(page,s,[d.id],view);const next=await waitForDisplay(page,s,d.id,x=>x.revision>before.revision&&x.appliedRevision===x.revision);await painted(next.revision);return next;};
-  const nav=async(navigation:unknown)=>call('kanvas_control','navigation.control',{sessionId:s,displayId:d.id,expectedRevision:(await current()).revision,requestId:randomUUID(),navigation});
-  return{s,d,v,client,call,current,painted,show,nav};
-}
-type Fixture=Awaited<ReturnType<typeof setup>>;
-async function photo(page:Page,info:TestInfo,name:string){for(const notice of await page.getByRole('button',{name:'Dismiss notification',exact:true}).all())await notice.click();await page.evaluate(()=>document.fonts.ready);await mkdir(info.outputPath('visuals'),{recursive:true});await page.screenshot({path:`${info.outputPath('visuals')}/${info.project.name}-${name}.png`,animations:'disabled'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2)).toBe(true);}
-async function asset(a:Fixture,color='#267f9f',w=240,h=120){return a.call('kanvas_import','asset.import',{sessionId:a.s,name:'Acceptance logo.svg',mimeType:'image/svg+xml',base64:Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect x="1" y="1" width="${w-2}" height="${h-2}" fill="${color}" stroke="#ffffff" stroke-width="2"/><circle cx="${w/2}" cy="${h/2}" r="${h/3}" fill="#ffffff"/><text x="${w/2}" y="${h/2+5}" text-anchor="middle" fill="${color}" font-size="16">K</text></svg>`).toString('base64')});}
-async function counterpart(a:Fixture,page:Page,browser:Browser,info:TestInfo,baseURL:string){
-  const context=await browser.newContext({baseURL,viewport:info.project.name.startsWith('phone')?{width:1440,height:900}:{width:390,height:844},colorScheme:'dark',reducedMotion:'reduce'}),peer=await context.newPage(),account=await register(peer);
-  await a.call('kanvas_configure','profile.update',{expectedRevision:0,displayName:'Alex · host'});
-  expect((await sessionApi(page,`/api/sessions/${a.s}/members`,'POST',{username:account.username,role:'viewer'})).status).toBe(200);
-  await peer.goto(`/view/${a.s}/${a.d.id}`);await expect(peer.locator('.viewer-shell')).toHaveAttribute('data-rendered-revision',String((await a.current()).revision));
-  return {context,peer};
-}
-async function word(page:Page,selector:string,needle:string){return page.locator(selector).evaluate((el,text)=>{const walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);for(let n=walker.nextNode();n;n=walker.nextNode()){const at=n.textContent!.indexOf(text);if(at<0)continue;const range=document.createRange();range.setStart(n,at);range.setEnd(n,at+text.length);const r=range.getClientRects()[0];return {x:r.left+r.width/2,y:r.top+r.height/2,left:r.left,top:r.top,width:r.width,height:r.height};}throw new Error('Word is not rendered');},needle);}
-async function pointAt(page:Page,selector:string){const r=await page.locator(selector).boundingBox();expect(r).not.toBeNull();await page.mouse.click(r!.x+r!.width/2,r!.y+r!.height/2);}
-
-test('whiteboard background remains behind saved drawing elements and blank boards are unchanged',async({page,baseURL},info)=>{
-  const a=await setup(page,info,baseURL!);try{
-    const image=await asset(a),background={url:image.url,alt:'Supplied plan',x:50,y:-10,width:900,height:450};const before=await a.show({version:1,template:'whiteboard',data:{background,elements:[]}});
-    await expect(a.v.locator('.board-surface image')).toHaveAttribute('href',image.url);await expect(a.v.locator('.board-empty')).toHaveCount(0);
-    await a.v.getByRole('button',{name:'Rectangle (R)',exact:true}).click();const r=await a.v.locator('.board-surface').boundingBox();await a.v.mouse.move(r!.x+r!.width*.3,r!.y+r!.height*.3);await a.v.mouse.down();await a.v.mouse.move(r!.x+r!.width*.65,r!.y+r!.height*.62,{steps:8});await a.v.mouse.up();
-    const saved=await waitForDisplay(page,a.s,a.d.id,d=>d.revision>before.revision&&(d.view?.data.elements as unknown[]).length===1);expect(saved.view?.data.background).toEqual(background);await a.painted(saved.revision);expect(await a.v.locator('.board-surface').evaluate(el=>{const children=[...el.children];return children.indexOf(el.querySelector('image')!)<children.indexOf(el.querySelector('[data-element-id]')!);})).toBe(true);await photo(a.v,info,'whiteboard-background');
-    await a.v.reload();await expect(a.v.locator('.board-surface image')).toBeVisible();await expect(a.v.locator('.board-surface [data-element-id]')).toHaveCount(1);
-    await a.show({version:1,template:'whiteboard',data:{elements:[]}});await expect(a.v.locator('.board-surface image')).toHaveCount(0);await expect(a.v.locator('.board-empty')).toBeVisible();
-  }finally{await a.client.close();}
-});
+    async function setup(page: Page, info: TestInfo, baseURL: string) {
+        await register(page);
+        const s = await createSession(page, 'September improvements'), d = await createDisplay(page, s, 'Acceptance screen'), v = await openViewer(page, s, d.id);
+        const issued = await sessionApi<{
+            token: string;
+        }>(page, '/api/tokens', 'POST', { name: 'Disposable September acceptance', scopes: ['read', 'publish'] });
+        expect(issued.status).toBe(201);
+        const headers = { Authorization: `Bearer ${issued.data!.token}` }, client = info.project.name.startsWith('phone') ? new LegacyClient({ name: 'september-legacy', version: '1' }) : new Client({ name: 'september-current', version: '1' });
+        if (client instanceof LegacyClient)
+            await client.connect(new LegacyTransport(new URL('/mcp', baseURL), { requestInit: { headers } }));
+        else
+            await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', baseURL), { requestInit: { headers } }));
+        const call = async (name: string, operation: string, args: Record<string, unknown> = {}) => { const r = await client.callTool(operationRequest({ name, arguments: { operation, ...args } })); expect(r.isError, `${name}/${operation}: ${JSON.stringify(r.isError ? r.content : [])}`).not.toBe(true); expect((r.structuredContent as any).truncated).not.toBe(true); return (r.structuredContent as any).data; };
+        const current = async () => { const r = (await sessionDetail(page, s)).displays.find(x => x.id === d.id)!; return r; };
+        const painted = async (revision: number) => { await expect(v.locator('.viewer-shell')).toHaveAttribute('data-rendered-revision', String(revision)); await expect(v.locator('.viewer-shell')).toHaveAttribute('data-render-status', 'ready'); };
+        const show = async (view: ViewSpec) => { const before = await current(); await publishPrepared(page, s, [d.id], view); const next = await waitForDisplay(page, s, d.id, x => x.revision > before.revision && x.appliedRevision === x.revision); await painted(next.revision); return next; };
+        const nav = async (navigation: unknown) => call("kanvas_call", "kanvas.navigation.control", { sessionId: s, displayId: d.id, expectedRevision: (await current()).revision, requestId: randomUUID(), navigation });
+        return { s, d, v, client, call, current, painted, show, nav };
+    }
+    type Fixture = Awaited<ReturnType<typeof setup>>;
+    async function photo(page: Page, info: TestInfo, name: string) { for (const notice of await page.getByRole('button', { name: 'Dismiss notification', exact: true }).all())
+        await notice.click(); await page.evaluate(() => document.fonts.ready); await mkdir(info.outputPath('visuals'), { recursive: true }); await page.screenshot({ path: `${info.outputPath('visuals')}/${info.project.name}-${name}.png`, animations: 'disabled' }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2)).toBe(true); }
+    async function asset(a: Fixture, color = '#267f9f', w = 240, h = 120) { return a.call("kanvas_call", "kanvas.asset.import", { sessionId: a.s, name: 'Acceptance logo.svg', mimeType: 'image/svg+xml', base64: Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect x="1" y="1" width="${w - 2}" height="${h - 2}" fill="${color}" stroke="#ffffff" stroke-width="2"/><circle cx="${w / 2}" cy="${h / 2}" r="${h / 3}" fill="#ffffff"/><text x="${w / 2}" y="${h / 2 + 5}" text-anchor="middle" fill="${color}" font-size="16">K</text></svg>`).toString('base64') }); }
+    async function counterpart(a: Fixture, page: Page, browser: Browser, info: TestInfo, baseURL: string) {
+        const context = await browser.newContext({ baseURL, viewport: info.project.name.startsWith('phone') ? { width: 1440, height: 900 } : { width: 390, height: 844 }, colorScheme: 'dark', reducedMotion: 'reduce' }), peer = await context.newPage(), account = await register(peer);
+        await a.call("kanvas_call", "kanvas.profile.update", { expectedRevision: 0, displayName: 'Alex · host' });
+        expect((await sessionApi(page, `/api/sessions/${a.s}/members`, 'POST', { username: account.username, role: 'viewer' })).status).toBe(200);
+        await peer.goto(`/view/${a.s}/${a.d.id}`);
+        await expect(peer.locator('.viewer-shell')).toHaveAttribute('data-rendered-revision', String((await a.current()).revision));
+        return { context, peer };
+    }
+    async function word(page: Page, selector: string, needle: string) { return page.locator(selector).evaluate((el, text) => { const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        const at = n.textContent!.indexOf(text);
+        if (at < 0)
+            continue;
+        const range = document.createRange();
+        range.setStart(n, at);
+        range.setEnd(n, at + text.length);
+        const r = range.getClientRects()[0];
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2, left: r.left, top: r.top, width: r.width, height: r.height };
+    } throw new Error('Word is not rendered'); }, needle); }
+    async function pointAt(page: Page, selector: string) { const r = await page.locator(selector).boundingBox(); expect(r).not.toBeNull(); await page.mouse.click(r!.x + r!.width / 2, r!.y + r!.height / 2); }
+    test('whiteboard background remains behind saved drawing elements and blank boards are unchanged', async ({ page, baseURL }, info) => {
+        const a = await setup(page, info, baseURL!);
+        try {
+            const image = await asset(a), background = { url: image.url, alt: 'Supplied plan', x: 50, y: -10, width: 900, height: 450 };
+            const before = await a.show({ version: 1, template: 'whiteboard', data: { background, elements: [] } });
+            await expect(a.v.locator('.board-surface image')).toHaveAttribute('href', image.url);
+            await expect(a.v.locator('.board-empty')).toHaveCount(0);
+            await a.v.getByRole('button', { name: 'Rectangle (R)', exact: true }).click();
+            const r = await a.v.locator('.board-surface').boundingBox();
+            await a.v.mouse.move(r!.x + r!.width * .3, r!.y + r!.height * .3);
+            await a.v.mouse.down();
+            await a.v.mouse.move(r!.x + r!.width * .65, r!.y + r!.height * .62, { steps: 8 });
+            await a.v.mouse.up();
+            const saved = await waitForDisplay(page, a.s, a.d.id, d => d.revision > before.revision && (d.view?.data.elements as unknown[]).length === 1);
+            expect(saved.view?.data.background).toEqual(background);
+            await a.painted(saved.revision);
+            expect(await a.v.locator('.board-surface').evaluate(el => { const children = [...el.children]; return children.indexOf(el.querySelector('image')!) < children.indexOf(el.querySelector('[data-element-id]')!); })).toBe(true);
+            await photo(a.v, info, 'whiteboard-background');
+            await a.v.reload();
+            await expect(a.v.locator('.board-surface image')).toBeVisible();
+            await expect(a.v.locator('.board-surface [data-element-id]')).toHaveCount(1);
+            await a.show({ version: 1, template: 'whiteboard', data: { elements: [] } });
+            await expect(a.v.locator('.board-surface image')).toHaveCount(0);
+            await expect(a.v.locator('.board-empty')).toBeVisible();
+        }
+        finally {
+            await a.client.close();
+        }
+    });
 });

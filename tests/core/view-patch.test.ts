@@ -523,38 +523,60 @@ describe('statistical visual patch integration',()=>{
 });
 
 describe("view patch coverage 2", () => {
-
-describe("view patch contracts",()=>{
- let h!:Harness,o:Browser,s:string,d:string,p:{userId:string};
- beforeEach(async()=>{h=await startHarness();o=await h.account();s=(await o.session()).id;d=(await o.display(s)).id;p={userId:o.user!.id};});
- afterEach(async()=>{await h?.close();});
- const call=(name:string,args:Record<string,unknown>={})=>h.runtime.service.execute(name,args,p) as Promise<any>;
- const update=(name:string,args:Record<string,unknown>)=>call(name,{sessionId:s,displayId:d,...args});
- const publish=async(template:any,data:any)=>{const result=await o.submit(s,[d],{version:1,template,data});expect(result.update.status).toBe('prepared');return result.detail.displays.find(x=>x.id===d)!;};
- const current=async()=> (await o.detail(s)).displays.find(x=>x.id===d)!;
- const definition={name:'Team list',schema:{type:'object',properties:{title:{type:'string'},items:{type:'array',items:{type:'object',properties:{name:{type:'string'}},required:['name']}}},required:['title','items']},html:'<article><h1>{{title}}</h1><ul>{{#each items}}<li>{{name}}</li>{{/each}}</ul></article>',css:'article {padding: 24px; color: white;} h1 {font-size: 48px;}'};
- it('revision omission is valid across all advertised numeric revision/version guards; stale errors include retry value',async()=>{
-  for(const tool of CANONICAL_TOOLS){const schema=z.toJSONSchema(tool.schema,{unrepresentable:'any',io:'input'}) as any;for(const key of ['expectedRevision','expectedVersion','expectedDraftRevision','expectedDeckRevision','expectedRevisions'])if(schema.properties?.[key])expect(schema.required??[],tool.name+' '+key).not.toContain(key);}
-  await publish('checklist',{items:[{id:'a',text:'Task',checked:false}]});const display=await current(),checklistId=display.view!.data.checklistId;
-  await call('kanvas_checklist_update',{sessionId:s,checklistId,items:[{id:'a',text:'Task',checked:true}]});
-  let conflict:unknown;try{await call('kanvas_checklist_update',{sessionId:s,checklistId,expectedRevision:0,items:[]});}catch(e){conflict=e;}expect(safeError(conflict)).toMatchObject({code:'REVISION_CONFLICT',currentRevision:1});
- });
- it('narrow operations serialize concurrent writes and respect hold without losing state',async()=>{
-  await publish('seat-map',{people:[{id:'a',name:'Alex'},{id:'b',name:'Blair'}]});
-  await Promise.all([update('kanvas_seat_map_update',{action:'place',personId:'a',seatId:'seat-1'}),update('kanvas_seat_map_update',{action:'place',personId:'b',seatId:'seat-2'})]);
-  const view=await current();expect((view.view!.data.seats as any[]).filter(s=>s.personId)).toHaveLength(2);
-  await update('kanvas_display_update',{held:true});
-  await expect(update('kanvas_seat_map_update',{action:'clear-seat',seatId:'seat-1'})).rejects.toMatchObject({code:'DISPLAY_HELD'});
-  expect((await current()).view).toEqual(view.view);
- });
- it('malformed guards include current state after authorization, without leaking other accounts',async()=>{
-  await publish('kanban',{columns:[{id:'todo',name:'To do'}]});
-  let error:unknown;try{await update('kanvas_kanban_update',{action:'reorder-columns',columnIds:['todo'],expectedRevision:'bad'});}catch(e){error=e;}
-  expect(safeError(error)).toMatchObject({code:'INVALID_ARGUMENT',currentRevision:1});
-  await expect(call('kanvas_display_navigate',{sessionId:s,displayIds:[d],direction:'back',expectedRevisions:{[d]:'bad'}})).rejects.toMatchObject({code:'INVALID_ARGUMENT',currentRevision:1});
-  const stranger=await h.account();
-  await expect(h.runtime.service.execute('kanvas_kanban_update',{sessionId:s,displayId:d,action:'reorder-columns',columnIds:['todo'],expectedRevision:'bad'},{userId:stranger.user!.id})).rejects.not.toHaveProperty('currentRevision');
- });});
+    describe("view patch contracts", () => {
+        let h!: Harness, o: Browser, s: string, d: string, p: {
+            userId: string;
+        };
+        beforeEach(async () => { h = await startHarness(); o = await h.account(); s = (await o.session()).id; d = (await o.display(s)).id; p = { userId: o.user!.id }; });
+        afterEach(async () => { await h?.close(); });
+        const call = (name: string, args: Record<string, unknown> = {}) => h.runtime.service.execute(name, args, p) as Promise<any>;
+        const update = (name: string, args: Record<string, unknown>) => call(name, { sessionId: s, displayId: d, ...args });
+        const publish = async (template: any, data: any) => { const result = await o.submit(s, [d], { version: 1, template, data }); expect(result.update.status).toBe('prepared'); return result.detail.displays.find(x => x.id === d)!; };
+        const current = async () => (await o.detail(s)).displays.find(x => x.id === d)!;
+        const definition = { name: 'Team list', schema: { type: 'object', properties: { title: { type: 'string' }, items: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } } }, required: ['title', 'items'] }, html: '<article><h1>{{title}}</h1><ul>{{#each items}}<li>{{name}}</li>{{/each}}</ul></article>', css: 'article {padding: 24px; color: white;} h1 {font-size: 48px;}' };
+        it('revision omission is valid across all advertised numeric revision/version guards; stale errors include retry value', async () => {
+            for (const tool of CANONICAL_TOOLS) {
+                const schema = z.toJSONSchema(tool.schema, { unrepresentable: 'any', io: 'input' }) as any;
+                for (const key of ['expectedRevision', 'expectedVersion', 'expectedDraftRevision', 'expectedDeckRevision', 'expectedRevisions'])
+                    if (schema.properties?.[key])
+                        expect(schema.required ?? [], tool.name + ' ' + key).not.toContain(key);
+            }
+            await publish('checklist', { items: [{ id: 'a', text: 'Task', checked: false }] });
+            const display = await current(), checklistId = display.view!.data.checklistId;
+            await call("kanvas.checklist.update", { sessionId: s, checklistId, items: [{ id: 'a', text: 'Task', checked: true }] });
+            let conflict: unknown;
+            try {
+                await call("kanvas.checklist.update", { sessionId: s, checklistId, expectedRevision: 0, items: [] });
+            }
+            catch (e) {
+                conflict = e;
+            }
+            expect(safeError(conflict)).toMatchObject({ code: 'REVISION_CONFLICT', currentRevision: 1 });
+        });
+        it('narrow operations serialize concurrent writes and respect hold without losing state', async () => {
+            await publish('seat-map', { people: [{ id: 'a', name: 'Alex' }, { id: 'b', name: 'Blair' }] });
+            await Promise.all([update("kanvas.seat.map.update", { action: 'place', personId: 'a', seatId: 'seat-1' }), update("kanvas.seat.map.update", { action: 'place', personId: 'b', seatId: 'seat-2' })]);
+            const view = await current();
+            expect((view.view!.data.seats as any[]).filter(s => s.personId)).toHaveLength(2);
+            await update("kanvas.display.update", { held: true });
+            await expect(update("kanvas.seat.map.update", { action: 'clear-seat', seatId: 'seat-1' })).rejects.toMatchObject({ code: 'DISPLAY_HELD' });
+            expect((await current()).view).toEqual(view.view);
+        });
+        it('malformed guards include current state after authorization, without leaking other accounts', async () => {
+            await publish('kanban', { columns: [{ id: 'todo', name: 'To do' }] });
+            let error: unknown;
+            try {
+                await update("kanvas.kanban.update", { action: 'reorder-columns', columnIds: ['todo'], expectedRevision: 'bad' });
+            }
+            catch (e) {
+                error = e;
+            }
+            expect(safeError(error)).toMatchObject({ code: 'INVALID_ARGUMENT', currentRevision: 1 });
+            await expect(call("kanvas.display.navigate", { sessionId: s, displayIds: [d], direction: 'back', expectedRevisions: { [d]: 'bad' } })).rejects.toMatchObject({ code: 'INVALID_ARGUMENT', currentRevision: 1 });
+            const stranger = await h.account();
+            await expect(h.runtime.service.execute("kanvas.kanban.update", { sessionId: s, displayId: d, action: 'reorder-columns', columnIds: ['todo'], expectedRevision: 'bad' }, { userId: stranger.user!.id })).rejects.not.toHaveProperty('currentRevision');
+        });
+    });
 });
 
 describe("view patch coverage 3", () => {

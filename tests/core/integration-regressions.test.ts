@@ -126,57 +126,76 @@ async function tool<T>(client: Client, name: string, args: Record<string, unknow
 }
 
 describe('the published MCP feedback pagination contract', () => {
-  let h: Harness, client: Client | undefined;
-  beforeEach(async () => { h = await startHarness(); client = undefined; });
-  afterEach(async () => { await client?.close(); await h?.close(); });
-
-  it('uses afterId, a 25-record default, explicit limits and terminal cursors without losing or duplicating actions', async () => {
-    const owner = await h.account(), session = await owner.session(), display = await owner.display(session.id);
-    client = await publisher(h, owner, session.id);
-    const view: ViewSpec = { ...fact('Synthetic feedback pages'), actions: [{ id: 'next', kind: 'button', label: 'Next' }] };
-    await tool(client, 'kanvas_submit', { sessionId: session.id, requestId: 'pagination-source', displayIds: [display.id], view });
-    const prepared = await owner.settle(session.id, 'pagination-source');
-    expect(prepared.update.status).toBe('prepared');
-    const ids: string[] = [];
-    for (let index = 0; index < 31; index++) {
-      const interaction = success(await owner.request<InteractionRecord>('POST', `/api/sessions/${session.id}/interactions`, { displayId: display.id, revision: prepared.detail.displays[0].revision, actionId: 'next', value: true, requestId: `click-${index}` }));
-      ids.push(interaction.id);
-    }
-    const first = await tool<Inbox>(client, 'kanvas_interactions_read', { sessionId: session.id });
-    expect(first.interactions.map(item => item.id)).toEqual(ids.slice(0, 25));
-    expect(first.nextCursor).toBe(ids[24]);
-    expect(first.interactions.every(item => item.status === 'pending')).toBe(true);
-    const remaining = await tool<Inbox>(client, 'kanvas_interactions_read', { sessionId: session.id, afterId: first.nextCursor });
-    expect(remaining.interactions.map(item => item.id)).toEqual(ids.slice(25));
-    expect(remaining.nextCursor).toBeUndefined();
-
-    const traversed: string[] = [];
-    let afterId: string | undefined;
-    for (let pageNumber = 0; pageNumber < 5; pageNumber++) {
-      const page = await tool<Inbox>(client, 'kanvas_interactions_read', { sessionId: session.id, limit: 7, ...(afterId ? { afterId } : {}) });
-      expect(page.interactions.length).toBeLessThanOrEqual(7);
-      traversed.push(...page.interactions.map(item => item.id));
-      afterId = page.nextCursor;
-      if (!afterId) break;
-    }
-    expect(traversed).toEqual(ids);
-    expect(new Set(traversed).size).toBe(ids.length);
-    const end = await tool<Inbox>(client, 'kanvas_interactions_read', { sessionId: session.id, afterId: ids.at(-1), limit: 1 });
-    expect(end.interactions).toEqual([]);
-    expect(end.nextCursor).toBeUndefined();
-    // Reading any page must not consume pending feedback.
-    expect((await tool<Inbox>(client, 'kanvas_interactions_read', { sessionId: session.id, limit: 100 })).interactions.map(item => item.id)).toEqual(ids);
-
-    const invalid = await client.callTool(operationRequest({ name: 'kanvas_interactions_read', arguments: { sessionId: session.id, afterId: 'unknown-cursor' } }));
-    expect(invalid.isError).toBe(true);
-    const error = (invalid.structuredContent as { error: { code: string; message: string } }).error;
-    expect(['INVALID_CURSOR', 'INVALID_ARGUMENT']).toContain(error.code);
-    expect(error.message.length).toBeLessThan(300);
-    for (const limit of [0, 101]) {
-      const invalidLimit = await client.callTool(operationRequest({ name: 'kanvas_interactions_read', arguments: { sessionId: session.id, limit } }));
-      expect(invalidLimit.isError).toBe(true);
-    }
-  });
+    let h: Harness, client: Client | undefined;
+    beforeEach(async () => { h = await startHarness(); client = undefined; });
+    afterEach(async () => { await client?.close(); await h?.close(); });
+    it('uses afterId, a 25-record default, explicit limits and terminal cursors without losing or duplicating actions', async () => {
+        const owner = await h.account(), session = await owner.session(), display = await owner.display(session.id);
+        client = await publisher(h, owner, session.id);
+        const view: ViewSpec = { ...fact('Synthetic feedback pages'), actions: [{ id: 'next', kind: 'button', label: 'Next' }] };
+        await tool(client, "kanvas.submit", { sessionId: session.id, requestId: 'pagination-source', displayIds: [display.id], view });
+        const prepared = await owner.settle(session.id, 'pagination-source');
+        expect(prepared.update.status).toBe('prepared');
+        const ids: string[] = [];
+        for (let index = 0; index < 31; index++) {
+            const interaction = success(await owner.request<InteractionRecord>('POST', `/api/sessions/${session.id}/interactions`, { displayId: display.id, revision: prepared.detail.displays[0].revision, actionId: 'next', value: true, requestId: `click-${index}` }));
+            ids.push(interaction.id);
+        }
+        const first = await tool<Inbox>(client, "kanvas.interactions.read", { sessionId: session.id });
+        expect(first.interactions.map(item => item.id)).toEqual(ids.slice(0, 25));
+        expect(first.nextCursor).toBe(ids[24]);
+        expect(first.interactions.every(item => item.status === 'pending')).toBe(true);
+        const remaining = await tool<Inbox>(client, "kanvas.interactions.read", { sessionId: session.id, afterId: first.nextCursor });
+        expect(remaining.interactions.map(item => item.id)).toEqual(ids.slice(25));
+        expect(remaining.nextCursor).toBeUndefined();
+        const traversed: string[] = [];
+        let afterId: string | undefined;
+        for (let pageNumber = 0; pageNumber < 5; pageNumber++) {
+            const page = await tool<Inbox>(client, "kanvas.interactions.read", { sessionId: session.id, limit: 7, ...(afterId ? { afterId } : {}) });
+            expect(page.interactions.length).toBeLessThanOrEqual(7);
+            traversed.push(...page.interactions.map(item => item.id));
+            afterId = page.nextCursor;
+            if (!afterId)
+                break;
+        }
+        expect(traversed).toEqual(ids);
+        expect(new Set(traversed).size).toBe(ids.length);
+        const end = await tool<Inbox>(client, "kanvas.interactions.read", { sessionId: session.id, afterId: ids.at(-1), limit: 1 });
+        expect(end.interactions).toEqual([]);
+        expect(end.nextCursor).toBeUndefined();
+        // Reading any page must not consume pending feedback.
+        expect((await tool<Inbox>(client, "kanvas.interactions.read", { sessionId: session.id, limit: 100 })).interactions.map(item => item.id)).toEqual(ids);
+        const invalid = await client.callTool(operationRequest({
+            name: "kanvas_call",
+            arguments: {
+                operationId: "kanvas.interactions.read",
+                arguments: {
+                    sessionId: session.id, afterId: 'unknown-cursor'
+                }
+            }
+        }));
+        expect(invalid.isError).toBe(true);
+        const error = (invalid.structuredContent as {
+            error: {
+                code: string;
+                message: string;
+            };
+        }).error;
+        expect(['INVALID_CURSOR', 'INVALID_ARGUMENT']).toContain(error.code);
+        expect(error.message.length).toBeLessThan(300);
+        for (const limit of [0, 101]) {
+            const invalidLimit = await client.callTool(operationRequest({
+                name: "kanvas_call",
+                arguments: {
+                    operationId: "kanvas.interactions.read",
+                    arguments: {
+                        sessionId: session.id, limit
+                    }
+                }
+            }));
+            expect(invalidLimit.isError).toBe(true);
+        }
+    });
 });
 
 describe('multi-target usage accounting', () => {

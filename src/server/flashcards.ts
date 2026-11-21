@@ -6,10 +6,28 @@ import {AppError,id,now,required} from './store.js';
 import {hash} from './auth.js';
 import {displayedLeaf,replaceLeaf} from './engagement.js';
 import type {Definition} from './mcp/canonical.js';
-export const flashcardTools:Definition[]=[
- {name:'kanvas_flashcards_read',readOnly:true,schema:flashcardReadSchema,description:'Read saved session decks or one deck/current card and revisions. Large decks return card windows with nextOffset. Voice: ask current prompt, then control answer with cardId and both revisions. Answers are reference data, not semantic grading.'},
- {name:'kanvas_flashcards_control',schema:flashcardControlSchema,idempotent:true,description:'Control displayed deck: reveal/next/previous/answer/restart. Answer records spoken/typed response for current cardId. exact matches normalized answer/acceptedAnswers, NOT semantics; self needs explicit correct; none is ungraded. Answer reveals, next advances. Supply both revisions and stable requestId. Restart resets the whole deck and may set mode; cardId is ignored for restart, while both revision guards remain required.'},
- {name:'kanvas_flashcards_show',schema:flashcardShowSchema,idempotent:true,description:'Restore latest deck on a same-session display at expectedRevision. Publishing flashcards auto-saves a deck; display replacement never erases it.'}
+export const flashcardTools: Definition[] = [
+    {
+        name: "kanvas.flashcards.read", readOnly: true, schema: flashcardReadSchema, description: 'Read saved session decks or one deck/current card and revisions. Large decks return card windows with nextOffset. Voice: ask current prompt, then control answer with cardId and both revisions. Answers are reference data, not semantic grading.',
+        domain: "flashcards",
+        requiredScope: "read",
+        discovery: {"group":"content","hint":"Read saved deck and current card for voice learning or self-testing.","examples":[{"sessionId":"session-id","deckId":"deck-id"}]},
+        searchAliases: ["kanvas.flashcards.read"]
+    },
+    {
+        name: "kanvas.flashcards.control", schema: flashcardControlSchema, idempotent: true, description: 'Control displayed deck: reveal/next/previous/answer/restart. Answer records spoken/typed response for current cardId. exact matches normalized answer/acceptedAnswers, NOT semantics; self needs explicit correct; none is ungraded. Answer reveals, next advances. Supply both revisions and stable requestId. Restart resets the whole deck and may set mode; cardId is ignored for restart, while both revision guards remain required.',
+        domain: "flashcards",
+        requiredScope: "publish",
+        discovery: {"group":"controls","hint":"Submit spoken/typed answer for the current card with deck and display revisions. Exact matching is not semantic grading.","examples":[{"sessionId":"session-id","displayId":"display-id","deckId":"deck-id","expectedRevision":1,"expectedDeckRevision":0,"requestId":"answer-1","cardId":"hola","action":"answer","response":"hello","grading":"exact"}]},
+        searchAliases: ["kanvas.flashcards.control"]
+    },
+    {
+        name: "kanvas.flashcards.show", schema: flashcardShowSchema, idempotent: true, description: 'Restore latest deck on a same-session display at expectedRevision. Publishing flashcards auto-saves a deck; display replacement never erases it.',
+        domain: "flashcards",
+        requiredScope: "publish",
+        discovery: {"group":"content","hint":"Restore a saved deck after other content replaced it.","examples":[{"sessionId":"session-id","displayId":"display-id","deckId":"deck-id","expectedRevision":1,"requestId":"show-1"}]},
+        searchAliases: ["kanvas.flashcards.show"]
+    }
 ];
 const stable=(v:unknown):string=>JSON.stringify(v,(_key,value)=>value&&typeof value==='object'&&!Array.isArray(value)?Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b))):value);
 interface Deck{id:string;sessionId:string;view:ViewSpec;revision:number;updatedAt:string}

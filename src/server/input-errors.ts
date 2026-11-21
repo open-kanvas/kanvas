@@ -1,8 +1,8 @@
-import { z } from 'zod';
-import { viewSchema, leafViewSchema } from '../shared/view-schemas.js';
-import { feedbackSubmitSchema, errorReportSchema, reportsReadSchema, reportUpdateSchema } from '../shared/reports.js';
-import { AppError } from './store.js';
-import { COUNTDOWN_TARGET_TIME_RULE, timerValidationRule } from '../shared/timer.js';
+import {z} from 'zod';
+import {viewSchema,leafViewSchema} from '../shared/view-schemas.js';
+import {feedbackSubmitSchema,errorReportSchema,reportsReadSchema,reportUpdateSchema} from '../shared/reports.js';
+import {AppError} from './store.js';
+import {COUNTDOWN_TARGET_TIME_RULE,timerValidationRule} from '../shared/timer.js';
 
 export interface ValidationIssue { /** How many fields share this exact problem; path is the first of them. */ count?:number; alsoAt?:string[]; allowedFields?:string[]; hint?:string; expected?:string; received?:string; path: string; problem: string; maximum?: number; actual?: number; unit?: 'characters' | 'items' | 'bytes' }
 
@@ -177,7 +177,10 @@ export function collapseRepeatedIssues(issues: ValidationIssue[]): ValidationIss
 
 /** Contains only server-selected guidance, never the original exception text. */
 export class InputError extends AppError {
-  constructor(public readonly issues: ValidationIssue[] = [], public readonly template?: string, public readonly guidance?: { schemaTool: 'kanvas_guide' | 'kanvas_template_get'; topic?: string }) {
-    super('INVALID_ARGUMENT', issues.length ? `Invalid arguments: ${issues.slice(0, 3).map(issue => `${issue.path}: ${issue.problem}`).join(' ')}` : 'Invalid arguments. Check the tool schema and current state.');
-  }
+    constructor(public readonly issues: ValidationIssue[] = [], public readonly template?: string, public readonly guidance?: {
+        schemaTool: "kanvas.guide" | "kanvas.template.get";
+        topic?: string;
+    }) {
+        super('INVALID_ARGUMENT', issues.length ? `Invalid arguments: ${issues.slice(0, 3).map(issue => `${issue.path}: ${issue.problem}`).join(' ')}` : 'Invalid arguments. Check the tool schema and current state.');
+    }
 }

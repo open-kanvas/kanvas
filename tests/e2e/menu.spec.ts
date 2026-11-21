@@ -51,27 +51,49 @@ test('menu images load from protected source assets and text stays glanceable wi
 });
 
 test.describe("menu coverage 2", () => {
-
-
-async function setup(page:Page,info:TestInfo,baseURL:string){
-  const account=await register(page),s=await createSession(page,'Spatial acceptance'),d=await createDisplay(page,s,'Retained content'),v=await openViewer(page,s,d.id);
-  const issued=await sessionApi<{token:string}>(page,'/api/tokens','POST',{name:'Disposable evening checks',scopes:['read','publish']});expect(issued.status).toBe(201);
-  const headers={Authorization:`Bearer ${issued.data!.token}`},client=info.project.name.startsWith('phone')?new LegacyClient({name:'evening-legacy',version:'1'}):new Client({name:'evening-current',version:'1'});
-  if(client instanceof LegacyClient)await client.connect(new LegacyTransport(new URL('/mcp',baseURL),{requestInit:{headers}}));else await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',baseURL),{requestInit:{headers}}));
-  const call=async<T=any>(name:string,operation:string,args:Record<string,unknown>={})=>{const r=await client.callTool(operationRequest({name,arguments:{operation,...args}}));expect(r.isError,`${name} ${operation}`).not.toBe(true);return(r.structuredContent as {data:T}).data;};
-  const current=()=>waitForDisplay(page,s,d.id,x=>x.revision>0&&x.appliedRevision===x.revision),show=async(view:ViewSpec)=>{await publishPrepared(page,s,[d.id],view);return current();};
-  const nav=async(navigation:unknown)=>{const before=await current();return call('kanvas_control','navigation.control',{sessionId:s,displayId:d.id,expectedRevision:before.revision,requestId:randomUUID(),navigation});};
-  return {account,s,d,v,call,client,current,show,nav};
-}
-async function photo(page:Page,info:TestInfo,name:string){await expect(page.locator('.viewer-toast')).toHaveCount(0,{timeout:15000});await page.evaluate(()=>document.fonts.ready);await mkdir(info.outputPath('visuals'),{recursive:true});await page.screenshot({path:`${info.outputPath('visuals')}/${info.project.name}-${name}.png`,animations:'disabled'});}
-test('compact viewports and commerce details stay visible on both receiver sizes',async({page,baseURL},info)=>{
- const a=await setup(page,info,baseURL!);try{
-  const data={description:'Responsive sample',html:'<h1>Sample</h1>',viewports:['small-phone','iphone','pixel','tablet','laptop','desktop']};
-  await a.show({version:1,template:'device-preview',data:{...data,gridSize:'standard'}});const count=()=>a.v.locator('.viewer-candidate .device-preview-grid').evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(' ').length),standard=await count();
-  await a.show({version:1,template:'device-preview',data:{...data,gridSize:'compact'}});if(info.project.name.startsWith('phone'))expect(await count()).toBeGreaterThanOrEqual(standard);else expect(await count()).toBeGreaterThan(standard);expect(await a.v.locator('.viewer-candidate iframe').nth(1).evaluate(e=>(e as HTMLIFrameElement).clientWidth)).toBe(390);await photo(a.v,info,'compact-previews');
-  await a.show({version:1,template:'product',data:{name:'Reference headset',description:'Supplied description',layout:'multi-vendor',attributes:[{key:'battery',label:'Battery'}],offers:[{vendor:'Shop A',price:'USD 99',availability:'In stock',shipping:'Two days',attributes:{battery:'30h'}},{vendor:'Shop B',price:'USD 109',availability:'Backorder',shipping:'One week'}]}});
-  for(const value of ['Reference headset','USD 99','In stock','Two days','30h'])await expect(a.v.locator('.viewer-candidate .product-comparison')).toContainText(value);await photo(a.v,info,'vendor-details');
-  await a.show({version:1,template:'comparison',data:{criteria:['Cost'],items:[{name:'A',values:{Cost:1}},{name:'B',values:{Cost:2}}],commentary:{Cost:'Different costs'}}});const cell=a.v.locator('.viewer-candidate td.comparison-commentary');expect(await cell.evaluate(e=>getComputedStyle(e).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');await photo(a.v,info,'comparison-summary');
- }finally{await a.client.close();}
-});
+    async function setup(page: Page, info: TestInfo, baseURL: string) {
+        const account = await register(page), s = await createSession(page, 'Spatial acceptance'), d = await createDisplay(page, s, 'Retained content'), v = await openViewer(page, s, d.id);
+        const issued = await sessionApi<{
+            token: string;
+        }>(page, '/api/tokens', 'POST', { name: 'Disposable evening checks', scopes: ['read', 'publish'] });
+        expect(issued.status).toBe(201);
+        const headers = { Authorization: `Bearer ${issued.data!.token}` }, client = info.project.name.startsWith('phone') ? new LegacyClient({ name: 'evening-legacy', version: '1' }) : new Client({ name: 'evening-current', version: '1' });
+        if (client instanceof LegacyClient)
+            await client.connect(new LegacyTransport(new URL('/mcp', baseURL), { requestInit: { headers } }));
+        else
+            await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', baseURL), { requestInit: { headers } }));
+        const call = async <T = any>(name: string, operation: string, args: Record<string, unknown> = {}) => { const r = await client.callTool(operationRequest({ name, arguments: { operation, ...args } })); expect(r.isError, `${name} ${operation}`).not.toBe(true); return (r.structuredContent as {
+            data: T;
+        }).data; };
+        const current = () => waitForDisplay(page, s, d.id, x => x.revision > 0 && x.appliedRevision === x.revision), show = async (view: ViewSpec) => { await publishPrepared(page, s, [d.id], view); return current(); };
+        const nav = async (navigation: unknown) => { const before = await current(); return call("kanvas_call", "kanvas.navigation.control", { sessionId: s, displayId: d.id, expectedRevision: before.revision, requestId: randomUUID(), navigation }); };
+        return { account, s, d, v, call, client, current, show, nav };
+    }
+    async function photo(page: Page, info: TestInfo, name: string) { await expect(page.locator('.viewer-toast')).toHaveCount(0, { timeout: 15000 }); await page.evaluate(() => document.fonts.ready); await mkdir(info.outputPath('visuals'), { recursive: true }); await page.screenshot({ path: `${info.outputPath('visuals')}/${info.project.name}-${name}.png`, animations: 'disabled' }); }
+    test('compact viewports and commerce details stay visible on both receiver sizes', async ({ page, baseURL }, info) => {
+        const a = await setup(page, info, baseURL!);
+        try {
+            const data = { description: 'Responsive sample', html: '<h1>Sample</h1>', viewports: ['small-phone', 'iphone', 'pixel', 'tablet', 'laptop', 'desktop'] };
+            await a.show({ version: 1, template: 'device-preview', data: { ...data, gridSize: 'standard' } });
+            const count = () => a.v.locator('.viewer-candidate .device-preview-grid').evaluate(e => getComputedStyle(e).gridTemplateColumns.split(' ').length), standard = await count();
+            await a.show({ version: 1, template: 'device-preview', data: { ...data, gridSize: 'compact' } });
+            if (info.project.name.startsWith('phone'))
+                expect(await count()).toBeGreaterThanOrEqual(standard);
+            else
+                expect(await count()).toBeGreaterThan(standard);
+            expect(await a.v.locator('.viewer-candidate iframe').nth(1).evaluate(e => (e as HTMLIFrameElement).clientWidth)).toBe(390);
+            await photo(a.v, info, 'compact-previews');
+            await a.show({ version: 1, template: 'product', data: { name: 'Reference headset', description: 'Supplied description', layout: 'multi-vendor', attributes: [{ key: 'battery', label: 'Battery' }], offers: [{ vendor: 'Shop A', price: 'USD 99', availability: 'In stock', shipping: 'Two days', attributes: { battery: '30h' } }, { vendor: 'Shop B', price: 'USD 109', availability: 'Backorder', shipping: 'One week' }] } });
+            for (const value of ['Reference headset', 'USD 99', 'In stock', 'Two days', '30h'])
+                await expect(a.v.locator('.viewer-candidate .product-comparison')).toContainText(value);
+            await photo(a.v, info, 'vendor-details');
+            await a.show({ version: 1, template: 'comparison', data: { criteria: ['Cost'], items: [{ name: 'A', values: { Cost: 1 } }, { name: 'B', values: { Cost: 2 } }], commentary: { Cost: 'Different costs' } } });
+            const cell = a.v.locator('.viewer-candidate td.comparison-commentary');
+            expect(await cell.evaluate(e => getComputedStyle(e).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
+            await photo(a.v, info, 'comparison-summary');
+        }
+        finally {
+            await a.client.close();
+        }
+    });
 });

@@ -614,22 +614,33 @@ describe("monitoring contracts", () => {
 });
 
 describe("monitoring coverage 3", () => {
-
-let h!:Harness;const id=()=>randomUUID();afterEach(async()=>{await h?.close();});
-
-it('pushes all six prioritized live views, preserves exact samples, replays lost responses and rejects stale, held, foreign or changed targets',async()=>{
- h=await startHarness();const a=await h.account(),b=await h.account(),s=await a.session(),d=await a.display(s.id),svc=h.runtime.service,p={userId:a.user!.id};
- const views:any[]=[{version:1,template:'number',data:{value:'1.2300',label:'Exact'}}];
- for(const kind of ['gauge','line','area','bar','heatmap'])views.push({version:1,template:'chart',data:kind==='gauge'?{kind,gauge:{min:0,max:100},series:[{name:'Sensor',points:[{x:'Now',y:12}]}]}:{kind,series:[{name:'Sensor',points:[{x:'T1',y:12,...(kind==='heatmap'?{value:12}:{})},{x:'T2',y:18,...(kind==='heatmap'?{value:18}:{})}]}]}});
- for(const view of views){await a.submit(s.id,[d.id],view);const before=(await svc.display(p,s.id,d.id)),data=structuredClone(before.view!.data);if(view.template==='number')data.value='9007199254740993';else(data.series as any)[0].points[0].y=23;
-  const input={sessionId:s.id,displayId:d.id,requestId:id(),expectedRevision:before.revision,data};
-  const result:any=await svc.execute('kanvas_live_push',input,p);expect((await svc.display(p,s.id,d.id)).view!.data).toEqual(validateView({...view,data}).data);
-  expect((await svc.execute('kanvas_live_push',input,p) as any).id).toBe(result.id);
-  await expect(svc.execute('kanvas_live_push',{...input,requestId:id()},p)).rejects.toMatchObject({code:'REVISION_CONFLICT'});
-  await expect(svc.execute('kanvas_live_push',{...input,requestId:id(),expectedRevision:result.revisions[d.id]},{userId:b.user!.id})).rejects.toThrow();
- }
- const before=(await svc.display(p,s.id,d.id));(await svc.updateDisplay(p,s.id,d.id,{held:true,expectedRevision:before.revision}));const revision=(await svc.display(p,s.id,d.id)).revision;
- await expect(svc.execute('kanvas_live_push',{sessionId:s.id,displayId:d.id,requestId:id(),expectedRevision:revision,data:before.view!.data},p)).rejects.toMatchObject({code:'DISPLAY_HELD'});
- expect((await svc.display(p,s.id,d.id)).revision).toBe(revision);
-});
+    let h!: Harness;
+    const id = () => randomUUID();
+    afterEach(async () => { await h?.close(); });
+    it('pushes all six prioritized live views, preserves exact samples, replays lost responses and rejects stale, held, foreign or changed targets', async () => {
+        h = await startHarness();
+        const a = await h.account(), b = await h.account(), s = await a.session(), d = await a.display(s.id), svc = h.runtime.service, p = { userId: a.user!.id };
+        const views: any[] = [{ version: 1, template: 'number', data: { value: '1.2300', label: 'Exact' } }];
+        for (const kind of ['gauge', 'line', 'area', 'bar', 'heatmap'])
+            views.push({ version: 1, template: 'chart', data: kind === 'gauge' ? { kind, gauge: { min: 0, max: 100 }, series: [{ name: 'Sensor', points: [{ x: 'Now', y: 12 }] }] } : { kind, series: [{ name: 'Sensor', points: [{ x: 'T1', y: 12, ...(kind === 'heatmap' ? { value: 12 } : {}) }, { x: 'T2', y: 18, ...(kind === 'heatmap' ? { value: 18 } : {}) }] }] } });
+        for (const view of views) {
+            await a.submit(s.id, [d.id], view);
+            const before = (await svc.display(p, s.id, d.id)), data = structuredClone(before.view!.data);
+            if (view.template === 'number')
+                data.value = '9007199254740993';
+            else
+                (data.series as any)[0].points[0].y = 23;
+            const input = { sessionId: s.id, displayId: d.id, requestId: id(), expectedRevision: before.revision, data };
+            const result: any = await svc.execute("kanvas.live.push", input, p);
+            expect((await svc.display(p, s.id, d.id)).view!.data).toEqual(validateView({ ...view, data }).data);
+            expect((await svc.execute("kanvas.live.push", input, p) as any).id).toBe(result.id);
+            await expect(svc.execute("kanvas.live.push", { ...input, requestId: id() }, p)).rejects.toMatchObject({ code: 'REVISION_CONFLICT' });
+            await expect(svc.execute("kanvas.live.push", { ...input, requestId: id(), expectedRevision: result.revisions[d.id] }, { userId: b.user!.id })).rejects.toThrow();
+        }
+        const before = (await svc.display(p, s.id, d.id));
+        (await svc.updateDisplay(p, s.id, d.id, { held: true, expectedRevision: before.revision }));
+        const revision = (await svc.display(p, s.id, d.id)).revision;
+        await expect(svc.execute("kanvas.live.push", { sessionId: s.id, displayId: d.id, requestId: id(), expectedRevision: revision, data: before.view!.data }, p)).rejects.toMatchObject({ code: 'DISPLAY_HELD' });
+        expect((await svc.display(p, s.id, d.id)).revision).toBe(revision);
+    });
 });

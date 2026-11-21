@@ -1,8 +1,8 @@
-import { projectSelection } from './selection.js';
-import { z } from 'zod';
-import { readingActionSchema, READING_DEFAULTS, READING_SPEEDS, type ReadingState } from './reading.js';
-import { logEntries, type LogData } from './task-views.js';
-import type { ViewSpec } from './types.js';
+import {projectSelection} from './selection.js';
+import {z} from 'zod';
+import {readingActionSchema,READING_DEFAULTS,READING_SPEEDS,type ReadingState} from './reading.js';
+import {logEntries,type LogData} from './task-views.js';
+import type {ViewSpec} from './types.js';
 
 const unit = z.number().finite().min(0).max(1);
 export const navigationActionSchema = z.discriminatedUnion('action', [
@@ -56,7 +56,7 @@ export function navigate(view:ViewSpec|null, prior:NavigationState, action:Navig
   return next;
 }
 const slot=z.string().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/);
-export const navigationInputSchema=z.object({sessionId:slot,displayId:slot,requestId:slot,expectedRevision:z.number().int().nonnegative().optional(),viewerId:slot.optional().describe('Receiving device-window from viewers.read. Required for zoom unless exactly one viewer is active; zoom is always per window even in shared/presenter mode.'),navigation:navigationActionSchema}).strict();
+export const navigationInputSchema = z.object({ sessionId: slot, displayId: slot, requestId: slot, expectedRevision: z.number().int().nonnegative().optional(), viewerId: slot.optional().describe("Receiving device-window from kanvas_call with operationId:\"kanvas.viewers.read\" and arguments:{\u2026}. Required for zoom unless exactly one viewer is active; zoom is always per window even in shared/presenter mode."), navigation: navigationActionSchema }).strict();
 export const navigationReadSchema=z.object({sessionId:slot,displayId:slot,viewerId:slot.optional()}).strict();
 export const pinSaveSchema=z.object({sessionId:slot,displayId:slot,requestId:slot,label:z.string().trim().min(1).max(120),revision:z.number().int().nonnegative().optional()}).strict();
 export const pinRecallSchema=z.object({sessionId:slot,displayId:slot,requestId:slot,pinId:slot,expectedRevision:z.number().int().nonnegative().optional()}).strict();

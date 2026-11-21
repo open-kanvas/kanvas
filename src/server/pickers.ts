@@ -62,9 +62,21 @@ export const PICKER_ICON_BYTES=64*1024,PICKER_FONT_BYTES=400*1024,PICKER_CACHE_B
 const identifier=z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 export const iconsSearchSchema=z.strictObject({query:z.string().trim().min(1).max(60),sets:z.array(z.enum([...ICON_SET_IDS,ICONIFY_SET])).max(6).optional(),limit:z.number().int().min(1).max(24).default(12),sessionId:identifier.optional()});
 export const fontsListSchema=z.strictObject({category:z.enum(['sans','serif','mono','display','handwriting']).optional(),family:fontIdSchema.optional()});
-export const pickerTools:Definition[]=[
- {name:'kanvas_icons_search',schema:iconsSearchSchema,readOnly:true,description:'Find icons by concept in open-source sets (Lucide, Heroicons, Phosphor, Tabler, Material Symbols; iconify where configured). Returns exact ids and a ready icon-picker view.'},
- {name:'kanvas_fonts_list',schema:fontsListSchema,readOnly:true,description:'List curated open-licence font families with ids and weights for the font-picker template, or check one family id.'},
+export const pickerTools: Definition[] = [
+    {
+        name: "kanvas.icons.search", schema: iconsSearchSchema, readOnly: true, description: 'Find icons by concept in open-source sets (Lucide, Heroicons, Phosphor, Tabler, Material Symbols; iconify where configured). Returns exact ids and a ready icon-picker view.',
+        domain: "template",
+        requiredScope: "read",
+        discovery: {"group":"guidance","hint":"Find icons by concept across open-source sets; returns exact set:name ids and a ready icon-picker view.","examples":[{"query":"settings","limit":8}]},
+        searchAliases: ["kanvas.icons.search"]
+    },
+    {
+        name: "kanvas.fonts.list", schema: fontsListSchema, readOnly: true, description: 'List curated open-licence font families with ids and weights for the font-picker template, or check one family id.',
+        domain: "template",
+        requiredScope: "read",
+        discovery: {"group":"guidance","hint":"Curated open-licence font families with ids and weights for the font-picker template.","examples":[{"category":"serif"}]},
+        searchAliases: ["kanvas.fonts.list"]
+    },
 ];
 interface Entry {body:Buffer;type:string;bytes:number}
 export function sanitizeSvg(source:string):string|undefined{

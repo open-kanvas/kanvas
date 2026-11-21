@@ -38,30 +38,46 @@ import { visualHelp } from '../../src/server/visual-help';
 import { HELP_TOPICS } from '../../src/shared/help';
 
 describe("device login coverage 1", () => {
-
-let h!:Harness;afterEach(async()=>{await h?.close();});
-describe('keyboardless account receiver boundary',()=>{
- it('requires code AND exact label + confirm, claims once, retargets only by owner, and revokes retained access',async()=>{
-  h=await startHarness();const owner=await h.account(),screen=h.browser(),stranger=await h.account(),service=h.runtime.service;
-  const req=success(await screen.request<any>('POST','/api/screens/request',{}));expect(req).not.toHaveProperty('proof');
-  expect(await service.execute('kanvas_screen_read',{code:req.code},{userId:owner.user!.id})).toMatchObject({code:req.code,label:req.label,status:'pending'});
-  denied(await screen.request('POST','/api/screens/lookup',{code:req.code}),[401]);
-  denied(await owner.request('POST','/api/screens/decide',{code:req.code,label:'wrong label',approve:true,confirm:true}),[400]);
-  denied(await owner.request('POST','/api/screens/decide',{code:req.code,label:req.label,approve:true}),[400]);
-  success(await owner.request('POST','/api/screens/decide',{code:req.code,label:req.label,approve:true,confirm:true,name:'Classroom TV'}));
-  const claims=await Promise.all([screen.request<any>('POST','/api/screens/claim',{}),screen.request<any>('POST','/api/screens/claim',{})]);expect(claims.filter(x=>x.status===200)).toHaveLength(1);
-  const me=success(await screen.request<any>('GET','/api/auth/me'));screen.csrf=me.csrfToken;expect(me).toMatchObject({viewOnly:true,user:{username:'guest'}});expect(me.receiverDeviceId).toEqual(expect.any(String));
-  for(const path of ['/api/start','/api/devices','/api/auth/sessions','/api/media-library','/api/account/details'])denied(await screen.request('GET',path));
-  denied(await screen.request('POST','/api/sessions',{name:'Not allowed'}));
-  const p=(await h.runtime.auth.browser({cookies:Object.fromEntries(screen.cookies),get:()=>undefined} as unknown as Request)).principal;
-  const received:unknown[]=[];const stream=await service.devices.stream(p,me.receiverDeviceId,x=>received.push(x));await stream.push();
-  const session=await owner.session('Target'),display=await owner.display(session.id),op={userId:owner.user!.id};
-  await expect(service.devices.present(p,{deviceId:me.receiverDeviceId,sessionId:session.id,displayId:display.id,requestId:'forbidden'})).rejects.toThrow();
-  await expect(service.devices.present({userId:stranger.user!.id},{deviceId:me.receiverDeviceId,sessionId:session.id,displayId:display.id,requestId:'foreign'})).rejects.toThrow();
-  await service.devices.present(op,{deviceId:me.receiverDeviceId,sessionId:session.id,displayId:display.id,requestId:'owner-presents'});await stream.push();expect(received.at(-1)).toMatchObject({command:{displayId:display.id}});
-  expect((await service.display(p,session.id,display.id)).id).toBe(display.id);await expect(service.display(p,me.sessionId,me.displayId)).rejects.toThrow();
-  await h.runtime.auth.revokeBrowser(p.browserId!);await expect(stream.push()).rejects.toThrow();await expect(service.display(p,session.id,display.id)).rejects.toThrow();stream.close();
- });});
+    let h!: Harness;
+    afterEach(async () => { await h?.close(); });
+    describe('keyboardless account receiver boundary', () => {
+        it('requires code AND exact label + confirm, claims once, retargets only by owner, and revokes retained access', async () => {
+            h = await startHarness();
+            const owner = await h.account(), screen = h.browser(), stranger = await h.account(), service = h.runtime.service;
+            const req = success(await screen.request<any>('POST', '/api/screens/request', {}));
+            expect(req).not.toHaveProperty('proof');
+            expect(await service.execute("kanvas.screen.read", { code: req.code }, { userId: owner.user!.id })).toMatchObject({ code: req.code, label: req.label, status: 'pending' });
+            denied(await screen.request('POST', '/api/screens/lookup', { code: req.code }), [401]);
+            denied(await owner.request('POST', '/api/screens/decide', { code: req.code, label: 'wrong label', approve: true, confirm: true }), [400]);
+            denied(await owner.request('POST', '/api/screens/decide', { code: req.code, label: req.label, approve: true }), [400]);
+            success(await owner.request('POST', '/api/screens/decide', { code: req.code, label: req.label, approve: true, confirm: true, name: 'Classroom TV' }));
+            const claims = await Promise.all([screen.request<any>('POST', '/api/screens/claim', {}), screen.request<any>('POST', '/api/screens/claim', {})]);
+            expect(claims.filter(x => x.status === 200)).toHaveLength(1);
+            const me = success(await screen.request<any>('GET', '/api/auth/me'));
+            screen.csrf = me.csrfToken;
+            expect(me).toMatchObject({ viewOnly: true, user: { username: 'guest' } });
+            expect(me.receiverDeviceId).toEqual(expect.any(String));
+            for (const path of ['/api/start', '/api/devices', '/api/auth/sessions', '/api/media-library', '/api/account/details'])
+                denied(await screen.request('GET', path));
+            denied(await screen.request('POST', '/api/sessions', { name: 'Not allowed' }));
+            const p = (await h.runtime.auth.browser({ cookies: Object.fromEntries(screen.cookies), get: () => undefined } as unknown as Request)).principal;
+            const received: unknown[] = [];
+            const stream = await service.devices.stream(p, me.receiverDeviceId, x => received.push(x));
+            await stream.push();
+            const session = await owner.session('Target'), display = await owner.display(session.id), op = { userId: owner.user!.id };
+            await expect(service.devices.present(p, { deviceId: me.receiverDeviceId, sessionId: session.id, displayId: display.id, requestId: 'forbidden' })).rejects.toThrow();
+            await expect(service.devices.present({ userId: stranger.user!.id }, { deviceId: me.receiverDeviceId, sessionId: session.id, displayId: display.id, requestId: 'foreign' })).rejects.toThrow();
+            await service.devices.present(op, { deviceId: me.receiverDeviceId, sessionId: session.id, displayId: display.id, requestId: 'owner-presents' });
+            await stream.push();
+            expect(received.at(-1)).toMatchObject({ command: { displayId: display.id } });
+            expect((await service.display(p, session.id, display.id)).id).toBe(display.id);
+            await expect(service.display(p, me.sessionId, me.displayId)).rejects.toThrow();
+            await h.runtime.auth.revokeBrowser(p.browserId!);
+            await expect(stream.push()).rejects.toThrow();
+            await expect(service.display(p, session.id, display.id)).rejects.toThrow();
+            stream.close();
+        });
+    });
 });
 
 describe("device login coverage 2", () => {

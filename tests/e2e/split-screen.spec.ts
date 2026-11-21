@@ -28,39 +28,65 @@ import { beginEmailConnector } from './email-oauth-fixture';
 import { operationId } from '../../src/server/mcp/operations';
 
 test.describe("split screen coverage 1", () => {
-
-
-async function setup(page:Page,info:TestInfo,baseURL:string){
-  const account=await register(page),s=await createSession(page,'Evening acceptance'),d=await createDisplay(page,s,'Retained content'),v=await openViewer(page,s,d.id);
-  const issued=await sessionApi<{token:string}>(page,'/api/tokens','POST',{name:'Disposable evening checks',scopes:['read','publish']});expect(issued.status).toBe(201);
-  const headers={Authorization:`Bearer ${issued.data!.token}`},client=info.project.name.startsWith('phone')?new LegacyClient({name:'evening-legacy',version:'1'}):new Client({name:'evening-current',version:'1'});
-  if(client instanceof LegacyClient)await client.connect(new LegacyTransport(new URL('/mcp',baseURL),{requestInit:{headers}}));else await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',baseURL),{requestInit:{headers}}));
-  const call=async<T=any>(name:string,operation:string,args:Record<string,unknown>={})=>{const r=await client.callTool(operationRequest({name,arguments:{operation,...args}}));expect(r.isError,`${name} ${operation}: ${JSON.stringify((r.structuredContent as any)?.error??{}).slice(0,600)}`).not.toBe(true);return(r.structuredContent as {data:T}).data;};
-  const current=()=>waitForDisplay(page,s,d.id,x=>x.revision>0&&x.appliedRevision===x.revision),show=async(view:ViewSpec)=>{await publishPrepared(page,s,[d.id],view);return current();};
-  const nav=async(navigation:unknown)=>{const before=await current();return call('kanvas_control','navigation.control',{sessionId:s,displayId:d.id,expectedRevision:before.revision,requestId:randomUUID(),navigation});};
-  return {account,s,d,v,call,client,current,show,nav};
-}
-async function photo(page:Page,info:TestInfo,name:string){await expect(page.locator('.viewer-toast')).toHaveCount(0,{timeout:15000});await page.evaluate(()=>document.fonts.ready);await mkdir(info.outputPath('visuals'),{recursive:true});await page.screenshot({path:`${info.outputPath('visuals')}/${info.project.name}-${name}.png`,animations:'disabled'});}
-
-test('actual inbox, cards and integration-pane scrolling is acknowledged from the moving browser',async({page,baseURL},info)=>{
-  const a=await setup(page,info,baseURL!);try{
-    const cases:{view:ViewSpec;selector:string}[]=[
-      {view:{version:1,template:'inbox',data:{items:Array.from({length:70},(_,i)=>({id:`mail${i}`,from:`Sender ${i}`,subject:`Original message ${i}`,snippet:'An exact supplied preview with enough context to read. 1.2300',timestamp:'17 Sep 2026',unread:i===0}))}},selector:'.inbox-list'},
-      {view:{version:1,template:'cards',data:{items:Array.from({length:70},(_,i)=>({id:`card${i}`,title:`A meaningful sentence about source card ${i}`,description:'This longer description stays attached to its original record and keeps the full value 9007199254740993.001.'}))}},selector:'.record-grid'},
-      {view:{version:1,template:'tool-inventory',data:{groups:[{name:'Integration A',tools:Array.from({length:46},(_,i)=>({name:`operation_${i}`,description:'Source tool description with supplied details. '.repeat(3)}))},{name:'Integration B',tools:[{name:'last_operation',description:'Another real supplied tool'}]}]}},selector:'.inventory[data-navigation-scroll]'}
-    ];
-    for(const {view,selector} of cases){const before=await a.show(view),scroll=a.v.locator(`.viewer-candidate ${selector}`);await expect.poll(()=>scroll.evaluate(e=>e.scrollHeight-e.clientHeight)).toBeGreaterThan(50);
-      await a.nav({action:'scroll',y:1});await expect.poll(()=>scroll.evaluate(e=>e.scrollTop/Math.max(1,e.scrollHeight-e.clientHeight))).toBeGreaterThan(.98);
-      await expect.poll(async()=>{const r=await a.call('kanvas_inspect','navigation.read',{sessionId:a.s,displayId:a.d.id});return r.viewers.some((v:any)=>v.status==='applied'&&v.scroll?.maxY>50&&v.scroll?.y>.98);}).toBe(true);
-      const after=await a.current();expect(after.view).toEqual(before.view);expect(after.revision).toBe(before.revision);
-      await a.nav({action:'scroll',y:0});await expect.poll(()=>scroll.evaluate(e=>e.scrollTop)).toBeLessThan(2);
+    async function setup(page: Page, info: TestInfo, baseURL: string) {
+        const account = await register(page), s = await createSession(page, 'Evening acceptance'), d = await createDisplay(page, s, 'Retained content'), v = await openViewer(page, s, d.id);
+        const issued = await sessionApi<{
+            token: string;
+        }>(page, '/api/tokens', 'POST', { name: 'Disposable evening checks', scopes: ['read', 'publish'] });
+        expect(issued.status).toBe(201);
+        const headers = { Authorization: `Bearer ${issued.data!.token}` }, client = info.project.name.startsWith('phone') ? new LegacyClient({ name: 'evening-legacy', version: '1' }) : new Client({ name: 'evening-current', version: '1' });
+        if (client instanceof LegacyClient)
+            await client.connect(new LegacyTransport(new URL('/mcp', baseURL), { requestInit: { headers } }));
+        else
+            await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', baseURL), { requestInit: { headers } }));
+        const call = async <T = any>(name: string, operation: string, args: Record<string, unknown> = {}) => { const r = await client.callTool(operationRequest({ name, arguments: { operation, ...args } })); expect(r.isError, `${name} ${operation}: ${JSON.stringify((r.structuredContent as any)?.error ?? {}).slice(0, 600)}`).not.toBe(true); return (r.structuredContent as {
+            data: T;
+        }).data; };
+        const current = () => waitForDisplay(page, s, d.id, x => x.revision > 0 && x.appliedRevision === x.revision), show = async (view: ViewSpec) => { await publishPrepared(page, s, [d.id], view); return current(); };
+        const nav = async (navigation: unknown) => { const before = await current(); return call("kanvas_call", "kanvas.navigation.control", { sessionId: s, displayId: d.id, expectedRevision: before.revision, requestId: randomUUID(), navigation }); };
+        return { account, s, d, v, call, client, current, show, nav };
     }
-    await a.v.getByRole('button',{name:'Integration B'}).click();await expect(a.v.locator('.inventory[data-navigation-scroll]')).toContainText('last_operation');await expect(a.v.getByRole('navigation',{name:'Integrations'})).toContainText('Integration A');
-    await a.nav({action:'page',page:1});await expect(a.v.locator('.inventory[data-navigation-scroll]')).toContainText('operation_0');await photo(a.v,info,'integration-rail');
-    await a.show({version:1,template:'inbox',data:{items:Array.from({length:50},(_,i)=>({id:`i${i}`,from:'Source',subject:`Message ${i}`,snippet:'Read only, no implicit message open.'}))}});
-    await expect(a.v.locator('.inbox-message button,.inbox-message a')).toHaveCount(0);await a.v.locator('.inbox-list').focus();await a.v.keyboard.press('PageDown');await expect.poll(()=>a.v.locator('.inbox-list').evaluate(e=>e.scrollTop)).toBeGreaterThan(20);await photo(a.v,info,'inbox-reader');
-  }finally{await a.client.close();}
-});
+    async function photo(page: Page, info: TestInfo, name: string) { await expect(page.locator('.viewer-toast')).toHaveCount(0, { timeout: 15000 }); await page.evaluate(() => document.fonts.ready); await mkdir(info.outputPath('visuals'), { recursive: true }); await page.screenshot({ path: `${info.outputPath('visuals')}/${info.project.name}-${name}.png`, animations: 'disabled' }); }
+    test('actual inbox, cards and integration-pane scrolling is acknowledged from the moving browser', async ({ page, baseURL }, info) => {
+        const a = await setup(page, info, baseURL!);
+        try {
+            const cases: {
+                view: ViewSpec;
+                selector: string;
+            }[] = [
+                { view: { version: 1, template: 'inbox', data: { items: Array.from({ length: 70 }, (_, i) => ({ id: `mail${i}`, from: `Sender ${i}`, subject: `Original message ${i}`, snippet: 'An exact supplied preview with enough context to read. 1.2300', timestamp: '17 Sep 2026', unread: i === 0 })) } }, selector: '.inbox-list' },
+                { view: { version: 1, template: 'cards', data: { items: Array.from({ length: 70 }, (_, i) => ({ id: `card${i}`, title: `A meaningful sentence about source card ${i}`, description: 'This longer description stays attached to its original record and keeps the full value 9007199254740993.001.' })) } }, selector: '.record-grid' },
+                { view: { version: 1, template: 'tool-inventory', data: { groups: [{ name: 'Integration A', tools: Array.from({ length: 46 }, (_, i) => ({ name: `operation_${i}`, description: 'Source tool description with supplied details. '.repeat(3) })) }, { name: 'Integration B', tools: [{ name: 'last_operation', description: 'Another real supplied tool' }] }] } }, selector: '.inventory[data-navigation-scroll]' }
+            ];
+            for (const { view, selector } of cases) {
+                const before = await a.show(view), scroll = a.v.locator(`.viewer-candidate ${selector}`);
+                await expect.poll(() => scroll.evaluate(e => e.scrollHeight - e.clientHeight)).toBeGreaterThan(50);
+                await a.nav({ action: 'scroll', y: 1 });
+                await expect.poll(() => scroll.evaluate(e => e.scrollTop / Math.max(1, e.scrollHeight - e.clientHeight))).toBeGreaterThan(.98);
+                await expect.poll(async () => { const r = await a.call("kanvas_call", "kanvas.navigation.read", { sessionId: a.s, displayId: a.d.id }); return r.viewers.some((v: any) => v.status === 'applied' && v.scroll?.maxY > 50 && v.scroll?.y > .98); }).toBe(true);
+                const after = await a.current();
+                expect(after.view).toEqual(before.view);
+                expect(after.revision).toBe(before.revision);
+                await a.nav({ action: 'scroll', y: 0 });
+                await expect.poll(() => scroll.evaluate(e => e.scrollTop)).toBeLessThan(2);
+            }
+            await a.v.getByRole('button', { name: 'Integration B' }).click();
+            await expect(a.v.locator('.inventory[data-navigation-scroll]')).toContainText('last_operation');
+            await expect(a.v.getByRole('navigation', { name: 'Integrations' })).toContainText('Integration A');
+            await a.nav({ action: 'page', page: 1 });
+            await expect(a.v.locator('.inventory[data-navigation-scroll]')).toContainText('operation_0');
+            await photo(a.v, info, 'integration-rail');
+            await a.show({ version: 1, template: 'inbox', data: { items: Array.from({ length: 50 }, (_, i) => ({ id: `i${i}`, from: 'Source', subject: `Message ${i}`, snippet: 'Read only, no implicit message open.' })) } });
+            await expect(a.v.locator('.inbox-message button,.inbox-message a')).toHaveCount(0);
+            await a.v.locator('.inbox-list').focus();
+            await a.v.keyboard.press('PageDown');
+            await expect.poll(() => a.v.locator('.inbox-list').evaluate(e => e.scrollTop)).toBeGreaterThan(20);
+            await photo(a.v, info, 'inbox-reader');
+        }
+        finally {
+            await a.client.close();
+        }
+    });
 });
 
 test.describe("split screen coverage 2", () => {
@@ -133,31 +159,42 @@ test('split screen shows the authored grid on every screen, nests once, and take
 });
 
 test.describe("split screen coverage 4", () => {
-
-
-async function setup(page:Page,info:TestInfo,baseURL:string){
-  const account=await register(page),s=await createSession(page,'Spatial acceptance'),d=await createDisplay(page,s,'Retained content'),v=await openViewer(page,s,d.id);
-  const issued=await sessionApi<{token:string}>(page,'/api/tokens','POST',{name:'Disposable evening checks',scopes:['read','publish']});expect(issued.status).toBe(201);
-  const headers={Authorization:`Bearer ${issued.data!.token}`},client=info.project.name.startsWith('phone')?new LegacyClient({name:'evening-legacy',version:'1'}):new Client({name:'evening-current',version:'1'});
-  if(client instanceof LegacyClient)await client.connect(new LegacyTransport(new URL('/mcp',baseURL),{requestInit:{headers}}));else await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',baseURL),{requestInit:{headers}}));
-  const call=async<T=any>(name:string,operation:string,args:Record<string,unknown>={})=>{const r=await client.callTool(operationRequest({name,arguments:{operation,...args}}));expect(r.isError,`${name} ${operation}`).not.toBe(true);return(r.structuredContent as {data:T}).data;};
-  const current=()=>waitForDisplay(page,s,d.id,x=>x.revision>0&&x.appliedRevision===x.revision),show=async(view:ViewSpec)=>{await publishPrepared(page,s,[d.id],view);return current();};
-  const nav=async(navigation:unknown)=>{const before=await current();return call('kanvas_control','navigation.control',{sessionId:s,displayId:d.id,expectedRevision:before.revision,requestId:randomUUID(),navigation});};
-  return {account,s,d,v,call,client,current,show,nav};
-}
-async function photo(page:Page,info:TestInfo,name:string){await expect(page.locator('.viewer-toast')).toHaveCount(0,{timeout:15000});await page.evaluate(()=>document.fonts.ready);await mkdir(info.outputPath('visuals'),{recursive:true});await page.screenshot({path:`${info.outputPath('visuals')}/${info.project.name}-${name}.png`,animations:'disabled'});}
-
-test('split panels and before/after diff navigation target the exact independent pane',async({page,baseURL},info)=>{
- const a=await setup(page,info,baseURL!);try{
-  const lines=Array.from({length:320},(_,i)=>`const source${i+1} = ${i+1};`).join('\n');
-  await a.show({version:1,template:'code',data:{kind:'split',panels:[{id:'caller',kind:'code',path:'caller.ts',code:lines,language:'typescript'},{id:'definition',kind:'diff',path:'definition.ts',before:lines,after:lines.replace('source230 = 230','source230 = 231'),language:'typescript'}]}});
-  await expect(a.v.locator('.viewer-candidate [data-code-panel]')).toHaveCount(2);
-  await a.nav({action:'gotoLine',panelId:'definition',side:'before',line:230});
-  await expect.poll(async()=>{const r=await a.call('kanvas_inspect','navigation.read',{sessionId:a.s,displayId:a.d.id});return r.viewers.some((v:any)=>v.status==='applied'&&v.matches===1);}).toBe(true);
-  await expect(a.v.locator('.viewer-candidate [data-code-panel="definition"] [data-code-before="230"]')).toHaveClass(/highlighted/);
-  const previousScroll=await a.v.locator('.viewer-candidate [data-code-panel="definition"] .code-scroll').evaluate(e=>e.scrollTop);
-  await a.nav({action:'gotoLine',panelId:'caller',line:280});
-  await expect(a.v.locator('.viewer-candidate [data-code-panel="caller"] [data-code-line="280"]')).toHaveClass(/highlighted/);expect(await a.v.locator('.viewer-candidate [data-code-panel="definition"] .code-scroll').evaluate(e=>e.scrollTop)).toBe(previousScroll);await photo(a.v,info,'split-code');
- }finally{await a.client.close();}
-});
+    async function setup(page: Page, info: TestInfo, baseURL: string) {
+        const account = await register(page), s = await createSession(page, 'Spatial acceptance'), d = await createDisplay(page, s, 'Retained content'), v = await openViewer(page, s, d.id);
+        const issued = await sessionApi<{
+            token: string;
+        }>(page, '/api/tokens', 'POST', { name: 'Disposable evening checks', scopes: ['read', 'publish'] });
+        expect(issued.status).toBe(201);
+        const headers = { Authorization: `Bearer ${issued.data!.token}` }, client = info.project.name.startsWith('phone') ? new LegacyClient({ name: 'evening-legacy', version: '1' }) : new Client({ name: 'evening-current', version: '1' });
+        if (client instanceof LegacyClient)
+            await client.connect(new LegacyTransport(new URL('/mcp', baseURL), { requestInit: { headers } }));
+        else
+            await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', baseURL), { requestInit: { headers } }));
+        const call = async <T = any>(name: string, operation: string, args: Record<string, unknown> = {}) => { const r = await client.callTool(operationRequest({ name, arguments: { operation, ...args } })); expect(r.isError, `${name} ${operation}`).not.toBe(true); return (r.structuredContent as {
+            data: T;
+        }).data; };
+        const current = () => waitForDisplay(page, s, d.id, x => x.revision > 0 && x.appliedRevision === x.revision), show = async (view: ViewSpec) => { await publishPrepared(page, s, [d.id], view); return current(); };
+        const nav = async (navigation: unknown) => { const before = await current(); return call("kanvas_call", "kanvas.navigation.control", { sessionId: s, displayId: d.id, expectedRevision: before.revision, requestId: randomUUID(), navigation }); };
+        return { account, s, d, v, call, client, current, show, nav };
+    }
+    async function photo(page: Page, info: TestInfo, name: string) { await expect(page.locator('.viewer-toast')).toHaveCount(0, { timeout: 15000 }); await page.evaluate(() => document.fonts.ready); await mkdir(info.outputPath('visuals'), { recursive: true }); await page.screenshot({ path: `${info.outputPath('visuals')}/${info.project.name}-${name}.png`, animations: 'disabled' }); }
+    test('split panels and before/after diff navigation target the exact independent pane', async ({ page, baseURL }, info) => {
+        const a = await setup(page, info, baseURL!);
+        try {
+            const lines = Array.from({ length: 320 }, (_, i) => `const source${i + 1} = ${i + 1};`).join('\n');
+            await a.show({ version: 1, template: 'code', data: { kind: 'split', panels: [{ id: 'caller', kind: 'code', path: 'caller.ts', code: lines, language: 'typescript' }, { id: 'definition', kind: 'diff', path: 'definition.ts', before: lines, after: lines.replace('source230 = 230', 'source230 = 231'), language: 'typescript' }] } });
+            await expect(a.v.locator('.viewer-candidate [data-code-panel]')).toHaveCount(2);
+            await a.nav({ action: 'gotoLine', panelId: 'definition', side: 'before', line: 230 });
+            await expect.poll(async () => { const r = await a.call("kanvas_call", "kanvas.navigation.read", { sessionId: a.s, displayId: a.d.id }); return r.viewers.some((v: any) => v.status === 'applied' && v.matches === 1); }).toBe(true);
+            await expect(a.v.locator('.viewer-candidate [data-code-panel="definition"] [data-code-before="230"]')).toHaveClass(/highlighted/);
+            const previousScroll = await a.v.locator('.viewer-candidate [data-code-panel="definition"] .code-scroll').evaluate(e => e.scrollTop);
+            await a.nav({ action: 'gotoLine', panelId: 'caller', line: 280 });
+            await expect(a.v.locator('.viewer-candidate [data-code-panel="caller"] [data-code-line="280"]')).toHaveClass(/highlighted/);
+            expect(await a.v.locator('.viewer-candidate [data-code-panel="definition"] .code-scroll').evaluate(e => e.scrollTop)).toBe(previousScroll);
+            await photo(a.v, info, 'split-code');
+        }
+        finally {
+            await a.client.close();
+        }
+    });
 });

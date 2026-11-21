@@ -28,10 +28,28 @@ export const taskListUpdateSchema=z.strictObject({sessionId:sessionKey,taskListI
  filter:dataShape.filter.unwrap().nullable().optional(),
  columns:dataShape.columns,doneLast:z.boolean().optional()});
 export const taskListShowSchema=z.strictObject({sessionId:sessionKey,taskListId:identifier,displayId:sessionKey,expectedRevision:revision.optional(),requestId:identifier});
-export const taskListTools:Definition[]=[
- {name:'kanvas_tasklist_read',readOnly:true,schema:taskListReadSchema,description:'Read a saved task list: rows filtered and sorted by the server, or ONE item (number or id) in full with its detail and source. Omit taskListId to list them.'},
- {name:'kanvas_tasklist_update',idempotent:true,schema:taskListUpdateSchema,description:'Change a saved task list by item (add, items, check, uncheck, remove, index, highlight, sort, filter, columns); unnamed items stay untouched and numbers never change. Create one by publishing a task-list view.'},
- {name:'kanvas_tasklist_show',idempotent:true,schema:taskListShowSchema,description:'Show a saved task list on a display of the same session without resupplying items.'},
+export const taskListTools: Definition[] = [
+    {
+        name: "kanvas.tasklist.read", readOnly: true, schema: taskListReadSchema, description: 'Read a saved task list: rows filtered and sorted by the server, or ONE item (number or id) in full with its detail and source. Omit taskListId to list them.',
+        domain: "checklist",
+        requiredScope: "read",
+        discovery: {"group":"content","hint":"Rows of a saved task list filtered and sorted by the server, or one item in full with its stored detail.","examples":[{"sessionId":"session-id","taskListId":"task-list-id","item":7}]},
+        searchAliases: ["kanvas.tasklist.read"]
+    },
+    {
+        name: "kanvas.tasklist.update", idempotent: true, schema: taskListUpdateSchema, description: 'Change a saved task list by item (add, items, check, uncheck, remove, index, highlight, sort, filter, columns); unnamed items stay untouched and numbers never change. Create one by publishing a task-list view.',
+        domain: "checklist",
+        requiredScope: "publish",
+        discovery: {"group":"content","hint":"Change single items of a saved task list: add, edit fields, check, uncheck, remove, highlight, sort, filter. Never republish the list.","examples":[{"sessionId":"session-id","taskListId":"task-list-id","requestId":"check-7","check":[7],"highlight":8}]},
+        searchAliases: ["kanvas.tasklist.update"]
+    },
+    {
+        name: "kanvas.tasklist.show", idempotent: true, schema: taskListShowSchema, description: 'Show a saved task list on a display of the same session without resupplying items.',
+        domain: "checklist",
+        requiredScope: "publish",
+        discovery: {"group":"content","hint":"Put a saved task list on a display of the same session without resupplying items.","examples":[{"sessionId":"session-id","taskListId":"task-list-id","displayId":"display-id","requestId":"show-tasks"}]},
+        searchAliases: ["kanvas.tasklist.show"]
+    },
 ];
 interface TaskList {id:string;sessionId:string;revision:number;title?:string;data:TaskListData;nextNumber:number;createdAt:string;updatedAt:string}
 type Stored=TaskItem&{id:string;number:number};

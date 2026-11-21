@@ -1,25 +1,25 @@
 import {assertExpectedRevision} from './revisions.js';
-import { isDeepStrictEqual } from 'node:util';
-import { z } from 'zod';
-import { countdownDataSchema, TIMER_MAX_TIMESTAMP_MS, TIMER_MIN_TIMESTAMP_MS, TIMER_RESUME_RANGE_RULE, timerPausedSeconds, timerPhase, timerResumeTimestamp, timerSeconds, type CountdownData } from '../shared/timer.js';
-import type { UpdateRecord, ViewSpec } from '../shared/types.js';
-import { assertJsonBudget, validateView } from '../shared/view-schemas.js';
-import type { AuthPrincipal } from './auth.js';
-import { displayedLeaf, replaceLeaf } from './engagement.js';
-import { InputError, validationIssues } from './input-errors.js';
-import { participationCompatible } from './participation.js';
-import { AppError } from './store.js';
-import type { ViewPatchDisplay, ViewPatchHost } from './view-patch.js';
+import {isDeepStrictEqual} from 'node:util';
+import {z} from 'zod';
+import {countdownDataSchema,TIMER_MAX_TIMESTAMP_MS,TIMER_MIN_TIMESTAMP_MS,TIMER_RESUME_RANGE_RULE,timerPausedSeconds,timerPhase,timerResumeTimestamp,timerSeconds,type CountdownData} from '../shared/timer.js';
+import type {UpdateRecord,ViewSpec} from '../shared/types.js';
+import {assertJsonBudget,validateView} from '../shared/view-schemas.js';
+import type {AuthPrincipal} from './auth.js';
+import {displayedLeaf,replaceLeaf} from './engagement.js';
+import {InputError,validationIssues} from './input-errors.js';
+import {participationCompatible} from './participation.js';
+import {AppError} from './store.js';
+import type {ViewPatchDisplay,ViewPatchHost} from './view-patch.js';
 
 export const timerControlInput = z.object({
-  sessionId: z.string().min(1).max(128),
-  displayId: z.string().min(1).max(128),
-  expectedRevision: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional()
-    .describe('Current display revision from kanvas_display_current. A new action requires a fresh revision and request ID.'),
-  requestId: z.string().min(1).max(128)
-    .describe('Stable idempotency key. Retry the exact original action after a lost response; the stored receipt and duration are reused, even after a restart.'),
-  action: z.enum(['pause', 'resume'])
-    .describe('Pause the active running timer, or resume its stored paused duration. Supports both countdown directions and only the current presentation slide; changes no source text.'),
+    sessionId: z.string().min(1).max(128),
+    displayId: z.string().min(1).max(128),
+    expectedRevision: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional()
+        .describe("Current display revision from kanvas_call with operationId:\"kanvas.display.current\" and arguments:{\u2026}. A new action requires a fresh revision and request ID."),
+    requestId: z.string().min(1).max(128)
+        .describe('Stable idempotency key. Retry the exact original action after a lost response; the stored receipt and duration are reused, even after a restart.'),
+    action: z.enum(['pause', 'resume'])
+        .describe('Pause the active running timer, or resume its stored paused duration. Supports both countdown directions and only the current presentation slide; changes no source text.'),
 }).strict();
 export type TimerControlInput = z.infer<typeof timerControlInput>;
 

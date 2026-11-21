@@ -113,37 +113,42 @@ export class Browser {
 }
 
 export async function startHarness(options: Parameters<typeof createApp>[0] = {}) {
-  const directory = await mkdtemp(join(tmpdir(), 'kanvas-core-'));
-  const database = options?.database ?? testDatabase();
-  // The existing flat-name regression suite is retained as the legacy gate.
-  // Public-interface tests explicitly opt into twelve (the production default).
-  const runtime = await createApp({ database, publicUrl: ORIGIN, mcpProfile: 'legacy', ...options });
-  const server: Server = await new Promise((resolve, reject) => {
-    const listener = runtime.app.listen(0, '127.0.0.1', () => resolve(listener));
-    listener.once('error', reject);
-  });
-  const address = server.address();
-  if (!address || typeof address === 'string') throw new Error('No loopback test listener.');
-  const baseUrl = `http://127.0.0.1:${address.port}`;
-  let stopped = false, closed = false;
-  async function shutdown() {
-    if (stopped) return; stopped = true;
-    server.closeAllConnections();
-    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
-    await runtime.close();
-  }
-  return {
-    runtime, server, baseUrl, database,
-    browser: () => new Browser(baseUrl),
-    async account() { const browser = new Browser(baseUrl); await browser.register(); return browser; },
-    shutdown,
-    async close() {
-      if (closed) return; closed = true;
-      await shutdown();
-      await removeTestDatabase(database);
-      await rm(directory, { recursive: true, force: true });
-    },
-  };
+    const directory = await mkdtemp(join(tmpdir(), 'kanvas-core-'));
+    const database = options?.database ?? testDatabase();
+    // The existing flat-name regression suite is retained as the legacy gate.
+    // Public-interface tests explicitly opt into twelve (the production default).
+    const runtime = await createApp({ database, publicUrl: ORIGIN, mcpProfile: "discovery", ...options });
+    const server: Server = await new Promise((resolve, reject) => {
+        const listener = runtime.app.listen(0, '127.0.0.1', () => resolve(listener));
+        listener.once('error', reject);
+    });
+    const address = server.address();
+    if (!address || typeof address === 'string')
+        throw new Error('No loopback test listener.');
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+    let stopped = false, closed = false;
+    async function shutdown() {
+        if (stopped)
+            return;
+        stopped = true;
+        server.closeAllConnections();
+        await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+        await runtime.close();
+    }
+    return {
+        runtime, server, baseUrl, database,
+        browser: () => new Browser(baseUrl),
+        async account() { const browser = new Browser(baseUrl); await browser.register(); return browser; },
+        shutdown,
+        async close() {
+            if (closed)
+                return;
+            closed = true;
+            await shutdown();
+            await removeTestDatabase(database);
+            await rm(directory, { recursive: true, force: true });
+        },
+    };
 }
 export type Harness = Awaited<ReturnType<typeof startHarness>>;
 

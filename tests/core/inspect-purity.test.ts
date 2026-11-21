@@ -55,131 +55,139 @@ async function snapshot(store: Store) {
 }
 const scoped = (f: Fixture) => ({ sessionId: f.session.id });
 const display = (f: Fixture) => ({ ...scoped(f), displayId: f.inherited.id });
-const inspectCases: Array<[string, (f: Fixture) => Record<string, unknown>]> = [
-  ['kanvas_guide', () => ({})],
-  ['kanvas_template_get', () => ({ template: 'fact' })],
-  ['kanvas_reports_read', scoped],
-  ['kanvas_sessions_list', () => ({})],
-  ['kanvas_session_state', scoped],
-  ['kanvas_display_history', display],
-  ['kanvas_video_status', display],
-  ['kanvas_update_status', f => ({ ...scoped(f), updateId: 'known-update' })],
-  ['kanvas_presentations_list', scoped],
-  ['kanvas_interactions_read', scoped],
-  ['kanvas_display_current', display],
-  ['kanvas_view_validate', f => ({ ...scoped(f), view: structuredClone(exactView) })],
-  ['kanvas_styles_list', () => ({})],
-  ['kanvas_preferences_get', () => ({})],
-  ['kanvas_pairings_read', scoped],
-  ['kanvas_viewers_read', scoped],
-  ['kanvas_display_inspect', f => ({ ...display(f), fresh: false })],
-  ['kanvas_session_overview', scoped],
-  ['kanvas_session_log', scoped],
-  ['kanvas_monitoring_read', scoped],
+const inspectCases: Array<[
+    string,
+    (f: Fixture) => Record<string, unknown>
+]> = [
+    ["kanvas.guide", () => ({})],
+    ["kanvas.template.get", () => ({ template: 'fact' })],
+    ["kanvas.reports.read", scoped],
+    ["kanvas.sessions.list", () => ({})],
+    ["kanvas.session.state", scoped],
+    ["kanvas.display.history", display],
+    ["kanvas.video.status", display],
+    ["kanvas.update.status", f => ({ ...scoped(f), updateId: 'known-update' })],
+    ["kanvas.presentations.list", scoped],
+    ["kanvas.interactions.read", scoped],
+    ["kanvas.display.current", display],
+    ["kanvas.view.validate", f => ({ ...scoped(f), view: structuredClone(exactView) })],
+    ["kanvas.styles.list", () => ({})],
+    ["kanvas.preferences.get", () => ({})],
+    ["kanvas.pairings.read", scoped],
+    ["kanvas.viewers.read", scoped],
+    ["kanvas.display.inspect", f => ({ ...display(f), fresh: false })],
+    ["kanvas.session.overview", scoped],
+    ["kanvas.session.log", scoped],
+    ["kanvas.monitoring.read", scoped],
 ];
 
 describe('canonical operations behind read-only inspect', () => {
-  it.each(inspectCases)('%s leaves persistent domain state unchanged', async (name, args) => {
-    const f = (await setup());
-    (await f.startMonitor()); f.advance(60_000);
-    const before = (await snapshot(f.store));
-    const result = await f.service.execute(name, args(f), f.principal);
-    expect(result).not.toBeUndefined();
-    expect((await snapshot(f.store))).toEqual(before);
-    expect(f.fetcher).not.toHaveBeenCalled(); expect(f.interpret).not.toHaveBeenCalled();
-  });
-
-  it.each(inspectCases)('%s failures do not persist diagnostic or lifecycle records', async (name, args) => {
-    const f = (await setup()), before = (await snapshot(f.store));
-    expect((await f.service.recordFailure(name, { ...args(f), sessionId: f.session.id }, f.principal, new Error('Private failure details')))).toBeUndefined();
-    expect((await snapshot(f.store))).toEqual(before);
-  });
-
-  it('retains registered locators and reserves missing ones only on explicit address retrieval', async () => {
-    const f = (await setup()), registeredAlias = f.registered.shortUrl;
-    expect(registeredAlias).toMatch(/^http:\/\/127\.0\.0\.1\/s\//);
-    const before = (await snapshot(f.store));
-    const current = await f.service.execute('kanvas_display_current', display(f), f.principal) as DisplayRecord;
-    expect(current.viewerUrl).toBe(`http://127.0.0.1/view/${f.session.id}/${f.inherited.id}`);
-    expect(current.shortUrl).toBeUndefined(); expect(current.view).toEqual(exactView);
-    const resource = await f.service.readResource(`kanvas://sessions/${f.session.id}/state`, f.principal) as { displays: DisplayRecord[] };
-    expect(resource.displays.find(item => item.id === f.registered.id)?.shortUrl).toBe(registeredAlias);
-    expect((await snapshot(f.store))).toEqual(before);
-    const grant = (await f.auth.issueToken(f.principal.userId, 'Read this session', ['read'], [f.session.id]));
-    const readOnly = { userId: f.principal.userId, tokenId: grant.token.id };
-    const address = await f.service.execute('kanvas_address_get', display(f), readOnly) as { url: string; viewerUrl: string };
-    expect(address.viewerUrl).toBe(current.viewerUrl);
-    expect((await f.service.publicDisplay((await f.service.display(f.principal, f.session.id, f.inherited.id)))).shortUrl).toBe(address.url);
-    const reserved = (await snapshot(f.store));
-    expect(await f.service.execute('kanvas_address_get', display(f), readOnly)).toEqual(address);
-    expect((await snapshot(f.store))).toEqual(reserved);
-    expect((await f.store.list('alias', f.session.id))).toHaveLength(2);
-    expect((await f.store.list('share'))).toEqual([]); expect((await f.store.list('pairing'))).toEqual([]);
-    expect(reserved.members).toEqual(before.members);
-    expect((await f.service.display(f.principal, f.session.id, f.inherited.id))).toMatchObject({ revision: 3, view: exactView });
-  });
-
-  it('keeps implicit history navigable and persists the original revision only during a mutation', async () => {
-    const f = (await setup()), before = (await snapshot(f.store));
-    const history = (await f.service.displayHistory(f.principal, f.session.id, f.inherited.id));
-    expect(history).toMatchObject({ cursor: 0, canGoBack: false, canGoForward: false, entries: [{ revision: 3, reason: 'initial', title: exactView.title }] });
-    expect((await f.service.experience.overview(f.principal, f.session.id)).cards).toMatchObject([{ revision: 3, preview: exactView.data.text }]);
-    expect((await snapshot(f.store))).toEqual(before);
-    const request = { sessionId: f.session.id, displayIds: [f.inherited.id], requestId: 'initial-position', expectedRevisions: { [f.inherited.id]: 3 }, revision: 3 };
-    (await f.service.navigate(f.principal, request));
-    expect((await f.service.displayHistory(f.principal, f.session.id, f.inherited.id)).entries).toMatchObject([{ revision: 3, reason: 'initial' }]);
-    expect((await f.store.list('display-history'))).toHaveLength(1);
-    const afterNavigate = (await snapshot(f.store));
-    (await f.service.navigate(f.principal, request));
-    expect((await snapshot(f.store))).toEqual(afterNavigate);
-    (await f.service.clear(f.principal, f.session.id, [f.inherited.id], 'clear-after-navigation'));
-    (await f.service.navigate(f.principal, { sessionId: f.session.id, displayIds: [f.inherited.id], requestId: 'restore-original', expectedRevisions: { [f.inherited.id]: 5 }, direction: 'back' }));
-    expect((await f.service.display(f.principal, f.session.id, f.inherited.id)).view).toEqual(exactView);
-  });
-
-  it('does not materialize any history when a later navigation target is invalid', async () => {
-    const f = (await setup()), before = (await snapshot(f.store));
-    (await expect((async () => (await f.service.navigate(f.principal, { sessionId: f.session.id, displayIds: [f.inherited.id, f.registered.id], requestId: 'invalid-second-target', expectedRevisions: { [f.inherited.id]: 3, [f.registered.id]: 0 }, revision: 3 })))()).rejects.toThrow(/history position/));
-    expect((await snapshot(f.store))).toEqual(before);
-  });
-
-  it('hides expired observations without deleting records, and keeps cleanup on telemetry writes', async () => {
-    const f = (await setup()), before = (await snapshot(f.store));
-    const result = await f.service.execute('kanvas_display_inspect', { ...display(f), fresh: false }, f.principal) as { observations: ViewerPresence[] };
-    expect(result.observations.map(item => item.id)).toEqual(['active-viewer']);
-    expect(result.observations[0].text).toBe('Actual observed source');
-    expect(JSON.stringify(result)).not.toContain('latitude');
-    expect((await snapshot(f.store))).toEqual(before);
-    const browser = { id: 'fixture-browser', userId: f.principal.userId, csrf: 'unused-test-value', expiresAt: Date.now() + 60_000 };
-    (await f.store.put('browser', browser));
-    (await f.service.experience.observe({ ...f.principal, browserId: browser.id }, f.session.id, f.inherited.id, { tabId: 'new-tab', revision: 3, renderedRevision: 3, status: 'ready', visible: true, text: 'New actual observation', width: 800, height: 600 }));
-    expect((await f.store.get('viewer', 'expired-viewer'))).toBeUndefined();
-    expect((await f.service.experience.viewers(f.principal, f.session.id))).toHaveLength(2);
-  });
-
-  it('reauthorizes after fresh observation waits without creating a diagnostic or capture', async () => {
-    const f = (await setup()), grant = (await f.auth.issueToken(f.principal.userId, 'Revocable read', ['read'], [f.session.id]));
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-    const pending = f.service.execute('kanvas_display_inspect', display(f), { userId: f.principal.userId, tokenId: grant.token.id });
-    const rejected = expect(pending).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
-    (await f.auth.revokeToken(f.principal.userId, grant.token.id));
-    const revoked = (await snapshot(f.store));
-    await vi.advanceTimersByTimeAsync(6500); await rejected;
-    expect((await snapshot(f.store))).toEqual(revoked);
-  });
-
-  it('separates authentication last-use metadata from the subsequent pure read', async () => {
-    const f = (await setup()), grant = (await f.auth.issueToken(f.principal.userId, 'Read-only client', ['read'], [f.session.id]));
-    const before = (await snapshot(f.store));
-    const request = { get: (name: string) => name === 'authorization' ? `Bearer ${grant.value}` : undefined } as Request;
-    const principal = await f.service.authorize(request);
-    const authenticated = (await snapshot(f.store));
-    expect((await f.store.get<Token>('token', grant.token.id))?.lastUsedAt).toBeDefined();
-    expect(authenticated.documents.filter(row => row.kind !== 'token')).toEqual(before.documents.filter(row => row.kind !== 'token'));
-    expect(authenticated.changes).not.toBe(before.changes);
-    await f.service.execute('kanvas_session_state', scoped(f), principal);
-    expect((await snapshot(f.store))).toEqual(authenticated);
-  });
+    it.each(inspectCases)('%s leaves persistent domain state unchanged', async (name, args) => {
+        const f = (await setup());
+        (await f.startMonitor());
+        f.advance(60000);
+        const before = (await snapshot(f.store));
+        const result = await f.service.execute(name, args(f), f.principal);
+        expect(result).not.toBeUndefined();
+        expect((await snapshot(f.store))).toEqual(before);
+        expect(f.fetcher).not.toHaveBeenCalled();
+        expect(f.interpret).not.toHaveBeenCalled();
+    });
+    it.each(inspectCases)('%s failures do not persist diagnostic or lifecycle records', async (name, args) => {
+        const f = (await setup()), before = (await snapshot(f.store));
+        expect((await f.service.recordFailure(name, { ...args(f), sessionId: f.session.id }, f.principal, new Error('Private failure details')))).toBeUndefined();
+        expect((await snapshot(f.store))).toEqual(before);
+    });
+    it('retains registered locators and reserves missing ones only on explicit address retrieval', async () => {
+        const f = (await setup()), registeredAlias = f.registered.shortUrl;
+        expect(registeredAlias).toMatch(/^http:\/\/127\.0\.0\.1\/s\//);
+        const before = (await snapshot(f.store));
+        const current = await f.service.execute("kanvas.display.current", display(f), f.principal) as DisplayRecord;
+        expect(current.viewerUrl).toBe(`http://127.0.0.1/view/${f.session.id}/${f.inherited.id}`);
+        expect(current.shortUrl).toBeUndefined();
+        expect(current.view).toEqual(exactView);
+        const resource = await f.service.readResource(`kanvas://sessions/${f.session.id}/state`, f.principal) as {
+            displays: DisplayRecord[];
+        };
+        expect(resource.displays.find(item => item.id === f.registered.id)?.shortUrl).toBe(registeredAlias);
+        expect((await snapshot(f.store))).toEqual(before);
+        const grant = (await f.auth.issueToken(f.principal.userId, 'Read this session', ['read'], [f.session.id]));
+        const readOnly = { userId: f.principal.userId, tokenId: grant.token.id };
+        const address = await f.service.execute("kanvas.address.get", display(f), readOnly) as {
+            url: string;
+            viewerUrl: string;
+        };
+        expect(address.viewerUrl).toBe(current.viewerUrl);
+        expect((await f.service.publicDisplay((await f.service.display(f.principal, f.session.id, f.inherited.id)))).shortUrl).toBe(address.url);
+        const reserved = (await snapshot(f.store));
+        expect(await f.service.execute("kanvas.address.get", display(f), readOnly)).toEqual(address);
+        expect((await snapshot(f.store))).toEqual(reserved);
+        expect((await f.store.list('alias', f.session.id))).toHaveLength(2);
+        expect((await f.store.list('share'))).toEqual([]);
+        expect((await f.store.list('pairing'))).toEqual([]);
+        expect(reserved.members).toEqual(before.members);
+        expect((await f.service.display(f.principal, f.session.id, f.inherited.id))).toMatchObject({ revision: 3, view: exactView });
+    });
+    it('keeps implicit history navigable and persists the original revision only during a mutation', async () => {
+        const f = (await setup()), before = (await snapshot(f.store));
+        const history = (await f.service.displayHistory(f.principal, f.session.id, f.inherited.id));
+        expect(history).toMatchObject({ cursor: 0, canGoBack: false, canGoForward: false, entries: [{ revision: 3, reason: 'initial', title: exactView.title }] });
+        expect((await f.service.experience.overview(f.principal, f.session.id)).cards).toMatchObject([{ revision: 3, preview: exactView.data.text }]);
+        expect((await snapshot(f.store))).toEqual(before);
+        const request = { sessionId: f.session.id, displayIds: [f.inherited.id], requestId: 'initial-position', expectedRevisions: { [f.inherited.id]: 3 }, revision: 3 };
+        (await f.service.navigate(f.principal, request));
+        expect((await f.service.displayHistory(f.principal, f.session.id, f.inherited.id)).entries).toMatchObject([{ revision: 3, reason: 'initial' }]);
+        expect((await f.store.list('display-history'))).toHaveLength(1);
+        const afterNavigate = (await snapshot(f.store));
+        (await f.service.navigate(f.principal, request));
+        expect((await snapshot(f.store))).toEqual(afterNavigate);
+        (await f.service.clear(f.principal, f.session.id, [f.inherited.id], 'clear-after-navigation'));
+        (await f.service.navigate(f.principal, { sessionId: f.session.id, displayIds: [f.inherited.id], requestId: 'restore-original', expectedRevisions: { [f.inherited.id]: 5 }, direction: 'back' }));
+        expect((await f.service.display(f.principal, f.session.id, f.inherited.id)).view).toEqual(exactView);
+    });
+    it('does not materialize any history when a later navigation target is invalid', async () => {
+        const f = (await setup()), before = (await snapshot(f.store));
+        (await expect((async () => (await f.service.navigate(f.principal, { sessionId: f.session.id, displayIds: [f.inherited.id, f.registered.id], requestId: 'invalid-second-target', expectedRevisions: { [f.inherited.id]: 3, [f.registered.id]: 0 }, revision: 3 })))()).rejects.toThrow(/history position/));
+        expect((await snapshot(f.store))).toEqual(before);
+    });
+    it('hides expired observations without deleting records, and keeps cleanup on telemetry writes', async () => {
+        const f = (await setup()), before = (await snapshot(f.store));
+        const result = await f.service.execute("kanvas.display.inspect", { ...display(f), fresh: false }, f.principal) as {
+            observations: ViewerPresence[];
+        };
+        expect(result.observations.map(item => item.id)).toEqual(['active-viewer']);
+        expect(result.observations[0].text).toBe('Actual observed source');
+        expect(JSON.stringify(result)).not.toContain('latitude');
+        expect((await snapshot(f.store))).toEqual(before);
+        const browser = { id: 'fixture-browser', userId: f.principal.userId, csrf: 'unused-test-value', expiresAt: Date.now() + 60000 };
+        (await f.store.put('browser', browser));
+        (await f.service.experience.observe({ ...f.principal, browserId: browser.id }, f.session.id, f.inherited.id, { tabId: 'new-tab', revision: 3, renderedRevision: 3, status: 'ready', visible: true, text: 'New actual observation', width: 800, height: 600 }));
+        expect((await f.store.get('viewer', 'expired-viewer'))).toBeUndefined();
+        expect((await f.service.experience.viewers(f.principal, f.session.id))).toHaveLength(2);
+    });
+    it('reauthorizes after fresh observation waits without creating a diagnostic or capture', async () => {
+        const f = (await setup()), grant = (await f.auth.issueToken(f.principal.userId, 'Revocable read', ['read'], [f.session.id]));
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+        const pending = f.service.execute("kanvas.display.inspect", display(f), { userId: f.principal.userId, tokenId: grant.token.id });
+        const rejected = expect(pending).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+        (await f.auth.revokeToken(f.principal.userId, grant.token.id));
+        const revoked = (await snapshot(f.store));
+        await vi.advanceTimersByTimeAsync(6500);
+        await rejected;
+        expect((await snapshot(f.store))).toEqual(revoked);
+    });
+    it('separates authentication last-use metadata from the subsequent pure read', async () => {
+        const f = (await setup()), grant = (await f.auth.issueToken(f.principal.userId, 'Read-only client', ['read'], [f.session.id]));
+        const before = (await snapshot(f.store));
+        const request = { get: (name: string) => name === 'authorization' ? `Bearer ${grant.value}` : undefined } as Request;
+        const principal = await f.service.authorize(request);
+        const authenticated = (await snapshot(f.store));
+        expect((await f.store.get<Token>('token', grant.token.id))?.lastUsedAt).toBeDefined();
+        expect(authenticated.documents.filter(row => row.kind !== 'token')).toEqual(before.documents.filter(row => row.kind !== 'token'));
+        expect(authenticated.changes).not.toBe(before.changes);
+        await f.service.execute("kanvas.session.state", scoped(f), principal);
+        expect((await snapshot(f.store))).toEqual(authenticated);
+    });
 });
 
 describe('read-time monitoring eligibility', () => {

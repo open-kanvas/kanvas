@@ -1,4 +1,3 @@
-import { operationRequest } from '../mcp/requests.js';
 import {Client,StreamableHTTPClientTransport} from '@modelcontextprotocol/client';
 import {Client as LegacyClient} from '@modelcontextprotocol/sdk/client/index.js';
 import {StreamableHTTPClientTransport as LegacyTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
@@ -28,7 +27,7 @@ async function setup(page:Page,baseURL:string,mode:'success'|'denied'|'unsupport
   if(client instanceof LegacyClient)await client.connect(new LegacyTransport(new URL('/mcp',baseURL),options));
   else await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',baseURL),options));
   const call=async(operation:string,args:Record<string,unknown>={})=>{
-    const result=await client.callTool(operationRequest({name:'kanvas_capture',arguments:{operation,sessionId,displayId:display.id,...args}}));
+    const result=await client.callTool({name:'kanvas_call',arguments:{operationId:operation,arguments:{sessionId,displayId:display.id,...args}}});
     expect(result.isError, JSON.stringify(result.structuredContent ?? result.content)).not.toBe(true);return (result.structuredContent as any).data;
   };
   await expect.poll(async()=>{const result=await sessionApi<any[]>(page,`/api/sessions/${sessionId}/viewers`);return result.data?.filter(v=>v.connected&&v.displayId===display.id).length;}).toBe(1);
@@ -45,7 +44,7 @@ for(const mode of ['success','denied','unsupported'] as const)test(`client captu
   try {
     let delivered!:()=>void; const armed=new Promise<void>(resolve=>{delivered=resolve;});
     s.viewer.on('response',async response=>{if(response.url().includes('/client-capture?')){const data=await response.json().catch(()=>null);if(data?.data?.captureId)delivered();}});
-    const q=await s.call('request-capture');expect(q.status).toBe('awaiting-user-gesture');
+    const q=await s.call('kanvas.display.request.capture');expect(q.status).toBe('awaiting-user-gesture');
     await armed;
     expect(await s.viewer.evaluate(()=>(window as any).__capture.calls)).toBe(0);
     if(mode!=='unsupported'){
@@ -54,9 +53,9 @@ for(const mode of ['success','denied','unsupported'] as const)test(`client captu
       expect(await s.viewer.evaluate(()=>(window as any).__capture.calls)).toBe(0);
       await s.viewer.locator('.viewer-shell').click({position:{x:20,y:20}});
     }
-    await expect.poll(async()=>(await s.call('capture-status',{captureId:q.captureId})).status).toBe(mode==='success'?'complete':mode);
+    await expect.poll(async()=>(await s.call('kanvas.display.capture.status',{captureId:q.captureId})).status).toBe(mode==='success'?'complete':mode);
     if(mode==='success'){
-      const result=await s.call('capture-status',{captureId:q.captureId});expect(result).toMatchObject({width:640,height:360,source:'consented-client-screen'});expect(result.assetId).toBeTruthy();
+      const result=await s.call('kanvas.display.capture.status',{captureId:q.captureId});expect(result).toMatchObject({width:640,height:360,source:'consented-client-screen'});expect(result.assetId).toBeTruthy();
       const state=await s.viewer.evaluate(()=>(window as any).__capture);expect(state).toMatchObject({calls:1,stopped:1,active:true});
       const image=await page.request.get(result.assetUrl);expect(image.ok()).toBe(true);expect(image.headers()['content-type']).toContain('image/jpeg');expect((await image.body()).length).toBeGreaterThan(100);
       await s.viewer.locator('.viewer-shell').click({position:{x:20,y:20}});expect(await s.viewer.evaluate(()=>(window as any).__capture.calls)).toBe(1);
@@ -70,7 +69,7 @@ test('server snapshot uses real viewer viewport and settled renderer while remai
     await expect(s.viewer.locator('.viewer-shell')).toHaveAttribute('data-render-status','ready');
     const size=s.viewer.viewportSize()!;
     await expect.poll(async()=>{const result=await sessionApi<any[]>(page,`/api/sessions/${s.sessionId}/viewers`);return result.data?.find(v=>v.connected)?.width;}).toBe(size.width);
-    const started=Date.now(),result=await s.call('snapshot');
+    const started=Date.now(),result=await s.call('kanvas.display.snapshot');
     expect(result).toMatchObject({width:size.width,height:size.height,viewportSource:'connected-viewer',source:'isolated-server-browser',settleMs:1500,readiness:'ready'});
     expect(Date.now()-started).toBeGreaterThanOrEqual(1500);expect(result.assetId).toBeTruthy();
   }finally{await s.client.close();}
@@ -98,13 +97,13 @@ for (const limit of ['network-timeout','request-expiry'] as const) test(`client 
       await route.fulfill({response,json:body});
     });
     const armed=s.viewer.waitForResponse(async response=>response.url().includes('/client-capture?')&&Boolean((await response.json().catch(()=>null))?.data?.captureId));
-    const request=await s.call('request-capture');await armed;
+    const request=await s.call('kanvas.display.request.capture');await armed;
     await s.viewer.locator('.viewer-shell').click({position:{x:20,y:20}});
     await expect.poll(()=>s.viewer.evaluate(()=>(window as any).__capture.calls)).toBe(1);
     await expect.poll(()=>s.viewer.evaluate(()=>(window as any).__capture.stopped),{timeout:limit==='request-expiry'?4000:12000}).toBe(1);
     if(limit==='request-expiry')expect(await s.viewer.evaluate(()=>(window as any).__capture.aborted)).not.toBe(true);
     else expect(await s.viewer.evaluate(()=>(window as any).__capture.aborted)).toBe(true);
-    const result=await s.call('capture-status',{captureId:request.captureId});expect(result.assetId).toBeUndefined();
+    const result=await s.call('kanvas.display.capture.status',{captureId:request.captureId});expect(result.assetId).toBeUndefined();
     await s.viewer.close();
   } finally {await s.client.close();}
 });

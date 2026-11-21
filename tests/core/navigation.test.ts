@@ -41,32 +41,37 @@ import { denied } from './harness.js';
 import { normalizedScroll } from '../../src/client/renderers/Navigation.js';
 
 describe("navigation coverage 1", () => {
-
-
-describe("navigation contracts",()=>{
-  let h!:Harness, owner:Browser, s:string,d:string,p:AuthPrincipal;
-  beforeEach(async()=>{h=await startHarness();owner=await h.account();s=(await owner.session()).id;d=(await owner.display(s)).id;p={userId:owner.user!.id};});
-  afterEach(async()=>{await h?.close();});
-  // Tool outputs are heterogeneous envelopes; assertions below narrow the relevant fields.
-  const call=async(name:string,args:unknown,actor=p):Promise<any>=>h.runtime.service.execute(name,args,actor);
-  const target=()=>({sessionId:s,displayId:d});
-  it('distinguishes logical page count from measured overflow and expires stale/old-position measurements',async()=>{
-    const path=`/api/sessions/${s}/displays/${d}`;
-    await owner.submit(s,[d],{version:1,template:'table',data:{columns:['Name'],rows:Array.from({length:10},(_,i)=>({Name:`Row ${i}`})),pageSize:12}});
-    success(await owner.request('POST',`${path}/observe`,{tabId:'screen',sequence:1,revision:1,renderedRevision:1,status:'ready',visible:true,text:'Rows',width:800,height:400,context:null}));
-    let read=await call('kanvas_navigation_read',target());expect(read.capabilities).toMatchObject({pageCount:1,matchingItems:10});expect(read.viewers[0].viewport).toBeNull();
-    const measurement={tabId:'screen',revision:1,version:0,width:800,height:300,maxX:0,maxY:240};
-    success(await owner.request('POST',`${path}/navigation/viewport`,measurement));
-    read=await call('kanvas_navigation_read',target());expect(read.viewers[0].viewport).toMatchObject({contentOverflowsViewport:true,maxY:240});
-    const command=await call('kanvas_navigation_control',{...target(),expectedRevision:1,requestId:'bottom',navigation:{action:'scroll',y:1}});expect(command.state.scroll.y).toBe(1);
-    expect((await call('kanvas_navigation_read',target())).viewers[0].viewport).toBeNull();
-    expect(success(await owner.request('POST',`${path}/navigation/viewport`,measurement))).toMatchObject({ignored:true});
-    success(await owner.request('POST',`${path}/navigation/viewport`,{...measurement,version:command.version,maxY:0}));
-    expect((await call('kanvas_navigation_read',target())).viewers[0].viewport.contentOverflowsViewport).toBe(false);
-    const records=await h.runtime.store.list<any>('navigation-viewport',s);await h.runtime.store.put('navigation-viewport',{...records[0],at:'2026-01-01T00:00:00Z'});
-    expect((await call('kanvas_navigation_read',target())).viewers[0].viewport).toBeNull();
-    const stranger=await h.account();expect((await stranger.request('POST',`${path}/navigation/viewport`,measurement)).status).toBeGreaterThanOrEqual(400);
-  });});
+    describe("navigation contracts", () => {
+        let h!: Harness, owner: Browser, s: string, d: string, p: AuthPrincipal;
+        beforeEach(async () => { h = await startHarness(); owner = await h.account(); s = (await owner.session()).id; d = (await owner.display(s)).id; p = { userId: owner.user!.id }; });
+        afterEach(async () => { await h?.close(); });
+        // Tool outputs are heterogeneous envelopes; assertions below narrow the relevant fields.
+        const call = async (name: string, args: unknown, actor = p): Promise<any> => h.runtime.service.execute(name, args, actor);
+        const target = () => ({ sessionId: s, displayId: d });
+        it('distinguishes logical page count from measured overflow and expires stale/old-position measurements', async () => {
+            const path = `/api/sessions/${s}/displays/${d}`;
+            await owner.submit(s, [d], { version: 1, template: 'table', data: { columns: ['Name'], rows: Array.from({ length: 10 }, (_, i) => ({ Name: `Row ${i}` })), pageSize: 12 } });
+            success(await owner.request('POST', `${path}/observe`, { tabId: 'screen', sequence: 1, revision: 1, renderedRevision: 1, status: 'ready', visible: true, text: 'Rows', width: 800, height: 400, context: null }));
+            let read = await call("kanvas.navigation.read", target());
+            expect(read.capabilities).toMatchObject({ pageCount: 1, matchingItems: 10 });
+            expect(read.viewers[0].viewport).toBeNull();
+            const measurement = { tabId: 'screen', revision: 1, version: 0, width: 800, height: 300, maxX: 0, maxY: 240 };
+            success(await owner.request('POST', `${path}/navigation/viewport`, measurement));
+            read = await call("kanvas.navigation.read", target());
+            expect(read.viewers[0].viewport).toMatchObject({ contentOverflowsViewport: true, maxY: 240 });
+            const command = await call("kanvas.navigation.control", { ...target(), expectedRevision: 1, requestId: 'bottom', navigation: { action: 'scroll', y: 1 } });
+            expect(command.state.scroll.y).toBe(1);
+            expect((await call("kanvas.navigation.read", target())).viewers[0].viewport).toBeNull();
+            expect(success(await owner.request('POST', `${path}/navigation/viewport`, measurement))).toMatchObject({ ignored: true });
+            success(await owner.request('POST', `${path}/navigation/viewport`, { ...measurement, version: command.version, maxY: 0 }));
+            expect((await call("kanvas.navigation.read", target())).viewers[0].viewport.contentOverflowsViewport).toBe(false);
+            const records = await h.runtime.store.list<any>('navigation-viewport', s);
+            await h.runtime.store.put('navigation-viewport', { ...records[0], at: '2026-01-01T00:00:00Z' });
+            expect((await call("kanvas.navigation.read", target())).viewers[0].viewport).toBeNull();
+            const stranger = await h.account();
+            expect((await stranger.request('POST', `${path}/navigation/viewport`, measurement)).status).toBeGreaterThanOrEqual(400);
+        });
+    });
 });
 
 describe("navigation coverage 2", () => {

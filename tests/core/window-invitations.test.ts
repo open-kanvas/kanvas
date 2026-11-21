@@ -121,8 +121,8 @@ describe('display names and scoped group invitations',()=>{
     const token=(await h.runtime.auth.issueToken(person.user!.id,'One session',['read','publish'],[(await person.session()).id])),limited=(await h.runtime.auth.authorize({get:()=>`Bearer ${token.value}`} as unknown as Request));
     (await expect((async ()=>(await h.runtime.service.invitations.accept(limited,{invitationId:existing.id,confirm:true})))()).rejects.toThrow(/account-wide/));
   });
-  it('exposes every new operation in the canonical 12-tool catalog',()=>{
-    const definitions=listToolDefinitions('twelve');expect(definitions).toHaveLength(12);
-    for(const [tool,operation,fields] of [['kanvas_session','display.rename',{sessionId:'s',displayId:'d',expectedRevision:1,name:'New'}],['kanvas_control','window.present',{deviceId:'device',windowId:'window',sessionId:'s',displayId:'d',expectedVersion:0,requestId:'request'}],['kanvas_access','invite.accept',{invitationId:'invite',confirm:true}],['kanvas_access','invite.revoke',{invitationId:'invite'}]] as const)expect(resolveToolCall('twelve',tool,{operation,...fields})).not.toHaveProperty('error');
+  it('exposes window and invitation operations through the two-tool catalog',()=>{
+    const definitions=listToolDefinitions('discovery');expect(definitions).toHaveLength(2);
+    for(const [operationId,arguments_] of [['kanvas.display.rename',{sessionId:'s',displayId:'d',expectedRevision:1,name:'New'}],['kanvas.window.present',{deviceId:'device',windowId:'window',sessionId:'s',displayId:'d',expectedVersion:0,requestId:'request'}],['kanvas.invite.accept',{invitationId:'invite',confirm:true}],['kanvas.invite.revoke',{invitationId:'invite'}]] as const)expect(resolveToolCall('discovery','kanvas_call',{operationId,arguments:arguments_})).not.toHaveProperty('error');
   });
 });

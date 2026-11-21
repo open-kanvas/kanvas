@@ -91,23 +91,23 @@ import { Checklists } from '../../src/server/checklists.js';
 import { resolveToolCall } from '../../src/server/mcp/catalog.js';
 
 describe("presentation coverage 1", () => {
-
-
-describe("presentation contracts",()=>{
-  let h!:Harness, owner:Browser, s:string,d:string,p:AuthPrincipal;
-  beforeEach(async()=>{h=await startHarness();owner=await h.account();s=(await owner.session()).id;d=(await owner.display(s)).id;p={userId:owner.user!.id};});
-  afterEach(async()=>{await h?.close();});
-  // Tool outputs are heterogeneous envelopes; assertions below narrow the relevant fields.
-  const call=async(name:string,args:unknown,actor=p):Promise<any>=>h.runtime.service.execute(name,args,actor);
-  const target=()=>({sessionId:s,displayId:d});
-  it('publishes calendar without planning operations, serves tour and discovers the presenter option',async()=>{
-    await owner.submit(s,[d],{version:1,template:'calendar',data:{view:'three-day',anchorDate:'2026-09-27',timeZone:'UTC',items:[]}});
-    await expect(call('kanvas_planner_read',target())).rejects.toMatchObject({code:'INVALID_VIEW'});
-    const before=(await owner.detail(s)).displays[0];expect(guideFor('tour')).toMatchObject({topic:'tour'});
-    expect(await call('kanvas_help',{topic:'tour',sessionId:s})).toMatchObject({published:false,topic:'tour'});
-    expect((await owner.detail(s)).displays[0].revision).toBe(before.revision);
-    expect(templateViewSchema('presentation').safeParse({version:1,template:'presentation',data:{slides:[{version:1,template:'fact',data:{text:'Note'}}],presenterPreview:true}}).success).toBe(true);
-  });});
+    describe("presentation contracts", () => {
+        let h!: Harness, owner: Browser, s: string, d: string, p: AuthPrincipal;
+        beforeEach(async () => { h = await startHarness(); owner = await h.account(); s = (await owner.session()).id; d = (await owner.display(s)).id; p = { userId: owner.user!.id }; });
+        afterEach(async () => { await h?.close(); });
+        // Tool outputs are heterogeneous envelopes; assertions below narrow the relevant fields.
+        const call = async (name: string, args: unknown, actor = p): Promise<any> => h.runtime.service.execute(name, args, actor);
+        const target = () => ({ sessionId: s, displayId: d });
+        it('publishes calendar without planning operations, serves tour and discovers the presenter option', async () => {
+            await owner.submit(s, [d], { version: 1, template: 'calendar', data: { view: 'three-day', anchorDate: '2026-09-27', timeZone: 'UTC', items: [] } });
+            await expect(call("kanvas.planner.read", target())).rejects.toMatchObject({ code: 'INVALID_VIEW' });
+            const before = (await owner.detail(s)).displays[0];
+            expect(guideFor('tour')).toMatchObject({ topic: 'tour' });
+            expect(await call("kanvas.help", { topic: 'tour', sessionId: s })).toMatchObject({ published: false, topic: 'tour' });
+            expect((await owner.detail(s)).displays[0].revision).toBe(before.revision);
+            expect(templateViewSchema('presentation').safeParse({ version: 1, template: 'presentation', data: { slides: [{ version: 1, template: 'fact', data: { text: 'Note' } }], presenterPreview: true } }).success).toBe(true);
+        });
+    });
 });
 
 describe("presentation coverage 2", () => {
@@ -160,14 +160,26 @@ describe("presentation contracts", () => {
 });
 
 describe("presentation coverage 4", () => {
-
-let h!:Harness;afterEach(async()=>{await h?.close();});
-it('retains each mirror direction and private cues, including legacy booleans, without widening deck access',async()=>{
- h=await startHarness();const owner=await h.account(),other=await h.account(),s=await owner.session(),d=await owner.display(s.id),service=h.runtime.service,p={userId:owner.user!.id};
- for(const mirrored of [false,true,'vertical','horizontal','both'] as const){const args=parseCanonicalArguments('kanvas_presentation_create',{sessionId:s.id,name:'Mirror',mirrored,instructions:'Private deck cue',cardInstructions:['Private card cue'],slides:[{version:1,template:'fact',data:{text:'Visible card'}}]})!;const deck:any=await service.execute('kanvas_presentation_create',args,p);expect(deck.mirrored).toBe(mirrored);const requestId='mirror-'+mirrored;await service.cue(p,s.id,deck.id,0,[d.id],requestId);const {detail}=await owner.settle(s.id,requestId);const view=detail.displays.find(x=>x.id===d.id)!.view!;expect(view.data.mirrored).toBe(mirrored||undefined);expect(JSON.stringify(view)).not.toContain('Private');await expect(service.decks({userId:other.user!.id},s.id)).rejects.toThrow();}
- expect(parseCanonicalArguments('kanvas_presentation_create',{sessionId:s.id,name:'Invalid',mirrored:'diagonal',slides:[{version:1,template:'fact',data:{text:'x'}}]})).toBeUndefined();
-});
-function worker(clients:any){const events:Record<string,Function>={};const registration={showNotification:vi.fn()};runInNewContext(readFileSync('public/sw.js','utf8'),{URL,self:{location:{origin:'https://kanvas.test'},clients,registration,addEventListener:(name:string,fn:Function)=>events[name]=fn}});return {events,registration};}
+    let h!: Harness;
+    afterEach(async () => { await h?.close(); });
+    it('retains each mirror direction and private cues, including legacy booleans, without widening deck access', async () => {
+        h = await startHarness();
+        const owner = await h.account(), other = await h.account(), s = await owner.session(), d = await owner.display(s.id), service = h.runtime.service, p = { userId: owner.user!.id };
+        for (const mirrored of [false, true, 'vertical', 'horizontal', 'both'] as const) {
+            const args = parseCanonicalArguments("kanvas.presentation.create", { sessionId: s.id, name: 'Mirror', mirrored, instructions: 'Private deck cue', cardInstructions: ['Private card cue'], slides: [{ version: 1, template: 'fact', data: { text: 'Visible card' } }] })!;
+            const deck: any = await service.execute("kanvas.presentation.create", args, p);
+            expect(deck.mirrored).toBe(mirrored);
+            const requestId = 'mirror-' + mirrored;
+            await service.cue(p, s.id, deck.id, 0, [d.id], requestId);
+            const { detail } = await owner.settle(s.id, requestId);
+            const view = detail.displays.find(x => x.id === d.id)!.view!;
+            expect(view.data.mirrored).toBe(mirrored || undefined);
+            expect(JSON.stringify(view)).not.toContain('Private');
+            await expect(service.decks({ userId: other.user!.id }, s.id)).rejects.toThrow();
+        }
+        expect(parseCanonicalArguments("kanvas.presentation.create", { sessionId: s.id, name: 'Invalid', mirrored: 'diagonal', slides: [{ version: 1, template: 'fact', data: { text: 'x' } }] })).toBeUndefined();
+    });
+    function worker(clients: any) { const events: Record<string, Function> = {}; const registration = { showNotification: vi.fn() }; runInNewContext(readFileSync('public/sw.js', 'utf8'), { URL, self: { location: { origin: 'https://kanvas.test' }, clients, registration, addEventListener: (name: string, fn: Function) => events[name] = fn } }); return { events, registration }; }
 });
 
 describe("presentation coverage 5", () => {

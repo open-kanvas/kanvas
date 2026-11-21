@@ -1,11 +1,11 @@
 import {assertExpectedRevision} from './revisions.js';
-import { z } from 'zod';
-import type { DisplayRecord, UpdateRecord, ViewSpec } from '../shared/types.js';
-import type { AuthPrincipal } from './auth.js';
-import { AppError } from './store.js';
-import { InputError } from './input-errors.js';
-import { DRAFTING_LIMITS, draftingDataSchema, isDraftTextBoundary, validDraftRange, type DraftActor, type DraftRange, type DraftingData } from '../shared/drafting.js';
-import { PLANNER_LIMITS, plannerCategoriesSchema, plannerConflicts, plannerDataSchema, plannerDaySchema, plannerIcs, plannerIdSchema, plannerItemSchema, plannerProblems, plannerProposalSchema, proposalImpact, proposalWarnings, reviewPlanner, type PlannerData, type PlannerProblem, type PlannerProposal } from '../shared/planner.js';
+import {z} from 'zod';
+import type {DisplayRecord,UpdateRecord,ViewSpec} from '../shared/types.js';
+import type {AuthPrincipal} from './auth.js';
+import {AppError} from './store.js';
+import {InputError} from './input-errors.js';
+import {DRAFTING_LIMITS,draftingDataSchema,isDraftTextBoundary,validDraftRange,type DraftActor,type DraftRange,type DraftingData} from '../shared/drafting.js';
+import {PLANNER_LIMITS,plannerCategoriesSchema,plannerConflicts,plannerDataSchema,plannerDaySchema,plannerIcs,plannerIdSchema,plannerItemSchema,plannerProblems,plannerProposalSchema,proposalImpact,proposalWarnings,reviewPlanner,type PlannerData,type PlannerProblem,type PlannerProposal} from '../shared/planner.js';
 
 /** Server-held documents: the display's current view is the authoritative
  * document. Every change is a revisioned, idempotent mutation through the same
@@ -136,7 +136,7 @@ export const draftSuggestSchema = z.object({
 }).strict();
 
 /** Identical accept/reject/all fields for draft.review and planner.review, so
- * the merged kanvas_publish schema lists them once. */
+ * the public operation schema lists them once. */
 const reviewFields = {
   accept: z.array(suggestionId).min(1).max(100).optional().describe('Ids to accept (apply).'),
   reject: z.array(suggestionId).min(1).max(100).optional().describe('Ids to reject (discard).'),
@@ -168,34 +168,44 @@ function occurrences(text: string, find: string, limit = 1000): DraftRange[] {
   return found;
 }
 function locate(text: string, find: string, which: number, path: string): DraftRange {
-  const found = occurrences(text, find, which), hit = found[which - 1];
-  if (!hit) throw issue(path, found.length ? `This text occurs only ${found.length} time${found.length === 1 ? '' : 's'} in the current draft.` : 'This text does not occur in the current draft. Read draft.read for the exact text.');
-  return hit;
+    const found = occurrences(text, find, which), hit = found[which - 1];
+    if (!hit)
+        throw issue(path, found.length ? `This text occurs only ${found.length} time${found.length === 1 ? '' : 's'} in the current draft.` : "This text does not occur in the current draft. Read kanvas_call with operationId:\"kanvas.draft.read\" and arguments:{\u2026} for the exact text.");
+    return hit;
 }
 /** Resolve edits against one text into sorted, non-overlapping changes. */
 export function resolveDraftEdits(text: string, edits: readonly DraftEdit[]): TextChange[] {
-  const changes: TextChange[] = [];
-  edits.forEach((edit, order) => {
-    const path = `edits.${order}`, next = edit.text ?? '';
-    if (edit.op === 'replace') {
-      const start = edit.start ?? 0, end = edit.end ?? 0;
-      if (start > end || end > text.length) throw issue(`${path}.end`, `Use 0 ≤ start ≤ end ≤ ${text.length}, the draft length at expectedRevision.`);
-      if (!isDraftTextBoundary(text, start) || !isDraftTextBoundary(text, end)) throw issue(path, 'Do not split an emoji or other supplementary character.');
-      changes.push({ start, end, text: next, order });
-    } else if (edit.op === 'find-replace') {
-      const find = edit.find ?? '';
-      const ranges = edit.all ? occurrences(text, find) : [locate(text, find, edit.occurrence ?? 1, `${path}.find`)];
-      if (!ranges.length) throw issue(`${path}.find`, 'This text does not occur in the current draft. Read draft.read for the exact text.');
-      for (const range of ranges) changes.push({ ...range, text: next, order });
-    } else if (edit.op === 'append') changes.push({ start: text.length, end: text.length, text: next, order });
-    else changes.push({ start: 0, end: text.length, text: next, order });
-  });
-  changes.sort((a, b) => a.start - b.start || a.order - b.order);
-  for (let index = 1; index < changes.length; index++) {
-    const previous = changes[index - 1]!, current = changes[index]!;
-    if (current.start < previous.end) throw issue(`edits.${current.order}`, `This edit overlaps edit ${previous.order}. Combine them or send separate calls.`);
-  }
-  return changes;
+    const changes: TextChange[] = [];
+    edits.forEach((edit, order) => {
+        const path = `edits.${order}`, next = edit.text ?? '';
+        if (edit.op === 'replace') {
+            const start = edit.start ?? 0, end = edit.end ?? 0;
+            if (start > end || end > text.length)
+                throw issue(`${path}.end`, `Use 0 ≤ start ≤ end ≤ ${text.length}, the draft length at expectedRevision.`);
+            if (!isDraftTextBoundary(text, start) || !isDraftTextBoundary(text, end))
+                throw issue(path, 'Do not split an emoji or other supplementary character.');
+            changes.push({ start, end, text: next, order });
+        }
+        else if (edit.op === 'find-replace') {
+            const find = edit.find ?? '';
+            const ranges = edit.all ? occurrences(text, find) : [locate(text, find, edit.occurrence ?? 1, `${path}.find`)];
+            if (!ranges.length)
+                throw issue(`${path}.find`, "This text does not occur in the current draft. Read kanvas_call with operationId:\"kanvas.draft.read\" and arguments:{\u2026} for the exact text.");
+            for (const range of ranges)
+                changes.push({ ...range, text: next, order });
+        }
+        else if (edit.op === 'append')
+            changes.push({ start: text.length, end: text.length, text: next, order });
+        else
+            changes.push({ start: 0, end: text.length, text: next, order });
+    });
+    changes.sort((a, b) => a.start - b.start || a.order - b.order);
+    for (let index = 1; index < changes.length; index++) {
+        const previous = changes[index - 1]!, current = changes[index]!;
+        if (current.start < previous.end)
+            throw issue(`edits.${current.order}`, `This edit overlaps edit ${previous.order}. Combine them or send separate calls.`);
+    }
+    return changes;
 }
 
 const TOKENS = /\s+|[\p{L}\p{N}_]+(?:['’-][\p{L}\p{N}_]+)*|[^\s\p{L}\p{N}_]/gu;
@@ -244,123 +254,172 @@ const READ = 'draft.read';
 const textOf = (view: ViewSpec | null) => { const value = dataOf(view).text; return typeof value === 'string' ? value : ''; };
 
 /** Drafting: authoritative text, suggestions, focus and status on the server. */
+/** Drafting: authoritative text, suggestions, focus and status on the server. */
 export class DraftDocuments extends DocumentOps {
-  async read(principal: AuthPrincipal, raw: unknown) {
-    const input = draftReadSchema.parse(raw);
-    const display = (await this.host.display(principal, input.sessionId, input.displayId, 'viewer'));
-    const data = draftingDataSchema.parse(requireTemplate(display.view, 'drafting', READ).data);
-    const drafts = (await this.host.frames(display)).filter(frame => frame.view?.template === 'drafting');
-    const versions = drafts.slice(-20).map(frame => ({ revision: frame.revision, createdAt: frame.createdAt, reason: frame.reason, length: textOf(frame.view).length, ...(frame.current ? { current: true } : {}) }));
-    let diff: (ReturnType<typeof wordDiff> & { fromRevision: number; toRevision: number }) | undefined;
-    if (input.compareToRevision !== undefined) {
-      const frame = drafts.find(entry => entry.revision === input.compareToRevision);
-      if (!frame) throw issue('compareToRevision', `Revision ${input.compareToRevision} is not a retained drafting revision of this display. Retained: ${drafts.map(entry => entry.revision).join(', ') || 'none'}.`);
-      diff = { fromRevision: frame.revision, toRevision: display.revision, ...wordDiff(textOf(frame.view), data.text) };
+    async read(principal: AuthPrincipal, raw: unknown) {
+        const input = draftReadSchema.parse(raw);
+        const display = (await this.host.display(principal, input.sessionId, input.displayId, 'viewer'));
+        const data = draftingDataSchema.parse(requireTemplate(display.view, 'drafting', READ).data);
+        const drafts = (await this.host.frames(display)).filter(frame => frame.view?.template === 'drafting');
+        const versions = drafts.slice(-20).map(frame => ({ revision: frame.revision, createdAt: frame.createdAt, reason: frame.reason, length: textOf(frame.view).length, ...(frame.current ? { current: true } : {}) }));
+        let diff: (ReturnType<typeof wordDiff> & {
+            fromRevision: number;
+            toRevision: number;
+        }) | undefined;
+        if (input.compareToRevision !== undefined) {
+            const frame = drafts.find(entry => entry.revision === input.compareToRevision);
+            if (!frame)
+                throw issue('compareToRevision', `Revision ${input.compareToRevision} is not a retained drafting revision of this display. Retained: ${drafts.map(entry => entry.revision).join(', ') || 'none'}.`);
+            diff = { fromRevision: frame.revision, toRevision: display.revision, ...wordDiff(textOf(frame.view), data.text) };
+        }
+        const text = data.text;
+        let size = input.maxCharacters ?? 20000, detail: 'full' | 'short' | 'ranges' = 'full';
+        for (;;) {
+            let from = Math.min(input.fromCharacter ?? 0, text.length);
+            if (!isDraftTextBoundary(text, from))
+                from--;
+            let to = Math.min(text.length, from + size);
+            if (!isDraftTextBoundary(text, to))
+                to--;
+            const clip = (value: string) => detail === 'short' && value.length > 300 ? `${value.slice(0, 300)}…` : value;
+            const result = {
+                sessionId: input.sessionId, displayId: input.displayId, revision: display.revision, status: data.status, ...(data.purpose ? { purpose: data.purpose } : {}),
+                length: text.length, fromCharacter: from, toCharacter: to, truncated: from > 0 || to < text.length, text: text.slice(from, to),
+                suggestions: data.suggestions.map(item => detail === 'ranges' ? { id: item.id, start: item.start, end: item.end }
+                    : { id: item.id, start: item.start, end: item.end, ...(item.author ? { author: item.author } : {}), original: clip(text.slice(item.start, item.end)), replacement: clip(item.replacement), ...(item.reason ? { reason: item.reason } : {}) }),
+                ...(detail === 'full' ? {} : { suggestionDetail: detail }),
+                ...(data.focus ? { focus: data.focus } : {}),
+                versions, attribution: data.attribution ?? 'auto', collaborative: data.collaborative ?? false, activity: data.activity ?? [], ...(diff ? { diff } : {}),
+                next: "Use revision as expectedRevision for kanvas_call with operationId:\"kanvas.draft.edit\" and arguments:{\u2026}, kanvas_call with operationId:\"kanvas.draft.suggest\" and arguments:{\u2026} or kanvas_call with operationId:\"kanvas.draft.review\" and arguments:{\u2026}, each with a new requestId.",
+            };
+            if (Buffer.byteLength(JSON.stringify(result)) <= 40000)
+                return result;
+            if (size > 1000)
+                size = Math.floor(size / 2);
+            else if (detail === 'full')
+                detail = 'short';
+            else if (detail === 'short')
+                detail = 'ranges';
+            else
+                return result;
+        }
     }
-    const text = data.text;
-    let size = input.maxCharacters ?? 20_000, detail: 'full' | 'short' | 'ranges' = 'full';
-    for (;;) {
-      let from = Math.min(input.fromCharacter ?? 0, text.length);
-      if (!isDraftTextBoundary(text, from)) from--;
-      let to = Math.min(text.length, from + size);
-      if (!isDraftTextBoundary(text, to)) to--;
-      const clip = (value: string) => detail === 'short' && value.length > 300 ? `${value.slice(0, 300)}…` : value;
-      const result = {
-        sessionId: input.sessionId, displayId: input.displayId, revision: display.revision, status: data.status, ...(data.purpose ? { purpose: data.purpose } : {}),
-        length: text.length, fromCharacter: from, toCharacter: to, truncated: from > 0 || to < text.length, text: text.slice(from, to),
-        suggestions: data.suggestions.map(item => detail === 'ranges' ? { id: item.id, start: item.start, end: item.end }
-          : { id: item.id, start: item.start, end: item.end, ...(item.author ? { author: item.author } : {}), original: clip(text.slice(item.start, item.end)), replacement: clip(item.replacement), ...(item.reason ? { reason: item.reason } : {}) }),
-        ...(detail === 'full' ? {} : { suggestionDetail: detail }),
-        ...(data.focus ? { focus: data.focus } : {}),
-        versions, attribution: data.attribution ?? 'auto', collaborative: data.collaborative ?? false, activity: data.activity ?? [], ...(diff ? { diff } : {}),
-        next: 'Use revision as expectedRevision for draft.edit, draft.suggest or draft.review, each with a new requestId.',
-      };
-      if (Buffer.byteLength(JSON.stringify(result)) <= 40_000) return result;
-      if (size > 1000) size = Math.floor(size / 2);
-      else if (detail === 'full') detail = 'short';
-      else if (detail === 'short') detail = 'ranges';
-      else return result;
+    async edit(principal: AuthPrincipal, raw: unknown): Promise<MutationResult> {
+        const input = draftEditSchema.parse(raw);
+        return this.mutate(principal, input, 'draft-edit', 'drafting', READ, view => {
+            const data = draftingDataSchema.parse(view.data);
+            const changes = input.edits ? resolveDraftEdits(data.text, input.edits) : [];
+            const text = applyTextChanges(data.text, changes);
+            if (text.length > DRAFTING_LIMITS.text)
+                throw issue('edits', `The draft would have ${text.length} characters; the limit is ${DRAFTING_LIMITS.text}.`);
+            const kept: DraftingData['suggestions'] = [], dropped: string[] = [];
+            for (const item of data.suggestions) {
+                const moved = mapDraftRange(item, changes);
+                if (moved)
+                    kept.push(moved);
+                else
+                    dropped.push(item.id);
+            }
+            const next: DraftingData = { ...data, text, suggestions: kept };
+            delete next.focus;
+            let focusCleared = false;
+            if (input.focus) {
+                if (!validDraftRange(text, input.focus))
+                    throw issue('focus', `Focus must cover 1–${DRAFTING_LIMITS.span} characters of the text after these edits (length ${text.length}).`);
+                next.focus = input.focus;
+            }
+            else if (input.focus === undefined && data.focus) {
+                const moved = mapDraftRange(data.focus, changes);
+                if (moved)
+                    next.focus = moved;
+                else
+                    focusCleared = true;
+            }
+            if (input.draftStatus)
+                next.status = input.draftStatus;
+            if (input.purpose === null)
+                delete next.purpose;
+            else if (input.purpose !== undefined)
+                next.purpose = input.purpose;
+            return { data: next, summary: { length: text.length, changes: changes.length, droppedSuggestions: dropped, suggestions: kept.length, status: next.status, ...(focusCleared ? { focusCleared: true } : {}) } };
+        });
     }
-  }
-
-  async edit(principal: AuthPrincipal, raw: unknown): Promise<MutationResult> {
-    const input = draftEditSchema.parse(raw);
-    return this.mutate(principal, input, 'draft-edit', 'drafting', READ, view => {
-      const data = draftingDataSchema.parse(view.data);
-      const changes = input.edits ? resolveDraftEdits(data.text, input.edits) : [];
-      const text = applyTextChanges(data.text, changes);
-      if (text.length > DRAFTING_LIMITS.text) throw issue('edits', `The draft would have ${text.length} characters; the limit is ${DRAFTING_LIMITS.text}.`);
-      const kept: DraftingData['suggestions'] = [], dropped: string[] = [];
-      for (const item of data.suggestions) { const moved = mapDraftRange(item, changes); if (moved) kept.push(moved); else dropped.push(item.id); }
-      const next: DraftingData = { ...data, text, suggestions: kept };
-      delete next.focus;
-      let focusCleared = false;
-      if (input.focus) {
-        if (!validDraftRange(text, input.focus)) throw issue('focus', `Focus must cover 1–${DRAFTING_LIMITS.span} characters of the text after these edits (length ${text.length}).`);
-        next.focus = input.focus;
-      } else if (input.focus === undefined && data.focus) {
-        const moved = mapDraftRange(data.focus, changes);
-        if (moved) next.focus = moved; else focusCleared = true;
-      }
-      if (input.draftStatus) next.status = input.draftStatus;
-      if (input.purpose === null) delete next.purpose; else if (input.purpose !== undefined) next.purpose = input.purpose;
-      return { data: next, summary: { length: text.length, changes: changes.length, droppedSuggestions: dropped, suggestions: kept.length, status: next.status, ...(focusCleared ? { focusCleared: true } : {}) } };
-    });
-  }
-
-  async suggest(principal: AuthPrincipal, raw: unknown): Promise<MutationResult> {
-    const input = draftSuggestSchema.parse(raw);
-    return this.mutate(principal, input, 'draft-suggest', 'drafting', READ, view => {
-      const data = draftingDataSchema.parse(view.data);
-      const replaced = new Set(input.suggestions.flatMap(item => item.id ? [item.id] : []));
-      const base = input.replaceSuggestions ? [] : data.suggestions.filter(item => !replaced.has(item.id));
-      const used = new Set([...data.suggestions.map(item => item.id), ...replaced]);
-      let counter = 0;
-      const nextId = () => { for (;;) { const candidate = `s${(input.expectedRevision ?? 0) + 1}-${++counter}`; if (!used.has(candidate)) { used.add(candidate); return candidate; } } };
-      const seen = new Set<string>();
-      const added = input.suggestions.map((item, index) => {
-        const path = `suggestions.${index}`;
-        const range = item.find !== undefined ? locate(data.text, item.find, item.occurrence ?? 1, `${path}.find`) : { start: item.start ?? 0, end: item.end ?? 0 };
-        if (!validDraftRange(data.text, range)) throw issue(path, `A suggestion must cover 1–${DRAFTING_LIMITS.span} characters of the current draft (length ${data.text.length}) without splitting a character.`);
-        const id = item.id ?? nextId();
-        if (seen.has(id)) throw issue(`${path}.id`, 'Use each suggestion id once per call.');
-        seen.add(id);
-        return { id, ...range, replacement: item.replacement, ...(item.reason ? { reason: item.reason } : {}) };
-      });
-      const all = [...base, ...added].sort((a, b) => a.start - b.start);
-      for (let index = 1; index < all.length; index++) {
-        const previous = all[index - 1]!, current = all[index]!;
-        if (current.start < previous.end) throw issue('suggestions', `Suggestion ${current.id} overlaps ${previous.id}. Suggestions must not overlap: reject or replace (same id) the other one first.`);
-      }
-      if (all.length > DRAFTING_LIMITS.suggestions) throw issue('suggestions', `A draft holds at most ${DRAFTING_LIMITS.suggestions} suggestions.`);
-      return { data: { ...data, suggestions: all }, summary: { added: added.map(item => ({ id: item.id, start: item.start, end: item.end })), suggestions: all.length } };
-    });
-  }
-
-  async review(principal: AuthPrincipal, raw: unknown): Promise<MutationResult> {
-    const input = draftReviewSchema.parse(raw);
-    return this.mutate(principal, input, 'draft-review', 'drafting', READ, view => {
-      const data = draftingDataSchema.parse(view.data);
-      const known = new Set(data.suggestions.map(item => item.id));
-      const check = (key: string, ids: readonly string[]) => { const missing = ids.find(value => !known.has(value)); if (missing) throw issue(key, `There is no suggestion ${missing} at this revision. Read draft.read for the current ids.`); };
-      check('accept', input.accept ?? []); check('reject', input.reject ?? []);
-      const accept = new Set(input.accept ?? []), reject = new Set(input.reject ?? []);
-      const both = [...accept].find(value => reject.has(value));
-      if (both) throw issue('reject', `Suggestion ${both} cannot be both accepted and rejected.`);
-      if (input.all) for (const item of data.suggestions) if (!accept.has(item.id) && !reject.has(item.id)) (input.all === 'accept' ? accept : reject).add(item.id);
-      const applied = data.suggestions.filter(item => accept.has(item.id)).sort((a, b) => a.start - b.start);
-      const changes = applied.map((item, order) => ({ start: item.start, end: item.end, text: item.replacement, order }));
-      const text = applyTextChanges(data.text, changes);
-      if (text.length > DRAFTING_LIMITS.text) throw issue('accept', `The draft would have ${text.length} characters; the limit is ${DRAFTING_LIMITS.text}.`);
-      const remaining = data.suggestions.filter(item => !accept.has(item.id) && !reject.has(item.id)).flatMap(item => { const moved = mapDraftRange(item, changes); return moved ? [moved] : []; });
-      const next: DraftingData = { ...data, text, suggestions: remaining };
-      delete next.focus;
-      const focus = data.focus ? mapDraftRange(data.focus, changes) : undefined;
-      if (focus) next.focus = focus;
-      if (input.draftStatus) next.status = input.draftStatus;
-      return { data: next, summary: { accepted: applied.map(item => item.id), rejected: data.suggestions.filter(item => reject.has(item.id)).map(item => item.id), remaining: remaining.length, length: text.length, status: next.status, ...(data.focus && !focus ? { focusCleared: true } : {}) } };
-    });
-  }
+    async suggest(principal: AuthPrincipal, raw: unknown): Promise<MutationResult> {
+        const input = draftSuggestSchema.parse(raw);
+        return this.mutate(principal, input, 'draft-suggest', 'drafting', READ, view => {
+            const data = draftingDataSchema.parse(view.data);
+            const replaced = new Set(input.suggestions.flatMap(item => item.id ? [item.id] : []));
+            const base = input.replaceSuggestions ? [] : data.suggestions.filter(item => !replaced.has(item.id));
+            const used = new Set([...data.suggestions.map(item => item.id), ...replaced]);
+            let counter = 0;
+            const nextId = () => {
+                for (;;) {
+                    const candidate = `s${(input.expectedRevision ?? 0) + 1}-${++counter}`;
+                    if (!used.has(candidate)) {
+                        used.add(candidate);
+                        return candidate;
+                    }
+                }
+            };
+            const seen = new Set<string>();
+            const added = input.suggestions.map((item, index) => {
+                const path = `suggestions.${index}`;
+                const range = item.find !== undefined ? locate(data.text, item.find, item.occurrence ?? 1, `${path}.find`) : { start: item.start ?? 0, end: item.end ?? 0 };
+                if (!validDraftRange(data.text, range))
+                    throw issue(path, `A suggestion must cover 1–${DRAFTING_LIMITS.span} characters of the current draft (length ${data.text.length}) without splitting a character.`);
+                const id = item.id ?? nextId();
+                if (seen.has(id))
+                    throw issue(`${path}.id`, 'Use each suggestion id once per call.');
+                seen.add(id);
+                return { id, ...range, replacement: item.replacement, ...(item.reason ? { reason: item.reason } : {}) };
+            });
+            const all = [...base, ...added].sort((a, b) => a.start - b.start);
+            for (let index = 1; index < all.length; index++) {
+                const previous = all[index - 1]!, current = all[index]!;
+                if (current.start < previous.end)
+                    throw issue('suggestions', `Suggestion ${current.id} overlaps ${previous.id}. Suggestions must not overlap: reject or replace (same id) the other one first.`);
+            }
+            if (all.length > DRAFTING_LIMITS.suggestions)
+                throw issue('suggestions', `A draft holds at most ${DRAFTING_LIMITS.suggestions} suggestions.`);
+            return { data: { ...data, suggestions: all }, summary: { added: added.map(item => ({ id: item.id, start: item.start, end: item.end })), suggestions: all.length } };
+        });
+    }
+    async review(principal: AuthPrincipal, raw: unknown): Promise<MutationResult> {
+        const input = draftReviewSchema.parse(raw);
+        return this.mutate(principal, input, 'draft-review', 'drafting', READ, view => {
+            const data = draftingDataSchema.parse(view.data);
+            const known = new Set(data.suggestions.map(item => item.id));
+            const check = (key: string, ids: readonly string[]) => {
+                const missing = ids.find(value => !known.has(value));
+                if (missing)
+                    throw issue(key, `There is no suggestion ${missing} at this revision. Read kanvas_call with operationId:"kanvas.draft.read" and arguments:{\u2026} for the current ids.`);
+            };
+            check('accept', input.accept ?? []);
+            check('reject', input.reject ?? []);
+            const accept = new Set(input.accept ?? []), reject = new Set(input.reject ?? []);
+            const both = [...accept].find(value => reject.has(value));
+            if (both)
+                throw issue('reject', `Suggestion ${both} cannot be both accepted and rejected.`);
+            if (input.all)
+                for (const item of data.suggestions)
+                    if (!accept.has(item.id) && !reject.has(item.id))
+                        (input.all === 'accept' ? accept : reject).add(item.id);
+            const applied = data.suggestions.filter(item => accept.has(item.id)).sort((a, b) => a.start - b.start);
+            const changes = applied.map((item, order) => ({ start: item.start, end: item.end, text: item.replacement, order }));
+            const text = applyTextChanges(data.text, changes);
+            if (text.length > DRAFTING_LIMITS.text)
+                throw issue('accept', `The draft would have ${text.length} characters; the limit is ${DRAFTING_LIMITS.text}.`);
+            const remaining = data.suggestions.filter(item => !accept.has(item.id) && !reject.has(item.id)).flatMap(item => { const moved = mapDraftRange(item, changes); return moved ? [moved] : []; });
+            const next: DraftingData = { ...data, text, suggestions: remaining };
+            delete next.focus;
+            const focus = data.focus ? mapDraftRange(data.focus, changes) : undefined;
+            if (focus)
+                next.focus = focus;
+            if (input.draftStatus)
+                next.status = input.draftStatus;
+            return { data: next, summary: { accepted: applied.map(item => item.id), rejected: data.suggestions.filter(item => reject.has(item.id)).map(item => item.id), remaining: remaining.length, length: text.length, status: next.status, ...(data.focus && !focus ? { focusCleared: true } : {}) } };
+        });
+    }
 }
 
 const PLANNER_READ = 'planner.read';
@@ -407,107 +466,137 @@ const withoutNotes = <T extends object>(value: T): T => Object.fromEntries(Objec
 /** Schedule planning: the planner display's view is the authoritative plan.
  * Kanvas holds, versions and applies decisions; it never proposes, resolves
  * conflicts or writes to external calendars. */
+/** Schedule planning: the planner display's view is the authoritative plan.
+ * Kanvas holds, versions and applies decisions; it never proposes, resolves
+ * conflicts or writes to external calendars. */
 export class PlannerDocuments extends DocumentOps {
-  async read(principal: AuthPrincipal, raw: unknown) {
-    const input = plannerReadSchema.parse(raw);
-    const display = (await this.host.display(principal, input.sessionId, input.displayId, 'viewer'));
-    const data = plannerDataSchema.parse(requireTemplate(display.view, 'planner', PLANNER_READ).data);
-    const committed = data.status === 'committed';
-    const ics = input.includeIcs && committed ? plannerIcs(data, input.displayId) : undefined;
-    const base = {
-      sessionId: input.sessionId, displayId: input.displayId, revision: display.revision, status: data.status, view: data.view, anchorDate: data.anchorDate, timeZone: data.timeZone,
-      ...(data.committedAt ? { committedAt: data.committedAt } : {}), ...(data.categories ? { categories: data.categories } : {}),
-      itemsTotal: data.items.length, conflicts: plannerConflicts(data.items),
-      next: committed ? 'This plan is committed. planner.edit (item changes) or planner.propose reopen it as a draft; use revision as expectedRevision.' : 'Use revision as expectedRevision for planner.edit, planner.propose, planner.review or planner.finalize, each with a new requestId.',
-    };
-    let items: object[] = data.items, notes = true, withIcs = Boolean(ics), impact = true;
-    const proposals = () => data.proposals.map(proposal => {
-      const { before, after } = proposalImpact(data.items, proposal), trim = <T extends object>(value: T | undefined) => value && !notes ? withoutNotes(value) : value;
-      return { ...proposal, ...(impact ? { before: trim(before), after: trim(after) } : {}), warnings: proposalWarnings(data, proposal) };
-    });
-    for (;;) {
-      const result = {
-        ...base, items, truncated: items.length < data.items.length, ...(notes ? {} : { itemDetail: 'Notes omitted to fit one result.' }), proposals: proposals(),
-        ...(withIcs ? { ics } : input.includeIcs ? { icsNote: committed ? 'The iCalendar export does not fit in one result; build calendar entries from items instead.' : 'The plan is still a draft. Commit it with planner.finalize first; the export then covers the committed items.' } : {}),
-      };
-      if (Buffer.byteLength(JSON.stringify(result)) <= 40_000) return result;
-      if (notes) { notes = false; items = data.items.map(item => withoutNotes(item)); }
-      else if (withIcs) withIcs = false;
-      else if (impact) impact = false;
-      else if (items.length > 1) items = items.slice(0, Math.ceil(items.length / 2));
-      else return result;
+    async read(principal: AuthPrincipal, raw: unknown) {
+        const input = plannerReadSchema.parse(raw);
+        const display = (await this.host.display(principal, input.sessionId, input.displayId, 'viewer'));
+        const data = plannerDataSchema.parse(requireTemplate(display.view, 'planner', PLANNER_READ).data);
+        const committed = data.status === 'committed';
+        const ics = input.includeIcs && committed ? plannerIcs(data, input.displayId) : undefined;
+        const base = {
+            sessionId: input.sessionId, displayId: input.displayId, revision: display.revision, status: data.status, view: data.view, anchorDate: data.anchorDate, timeZone: data.timeZone,
+            ...(data.committedAt ? { committedAt: data.committedAt } : {}), ...(data.categories ? { categories: data.categories } : {}),
+            itemsTotal: data.items.length, conflicts: plannerConflicts(data.items),
+            next: committed ? "This plan is committed. kanvas_call with operationId:\"kanvas.planner.edit\" and arguments:{\u2026} (item changes) or kanvas_call with operationId:\"kanvas.planner.propose\" and arguments:{\u2026} reopen it as a draft; use revision as expectedRevision." : "Use revision as expectedRevision for kanvas_call with operationId:\"kanvas.planner.edit\" and arguments:{\u2026}, kanvas_call with operationId:\"kanvas.planner.propose\" and arguments:{\u2026}, kanvas_call with operationId:\"kanvas.planner.review\" and arguments:{\u2026} or kanvas_call with operationId:\"kanvas.planner.finalize\" and arguments:{\u2026}, each with a new requestId.",
+        };
+        let items: object[] = data.items, notes = true, withIcs = Boolean(ics), impact = true;
+        const proposals = () => data.proposals.map(proposal => {
+            const { before, after } = proposalImpact(data.items, proposal), trim = <T extends object>(value: T | undefined) => value && !notes ? withoutNotes(value) : value;
+            return { ...proposal, ...(impact ? { before: trim(before), after: trim(after) } : {}), warnings: proposalWarnings(data, proposal) };
+        });
+        for (;;) {
+            const result = {
+                ...base, items, truncated: items.length < data.items.length, ...(notes ? {} : { itemDetail: 'Notes omitted to fit one result.' }), proposals: proposals(),
+                ...(withIcs ? { ics } : input.includeIcs ? { icsNote: committed ? 'The iCalendar export does not fit in one result; build calendar entries from items instead.' : "The plan is still a draft. Commit it with kanvas_call with operationId:\"kanvas.planner.finalize\" and arguments:{\u2026} first; the export then covers the committed items." } : {}),
+            };
+            if (Buffer.byteLength(JSON.stringify(result)) <= 40000)
+                return result;
+            if (notes) {
+                notes = false;
+                items = data.items.map(item => withoutNotes(item));
+            }
+            else if (withIcs)
+                withIcs = false;
+            else if (impact)
+                impact = false;
+            else if (items.length > 1)
+                items = items.slice(0, Math.ceil(items.length / 2));
+            else
+                return result;
+        }
     }
-  }
-
-  async edit(principal: AuthPrincipal, raw: unknown): Promise<MutationResult> {
-    const input = plannerEditSchema.parse(raw);
-    return this.mutate(principal, input, 'planner-edit', 'planner', PLANNER_READ, view => {
-      const data = plannerDataSchema.parse(view.data);
-      const upserts = input.upsertItems ?? [], removals = new Set(input.removeItemIds ?? []), upsertIds = upserts.map(item => item.id);
-      if (new Set(upsertIds).size !== upsertIds.length) throw issue('upsertItems', 'Use each item id once per call.');
-      const existing = new Set(data.items.map(item => item.id));
-      const missing = [...removals].find(itemId => !existing.has(itemId));
-      if (missing) throw issue('removeItemIds', `There is no item ${missing}. Read planner.read for the current items.`);
-      const clash = upsertIds.find(itemId => removals.has(itemId));
-      if (clash) throw issue('removeItemIds', `Item ${clash} cannot be both upserted and removed.`);
-      const replacing = new Map(upserts.map(item => [item.id, item] as const)), added = upserts.filter(item => !existing.has(item.id));
-      const items = [...data.items.filter(item => !removals.has(item.id)).map(item => replacing.get(item.id) ?? item), ...added];
-      if (items.length > PLANNER_LIMITS.items) throw issue('upsertItems', `A plan holds at most ${PLANNER_LIMITS.items} items.`);
-      const kept: PlannerProposal[] = [], dropped: string[] = input.discardProposals ? data.proposals.map(proposal => proposal.id) : [];
-      for (const proposal of input.discardProposals ? [] : data.proposals) {
-        if (plannerProblems({ items, proposals: [...kept, proposal] }).length) dropped.push(proposal.id); else kept.push(proposal);
-      }
-      const reopened = data.status === 'committed' && (upserts.length > 0 || removals.size > 0);
-      const next: PlannerData = { ...data, items, proposals: kept, ...(input.plannerView ? { view: input.plannerView } : {}), ...(input.anchorDate ? { anchorDate: input.anchorDate } : {}), ...(input.categories ? { categories: input.categories } : {}) };
-      if (reopened) { next.status = 'draft'; delete next.committedAt; }
-      return { data: next, summary: { items: items.length, added: added.map(item => item.id), removed: [...removals], proposals: kept.length, ...(dropped.length ? { droppedProposals: dropped } : {}), conflicts: plannerConflicts(items).length, status: next.status, ...(reopened ? { reopened: true } : {}) } };
-    });
-  }
-
-  async propose(principal: AuthPrincipal, raw: unknown): Promise<MutationResult> {
-    const input = plannerProposeSchema.parse(raw);
-    return this.mutate(principal, input, 'planner-suggest', 'planner', PLANNER_READ, view => {
-      const data = plannerDataSchema.parse(view.data);
-      const replacing = new Set(input.proposals.map(proposal => proposal.id));
-      const base = input.replaceProposals ? [] : data.proposals.filter(proposal => !replacing.has(proposal.id));
-      const proposals = [...base, ...input.proposals];
-      if (proposals.length > PLANNER_LIMITS.proposals) throw issue('proposals', `A plan holds at most ${PLANNER_LIMITS.proposals} pending proposals. Decide or discard some first.`);
-      const problems = plannerProblems({ items: data.items, proposals });
-      if (problems.length) throw proposalIssues(problems, base.length);
-      const reopened = data.status === 'committed';
-      const next: PlannerData = { ...data, proposals };
-      if (reopened) { next.status = 'draft'; delete next.committedAt; }
-      return { data: next, summary: { added: input.proposals.map(proposal => proposal.id), proposals: proposals.length, status: next.status, ...(reopened ? { reopened: true } : {}) } };
-    });
-  }
-
-  async review(principal: AuthPrincipal, raw: unknown): Promise<MutationResult> {
-    const input = plannerReviewSchema.parse(raw);
-    return this.mutate(principal, input, 'planner-review', 'planner', PLANNER_READ, view => {
-      const data = plannerDataSchema.parse(view.data);
-      const known = new Set(data.proposals.map(proposal => proposal.id));
-      for (const key of ['accept', 'reject'] as const) {
-        const missing = (input[key] ?? []).find(proposalId => !known.has(proposalId));
-        if (missing) throw issue(key, `There is no pending proposal ${missing} at this revision. Read planner.read for the current ids.`);
-      }
-      const accept = new Set(input.accept ?? []), reject = new Set(input.reject ?? []);
-      const both = [...accept].find(proposalId => reject.has(proposalId));
-      if (both) throw issue('reject', `Proposal ${both} cannot be both accepted and rejected.`);
-      if (input.all) for (const proposal of data.proposals) if (!accept.has(proposal.id) && !reject.has(proposal.id)) (input.all === 'accept' ? accept : reject).add(proposal.id);
-      const reviewed = reviewPlanner(data, accept, reject);
-      if (reviewed.data.items.length > PLANNER_LIMITS.items) throw issue('accept', `The plan would hold more than ${PLANNER_LIMITS.items} items.`);
-      return { data: reviewed.data, summary: { accepted: reviewed.accepted, rejected: reviewed.rejected, remaining: reviewed.data.proposals.length, conflicts: plannerConflicts(reviewed.data.items).length, status: reviewed.data.status } };
-    });
-  }
-
-  async finalize(principal: AuthPrincipal, raw: unknown): Promise<MutationResult> {
-    const input = plannerFinalizeSchema.parse(raw);
-    return this.mutate(principal, input, 'planner-finalize', 'planner', PLANNER_READ, view => {
-      const data = plannerDataSchema.parse(view.data);
-      if (data.status === 'committed') throw issue('expectedRevision', `This plan is already committed${data.committedAt ? ` (${data.committedAt})` : ''}. planner.edit or planner.propose reopen it as a draft.`);
-      if (data.proposals.length) throw issue('expectedRevision', `${data.proposals.length === 1 ? '1 proposal is' : `${data.proposals.length} proposals are`} still pending. Decide them with planner.review, or drop them with planner.edit discardProposals, before finalizing.`);
-      const conflicts = plannerConflicts(data.items), committedAt = new Date().toISOString();
-      return { data: { ...data, status: 'committed', committedAt }, summary: { status: 'committed', committedAt, items: data.items.length, conflicts: conflicts.length, ...(conflicts.length ? { conflictNote: 'Committed with the conflicts shown; Kanvas never resolves them.' } : {}), next: 'planner.read with includeIcs returns iCalendar text for a calendar tool.' } };
-    });
-  }
+    async edit(principal: AuthPrincipal, raw: unknown): Promise<MutationResult> {
+        const input = plannerEditSchema.parse(raw);
+        return this.mutate(principal, input, 'planner-edit', 'planner', PLANNER_READ, view => {
+            const data = plannerDataSchema.parse(view.data);
+            const upserts = input.upsertItems ?? [], removals = new Set(input.removeItemIds ?? []), upsertIds = upserts.map(item => item.id);
+            if (new Set(upsertIds).size !== upsertIds.length)
+                throw issue('upsertItems', 'Use each item id once per call.');
+            const existing = new Set(data.items.map(item => item.id));
+            const missing = [...removals].find(itemId => !existing.has(itemId));
+            if (missing)
+                throw issue('removeItemIds', `There is no item ${missing}. Read kanvas_call with operationId:"kanvas.planner.read" and arguments:{\u2026} for the current items.`);
+            const clash = upsertIds.find(itemId => removals.has(itemId));
+            if (clash)
+                throw issue('removeItemIds', `Item ${clash} cannot be both upserted and removed.`);
+            const replacing = new Map(upserts.map(item => [item.id, item] as const)), added = upserts.filter(item => !existing.has(item.id));
+            const items = [...data.items.filter(item => !removals.has(item.id)).map(item => replacing.get(item.id) ?? item), ...added];
+            if (items.length > PLANNER_LIMITS.items)
+                throw issue('upsertItems', `A plan holds at most ${PLANNER_LIMITS.items} items.`);
+            const kept: PlannerProposal[] = [], dropped: string[] = input.discardProposals ? data.proposals.map(proposal => proposal.id) : [];
+            for (const proposal of input.discardProposals ? [] : data.proposals) {
+                if (plannerProblems({ items, proposals: [...kept, proposal] }).length)
+                    dropped.push(proposal.id);
+                else
+                    kept.push(proposal);
+            }
+            const reopened = data.status === 'committed' && (upserts.length > 0 || removals.size > 0);
+            const next: PlannerData = { ...data, items, proposals: kept, ...(input.plannerView ? { view: input.plannerView } : {}), ...(input.anchorDate ? { anchorDate: input.anchorDate } : {}), ...(input.categories ? { categories: input.categories } : {}) };
+            if (reopened) {
+                next.status = 'draft';
+                delete next.committedAt;
+            }
+            return { data: next, summary: { items: items.length, added: added.map(item => item.id), removed: [...removals], proposals: kept.length, ...(dropped.length ? { droppedProposals: dropped } : {}), conflicts: plannerConflicts(items).length, status: next.status, ...(reopened ? { reopened: true } : {}) } };
+        });
+    }
+    async propose(principal: AuthPrincipal, raw: unknown): Promise<MutationResult> {
+        const input = plannerProposeSchema.parse(raw);
+        return this.mutate(principal, input, 'planner-suggest', 'planner', PLANNER_READ, view => {
+            const data = plannerDataSchema.parse(view.data);
+            const replacing = new Set(input.proposals.map(proposal => proposal.id));
+            const base = input.replaceProposals ? [] : data.proposals.filter(proposal => !replacing.has(proposal.id));
+            const proposals = [...base, ...input.proposals];
+            if (proposals.length > PLANNER_LIMITS.proposals)
+                throw issue('proposals', `A plan holds at most ${PLANNER_LIMITS.proposals} pending proposals. Decide or discard some first.`);
+            const problems = plannerProblems({ items: data.items, proposals });
+            if (problems.length)
+                throw proposalIssues(problems, base.length);
+            const reopened = data.status === 'committed';
+            const next: PlannerData = { ...data, proposals };
+            if (reopened) {
+                next.status = 'draft';
+                delete next.committedAt;
+            }
+            return { data: next, summary: { added: input.proposals.map(proposal => proposal.id), proposals: proposals.length, status: next.status, ...(reopened ? { reopened: true } : {}) } };
+        });
+    }
+    async review(principal: AuthPrincipal, raw: unknown): Promise<MutationResult> {
+        const input = plannerReviewSchema.parse(raw);
+        return this.mutate(principal, input, 'planner-review', 'planner', PLANNER_READ, view => {
+            const data = plannerDataSchema.parse(view.data);
+            const known = new Set(data.proposals.map(proposal => proposal.id));
+            for (const key of ['accept', 'reject'] as const) {
+                const missing = (input[key] ?? []).find(proposalId => !known.has(proposalId));
+                if (missing)
+                    throw issue(key, `There is no pending proposal ${missing} at this revision. Read kanvas_call with operationId:"kanvas.planner.read" and arguments:{\u2026} for the current ids.`);
+            }
+            const accept = new Set(input.accept ?? []), reject = new Set(input.reject ?? []);
+            const both = [...accept].find(proposalId => reject.has(proposalId));
+            if (both)
+                throw issue('reject', `Proposal ${both} cannot be both accepted and rejected.`);
+            if (input.all)
+                for (const proposal of data.proposals)
+                    if (!accept.has(proposal.id) && !reject.has(proposal.id))
+                        (input.all === 'accept' ? accept : reject).add(proposal.id);
+            const reviewed = reviewPlanner(data, accept, reject);
+            if (reviewed.data.items.length > PLANNER_LIMITS.items)
+                throw issue('accept', `The plan would hold more than ${PLANNER_LIMITS.items} items.`);
+            return { data: reviewed.data, summary: { accepted: reviewed.accepted, rejected: reviewed.rejected, remaining: reviewed.data.proposals.length, conflicts: plannerConflicts(reviewed.data.items).length, status: reviewed.data.status } };
+        });
+    }
+    async finalize(principal: AuthPrincipal, raw: unknown): Promise<MutationResult> {
+        const input = plannerFinalizeSchema.parse(raw);
+        return this.mutate(principal, input, 'planner-finalize', 'planner', PLANNER_READ, view => {
+            const data = plannerDataSchema.parse(view.data);
+            if (data.status === 'committed')
+                throw issue('expectedRevision', `This plan is already committed${data.committedAt ? ` (${data.committedAt})` : ''}. kanvas_call with operationId:"kanvas.planner.edit" and arguments:{\u2026} or kanvas_call with operationId:"kanvas.planner.propose" and arguments:{\u2026} reopen it as a draft.`);
+            if (data.proposals.length)
+                throw issue('expectedRevision', `${data.proposals.length === 1 ? '1 proposal is' : `${data.proposals.length} proposals are`} still pending. Decide them with kanvas_call with operationId:"kanvas.planner.review" and arguments:{\u2026}, or drop them with kanvas_call with operationId:"kanvas.planner.edit" and arguments:{\u2026} discardProposals, before finalizing.`);
+            const conflicts = plannerConflicts(data.items), committedAt = new Date().toISOString();
+            return { data: { ...data, status: 'committed', committedAt }, summary: { status: 'committed', committedAt, items: data.items.length, conflicts: conflicts.length, ...(conflicts.length ? { conflictNote: 'Committed with the conflicts shown; Kanvas never resolves them.' } : {}), next: "kanvas_call with operationId:\"kanvas.planner.read\" and arguments:{\u2026} with includeIcs returns iCalendar text for a calendar tool." } };
+        });
+    }
 }

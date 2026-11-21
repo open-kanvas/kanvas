@@ -317,58 +317,69 @@ function toolFailure(result: ToolResult, code: string) {
 }
 
 describe.each(['modern', 'legacy'] as const)('%s MCP timer control integration', protocol => {
-  it('publishes direct pause/resume receipts, replays the original action, and returns safe state conflicts', async () => {
-    const { h, account, session, display, client, call, interpret } = await protocolSetup(protocol);
-    const discovery = await client.listTools(); expect(discovery.tools.some(tool => tool.name === 'kanvas_call')).toBe(true);
-    const found = await client.callTool({name: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id:'kanvas.timer.control'}}); expect((found.structuredContent as any).data.entry.operationId).toBe('kanvas.timer.control');
-    await account.submit(session.id, [display.id], timer({ endsAt: iso(Date.now() + 120000), completeText: 'Finished' }));
-    const before = (await account.detail(session.id)).displays[0];
-    const request = { expectedRevision: before.revision, requestId: randomUUID(), action: 'pause' };
-    const result = await call('kanvas_timer_control', request); expect(result.isError).not.toBe(true);
-    const pause = result.structuredContent!.data as UpdateRecord, paused = (await account.detail(session.id)).displays[0];
-    expect(pause).toMatchObject({ status: 'prepared', revisions: { [display.id]: before.revision + 1 } });
-    expect(paused.delivery).toMatchObject({ revision: paused.revision, status: 'pending' });
-    expect(paused.view).toEqual({ ...before.view, data: { ...before.view!.data, pausedRemainingSeconds: expect.any(Number) } });
-    expect(Number(paused.view!.data.pausedRemainingSeconds)).toBeGreaterThan(110);
-    const { delivery: _liveDelivery, ...receipt } = pause;
-    const { delivery: replayDelivery, ...replayedReceipt } = (await call('kanvas_timer_control', request)).structuredContent!.data as UpdateRecord;
-    // The immutable receipt is replayed; delivery is a live projection whose
-    // waitedMs legitimately advances while the receiving screen is offline.
-    expect(replayedReceipt).toEqual(receipt); expect(replayDelivery?.[display.id].status).toBe('offline');
-    toolFailure(await call('kanvas_timer_control', { ...request, action: 'resume' }), 'REQUEST_ID_CONFLICT');
-    toolFailure(await call('kanvas_timer_control', { ...request, requestId: randomUUID(), expectedRevision: paused.revision }), 'TIMER_ALREADY_PAUSED');
-    const resumeInput = { expectedRevision: paused.revision, requestId: randomUUID(), action: 'resume' };
-    const resumedResult = await call('kanvas_timer_control', resumeInput); expect(resumedResult.isError).not.toBe(true);
-    const resumed = (await account.detail(session.id)).displays[0]; expect(resumed.view!.data).not.toHaveProperty('pausedRemainingSeconds');
-    expect(Math.abs(timerSeconds(countdownDataSchema.parse(resumed.view!.data), Date.parse(resumed.serverNow!)) - Number(paused.view!.data.pausedRemainingSeconds))).toBeLessThan(1);
-    expect((await call('kanvas_timer_control', request)).structuredContent!.data).toMatchObject({ id: pause.id, revisions: pause.revisions });
-    toolFailure(await call('kanvas_timer_control', { ...resumeInput, requestId: randomUUID(), expectedRevision: resumed.revision }), 'TIMER_NOT_PAUSED');
-    const invalid = toolFailure(await call('kanvas_timer_control', { expectedRevision: resumed.revision, requestId: randomUUID(), action: 'PRIVATE_TIMER_ACTION' }), 'INVALID_ARGUMENT');
-    expect(JSON.stringify(invalid)).not.toContain('PRIVATE_TIMER_ACTION'); expect(invalid.issues?.some(issue => issue.path === 'action')).toBe(true);
-    const stored = (await h.runtime.store.get<UpdateRecord>('update', pause.id))!; expect(stored.status).toBe('prepared');
-    expect((await h.runtime.store.db.prepare('SELECT kind FROM requests WHERE request_id=?').get(request.requestId))?.kind).toBe('timer-control');
-    expect(interpret).not.toHaveBeenCalled();
-    (await h.runtime.store.db.prepare('UPDATE members SET role=? WHERE session_id=? AND user_id=?').run('viewer', session.id, account.user!.id));
-    toolFailure(await call('kanvas_timer_control', request), 'NOT_FOUND');
-    expect((await h.runtime.store.get<DisplayRecord>('display', display.id))?.revision).toBe(resumed.revision);
-  });
-
-  it('explains partial display_edit failure and supports full-data edit and dedicated count-up control', async () => {
-    const { account, session, display, call, interpret } = await protocolSetup(protocol);
-    await account.submit(session.id, [display.id], timer({ endsAt: iso(Date.now() + 120000) }));
-    const before = (await account.detail(session.id)).displays[0];
-    const error = toolFailure(await call('kanvas_display_edit', { expectedRevision: before.revision, data: { pausedRemainingSeconds: 42.125 } }), 'INVALID_ARGUMENT');
-    expect(error.issues).toEqual(expect.arrayContaining([expect.objectContaining({ path: 'view.data.endsAt', problem: expect.stringContaining('ISO 8601') })]));
-    expect((await account.detail(session.id)).displays[0].revision).toBe(before.revision);
-    expect((await call('kanvas_display_edit', { expectedRevision: before.revision, data: { ...before.view!.data, pausedRemainingSeconds: 42.125 } })).isError).not.toBe(true);
-    const edited = (await account.detail(session.id)).displays[0]; expect(edited.view!.data.pausedRemainingSeconds).toBe(42.125); expect(edited.delivery?.status).toBe('pending');
-    await account.submit(session.id, [display.id], timer({ direction: 'up', startedAt: iso(Date.now() - 42125) }));
-    const current = (await account.detail(session.id)).displays[0];
-    expect((await call('kanvas_timer_control', { expectedRevision: current.revision, requestId: randomUUID(), action: 'pause' })).isError).not.toBe(true);
-    const paused = (await account.detail(session.id)).displays[0]; expect(Number(paused.view!.data.pausedElapsedSeconds)).toBeGreaterThanOrEqual(42.125);
-    expect(paused.view!.data).not.toHaveProperty('pausedRemainingSeconds'); expect(paused.view!.data).not.toHaveProperty('completeText');
-    expect(interpret).not.toHaveBeenCalled();
-  });
+    it('publishes direct pause/resume receipts, replays the original action, and returns safe state conflicts', async () => {
+        const { h, account, session, display, client, call, interpret } = await protocolSetup(protocol);
+        const discovery = await client.listTools();
+        expect(discovery.tools.some(tool => tool.name === 'kanvas_call')).toBe(true);
+        const found = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id: 'kanvas.timer.control' } });
+        expect((found.structuredContent as any).data.entry.operationId).toBe('kanvas.timer.control');
+        await account.submit(session.id, [display.id], timer({ endsAt: iso(Date.now() + 120000), completeText: 'Finished' }));
+        const before = (await account.detail(session.id)).displays[0];
+        const request = { expectedRevision: before.revision, requestId: randomUUID(), action: 'pause' };
+        const result = await call("kanvas.timer.control", request);
+        expect(result.isError).not.toBe(true);
+        const pause = result.structuredContent!.data as UpdateRecord, paused = (await account.detail(session.id)).displays[0];
+        expect(pause).toMatchObject({ status: 'prepared', revisions: { [display.id]: before.revision + 1 } });
+        expect(paused.delivery).toMatchObject({ revision: paused.revision, status: 'pending' });
+        expect(paused.view).toEqual({ ...before.view, data: { ...before.view!.data, pausedRemainingSeconds: expect.any(Number) } });
+        expect(Number(paused.view!.data.pausedRemainingSeconds)).toBeGreaterThan(110);
+        const { delivery: _liveDelivery, ...receipt } = pause;
+        const { delivery: replayDelivery, ...replayedReceipt } = (await call("kanvas.timer.control", request)).structuredContent!.data as UpdateRecord;
+        // The immutable receipt is replayed; delivery is a live projection whose
+        // waitedMs legitimately advances while the receiving screen is offline.
+        expect(replayedReceipt).toEqual(receipt);
+        expect(replayDelivery?.[display.id].status).toBe('offline');
+        toolFailure(await call("kanvas.timer.control", { ...request, action: 'resume' }), 'REQUEST_ID_CONFLICT');
+        toolFailure(await call("kanvas.timer.control", { ...request, requestId: randomUUID(), expectedRevision: paused.revision }), 'TIMER_ALREADY_PAUSED');
+        const resumeInput = { expectedRevision: paused.revision, requestId: randomUUID(), action: 'resume' };
+        const resumedResult = await call("kanvas.timer.control", resumeInput);
+        expect(resumedResult.isError).not.toBe(true);
+        const resumed = (await account.detail(session.id)).displays[0];
+        expect(resumed.view!.data).not.toHaveProperty('pausedRemainingSeconds');
+        expect(Math.abs(timerSeconds(countdownDataSchema.parse(resumed.view!.data), Date.parse(resumed.serverNow!)) - Number(paused.view!.data.pausedRemainingSeconds))).toBeLessThan(1);
+        expect((await call("kanvas.timer.control", request)).structuredContent!.data).toMatchObject({ id: pause.id, revisions: pause.revisions });
+        toolFailure(await call("kanvas.timer.control", { ...resumeInput, requestId: randomUUID(), expectedRevision: resumed.revision }), 'TIMER_NOT_PAUSED');
+        const invalid = toolFailure(await call("kanvas.timer.control", { expectedRevision: resumed.revision, requestId: randomUUID(), action: 'PRIVATE_TIMER_ACTION' }), 'INVALID_ARGUMENT');
+        expect(JSON.stringify(invalid)).not.toContain('PRIVATE_TIMER_ACTION');
+        expect(invalid.issues?.some(issue => issue.path === 'action')).toBe(true);
+        const stored = (await h.runtime.store.get<UpdateRecord>('update', pause.id))!;
+        expect(stored.status).toBe('prepared');
+        expect((await h.runtime.store.db.prepare('SELECT kind FROM requests WHERE request_id=?').get(request.requestId))?.kind).toBe('timer-control');
+        expect(interpret).not.toHaveBeenCalled();
+        (await h.runtime.store.db.prepare('UPDATE members SET role=? WHERE session_id=? AND user_id=?').run('viewer', session.id, account.user!.id));
+        toolFailure(await call("kanvas.timer.control", request), 'NOT_FOUND');
+        expect((await h.runtime.store.get<DisplayRecord>('display', display.id))?.revision).toBe(resumed.revision);
+    });
+    it('explains partial display_edit failure and supports full-data edit and dedicated count-up control', async () => {
+        const { account, session, display, call, interpret } = await protocolSetup(protocol);
+        await account.submit(session.id, [display.id], timer({ endsAt: iso(Date.now() + 120000) }));
+        const before = (await account.detail(session.id)).displays[0];
+        const error = toolFailure(await call("kanvas.display.edit", { expectedRevision: before.revision, data: { pausedRemainingSeconds: 42.125 } }), 'INVALID_ARGUMENT');
+        expect(error.issues).toEqual(expect.arrayContaining([expect.objectContaining({ path: 'view.data.endsAt', problem: expect.stringContaining('ISO 8601') })]));
+        expect((await account.detail(session.id)).displays[0].revision).toBe(before.revision);
+        expect((await call("kanvas.display.edit", { expectedRevision: before.revision, data: { ...before.view!.data, pausedRemainingSeconds: 42.125 } })).isError).not.toBe(true);
+        const edited = (await account.detail(session.id)).displays[0];
+        expect(edited.view!.data.pausedRemainingSeconds).toBe(42.125);
+        expect(edited.delivery?.status).toBe('pending');
+        await account.submit(session.id, [display.id], timer({ direction: 'up', startedAt: iso(Date.now() - 42125) }));
+        const current = (await account.detail(session.id)).displays[0];
+        expect((await call("kanvas.timer.control", { expectedRevision: current.revision, requestId: randomUUID(), action: 'pause' })).isError).not.toBe(true);
+        const paused = (await account.detail(session.id)).displays[0];
+        expect(Number(paused.view!.data.pausedElapsedSeconds)).toBeGreaterThanOrEqual(42.125);
+        expect(paused.view!.data).not.toHaveProperty('pausedRemainingSeconds');
+        expect(paused.view!.data).not.toHaveProperty('completeText');
+        expect(interpret).not.toHaveBeenCalled();
+    });
 });
 
 describe('HTTP timer controls use the same authorized durable transaction', () => {

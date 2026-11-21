@@ -1,7 +1,7 @@
-import { MediaImage } from './Image';
-import { PRODUCT_ATTRIBUTES, productAttribute, type ProductData } from '../../shared/product';
-import { regionalNumber } from '../../shared/regional';
-import { useRegional } from './Regional';
+import {MediaImage} from './Image';
+import {PRODUCT_ATTRIBUTES,productAttribute,type ProductData} from '../../shared/product';
+import {regionalNumber} from '../../shared/regional';
+import {useRegional} from './Regional';
 import './browsing.css';
 
 export function ProductComparison({ data }: { data: ProductData }) {
@@ -20,4 +20,19 @@ export function ProductComparison({ data }: { data: ProductData }) {
     </div><p className="product-comparison-note">Prices, currencies and shipping terms as supplied; no currency conversion or delivered-total calculation.</p>
     {!!data.details?.length && <dl className="product-shared-details">{data.details.map((item, index) => <div key={index}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl>}
   </div>;
+}
+
+import type {TemplateData} from '../../shared/template-data';
+import type {RendererProps} from './Renderer';
+
+import {liveSurfaceOptions} from '../../shared/live-surface';
+
+import {Photo,Details,Link} from './ContentPrimitives';
+import './product.css';
+
+export function ProductRenderer(props: RendererProps) {
+  const regional=useRegional();
+  const {view,onReady}=props;
+  const surface=liveSurfaceOptions(view,props.containerView);
+  { const d=view.data as TemplateData<'product'>; if(d.layout==='comparison'||d.layout==='multi-vendor') return <ProductComparison data={d}/>; return <div className={`product-content layout-${d.layout}`}><div className="product-intro"><Photo image={d.image}/><div><h2>{d.name}</h2><p>{d.description}</p><Details items={d.details} showControls={surface.showControls}/></div></div><div className="product-offers">{d.offers.map((offer,i)=><article key={i}><span className="content-eyebrow"><Link url={offer.url}>{offer.vendor}</Link></span><strong className="offer-price">{offer.price}</strong>{[offer.availability,offer.hours,offer.distance,offer.shipping].filter(Boolean).map((x,j)=><p key={j}>{x}</p>)}{surface.showControls && offer.url && <Link url={offer.url}>View offer</Link>}</article>)}</div></div>; }
 }

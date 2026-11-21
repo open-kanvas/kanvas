@@ -23,7 +23,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import type { InteractionRecord } from '../../src/shared/types';
 import type { UpdateRecord } from '../../src/shared/types';
 import { openViewer } from './support';
-import { extendedExamples } from '../../src/shared/extended-templates';
+import {templateExampleData} from '../../src/shared/template-examples';
 
 test.describe("sharing coverage 1", () => {
 

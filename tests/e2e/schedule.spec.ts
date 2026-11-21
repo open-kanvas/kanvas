@@ -7,7 +7,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import type { Page } from '@playwright/test';
 import type { DisplayRecord } from '../../src/shared/types';
 import type { ViewSpec } from '../../src/shared/types';
-import { extendedExamples } from '../../src/shared/extended-templates';
+import {templateExampleData} from '../../src/shared/template-examples';
 import { createDisplay } from './support';
 import { createSession } from './support';
 import { expect } from './support';

@@ -1,4 +1,4 @@
-import {extendedSchemas} from '../../src/shared/extended-templates';
+import {templateSchemas} from '../../src/shared/template-data';
 import React from 'react';
 import {useState} from 'react';
 import {createRoot} from 'react-dom/client';
@@ -12,6 +12,6 @@ const dense=new URLSearchParams(location.search).has('dense');
 function Fixture(){
  const [activeEventId,select]=useState<string>();
  (window as unknown as {selectTimeline:(id?:string)=>void}).selectTimeline=select;
- return <TimelineRenderer data={extendedSchemas.timeline.parse({activeEventId,orientation:new URLSearchParams(location.search).has('vertical')?'vertical':'horizontal',events:dense?Array.from({length:40},(_,i)=>({...events[i%6],id:`dense-${i}`})):events})}/>;
+ return <TimelineRenderer data={templateSchemas.timeline.parse({activeEventId,orientation:new URLSearchParams(location.search).has('vertical')?'vertical':'horizontal',events:dense?Array.from({length:40},(_,i)=>({...events[i%6],id:`dense-${i}`})):events})}/>;
 }
 createRoot(document.getElementById('root')!).render(<Fixture/>);

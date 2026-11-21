@@ -23,7 +23,7 @@ import { mkdir } from 'node:fs/promises';
 import { Client } from '@modelcontextprotocol/client';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import type { DisplayRecord } from '../../src/shared/types';
-import { extendedExamples } from '../../src/shared/extended-templates';
+import {templateExampleData} from '../../src/shared/template-examples';
 import { Client as LegacyClient } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport as LegacyTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { TestInfo } from '@playwright/test';

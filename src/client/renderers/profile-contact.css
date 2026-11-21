@@ -1,5 +1,5 @@
 .profile-content.profile-contact-layout{height:100%;min-width:0;min-height:0;align-items:safe center;justify-content:safe center;gap:clamp(24px,4cqw,56px);overflow:auto;overscroll-behavior:contain}
-.profile-contact-layout>.extended-photo{flex-shrink:0;width:min(30%,340px);max-height:44cqh}
+.profile-contact-layout>.content-photo{flex-shrink:0;width:min(30%,340px);max-height:44cqh}
 .profile-contact-layout>.profile-copy{flex:1 1 auto;min-width:0;width:100%;max-width:1000px}
 .profile-copy .profile-identity{min-width:0;max-width:100%}
 .profile-copy .profile-name{font-size:clamp(2rem,4.6cqw,4rem);line-height:1.15;letter-spacing:-.03em;font-weight:550;margin:0;overflow-wrap:anywhere;white-space:pre-wrap;text-wrap:pretty}
@@ -18,22 +18,22 @@
 .profile-copy :is(.profile-contact-action,.profile-contact-map,.profile-links a):focus-visible{outline:3px solid var(--accent,var(--text));outline-offset:-3px;border-radius:4px}
 .profile-copy :is(.profile-contact-action,.profile-contact-map,.profile-links a):hover{text-decoration-color:var(--text)}
 .profile-copy .profile-description{font-size:clamp(1rem,1.7cqw,1.3rem);line-height:1.6;margin:24px 0 0;max-width:100%;color:var(--muted);white-space:pre-wrap;overflow-wrap:anywhere}
-.profile-copy .extended-details{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:16px 24px;min-width:0;max-width:100%;margin:20px 0}
-.profile-copy .extended-details>div{min-width:0;max-width:100%}
-.profile-copy .extended-details :is(dt,dd){font-size:1rem;line-height:1.5;overflow-wrap:anywhere;white-space:pre-wrap}
+.profile-copy .content-details{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:16px 24px;min-width:0;max-width:100%;margin:20px 0}
+.profile-copy .content-details>div{min-width:0;max-width:100%}
+.profile-copy .content-details :is(dt,dd){font-size:1rem;line-height:1.5;overflow-wrap:anywhere;white-space:pre-wrap}
 .profile-copy .supplementary-details{margin-top:20px}
 @container(max-width:650px){
   .profile-content.profile-contact-layout{flex-direction:column;align-items:stretch;justify-content:safe center;gap:24px}
-  .profile-contact-layout>.extended-photo{align-self:center;width:min(100%,220px);max-height:28cqh}
+  .profile-contact-layout>.content-photo{align-self:center;width:min(100%,220px);max-height:28cqh}
   .profile-contact-layout>.profile-copy{flex:0 0 auto}
   .profile-contacts{grid-template-columns:minmax(0,1fr);row-gap:10px}
 }
 .render-surface.is-preview .profile-content.profile-contact-layout{gap:10px;justify-content:flex-start}
-.render-surface.is-preview .profile-contact-layout>.extended-photo{width:min(28%,100px);max-height:30cqh}
+.render-surface.is-preview .profile-contact-layout>.content-photo{width:min(28%,100px);max-height:30cqh}
 .render-surface.is-preview .profile-name{font-size:clamp(12px,6cqw,28px)}
 .render-surface.is-preview .profile-role{font-size:clamp(9px,3.5cqw,14px);margin-top:4px}
 .render-surface.is-preview .profile-contacts{gap:4px;margin:8px 0;grid-template-columns:minmax(0,1fr)}
 .render-surface.is-preview .profile-contact-detail{padding:2px 0}
-.render-surface.is-preview :is(.profile-contact-detail dt,.profile-contact-detail dd,.profile-description,.profile-contact-map,.profile-links a,.profile-copy .extended-details dt,.profile-copy .extended-details dd){font-size:clamp(8px,3cqw,12px);line-height:1.4}
+.render-surface.is-preview :is(.profile-contact-detail dt,.profile-contact-detail dd,.profile-description,.profile-contact-map,.profile-links a,.profile-copy .content-details dt,.profile-copy .content-details dd){font-size:clamp(8px,3cqw,12px);line-height:1.4}
 .render-surface.is-preview :is(.profile-contact-action,.profile-contact-map,.profile-links a){min-height:0;min-width:0;padding:3px 0}
-.render-surface.is-preview .profile-copy :is(.profile-links,.profile-description,.extended-details,.supplementary-details){margin-top:8px;margin-bottom:8px}
+.render-surface.is-preview .profile-copy :is(.profile-links,.profile-description,.content-details,.supplementary-details){margin-top:8px;margin-bottom:8px}

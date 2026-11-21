@@ -1,0 +1,5 @@
+.welcome-view{height:100%;display:flex;flex-direction:column;justify-content:center;gap:clamp(12px,3cqh,40px);max-width:min(92%,1500px);margin:0 auto}
+.welcome-view h2{margin:0;font-size:clamp(28px,min(6.4cqw,13cqh),120px);line-height:1.08;letter-spacing:-.02em;font-weight:600}
+.welcome-try{margin:0;color:var(--muted);font-size:clamp(12px,1.5cqw,22px);letter-spacing:.14em;text-transform:uppercase}
+.welcome-view ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:clamp(6px,1.6cqh,20px)}
+.welcome-view li{font-size:clamp(17px,min(3cqw,6.4cqh),54px);line-height:1.2;color:var(--text);padding-left:.9em;border-left:3px solid var(--accent)}

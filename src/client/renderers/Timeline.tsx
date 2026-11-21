@@ -1,11 +1,11 @@
-import { ChartRenderer } from './Chart';
-import { DiagramRenderer } from './Diagrams';
-import type { CSSProperties } from 'react';
-import type { ExtendedData } from '../../shared/extended-templates';
-import { timelineScale, timelineDate } from '../../shared/timeline';
+import {ChartRenderer} from './Chart';
+import {DiagramRenderer} from './Diagrams';
+import type {CSSProperties} from 'react';
+import type {TemplateData} from '../../shared/template-data';
+import {timelineScale,timelineDate} from '../../shared/timeline';
 import './timeline-fit.css';
 /** One shared temporal scale, one event per lane: close dates never collide. */
-export function TimelineRenderer({data}:{data:ExtendedData<'timeline'>}) {
+export function TimelineRenderer({data}:{data:TemplateData<'timeline'>}) {
   const scale=timelineScale(data.events);
   const active=scale.events.find(event=>event.id===data.activeEventId),visual=active?.visual;
   return <section className={`temporal-timeline temporal-${data.orientation}`} style={{"--event-count":data.events.length} as CSSProperties} data-progressive={Boolean(active)} aria-label="Timeline" data-navigation-scroll tabIndex={0}>

@@ -23,7 +23,7 @@ import { chartDataSchema } from '../../src/shared/view-schemas';
 import { choroplethPaths } from '../../src/client/renderers/AdvancedCharts';
 import { regionGeometry } from '../../src/client/renderers/AdvancedCharts';
 import { itineraryMap } from '../../src/client/renderers/Itinerary';
-import { extendedSchemas } from '../../src/shared/extended-templates';
+import {templateSchemas} from '../../src/shared/template-data';
 import { selectRows } from '../../src/shared/selection';
 import { selectionSchema } from '../../src/shared/selection';
 import { cellEmphasis } from '../../src/shared/emphasis';

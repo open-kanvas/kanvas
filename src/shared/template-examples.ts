@@ -1,13 +1,32 @@
+import type {SchemaTemplateId} from './template-data.js';
+export const templateExampleData: Record<SchemaTemplateId, Record<string, unknown>> = {
+  'keyboard-shortcuts': {},
+  overview: { order: 'oldest', showPreviews: true }, settings: { description: 'Tune this session or save your defaults.', allowAccountDefaults: true },
+  html: { description: 'An illustrative custom visual', html: '<article><h1>Space to think.</h1><p>A custom visual, safely contained.</p></article>', css: 'article{padding:8vw;font:24px system-ui}h1{font-size:clamp(36px,7vw,100px)}' },
+  timeline: { events: [{ id: 'launch', title: 'Launch', start: '2026-09-01', lane: 'Milestones' }, { id: 'review', title: 'Review', start: '2026-09-12', end: '2026-09-14', lane: 'Milestones' }] },
+  itinerary: { days: [{ date: '2026-09-12', title: 'A day in Oslo', items: [{ time: '10:00', title: 'Waterfront walk', place: 'Aker Brygge', type: 'Walk' }, { time: '13:00', title: 'Lunch', description: 'A pause by the water.' }] }] },
+  product: { name: 'Studio headphones', description: 'Illustrative vendor comparison.', layout: 'image-led', offers: [{ vendor: 'Local shop', price: '1 290 NOK', availability: 'In stock', hours: '10–18', distance: '1.2 km' }, { vendor: 'Online shop', price: '1 190 NOK', shipping: '2–3 days' }] },
+  weather: { place: 'Oslo', temperature: '18°', condition: 'clear', period: 'sunset', description: 'Illustrative conditions', forecast: [{ time: '19:00', temperature: '17°', condition: 'clear' }, { time: '20:00', temperature: '15°', condition: 'cloudy' }] },
+  profile: { name: 'Alex Morgan', kind: 'person', role: 'Designer', description: 'Making complex ideas feel simple.', details: [{ label: 'Based in', value: 'Oslo' }] },
+  kpi: { items: [{ label: 'Revenue', value: '123,456.78', delta: '+12%', trend: 'up' }, { label: 'Response time', value: '42 ms', delta: '−8 ms', trend: 'down' }, { label: 'Availability', value: '99.98%', trend: 'flat' }] },
+  quote: { text: 'Simplicity is the ultimate sophistication.', attribution: 'Attributed to Leonardo da Vinci' },
+  'story-cards':{items:[{headline:'A quieter waterfront',summary:'The new walking route opens this weekend.'},{headline:'A place to gather',summary:'A restored library welcomes its first visitors.'}]},
+  recipe: { name: 'A thoughtful cup of coffee', duration: '5 minutes', yield: '1 cup', materials: ['18 g ground coffee', '300 ml water'], steps: ['Heat the water.', 'Wet the grounds, then pour slowly.', 'Enjoy.'] },
+  procedure: {name:'Set up your workspace',description:'One step at a time. Say next or use the controls.',materials:['A clear desk','A notebook'],steps:['Clear a space for the work ahead.','Write down the one result you want to achieve.','Begin with the smallest useful action.']},
+  join: {url:'https://example.com/join',qr:{url:'https://example.com/qr.png',alt:'Illustrative join code'},expiresAt:'2099-01-01T00:00:00.000Z',label:'Join this display',description:'The owner approves each screen before it receives content.'},
+  menu: { groups: [{ title: 'Coffee', items: [{ name: 'Espresso', price: '35 NOK' }, { name: 'Flat white', price: '49 NOK', featured: true }] }] },
+  leaderboard: { items: [{ rank: '1', name: 'North', value: '92', change: '+2' }, { rank: '2', name: 'South', value: '88', change: '−1' }] },
+  status: { asOf: 'Illustrative snapshot', items: [{ name: 'API', status: 'ok', note: 'All systems operational' }, { name: 'Imports', status: 'warning', note: 'Queue is longer than usual' }] },
+};
 import {mathExample} from './math-workspace.js';
 import {vennExample} from './statistical-visuals.js';
 import {sceneReferences} from './scene3d.js';
-import { gameExample } from './game.js';
-import {venueNames,venueSchemas} from './venue.js';
-import { eventViewExamples } from './event-views.js';
-import { workNames, workExamples } from './work-examples.js';
-import type { TemplateId, ViewSpec } from './types.js';
-import { extendedExamples } from './extended-templates.js';
-import { advancedChartExamples } from './advanced-chart-examples.js';
+import {gameExample} from './game.js';
+import {venueNames} from './venue.js';
+import {eventViewExamples} from './event-views.js';
+import {workNames,workExamples} from './work-examples.js';
+import type {TemplateId,ViewSpec} from './types.js';
+import {advancedChartExamples} from './advanced-chart-examples.js';
 export const templateNames: Record<TemplateId, string> = {'task-list':'Task list',colour:'Colour picker','icon-picker':'Icon picker','font-picker':'Font picker','tool-call-details':'Tool call details','monitor-stream':'Live monitor stream','message-board':'Message board overview',agents:'Connected agents',welcome:'Welcome','split-screen':'Split screen','database-schema':'Database schema',qr:'QR display','traffic-demo':'Traffic-light demonstration',satisfaction:'Satisfaction feedback kiosk','game-board':'Games & puzzles',signage:'Signage library',scene3d:'Metric 3D scene',molecule:'Molecule (schematic 2D)','instrument':'Musical instrument','live-captions':'Live Captions','catalog-list':'Alphabetical catalog',...venueNames,'account-template':'Your private custom template',flashcards:'Flashcards','device-preview':'Responsive device preview','architecture':'System architecture','sports-lineup':"Sports lineup",'org-chart':"Organization chart",'flowchart':"Flowchart / process",'network':"Network / relationships",'image-gallery':'Image gallery',scoreboard:'Scoreboard',standings:'Standings','tool-call-log':'Live tool calls',...workNames,json:'JSON explorer','session-topology':'Session connections',
   clock: 'Clock & time zones',
   'now-playing': 'Now playing',
@@ -41,9 +60,9 @@ welcome:{version:1,template:'welcome',data:{}},
   'now-playing': { version: 1, template: 'now-playing', data: { track: 'Evening light', artist: 'Example ensemble', album: 'Coastal sketches', artwork: { url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=900&q=85', alt: 'Illustrative cover photograph' }, state: 'playing', elapsedSeconds: 73.25, durationSeconds: 245.5, observedAt: '2026-09-14T01:00:00Z' } },
   clock: { version: 1, template: 'clock', data: { timeZone: 'Europe/Oslo', label: 'Arendal', hourFormat: '24h', showSeconds: true, showDate: true, zones: [{ timeZone: 'America/New_York', label: 'New York' }, { timeZone: 'Asia/Tokyo', label: 'Tokyo' }] } },
   drafting: { version: 1, template: 'drafting', title: 'Draft note', data: { text: 'Thank you for the update.\nI will review the proposal tomorrow.', purpose: 'Email draft', status: 'reviewing', suggestions: [{ id: 'timing', start: 53, end: 61, replacement: 'on Friday', reason: 'Make the timing specific' }] } },
-  procedure: { version: 1, template: 'procedure', data: extendedExamples.procedure },
-  join: { version: 1, template: 'join', data: extendedExamples.join },
-  overview: { version: 1, template: 'overview', data: extendedExamples.overview },
+  procedure: { version: 1, template: 'procedure', data: templateExampleData.procedure },
+  join: { version: 1, template: 'join', data: templateExampleData.join },
+  overview: { version: 1, template: 'overview', data: templateExampleData.overview },
   'display-grid': { version: 1, template: 'display-grid', data: { showNames: true } },
   devices: { version: 1, template: 'devices', data: { groupBy: 'device', showOffline: true, devices: [{ name: 'Office laptop', device: 'Mac', browser: 'Safari', connected: true, lastSeenAt: '2026-09-25T12:00:00.000Z', windows: [{ name: 'Main window', connected: true, sessionId: 'session-a', sessionName: 'Weekly planning', displayName: 'Main' }, { name: 'Second tab', connected: false, lastSeenAt: '2026-09-25T09:30:00.000Z', sessionId: 'session-b', sessionName: 'Holiday photos', displayName: 'Gallery' }] }, { name: 'Living room TV', device: 'TV', browser: 'Chrome', connected: false, lastSeenAt: '2026-09-24T20:15:00.000Z', windows: [{ name: 'Browser', connected: false, lastSeenAt: '2026-09-24T20:15:00.000Z', sessionId: 'session-a', sessionName: 'Weekly planning', displayName: 'Wall' }] }, { name: 'Phone', device: 'iPhone', browser: 'Safari', connected: true, lastSeenAt: '2026-09-25T12:01:00.000Z', windows: [{ name: 'Browser', connected: true, sessionId: 'session-c', sessionName: 'Groceries', displayName: 'List' }] }] } },
   calendar: { version: 1, template: 'calendar', data: { view: 'three-day', anchorDate: '2026-11-02', timeZone: 'Europe/Oslo', items: [{ id: 'walk', title: 'Morning walk', start: '2026-11-02T09:00:00+01:00', end: '2026-11-02T10:00:00+01:00' }], weather: [{ time: '2026-11-02T09:00:00+01:00', condition: 'sun', temperature: 8, unit: 'C', precipitationChance: 10 }] } },
@@ -61,27 +80,27 @@ welcome:{version:1,template:'welcome',data:{}},
       { id: 'move-dentist', action: 'move', itemId: 'dentist', item: { start: '2026-11-04T16:00:00+01:00', end: '2026-11-04T17:00:00+01:00' }, reason: 'Avoids the overlap with the design review.' },
     ],
   } },
-  settings: { version: 1, template: 'settings', data: extendedExamples.settings },
-  html: { version: 1, template: 'html', data: extendedExamples.html },
+  settings: { version: 1, template: 'settings', data: templateExampleData.settings },
+  html: { version: 1, template: 'html', data: templateExampleData.html },
   math:{version:1,template:'math',data:mathExample},
   venn:{version:1,template:'venn',data:vennExample},
-  timeline: { version: 1, template: 'timeline', data: extendedExamples.timeline },
-  itinerary: { version: 1, template: 'itinerary', data: extendedExamples.itinerary },
-  product: { version: 1, template: 'product', data: extendedExamples.product },
-  weather: { version: 1, template: 'weather', data: extendedExamples.weather },
-  profile: { version: 1, template: 'profile', data: extendedExamples.profile },
-  kpi: { version: 1, template: 'kpi', data: extendedExamples.kpi },
-  quote: { version: 1, template: 'quote', data: extendedExamples.quote },
-  recipe: { version: 1, template: 'recipe', data: extendedExamples.recipe },
-  menu: { version: 1, template: 'menu', data: extendedExamples.menu },
-  leaderboard: { version: 1, template: 'leaderboard', data: extendedExamples.leaderboard },
-  status: { version: 1, template: 'status', data: extendedExamples.status },
+  timeline: { version: 1, template: 'timeline', data: templateExampleData.timeline },
+  itinerary: { version: 1, template: 'itinerary', data: templateExampleData.itinerary },
+  product: { version: 1, template: 'product', data: templateExampleData.product },
+  weather: { version: 1, template: 'weather', data: templateExampleData.weather },
+  profile: { version: 1, template: 'profile', data: templateExampleData.profile },
+  kpi: { version: 1, template: 'kpi', data: templateExampleData.kpi },
+  quote: { version: 1, template: 'quote', data: templateExampleData.quote },
+  recipe: { version: 1, template: 'recipe', data: templateExampleData.recipe },
+  menu: { version: 1, template: 'menu', data: templateExampleData.menu },
+  leaderboard: { version: 1, template: 'leaderboard', data: templateExampleData.leaderboard },
+  status: { version: 1, template: 'status', data: templateExampleData.status },
   fact: { version: 1, template: 'fact', data: { text: 'Make room for the idea.', subtitle: 'One clear thought. The whole surface.' } },
   number: { version: 1, template: 'number', data: { value: 94.2, unit: '%', label: 'On-time arrivals', comparison: '+3.1 percentage points from last month' } },
   chart: { version: 1, template: 'chart', title: 'A clearer view of the trend', data: { kind: 'line', xLabel: 'Month', yLabel: 'Passengers', unit: 'thousands', series: [{ name: 'This year', points: [{ x: 'Jan', y: 42 }, { x: 'Feb', y: 48 }, { x: 'Mar', y: 45 }, { x: 'Apr', y: 61 }, { x: 'May', y: 72 }, { x: 'Jun', y: 84 }] }] } },
   table: { version: 1, template: 'table', title: 'Route overview', data: { columns: ['Route', 'Passengers', 'Load factor (%)'], rows: [{ Route: 'Oslo → New York', Passengers: 246, 'Load factor (%)': 88.5 }, { Route: 'London → Miami', Passengers: 263, 'Load factor (%)': 94.6 }, { Route: 'Paris → Los Angeles', Passengers: 251, 'Load factor (%)': 90.3 }] } },
   image: { version: 1, template: 'image', title: 'A different perspective', data: { images: [{ url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1600&q=85', alt: 'A mountain summit against a blue sky', caption: 'A little distance makes the shape clearer.' }] } },
-  'story-cards':{version:1,template:'story-cards',data:extendedExamples['story-cards']},
+  'story-cards':{version:1,template:'story-cards',data:templateExampleData['story-cards']},
   website:{version:1,template:'website',data:{pages:[{url:'https://example.com/',title:'Example website'}],index:0}},
   iframe: { version: 1, template: 'iframe', data: { pages: [{ url: 'https://example.com/', title: 'Example website' }], index: 0 } },
   list: { version: 1, template: 'list', data: { items: ['Choose a topic', 'Supply the details', 'Make it visible'], ordered: true, start: 1, pageSize: 20 } },

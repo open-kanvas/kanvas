@@ -18,7 +18,7 @@ import { mkdir } from 'node:fs/promises';
 import { Client } from '@modelcontextprotocol/client';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import type { DisplayRecord } from '../../src/shared/types';
-import { extendedExamples } from '../../src/shared/extended-templates';
+import {templateExampleData} from '../../src/shared/template-examples';
 import { sessionDetail } from './support';
 
 test.describe("source preservation coverage 1", () => {
@@ -63,7 +63,7 @@ test('new display-only layouts paint exact source data on both screen sizes',asy
   const templates=['timeline','itinerary','product','weather','profile','kpi','quote','recipe','menu','leaderboard','status'] as const;
   await mkdir(info.outputPath('visuals'),{recursive:true});
   for(const template of templates){
-    const data=structuredClone(extendedExamples[template]);
+    const data=structuredClone(templateExampleData[template]);
     if(template==='kpi')data.items=[{label:'Exact source',value:'9007199254740993.123456789',delta:'+0.00001',trend:'up'},...(data.items as unknown[])];
     await publishPrepared(page,sessionId,[display.id],{version:1,template,title:`Source ${template}`,data});await painted(page,sessionId,display.id,template);
     await expect(viewer.locator(`.template-${template}`)).toBeVisible();

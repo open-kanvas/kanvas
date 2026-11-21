@@ -86,8 +86,8 @@ test('ordinary legacy values stay plain even when named Email or Phone, while se
   const details = [{ label: 'Email', value: 'alex@example.com' }, { label: 'Phone', value: '+1 202 555 0123' }, { label: 'Website as text', value: 'https://example.com', type: 'text' }, { label: 'Literal source', value: '<b>Not active HTML</b>' }];
   const links = [{ label: 'Existing profile page', url: 'http://example.com/legacy?source=profile' }];
   await publishPrepared(page, sessionId, [displayId], profile({ details, links })); await ready(page, viewer, sessionId, displayId);
-  await expect(viewer.locator('.profile-contacts,.extended-details a,.extended-details b')).toHaveCount(0);
-  for (const detail of details) await expect(viewer.locator('.extended-details')).toContainText(detail.value);
+  await expect(viewer.locator('.profile-contacts,.content-details a,.content-details b')).toHaveCount(0);
+  for (const detail of details) await expect(viewer.locator('.content-details')).toContainText(detail.value);
   await expect(viewer.getByRole('link', { name: 'Existing profile page ↗', exact: true })).toHaveAttribute('href', links[0].url);
   const stored = (await sessionDetail(page, sessionId)).displays.find(value => value.id === displayId)!.view!;
   expect(stored.data.details).toEqual(details); expect(stored.data.links).toEqual(links);

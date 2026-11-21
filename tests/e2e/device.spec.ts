@@ -24,7 +24,7 @@ import { waitForDisplay } from './support';
 import { login } from './support';
 import { publicReference } from '../../src/server/mcp/operations';
 import type { DisplayRecord } from '../../src/shared/types';
-import { extendedExamples } from '../../src/shared/extended-templates';
+import {templateExampleData} from '../../src/shared/template-examples';
 import type { Browser } from '@playwright/test';
 import { advancedChartExamples } from '../../src/shared/advanced-chart-examples';
 import { samples } from '../../src/shared/template-examples';

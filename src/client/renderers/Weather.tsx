@@ -1,13 +1,13 @@
 import {WEATHER_STEP_MS,weatherSunPosition} from './weather-motion';
 import {WeatherScene} from './WeatherScene';
-import { FormattedTime } from './Regional';
-import { useId,useState,useEffect,useLayoutEffect,useRef, type CSSProperties } from 'react';
-import type { ExtendedData } from '../../shared/extended-templates';
+import {FormattedTime} from './Regional';
+import {useId,useState,useEffect,useLayoutEffect,useRef,type CSSProperties} from 'react';
+import type {TemplateData} from '../../shared/template-data';
 import './weather.css';
-import { useRegional } from './Regional';
-import { regionalTemperature } from '../../shared/regional';
+import {useRegional} from './Regional';
+import {regionalTemperature} from '../../shared/regional';
 
-type Condition = ExtendedData<'weather'>['condition'];
+type Condition = TemplateData<'weather'>['condition'];
 const labels: Record<Condition, string> = { clear: 'Clear', 'partly-cloudy': 'Partly cloudy', cloudy: 'Cloudy', rain: 'Rain', snow: 'Snow', storm: 'Thunderstorms', fog: 'Fog' };
 
 /** Self-contained vector artwork: no remote imagery, random layout or weather inference. */
@@ -29,7 +29,7 @@ export function WeatherSymbol({ condition, night = false, miniature = false }: {
 
 /** Type scale steps tried, largest first, until the forecast text fits its row. */
 export const WEATHER_FIT_STEPS=[1,.9,.8,.7,.6] as const;
-export function WeatherRenderer({data:supplied,preview=false}: {preview?:boolean;data:ExtendedData<'weather'>;title?:string;showControls?:boolean}){
+export function WeatherRenderer({data:supplied,preview=false}: {preview?:boolean;data:TemplateData<'weather'>;title?:string;showControls?:boolean}){
  const regional=useRegional(),convert=(v:string|undefined)=>regionalTemperature(v,regional,supplied.temperatureUnit),[index,setIndex]=useState(-1),[playing,setPlaying]=useState(true);
  const identity=JSON.stringify(supplied);useEffect(()=>setIndex(-1),[identity]);
  useEffect(()=>{if(preview||!playing||!supplied.forecast?.length)return;const reduced=matchMedia('(prefers-reduced-motion: reduce)');const timer=setInterval(()=>{if(!document.hidden&&!reduced.matches)setIndex(i=>i+1>=supplied.forecast!.length?-1:i+1);},WEATHER_STEP_MS);return()=>clearInterval(timer);},[playing,identity,preview]);

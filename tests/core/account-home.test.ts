@@ -1,13 +1,35 @@
 import type { Response } from 'express';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { startHarness, fact, type Harness, type Browser } from './harness.js';
-import { hash, type AuthPrincipal } from '../../src/server/auth.js';
+import { afterEach } from 'vitest';
+import { beforeEach } from 'vitest';
+import { describe } from 'vitest';
+import { expect } from 'vitest';
+import { it } from 'vitest';
+import { startHarness } from './harness.js';
+import { fact } from './harness.js';
+import type { Harness } from './harness.js';
+import type { Browser } from './harness.js';
+import { hash } from '../../src/server/auth.js';
+import type { AuthPrincipal } from '../../src/server/auth.js';
 import { ACCOUNT_MANAGE } from '../../src/server/account-inventory.js';
 import { canonicalToolDefinitions } from '../../src/server/mcp/canonical.js';
 import { profileResultData } from '../../src/server/mcp/profile-guidance.js';
+import { vi } from 'vitest';
+import { randomUUID } from 'node:crypto';
+import { success } from './harness';
+import { createApp } from '../../src/server/app';
+import { safePushEndpoint } from '../../src/server/push';
+import { diagnosticBatchSchema } from '../../src/shared/frontend-diagnostics';
+import { diagnosticRoute } from '../../src/shared/frontend-diagnostics';
+import { chatDataSchema } from '../../src/shared/work-views';
+import { flashcardDataSchema } from '../../src/shared/flashcards';
+import { advanceFlashcards } from '../../src/shared/flashcards';
+import { flashcardControlSchema } from '../../src/shared/flashcards';
+
+describe("account home coverage 1", () => {
+
 
 describe('account home, inventory and live-browser redirect (reported regression)', () => {
-  let h: Harness, owner: Browser, p: AuthPrincipal & { browserId: string };
+  let h!:Harness, owner: Browser, p: AuthPrincipal & { browserId: string };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const call = async (name: string, args: unknown) => (await h.runtime.service.execute(name, args, p)) as any;
   const waitFor = async (check: () => boolean) => { for (let attempt = 0; attempt < 100 && !check(); attempt++) await new Promise(resolve => setTimeout(resolve, 20)); };
@@ -61,4 +83,24 @@ describe('account home, inventory and live-browser redirect (reported regression
       await expect(call('kanvas_connection_redirect', { ...args, connectionId: 'not-a-window', requestId: 'unknown' })).rejects.toMatchObject({ code: 'NOT_FOUND' });
     } finally { stream.close(); }
   });
+});
+});
+
+describe("account home coverage 2", () => {
+
+describe("account home contracts",()=>{
+ let h!:Harness,owner:Browser,s:string,d:string,p:AuthPrincipal;
+ const send=vi.fn(async(_subscription:unknown,_payload:string)=>({statusCode:201}));
+ beforeEach(async()=>{send.mockClear();h=await startHarness({pushOptions:{publicKey:'test-public-key',privateKey:'test-private-key',subject:'mailto:test@example.invalid',send}});owner=await h.account();s=(await owner.session()).id;d=(await owner.display(s)).id;p={userId:owner.user!.id};});
+ afterEach(async()=>{await h?.close();});
+ async function deck(){const result=await owner.submit(s,[d],{version:1,template:'flashcards',data:{mode:'test',cards:[{id:'hola',prompt:'hola',answer:'hello',acceptedAnswers:['hi']},{id:'adios',prompt:'adiós',answer:'goodbye'}]}});expect(result.update.status).toBe('prepared');return result.detail.displays.find(x=>x.id===d)!;}
+ const subscription={endpoint:'https://fcm.googleapis.com/fcm/send/inert',keys:{p256dh:'B'.repeat(87),auth:'A'.repeat(22)}};
+ it('offline begin creates exactly one ready session only for explicitly opted-in returning users',async()=>{
+  const token=await h.runtime.auth.issueToken(p.userId,'Agent'),agent={...p,tokenId:token.token.id};
+  expect(await h.runtime.service.beginSession(agent,{name:'No opt-in',requestId:'no-opt-in'})).toMatchObject({status:'needs_display'});
+  success(await owner.request('POST','/api/push',subscription));
+  const args={name:'Ready by push',requestId:'start'},first=await h.runtime.service.beginSession(agent,args);expect(first).toMatchObject({status:'started',notification:true});
+  const retry=await h.runtime.service.beginSession(agent,args);expect(retry).toMatchObject({sessionId:'sessionId' in first?first.sessionId:undefined});
+  await h.runtime.service.push.close();expect(send).toHaveBeenCalledTimes(1);
+ });});
 });

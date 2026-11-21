@@ -1,23 +1,60 @@
 import { testDatabase } from '../postgres.js';
 import { asyncForEach } from '../../src/server/async-collections.js';
 import { EventEmitter } from 'node:events';
-import type { RequestOptions, request as httpsRequest } from 'node:https';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AppError, id, Store } from '../../src/server/store.js';
+import type { RequestOptions } from 'node:https';
+import type { request as httpsRequest } from 'node:https';
+import { afterEach } from 'vitest';
+import { describe } from 'vitest';
+import { expect } from 'vitest';
+import { it } from 'vitest';
+import { vi } from 'vitest';
+import { AppError } from '../../src/server/store.js';
+import { id } from '../../src/server/store.js';
+import { Store } from '../../src/server/store.js';
 import { validateView } from '../../src/shared/view-schemas.js';
 import { validateMedia } from '../../src/server/rendering/media.js';
 import type { ViewSpec } from '../../src/shared/types.js';
 import type { AuthPrincipal } from '../../src/server/auth.js';
-import {
-  MONITORING_LIMITS, assertMonitoringMapping, isMonitoringUrl, monitoringConfigSchema, monitoringStartSchema,
-  type MonitoringHealth, type MonitoringSummary,
-} from '../../src/shared/monitoring.js';
-import {
-  Monitoring, MONITORING_DOCUMENT, createMonitoringFetcher, isPublicMonitoringAddress, publicMonitoringUrl,
-  parseMonitoringJson, mapMonitoringJson, pinnedMonitoringRequest,
-  type MonitoringFetchResult, type MonitoringFetcher, type MonitoringHooks, type MonitoringJob,
-  type MonitoringLease, type PinnedMonitoringRequest, type PinnedMonitoringResponse,
-} from '../../src/server/monitoring.js';
+import { MONITORING_LIMITS } from '../../src/shared/monitoring.js';
+import { assertMonitoringMapping } from '../../src/shared/monitoring.js';
+import { isMonitoringUrl } from '../../src/shared/monitoring.js';
+import { monitoringConfigSchema } from '../../src/shared/monitoring.js';
+import { monitoringStartSchema } from '../../src/shared/monitoring.js';
+import type { MonitoringHealth } from '../../src/shared/monitoring.js';
+import type { MonitoringSummary } from '../../src/shared/monitoring.js';
+import { Monitoring } from '../../src/server/monitoring.js';
+import { MONITORING_DOCUMENT } from '../../src/server/monitoring.js';
+import { createMonitoringFetcher } from '../../src/server/monitoring.js';
+import { isPublicMonitoringAddress } from '../../src/server/monitoring.js';
+import { publicMonitoringUrl } from '../../src/server/monitoring.js';
+import { parseMonitoringJson } from '../../src/server/monitoring.js';
+import { mapMonitoringJson } from '../../src/server/monitoring.js';
+import { pinnedMonitoringRequest } from '../../src/server/monitoring.js';
+import type { MonitoringFetchResult } from '../../src/server/monitoring.js';
+import type { MonitoringFetcher } from '../../src/server/monitoring.js';
+import type { MonitoringHooks } from '../../src/server/monitoring.js';
+import type { MonitoringJob } from '../../src/server/monitoring.js';
+import type { MonitoringLease } from '../../src/server/monitoring.js';
+import type { PinnedMonitoringRequest } from '../../src/server/monitoring.js';
+import type { PinnedMonitoringResponse } from '../../src/server/monitoring.js';
+import { asyncMap } from '../../src/server/async-collections.js';
+import { randomUUID } from 'node:crypto';
+import { ControlledInterpreter } from './harness.js';
+import { denied } from './harness.js';
+import { fact } from './harness.js';
+import { PNG } from './harness.js';
+import { startHarness } from './harness.js';
+import { success } from './harness.js';
+import type { Harness } from './harness.js';
+import type { Token } from '../../src/server/auth.js';
+import type { UpdateRecord } from '../../src/shared/types.js';
+import { readFileSync } from 'node:fs';
+import { safeError } from '../../src/server/mcp/results.js';
+import { samples } from '../../src/shared/template-examples.js';
+import { initialNavigation } from '../../src/shared/navigation.js';
+
+describe("monitoring coverage 1", () => {
+
 
 const URL = 'https://public.example.com/healthz';
 const PRINCIPAL: AuthPrincipal = { userId: 'test-owner', agentId: 'test-agent', tokenId: 'stable-grant', oauthAccessId: 'rotating-access-credential' };
@@ -470,4 +507,129 @@ describe('persisted monitoring jobs', () => {
     (await h.changeView()); pending.resolve({ ...sample(), body: PNG, mimeType: 'image/png' }); await running;
     expect(h.imagesCreated).toHaveLength(0); expect((await h.display()).view?.data.text).toBe('Newer user content');
   });
+});
+});
+
+describe("monitoring coverage 2", () => {
+
+
+const running: Harness[] = [];
+afterEach(async () => { await Promise.all((await asyncMap(running.splice(0), async h => (await h.close())))); });
+async function setup(fetcher?: MonitoringFetcher) {
+  let time = Date.now();
+  const interpret = vi.fn(async () => { throw new Error('These source operations must not invoke the source renderer.'); });
+  const fetch = vi.fn(fetcher ?? (async () => ({ statusCode: 200, latencyMs: 5, mimeType: 'application/json', body: Buffer.from('{"text":"Exact source result"}'), finalUrl: 'https://example.com/status' })));
+  const h = await startHarness({ interpreter: { interpret }, monitoringOptions: { automatic: false, now: () => time, fetcher: fetch } }); running.push(h);
+  const owner = await h.account(), session = await owner.session(), display = await owner.display(session.id);
+  return { h, owner, session, display, interpret, fetch, advance: (ms: number) => { time += ms; } };
+}
+const jsonConfig = { mode: 'json', url: 'https://example.com/status', template: 'fact', mapping: { text: { $path: '/text' } }, intervalSeconds: 30, durationSeconds: 3600 };
+
+describe("monitoring contracts", () => {
+
+  it('publishes an exact mapped source, retains its frame on failure and stops through HTTP', async () => {
+    const { h, owner, session, display, fetch, interpret, advance } = await setup();
+    const path = `/api/sessions/${session.id}/monitoring`;
+    const job = success(await owner.request<MonitoringSummary>('POST', path, { requestId: randomUUID(), displayId: display.id, expectedRevision: 0, config: jsonConfig }));
+    expect((await owner.detail(session.id)).displays[0].monitoring?.status).toBe('starting');
+    await h.runtime.service.monitoring.runDue();
+    let current = (await owner.detail(session.id)).displays[0];
+    expect(current).toMatchObject({ revision: 1, view: { data: { text: 'Exact source result' } }, monitoring: { status: 'healthy' } });
+    expect((await h.runtime.store.list('update', session.id))).toHaveLength(0);
+    fetch.mockRejectedValueOnce(new Error('Synthetic unavailable source')); advance(31_000);
+    await h.runtime.service.monitoring.runDue();
+    current = (await owner.detail(session.id)).displays[0];
+    expect(current).toMatchObject({ revision: 1, view: { data: { text: 'Exact source result' } }, monitoring: { status: 'stale' } });
+    const latest = success(await owner.request<MonitoringSummary>('GET', `${path}/${job.id}`));
+    success(await owner.request('POST', `${path}/${job.id}/stop`, { requestId: randomUUID(), expectedVersion: latest.version }));
+    advance(60_000); await h.runtime.service.monitoring.runDue();
+    expect(fetch).toHaveBeenCalledTimes(2); expect(interpret).not.toHaveBeenCalled();
+    expect((await owner.detail(session.id)).displays[0].monitoring?.status).toBe('stopped');
+  });
+
+  it('never allows a late source result to replace a newer user publication', async () => {
+    let release!: (result: MonitoringFetchResult) => void;
+    const { h, owner, session, display, fetch } = await setup(() => new Promise(resolve => { release = resolve; }));
+    const path = `/api/sessions/${session.id}/monitoring`;
+    const job = success(await owner.request<MonitoringSummary>('POST', path, { requestId: randomUUID(), displayId: display.id, expectedRevision: 0, config: jsonConfig }));
+    const poll = h.runtime.service.monitoring.runDue(); await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    await owner.submit(session.id, [display.id], fact('New topic from user'));
+    release({ statusCode: 200, latencyMs: 10, mimeType: 'application/json', body: Buffer.from('{"text":"Late old source"}'), finalUrl: jsonConfig.url });
+    await poll;
+    expect((await owner.detail(session.id)).displays[0].view?.data.text).toBe('New topic from user');
+    expect(success(await owner.request<MonitoringSummary>('GET', `${path}/${job.id}`))).toMatchObject({ status: 'stopped', health: { stoppedReason: 'superseded' } });
+  });
+
+  it('a newly started monitor supersedes earlier pending rendering without clearing the visible view', async () => {
+    const interpreter = new ControlledInterpreter();
+    let release!: (result: MonitoringFetchResult) => void;
+    const fetch = vi.fn(() => new Promise<MonitoringFetchResult>(resolve => { release = resolve; }));
+    const h = await startHarness({ interpreter, monitoringOptions: { automatic: false, fetcher: fetch } }); running.push(h);
+    const owner = await h.account(), session = await owner.session(), display = await owner.display(session.id);
+    const initial = await owner.submit(session.id, [display.id], fact('Existing visible content'));
+    const revision = initial.detail.displays[0].revision, path = `/api/sessions/${session.id}/monitoring`;
+    success(await owner.request('POST', `/api/sessions/${session.id}/submit`, {
+      requestId: 'older-preparation', displayIds: [display.id], context: 'An earlier request', intent: 'Show the earlier result',
+    }));
+    await interpreter.waitFor(1);
+    const job = success(await owner.request<MonitoringSummary>('POST', path, {
+      requestId: 'newer-source', displayId: display.id, expectedRevision: revision, config: jsonConfig,
+    }));
+    expect((await owner.detail(session.id)).displays[0]).toMatchObject({ revision, view: fact('Existing visible content'), monitoring: { status: 'starting' } });
+    const poll = h.runtime.service.monitoring.runDue();
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    interpreter.calls[0].resolve({ action: 'replace', view: fact('Older preparation must not win') });
+    const older = await owner.settle(session.id, 'older-preparation');
+    expect(older.update.status).toBe('superseded');
+    expect(older.detail.displays[0]).toMatchObject({ revision, view: fact('Existing visible content') });
+    expect(success(await owner.request<MonitoringSummary>('GET', `${path}/${job.id}`)).status).toBe('active');
+    release({ statusCode: 200, latencyMs: 10, mimeType: 'application/json', body: Buffer.from('{"text":"New explicitly selected source"}'), finalUrl: jsonConfig.url });
+    await poll;
+    expect((await owner.detail(session.id)).displays[0]).toMatchObject({ revision: revision + 1, view: fact('New explicitly selected source'), monitoring: { status: 'healthy' } });
+  });
+
+  it('a start rejected by server URL validation does not supersede earlier pending rendering', async () => {
+    const interpreter = new ControlledInterpreter(), fetch = vi.fn<MonitoringFetcher>();
+    const h = await startHarness({ interpreter, monitoringOptions: { automatic: false, fetcher: fetch } }); running.push(h);
+    const owner = await h.account(), session = await owner.session(), display = await owner.display(session.id);
+    const initial = await owner.submit(session.id, [display.id], fact('Existing visible content'));
+    const revision = initial.detail.displays[0].revision;
+    success(await owner.request('POST', `/api/sessions/${session.id}/submit`, {
+      requestId: 'still-authorized-preparation', displayIds: [display.id], context: 'An earlier request', intent: 'Show the earlier result',
+    }));
+    await interpreter.waitFor(1);
+    // .test passes the shared URL shape but is a special-use destination the
+    // server rejects before any fetch or successful monitoring claim.
+    denied(await owner.request('POST', `/api/sessions/${session.id}/monitoring`, {
+      requestId: 'rejected-source', displayId: display.id, expectedRevision: revision,
+      config: { ...jsonConfig, url: 'https://reserved.test/source' },
+    }), [400]);
+    expect((await owner.detail(session.id)).displays[0]).toMatchObject({ revision, view: fact('Existing visible content') });
+    expect((await h.runtime.store.list('monitoring-job', session.id))).toEqual([]); expect(fetch).not.toHaveBeenCalled();
+    interpreter.calls[0].resolve({ action: 'replace', view: fact('Earlier authorized result') });
+    const completed = await owner.settle(session.id, 'still-authorized-preparation');
+    expect(completed.update.status).toBe('prepared');
+    expect(completed.detail.displays[0]).toMatchObject({ revision: revision + 1, view: fact('Earlier authorized result') });
+  });});
+});
+
+describe("monitoring coverage 3", () => {
+
+let h!:Harness;const id=()=>randomUUID();afterEach(async()=>{await h?.close();});
+
+it('pushes all six prioritized live views, preserves exact samples, replays lost responses and rejects stale, held, foreign or changed targets',async()=>{
+ h=await startHarness();const a=await h.account(),b=await h.account(),s=await a.session(),d=await a.display(s.id),svc=h.runtime.service,p={userId:a.user!.id};
+ const views:any[]=[{version:1,template:'number',data:{value:'1.2300',label:'Exact'}}];
+ for(const kind of ['gauge','line','area','bar','heatmap'])views.push({version:1,template:'chart',data:kind==='gauge'?{kind,gauge:{min:0,max:100},series:[{name:'Sensor',points:[{x:'Now',y:12}]}]}:{kind,series:[{name:'Sensor',points:[{x:'T1',y:12,...(kind==='heatmap'?{value:12}:{})},{x:'T2',y:18,...(kind==='heatmap'?{value:18}:{})}]}]}});
+ for(const view of views){await a.submit(s.id,[d.id],view);const before=(await svc.display(p,s.id,d.id)),data=structuredClone(before.view!.data);if(view.template==='number')data.value='9007199254740993';else(data.series as any)[0].points[0].y=23;
+  const input={sessionId:s.id,displayId:d.id,requestId:id(),expectedRevision:before.revision,data};
+  const result:any=await svc.execute('kanvas_live_push',input,p);expect((await svc.display(p,s.id,d.id)).view!.data).toEqual(validateView({...view,data}).data);
+  expect((await svc.execute('kanvas_live_push',input,p) as any).id).toBe(result.id);
+  await expect(svc.execute('kanvas_live_push',{...input,requestId:id()},p)).rejects.toMatchObject({code:'REVISION_CONFLICT'});
+  await expect(svc.execute('kanvas_live_push',{...input,requestId:id(),expectedRevision:result.revisions[d.id]},{userId:b.user!.id})).rejects.toThrow();
+ }
+ const before=(await svc.display(p,s.id,d.id));(await svc.updateDisplay(p,s.id,d.id,{held:true,expectedRevision:before.revision}));const revision=(await svc.display(p,s.id,d.id)).revision;
+ await expect(svc.execute('kanvas_live_push',{sessionId:s.id,displayId:d.id,requestId:id(),expectedRevision:revision,data:before.view!.data},p)).rejects.toMatchObject({code:'DISPLAY_HELD'});
+ expect((await svc.display(p,s.id,d.id)).revision).toBe(revision);
+});
 });

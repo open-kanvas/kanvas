@@ -5,10 +5,10 @@ import {Client,StreamableHTTPClientTransport} from '@modelcontextprotocol/client
 import {Client as LegacyClient} from '@modelcontextprotocol/sdk/client/index.js';
 import {StreamableHTTPClientTransport as LegacyTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {afterEach,expect,it} from 'vitest';
-import {ACCOUNT_MAPPING} from './account-mapping.js';
+import {ACCOUNT_MAPPING} from './operation-fixtures.js';
 import {startHarness,type Harness} from '../core/harness.js';
 import {validateView} from '../../src/shared/view-schemas.js';
-let h:Harness,client:Client|LegacyClient;
+let h!:Harness,client:Client|LegacyClient;
 afterEach(async()=>{await client?.close();await h?.close();});
 it.each(['modern','legacy'])('%s MCP exposes and executes every account/history/topology operation under real authorization',async era=>{
   h=await startHarness({mcpProfile:'twelve'});const owner=await h.account(),person=await h.account(),s=await owner.session(),d=await owner.display(s.id);

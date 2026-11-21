@@ -6,11 +6,11 @@ import {Client,StreamableHTTPClientTransport} from '@modelcontextprotocol/client
 import {Client as LegacyClient} from '@modelcontextprotocol/sdk/client/index.js';
 import {StreamableHTTPClientTransport as LegacyTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {startHarness,success,ORIGIN,type Harness} from '../core/harness.js';
-import {WORK_MAPPING,DEVICE_MAPPING} from './work-mapping.js';
+import {WORK_MAPPING,DEVICE_MAPPING} from './operation-fixtures.js';
 import type {Response} from 'express';
 
 describe('workflows over both MCP protocols',()=>{
-  let h:Harness;afterEach(async()=>{await h?.close();});
+  let h!:Harness;afterEach(async()=>{await h?.close();});
   async function connect(legacy:boolean,path='/mcp',headers:Record<string,string>={}){
     const c=legacy?new LegacyClient({name:'workflows',version:'1'}):new Client({name:'workflows',version:'1'}),url=new URL(path,h.baseUrl);
     if(c instanceof Client)await c.connect(new StreamableHTTPClientTransport(url,{requestInit:{headers}}));else await c.connect(new LegacyTransport(url,{requestInit:{headers}}));return c;

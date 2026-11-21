@@ -1,6 +1,32 @@
-import type { Page, TestInfo } from '@playwright/test';
-import type { DisplayRecord, ViewSpec } from '../../src/shared/types';
-import { createDisplay, createSession, expect, isolatedContext, publishPrepared, register, sessionApi, sessionDetail, tab, test, viewerPath, waitForDisplay } from './support';
+import type { Page } from '@playwright/test';
+import type { TestInfo } from '@playwright/test';
+import type { DisplayRecord } from '../../src/shared/types';
+import type { ViewSpec } from '../../src/shared/types';
+import { createDisplay } from './support';
+import { createSession } from './support';
+import { expect } from './support';
+import { isolatedContext } from './support';
+import { publishPrepared } from './support';
+import { register } from './support';
+import { sessionApi } from './support';
+import { sessionDetail } from './support';
+import { tab } from './support';
+import { test } from './support';
+import { viewerPath } from './support';
+import { waitForDisplay } from './support';
+import { operationRequest } from '../mcp/requests.js';
+import { randomUUID } from 'node:crypto';
+import { publicReference } from '../../src/server/mcp/operations';
+import { mkdir } from 'node:fs/promises';
+import { Client } from '@modelcontextprotocol/client';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+import type { InteractionRecord } from '../../src/shared/types';
+import type { UpdateRecord } from '../../src/shared/types';
+import { openViewer } from './support';
+import { extendedExamples } from '../../src/shared/extended-templates';
+
+test.describe("sharing coverage 1", () => {
+
 
 const poll: ViewSpec = { version: 1, template: 'poll', data: { question: 'Private workshop question', options: [{ id: 'north', label: 'North' }, { id: 'south', label: 'South' }], revealResults: false } };
 
@@ -237,4 +263,57 @@ test('a real pending status completing in the expiry turn cannot restart expired
     await expect(guest.locator('.viewer-shell, .workspace')).toHaveCount(0);
     await expect(guest.getByText('Private workshop question', { exact: true })).toHaveCount(0);
   } finally { await context.close(); }
+});
+});
+
+test.describe("sharing coverage 2", () => {
+
+
+async function setup(page:Page,info:TestInfo){await register(page);const s=await createSession(page,'Evening feedback verification'),d=await createDisplay(page,s,'Test surface'),viewer=await openViewer(page,s,d.id);if(info.project.name.startsWith('phone'))await viewer.setViewportSize({width:443,height:823});await viewer.bringToFront();return {s,d,viewer};}
+async function connect(page:Page,baseURL:string,s:string){const issued=await sessionApi<{token:string}>(page,'/api/tokens','POST',{name:'Disposable evening acceptance',scopes:['read','publish'],sessionIds:[s]});expect(issued.status).toBe(201);const client=new Client({name:'evening-acceptance',version:'1'});await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',baseURL),{requestInit:{headers:{Authorization:`Bearer ${issued.data!.token}`}}}));return client;}
+async function call<T=unknown>(client:Client,name:string,args:Record<string,unknown>):Promise<T>{const ref=publicReference(name);if(!ref)throw new Error('Missing public mapping');const result=await client.callTool(operationRequest({name:ref.tool,arguments:{operation:ref.operation,...args}}));expect(result.isError,`${name} succeeds`).not.toBe(true);return (result.structuredContent as {data:T}).data;}
+async function ready(page:Page,s:string,d:string,template?:string){return waitForDisplay(page,s,d,x=>(!template||x.view?.template===template)&&x.revision>0&&x.appliedRevision===x.revision);}
+async function photo(viewer:Page,info:TestInfo,label:string){
+  // Text exists before a staged candidate becomes the visible painted frame.
+  // Capture the settled screen, not that deliberately hidden preparation stage.
+  await expect(viewer.locator('.viewer-shell')).toHaveAttribute('data-render-status','ready');
+  await expect.poll(()=>viewer.locator('.viewer-shell').evaluate(el=>el.getAttribute('data-revision')===el.getAttribute('data-rendered-revision'))).toBe(true);
+  await expect(viewer.locator('.viewer-candidate')).toBeVisible();
+  if(label==='procedure')await expect(viewer.locator('.viewer-candidate .procedure-instruction')).toBeInViewport();
+  await viewer.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
+  await mkdir(info.outputPath('visuals'),{recursive:true});await viewer.screenshot({path:`${info.outputPath('visuals')}/${info.project.name}-${label}.png`,animations:'disabled'});
+}
+
+test('share_create can publish a legible join code while preserving explicit guest approval',async({page,baseURL},info)=>{
+  const {s,d,viewer}=await setup(page,info),client=await connect(page,baseURL!,s);
+  try{
+    const result=await call<{id:string;url:string;update:UpdateRecord}>(client,'kanvas_share_create',{sessionId:s,displayId:d.id,requestId:randomUUID(),expectedRevision:0,showOnDisplay:true,label:'Join our session'});await ready(page,s,d.id,'join');
+    await expect(viewer.getByRole('heading',{name:'Join our session',exact:true})).toBeVisible();await expect(viewer.locator('.join-address')).toHaveAttribute('href',new URL(result.url).pathname);await expect(viewer.getByText('Scan or open the address, then ask the owner to approve your screen.',{exact:true})).toBeVisible();
+    const code=await viewer.locator('.join-qr img').boundingBox();expect(code!.width).toBeGreaterThan(140);expect(await viewer.locator('.join-qr img').evaluate(img=>(img as HTMLImageElement).naturalWidth)).toBe(512);await photo(viewer,info,'join');
+  }finally{await client.close();}
+});
+});
+
+test.describe("sharing coverage 3", () => {
+
+
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
+async function connect(page:Page,baseURL:string,sessionId?:string){
+  const issued=await sessionApi<{token:string}>(page,'/api/tokens','POST',{name:'Disposable September acceptance',scopes:['read','publish'],...(sessionId?{sessionIds:[sessionId]}:{})});
+  expect(issued.status).toBe(201);const client=new Client({name:'september-acceptance',version:'1'});
+  await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',baseURL),{requestInit:{headers:{Authorization:`Bearer ${issued.data!.token}`}}}));return client;
+}
+async function call<T=unknown>(client:Client,name:string,args:Record<string,unknown>):Promise<T>{const ref=publicReference(name);if(!ref)throw new Error('Missing public mapping');const result=await client.callTool(operationRequest({name:ref.tool,arguments:{operation:ref.operation,...args}}));expect(result.isError,`${name} succeeds`).not.toBe(true);return (result.structuredContent as {data:T}).data;}
+async function setup(page:Page){await register(page);const sessionId=await createSession(page,'September display lab'),display=await createDisplay(page,sessionId,'Receiving screen');return {sessionId,display};}
+async function painted(page:Page,sessionId:string,displayId:string,template:string){return waitForDisplay(page,sessionId,displayId,d=>d.view?.template===template&&d.appliedRevision===d.revision&&d.revision>0);}
+
+test('new browser gets a pending recognition label and owner-agent approval, not access from a short URL',async({page,browser,baseURL,diagnostics})=>{
+  const {sessionId,display}=await setup(page),client=await connect(page,baseURL!,sessionId),guestContext=await browser.newContext({baseURL}),guest=await guestContext.newPage();diagnostics.watch(guest);
+  try{
+    await publishPrepared(page,sessionId,[display.id],{version:1,template:'fact',data:{text:'Only after approval'}});
+    const address=await call<{url:string}>(client,'kanvas_address_get',{sessionId,displayId:display.id});await guest.goto(address.url);await guest.getByRole('button',{name:'Pair this screen'}).click();await expect(guest.locator('.pairing-request strong')).toBeVisible();await expect(guest.getByText('Only after approval')).toHaveCount(0);
+    const pairs=await call<{id:string;label:string;status:string}[]>(client,'kanvas_pairings_read',{sessionId}),pending=pairs.find(x=>x.status==='pending')!;expect(Boolean(pending)).toBe(true);expect(await guest.locator('.pairing-request strong').textContent()).toBe(pending.label);
+    await call(client,'kanvas_pairing_decide',{sessionId,pairingId:pending.id,approve:true,confirm:true});await expect(guest.locator('.fact-text')).toHaveText('Only after approval');await guest.getByRole('button',{name:'Display controls',exact:true}).click();await guest.getByRole('button',{name:'Screen options'}).click();await expect(guest.getByLabel('Annotate this view')).toHaveCount(0);
+  }finally{await guestContext.close();await client.close();}
+});
 });

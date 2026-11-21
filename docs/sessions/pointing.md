@@ -59,3 +59,7 @@ There is nothing to poll. What people pointed at since your previous call arrive
 ## Who can point
 
 Signed-in members and approved interactive participants of the session. Capture-only and view-only paired screens, public anonymous readers and agents cannot. Embedded external pages, custom HTML and video expose no target. Names on marks come from the account or the approved participant, never from the client.
+
+## Chart targets
+
+A chart pointer follows the existing mark’s SVG geometry: wedge, bar or data point, including its current transform. It never creates a rectangle over a wedge. Line/area plot gestures select the nearest supplied observation (or the nearest observation in a directly hit series), returning a `chart` anchor with real series, x and y values—not interpolated data. Axis text and legends remain their own targets. Legend summaries separate series with ` · `.

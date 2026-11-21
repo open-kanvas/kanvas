@@ -146,7 +146,7 @@ function CartesianPlot({ data, width, height, inspect }: PlotProps) {
       if (current.length) runs.push(current);
       return <g key={si}>{runs.map((run, index) => {
         const stroke = run.map((point, i) => `${i ? 'L' : 'M'}${x(point, series.points.indexOf(point))},${y(point.y as number)}`).join(' '), first = run[0], last = run.at(-1)!;
-        return <g key={index}><path data-chart-mark="area-fill" d={`${stroke} L${x(last, series.points.indexOf(last))},${y(0)} L${x(first, series.points.indexOf(first))},${y(0)} Z`} fill={ink} fillOpacity=".24" /><path d={stroke} fill="none" stroke={ink} strokeWidth="2.5" /></g>;
+        return <g key={index}><path data-chart-mark="area-fill" d={`${stroke} L${x(last, series.points.indexOf(last))},${y(0)} L${x(first, series.points.indexOf(first))},${y(0)} Z`} fill={ink} fillOpacity=".24" /><path data-chart-line={series.name} d={stroke} fill="none" stroke={ink} strokeWidth="2.5" /></g>;
       })}{series.points.map((point, index) => number(point.y) ? <circle key={index} cx={x(point, index)} cy={y(point.y)} r={series.points.length > 120 ? 2 : 4} fill={ink} {...pointMark(series.name, point, data, inspect)}><title>{pointText(series.name, point, data)}</title></circle> : null)}</g>;
     }
     if (data.kind === 'bubble') return <g key={si}>{series.points.map((point, index) => {
@@ -177,6 +177,7 @@ function CartesianPlot({ data, width, height, inspect }: PlotProps) {
     return null;
   });
   return <Svg width={actualWidth} height={actualHeight} title={`${data.kind} chart${data.yLabel ? ` of ${data.yLabel}` : ''}`}>
+    {data.kind==='area'&&<rect data-chart-snap-plot x={left} y={top} width={plotWidth} height={plotHeight} fill="transparent"/>}
     {yTicks.map((value, i) => <g key={i} className="advanced-axis"><line x1={left} x2={actualWidth - right} y1={y(value)} y2={y(value)} /><text x={left - 10} y={y(value) + 5} textAnchor="end">{pretty(value)}</text></g>)}
     {continuous ? ticks.map((tick, i) => <SvgLabel key={i} text={tick.label} x={continuousX(tick.value)} y={bottom + 27} characters={dateX ? 10 : 12} anchor={i === 0 ? 'start' : i === ticks.length - 1 ? 'end' : 'middle'} />) : labels.map((label, index) => <SvgLabel key={index} text={String(label)} x={left + (index + .5) * categoryWidth} y={bottom + 28} characters={(categoryWidth - 12) / 8} />)}
     {(data.yLabel || data.unit) && <text className="advanced-label" x="17" y={top + plotHeight / 2} transform={`rotate(-90 17 ${top + plotHeight / 2})`} textAnchor="middle">{[data.yLabel, data.unit].filter(Boolean).join(' · ')}</text>}

@@ -258,7 +258,9 @@ test.describe("pointing coverage 3", () => {
             await expect(peer.peer.locator('.semantic-pointer-mark')).toHaveCount(0);
             await a.v.getByRole('button', { name: 'Point together' }).click();
             await pointAt(a.v, '[data-chart-series="This year"][data-chart-x="Mar"][data-chart-y="45"]');
-            await expect(peer.peer.locator('[data-pointer-kind="chart"] .semantic-pointer-mark')).toBeVisible();
+            const chartPointer = peer.peer.locator('[data-pointer-kind="chart"]');
+            await expect(chartPointer.locator('[data-pointer-shape="circle"]')).toBeVisible();
+            await expect(chartPointer).toHaveCSS('opacity', '1');
             const img = await asset(a), image = await a.show({ version: 1, template: 'image-gallery', data: { mode: 'grid', images: [{ url: img.url, alt: 'Complete source' }] } });
             await expect(peer.peer.locator('.viewer-shell')).toHaveAttribute('data-rendered-revision', String(image.revision));
             await a.v.getByRole('button', { name: 'Point together' }).click();

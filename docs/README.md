@@ -2,10 +2,10 @@
 
 Kanvas renders supplied content. The agent or data producer owns retrieval, reasoning, translation and listening; Kanvas owns validation, source binding, access, display revisions and browser delivery.
 
-- [Current screen workflows, visual help and shortcuts](feedback-oct29.md)
 - [Personal guidance and prompt library](agent-guidance.md)
 
-- [Mission: what Kanvas is for](mission.md), [0.38.0 changes](feedback-20261114.md) with its [testing guide](feedback-20261114-testing.md), and [0.37.0 changes](feedback-20261110.md) with its [testing guide](feedback-20261110-testing.md)
+- [Mission: what Kanvas is for](mission.md)
+- [Markdown reading](templates/markdown.md), [text size and split screens](templates/split-screen.md)
 - [Pointing](sessions/pointing.md), [split screen](templates/split-screen.md), [message board](integration/message-board.md)
 - [Monitor streams](integration/monitor-streams.md), [connector identity](integration/connector-identity.md), [task list](templates/task-list.md), [colour](templates/colour.md), [icon and font pickers](templates/pickers.md), [JSON raw view and tool call details](templates/tool-call-details.md)
 
@@ -32,4 +32,3 @@ Source code lives under `src/shared` (contracts), `src/server` (service) and `sr
 
 - [Two-tool MCP discovery, catalog/search decisions and migration](architecture/mcp-discovery.md)
 
-- [October 6 connected-screen and contextual-workflow improvements](feedback-oct06-operations.md)

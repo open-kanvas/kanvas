@@ -1,46 +1,47 @@
 # Kanvas
 
-Kanvas is your agent's screen. It is a visual surface for people and their agents: any browser, any size, with no intelligence inside; the intelligence lives in the agent. Sometimes the screen is a whiteboard in a live conversation, sometimes a board the agent keeps up for you, sometimes a sign it sets and leaves.
+Kanvas is your agent's screen: a visual surface for people and their AI agents, in any browser, at any size. There is no intelligence inside Kanvas; the agent decides what to show, and Kanvas renders it and reports back.
 
-The experience at the heart of it is the feeling of working with a colleague at a whiteboard: you talk, the relevant thing appears on the screen while you speak, you point at it, it changes. Nobody asks permission, nobody narrates the mechanics, and your words get shorter because the detail is already visible. Templates, operations and schemas are how Kanvas is built; this rhythm is what it is.
+You talk or type to your agent, and the relevant thing appears on the screen while you speak: a chart, a checklist, a map, a code snippet, a plan. You react, it changes. The goal is the shortest time to clarity, like working through a problem with a colleague at a whiteboard. Full statement: [docs/mission.md](docs/mission.md).
 
-Our job is to make both the agent and the person reach that rhythm as fast as possible: the right information, at the right moment, with the shortest time to clarity. Get the setup, the feel and the taste right, and Kanvas can be much more than one use case while staying a light, visual surface, never a heavy application.
+## What is in this repository
 
-One surface, three tempos: a **live session** (seconds: publish while talking, patch on reaction), a **kept-up board** (hours: a checklist, a planner or a monitor that stays current between conversations) and a **sign** (days: set once and left). All three share the same rules: no backend intelligence, native templates first, one glanceable beat per view, readable from across a room, works on any screen. The full statement and how agents are expected to behave: [mission](docs/mission.md).
+The complete Kanvas application: the server, the web client and the agent-facing MCP interface, in one TypeScript package.
 
-Talk or type to your agent; it puts charts, notes, maps, diagrams and other focused views on your screens. A phone, laptop or room display can each show a different view of the same session.
+- Two MCP tools. Agents use exactly kanvas_discover and kanvas_call. Discovery lists, searches and explains; call executes one of ~190 operations (publish, patch, navigate, point, share, monitor, checklists, settings...).
+- Native templates. Charts, tables, code, maps, diagrams, itineraries, checklists, planners, signage, media and more, each with a schema the agent fills in. Templates are what make Kanvas fast: the agent sends data, not markup, so a view appears while you are still talking.
+- Custom HTML. For anything the templates do not cover, the agent can publish its own HTML. Slower to produce and less uniform, so it is the fallback, not the default.
+- Multi-screen sessions. A phone, a laptop and a room display can each show a different view of the same session; views are retained and browsable.
+- Accounts and access. Email sign-in, device approval, session permissions, sharing and invitations.
+- Hosted Kanvas. Available at [kanvas.host](https://kanvas.host), with the MCP server at [kanvas.host/mcp](https://kanvas.host/mcp). More at [open-kanvas.ai](https://open-kanvas.ai).
 
-Kanvas preserves supplied content and keeps access private unless you choose otherwise. It does not run a language model, fetch your source data or listen to your microphone. Your connected agent does that work; Kanvas renders the results and reports whether a browser received them.
+Kanvas does not run a language model, fetch your source data or listen to your microphone. Content is preserved as supplied and private unless you choose otherwise.
 
-## Run it yourself
+## How the code is organised
 
-Give your agent this repository URL and ask it to install and run Kanvas on your infrastructure. The [self-hosting guide](docs/operations/self-hosting.md) has the exact prerequisites, commands, PostgreSQL settings, email configuration and upgrade procedure. It needs Node.js 24+, PostgreSQL 15+ and a public HTTPS origin for remote clients.
+```text
+src/server/ — Node server: HTTP app, domain model, PostgreSQL store, auth
+src/server/mcp/ — the two tools, operation registry, discovery, guidance
+src/client/ — React viewer, workspace and one renderer per template
+src/shared/ — template schemas, types and the help catalog used by both
+docs/ — architecture, integration, operations, templates
+tests/ — unit (vitest), MCP contract and end-to-end (playwright)
+```
 
-Ask the agent to keep credentials outside the checkout, use an isolated test database, verify the installation and explain its backup plan before exposing it. [Contributing](CONTRIBUTING.md) covers local development and tests.
+A template lives in three places: its schema in src/shared/view-schemas.ts, its renderer in src/client/renderers/, and its help entry in src/shared/help.ts. Start there to add or change one.
 
-## Or use hosted Kanvas
+## Run it
 
-The hosted service uses the same application. Connect your agent to **https://kanvas.host/mcp**, confirm your email, and open **https://kanvas.host** on a screen. The screen shows a six-letter code: read it to your connected agent and confirm the screen details. You can approve full-account access or view-only access to one session.
+Self-hosting needs Node.js 24+, PostgreSQL 15+ and a public HTTPS origin. Follow [docs/operations/self-hosting.md](docs/operations/self-hosting.md), or hand this repository URL to your agent and ask it to install and verify it.
 
-[Getting started](https://open-kanvas.ai/#getting-started) explains connecting an agent. Hosted and self-hosted installations remain separate; links locate content but never grant access.
+## Contribute
 
-## What you can do
+Kanvas has a deliberate philosophy: a light visual surface with no intelligence inside, native templates first, built for low-latency, live interaction between a person and their agent. Before proposing a feature, read [docs/mission.md](docs/mission.md) and the yardstick in [CONTRIBUTING.md](CONTRIBUTING.md). Changes that turn Kanvas into a mini-app or an orchestration layer are outside the surface and will not be merged; new and better templates are the most welcome kind of contribution.
 
-- Show exact supplied data, text, images, code and interactive charts.
-- Prepare presentations or cue cards, with authored cues for a listening agent.
-- Keep multiple screens independent, browse retained views, and return to live content.
-- Save personal guidance prompts and activate one for a session.
-- Collaborate through explicit session permissions and revocable screen approval.
-- Opt into browser/PWA notifications and choose which subscription receives them.
+[CONTRIBUTING.md](CONTRIBUTING.md) covers local development and tests. Documentation map: [docs/README.md](docs/README.md). Security policy: [SECURITY.md](SECURITY.md).
 
-## Find the details
+Schemas are always taken from the running instance at /docs/; release identity lives in package.json and /version.json.
 
-- [Documentation map](docs/README.md)
-- [Agent workflows](docs/integration/agent-workflows.md) and [two-tool discovery](docs/architecture/mcp-discovery.md)
-- [Templates](docs/templates/README.md), [visual help and shortcuts](docs/feedback-oct29.md)
-- [OAuth and email confirmation](docs/integration/oauth-lifecycle.md)
-- [Security policy](SECURITY.md)
+## License
 
-Agents use exactly two tools, `kanvas_discover` and `kanvas_call`. Discovery finds current operations, templates and help; the running instance provides exact schemas at `/docs/`. Release identity is in `package.json` and the running `/version.json`, not a copied version number here.
-
-The package remains private to prevent accidental npm publication. No repository-wide license has been selected; third-party assets retain their own notices. A repository being readable does not imply a license grant.
+Kanvas is licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE). Third-party assets retain their own notices; see [NOTICE](NOTICE) and [docs/licenses/](docs/licenses/). "Kanvas" and the Kanvas logo are trademarks of the project and are not covered by the license.

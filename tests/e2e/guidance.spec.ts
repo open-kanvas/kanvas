@@ -51,12 +51,12 @@ test('Kanvas Help opens focused public guidance without publishing over the empt
 
 test.describe("guidance coverage 2", () => {
 
-const evidence='/home/deploy/kanvas-feedback-20261027-evidence';
+const evidence=()=>test.info().outputPath("screenshots");
 test('richer charts stay fixed across orientations labels stacking and secondary axes',async({page})=>{
  await register(page);const s=await createSession(page,'Stable chart sizing'),d=await createDisplay(page,s,'Charts');const series=[{name:'First',points:[{x:'A',y:20},{x:'B',y:30},{x:'C',y:10}]},{name:'Second',points:[{x:'A',y:30},{x:'B',y:10},{x:'C',y:20}]}];
  for(const options of [{kind:'bar',orientation:'horizontal',series:series.slice(0,1)},{kind:'bar',stacking:'stacked',legend:false,series},{kind:'bar',showValues:true,legend:true,series},{kind:'line',showValues:true,series:series.slice(0,1)},{kind:'area',stacking:'percent',showValues:true,series},{kind:'bar',secondaryLabel:'Rate',series:[series[0],{...series[1],kind:'line',axis:'secondary'}]}]){
  await publishPrepared(page,s,[d.id],{version:1,template:'chart',data:options});await page.goto(`/view/${s}/${d.id}`);await expect(page.locator('.viewer-candidate .composable-chart')).toBeVisible();const sizes=[];for(let i=0;i<6;i++){await page.waitForTimeout(500);sizes.push(await page.locator('.viewer-candidate .composable-chart').evaluate(el=>({height:el.getBoundingClientRect().height,svg:el.querySelector('svg')!.getBoundingClientRect().height,scroll:document.documentElement.scrollHeight})));}expect(Math.max(...sizes.map(x=>x.height))-Math.min(...sizes.map(x=>x.height))).toBeLessThan(2);expect(Math.max(...sizes.map(x=>x.svg))-Math.min(...sizes.map(x=>x.svg))).toBeLessThan(2);expect(sizes.at(-1)!.height).toBeLessThan(page.viewportSize()!.height+1);expect(sizes.at(-1)!.scroll).toBeLessThan(page.viewportSize()!.height+1);
  }
- await page.screenshot({path:`${evidence}/${test.info().project.name}-chart.png`});
+ await page.screenshot({path:`${evidence()}/${test.info().project.name}-chart.png`});
 });
 });

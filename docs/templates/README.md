@@ -13,6 +13,7 @@ Read the current catalog through `kanvas_discover` with `catalog:"templates"`: `
 - [Countdowns](countdowns.md)
 - [Data displays](data-displays.md)
 - [Document excerpts](document-excerpts.md)
+- [Markdown reading](markdown.md)
 - [Drafting](drafting.md)
 - [Flashcards](flashcards.md)
 - [Forms](forms.md)

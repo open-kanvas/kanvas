@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { afterEach } from 'vitest';
 import { beforeEach } from 'vitest';
@@ -243,7 +244,13 @@ describe("settings coverage 3", () => {
             expect(serverWebsiteUrl(false)).toBeUndefined();
             expect(serverWebsiteUrl('http://insecure.example')).toBeUndefined();
             expect(serverWebsiteUrl('javascript:alert(1)')).toBeUndefined();
-            expect(KANVAS_VERSION).toBe('0.38.0');
+            expect(KANVAS_VERSION).toBe('0.39.0');
+            // Public release identity must agree in server discovery, dependency manifests and the served HTML shell.
+            const packageJson = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
+            const packageLock = JSON.parse(readFileSync(new URL('../../package-lock.json', import.meta.url), 'utf8'));
+            expect([packageJson.version, packageLock.version, packageLock.packages[''].version]).toEqual([KANVAS_VERSION, KANVAS_VERSION, KANVAS_VERSION]);
+            const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
+            expect(html.match(/<meta name="kanvas-version" content="([^"]+)"\s*\/?>/)?.[1]).toBe(KANVAS_VERSION);
             expect(mailSenderAddress('KANVAS <noreply@example.com>')).toBe('noreply@example.com');
             expect(mailSenderAddress('kanvas@open-kanvas.ai')).toBe('kanvas@open-kanvas.ai');
             expect(mailSenderAddress('not an address')).toBeUndefined();

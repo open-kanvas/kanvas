@@ -89,14 +89,14 @@ test('flashcards are voice-first, visually graded and preserve agent-controlled 
  await control('answer','incorrect response');await expect(deck.getByRole('img',{name:'Incorrect answer',exact:true})).toBeVisible();await expect(deck).toContainText('hello');await expect(deck).not.toContainText('Exact text matching');
  const face=await deck.locator('.flashcard-face').boundingBox();expect(face!.height).toBeGreaterThan(viewer.viewportSize()!.height*.55);
  await expect(viewer.locator('.viewer-toast')).toHaveCount(0,{timeout:15000});
- await viewer.screenshot({path:`/home/deploy/kanvas-feedback-20261014-visuals/${test.info().project.name}-flashcards-incorrect.png`});
+ await viewer.screenshot({path:`${test.info().outputPath("screenshots")}/${test.info().project.name}-flashcards-incorrect.png`});
  await control('answer','hello');await expect(deck.getByRole('img',{name:'Correct answer',exact:true})).toBeVisible();
  await expect(viewer.locator('.viewer-toast')).toHaveCount(0,{timeout:15000});
- await viewer.screenshot({path:`/home/deploy/kanvas-feedback-20261014-visuals/${test.info().project.name}-flashcards-correct.png`});
+ await viewer.screenshot({path:`${test.info().outputPath("screenshots")}/${test.info().project.name}-flashcards-correct.png`});
  await control('next');await expect(deck).toContainText('Translate adiós');await viewer.reload();await expect(viewer.locator('.viewer-candidate .flashcards progress')).toHaveAttribute('value','2');
  expect(await viewer.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  await expect(viewer.locator('.viewer-toast')).toHaveCount(0,{timeout:15000});
- await viewer.screenshot({path:`/home/deploy/kanvas-feedback-20261014-visuals/${test.info().project.name}-flashcards.png`});
+ await viewer.screenshot({path:`${test.info().outputPath("screenshots")}/${test.info().project.name}-flashcards.png`});
 });
 });
 

@@ -19,7 +19,11 @@ test.describe("privacy coverage 1", () => {
 
 
 test('privacy recovery on another signed-in browser restores the locked installation',async({page,browser,baseURL,diagnostics})=>{
- const account=await register(page);const devices=await sessionApi<{devices:{id:string}[]}>(page,'/api/devices');expect(devices.data!.devices.length).toBeGreaterThan(0);
+ const account=await register(page);
+ // Workspace paint precedes the asynchronous installation registration. Establish
+ // that setup precondition before testing recovery of the registered device.
+ await expect.poll(async()=>(await sessionApi<{devices:{id:string}[]}>(page,'/api/devices')).data!.devices.length).toBeGreaterThan(0);
+ const devices=await sessionApi<{devices:{id:string}[]}>(page,'/api/devices');expect(devices.data!.devices.length).toBeGreaterThan(0);
  // Separate browser context has independent installation cookies and sign-in.
  const context=await browser.newContext({baseURL});const recovery=await context.newPage();diagnostics.watch(recovery);
  try{

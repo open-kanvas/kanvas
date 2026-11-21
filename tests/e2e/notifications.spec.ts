@@ -18,7 +18,7 @@ import type { TestInfo } from '@playwright/test';
 
 test.describe("notifications coverage 1", () => {
 
-const evidence='/home/deploy/kanvas-feedback-20261101-evidence';
+const evidence=()=>test.info().outputPath("screenshots");
 async function clientFor(page:Page){const issued=await sessionApi<{token:string}>(page,'/api/tokens','POST',{name:'Disposable November acceptance',scopes:['read','publish']});const client=new Client({name:'november-acceptance',version:'1'});await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',page.url()),{requestInit:{headers:{Authorization:'Bearer '+issued.data!.token}}}));return {client,call:async(operationId:string,args:Record<string,unknown>)=>{const result=await client.callTool({name:'kanvas_call',arguments:{operationId,arguments:args}});expect(result.isError).not.toBe(true);return (result.structuredContent as any).data;}};}
 async function setup(page:Page){await register(page);const s=await createSession(page,'November acceptance'),d=await createDisplay(page,s,'Target');return {s,d};}
 test('notification destination navigates authenticated root to exact non-default display',async({page})=>{

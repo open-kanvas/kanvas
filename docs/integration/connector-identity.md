@@ -16,7 +16,7 @@ What Kanvas publishes about itself to MCP clients, where each client is known to
 | OAuth authorization-server metadata | `service_documentation` | the website |
 | Origin root | `/favicon.ico`, `/favicon.svg`, `/favicon-16/32/48.png`, `/icons/kanvas-192.png`, `/icons/kanvas-512.png`, `/icons/apple-touch-icon.png` | public files |
 
-Icon addresses carry `?v=<release>`, so a client that cached an older image fetches the current one after an upgrade. All of these files are served without sign-in, without a redirect and with their real content type; this is covered by an automated browser test (`tests/e2e/feedback-nov10.spec.ts`).
+Icon addresses carry `?v=<release>`, so a client that cached an older image fetches the current one after an upgrade. All of these files are served without sign-in, without a redirect and with their real content type; this is covered by an automated browser test (the public asset and connector acceptance checks).
 
 `websiteUrl` and `icons` are optional fields of the MCP implementation information (specification revision 2025-11-25 and later). Older clients ignore them.
 

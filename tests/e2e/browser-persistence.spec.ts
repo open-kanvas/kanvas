@@ -9,7 +9,7 @@ test('one actual login shares console, viewer and account controls with a persis
  await page.goto(`/view/${s}/${d.id}`);await expect(page.locator('.viewer-shell')).toBeVisible();await expect(page.getByText('One sign-in across Kanvas',{exact:true})).toBeVisible();
  await page.goto('/console?account=sessions');await expect(page.getByRole('heading',{name:'Signed-in browsers',exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:/This browser/})).toBeVisible();expect((await context.cookies()).find(c=>c.name==='kanvas')!.value).toBe(cookie.value);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
- await page.screenshot({path:`/home/deploy/kanvas-auth-persistence-20261021-evidence/${test.info().project.name}-sessions.png`});
+ await page.screenshot({path:`${test.info().outputPath("screenshots")}/${test.info().project.name}-sessions.png`});
  await page.reload();await expect(page.getByRole('heading',{name:'Signed-in browsers',exact:true})).toBeVisible();
 });
 
@@ -20,7 +20,7 @@ test('sensitive browser revocation requests reauthentication without logging out
  diagnostics.allowHttp(page,'/api/auth/sessions/revoke',403);
  await page.getByRole('button',{name:'Sign out all browsers'}).click();await page.getByRole('button',{name:'Confirm sign out',exact:true}).click();
  await expect(page.getByRole('dialog',{name:"Confirm it's you"})).toBeVisible();await expect(page.getByRole('dialog',{name:"Confirm it's you"})).toContainText('the action has not been applied');expect(await page.evaluate(async()=>(await fetch('/api/auth/me')).status)).toBe(200);
- await page.screenshot({path:`/home/deploy/kanvas-auth-persistence-20261021-evidence/${test.info().project.name}-reauth.png`});
+ await page.screenshot({path:`${test.info().outputPath("screenshots")}/${test.info().project.name}-reauth.png`});
  await page.getByRole('button',{name:'Keep working without changing access'}).click();await page.getByRole('dialog',{name:'Sign out all browsers?'}).getByRole('button',{name:'Close dialog'}).click();
  expect(await page.evaluate(async()=>((await(await fetch('/api/auth/sessions')).json()).data.browsers).length)).toBe(1);
  // The workspace may have a session read in flight when its cookie is revoked.

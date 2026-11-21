@@ -8,8 +8,8 @@ export function input(overrides: Partial<InterpretationInput> = {}): Interpretat
 }
 export const source = { title: 'Source ledger', url: 'https://example.com/source', locator: 'Table 2', timestamp: '2026-09-08T12:00:00Z' };
 export const cases: {template:TemplateId;data:Record<string, unknown>}[] = [
-  // Real supplied examples for the five new families; completeness/provenance guards remain exhaustive.
-  ...(['split-screen','database-schema','scene3d','venn','math','instrument','live-captions','task-list','colour','icon-picker','font-picker','tool-call-details','agents','welcome','monitor-stream','message-board'] as const).map(template=>({template,data:samples[template].data})),
+  // Supplied examples for templates with explicit source contracts; completeness/provenance guards remain exhaustive.
+  ...(['markdown','split-screen','database-schema','scene3d','venn','math','instrument','live-captions','task-list','colour','icon-picker','font-picker','tool-call-details','agents','welcome','monitor-stream','message-board'] as const).map(template=>({template,data:samples[template].data})),
   {template:'qr',data:{content:'https://example.com/exact?value=hello',title:'Scan here',text:'Original supporting text'}},
   {template:'molecule',data:{libraryId:'ethanol-v1'}},
   {template:'signage',data:{items:[{id:'information',type:'information'}]}},

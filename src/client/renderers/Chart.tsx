@@ -218,6 +218,7 @@ function LegacyChartRenderer({ data, showControls = false }: { data: ChartData; 
       <div className="legacy-chart-plot" ref={plot}>
         {data.kind === 'heatmap' ? <Heatmap data={data} select={setSelected} viewport={viewport} measure={measure} /> : <svg className="chart-svg" width={W} height={H} style={{ width: W, height: H }} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${data.kind} chart of ${data.yLabel ?? data.unit ?? 'values'} by ${data.xLabel ?? 'observation'}`}>
           <title>{`${data.kind} chart`}</title>
+          {data.kind==='line'&&<rect data-chart-snap-plot x={left} y={top} width={pw} height={bottom-top} fill="transparent"/>}
           {yCaption.length > 0 && <AxisCaption label={yLabel} lines={yCaption} x={left + 4} baseline={fontSize} lineHeight={lineHeight} fontSize={fontSize} anchor="start" axis="y" />}
           {visibleYTicks.map((value, i) => <g key={i} className="chart-axis"><line x1={left} x2={W - right} y1={y(value)} y2={y(value)} /><text data-chart-axis="y" style={{ fontSize }} x={left - 10} y={y(value) + fontSize * .35} textAnchor="end">{format(value)}</text></g>)}
           {ticks.ticks.map(tick => <ChartTick key={tick.index} tick={tick} baseline={bottom + 12 + fontSize} lineHeight={lineHeight} fontSize={fontSize} />)}

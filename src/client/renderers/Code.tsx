@@ -86,7 +86,7 @@ export function CodeRenderer({ data, showControls = false, panelId }: { data: Co
 
 interface FileNode { name: string; path: string; directory: boolean; status?: string; children: FileNode[] }
 export function FileTree({ files,activePath }: { files: NonNullable<CodeData['files']>;activePath?:string }) {
-  const rootRef=useRef<HTMLDivElement>(null),[font,setFont]=useState(24);
+  const rootRef=useRef<HTMLDivElement>(null),[font,setFont]=useState(16);
   const tree = useMemo(() => {
     const root: FileNode = { name: '', path: '', directory: true, children: [] };
     for (const file of files) {
@@ -116,8 +116,8 @@ export function FileTree({ files,activePath }: { files: NonNullable<CodeData['fi
       tree.children.forEach(item=>visit(item,0));
       // Count folders as well as files, and reserve width for depth, labels,
       // icons and source status. Deep/large trees stay readable and scrollable;
-      // short trees grow in their own pane, not in the whole display's width.
-      const next=Math.round(Math.max(16,Math.min(72,width/(columns*.64),(height/Math.max(1,count)-12)/1.6))*2)/2;
+      // short trees remain compact; dense trees adapt inside their own pane.
+      const next=Math.floor(Math.max(10,Math.min(22,width/(columns*.64),height/Math.max(1,count)/1.3))*2)/2;
       setFont(previous=>Math.abs(previous-next)>=.5?next:previous);
     });};
     const observer=new ResizeObserver(resize);observer.observe(parent);observer.observe(root);root.addEventListener('toggle',resize,true);resize();

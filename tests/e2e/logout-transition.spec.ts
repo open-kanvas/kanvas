@@ -84,5 +84,10 @@ test('failed logout notice survives an earlier viewport report completing afterw
   await expect(page.locator('.viewer-candidate')).toContainText('Still signed in');
   await expect(page.locator('.app-loading')).toHaveCount(0);
   await expect(page).toHaveURL(new RegExp('/view/'+session+'/'+display.id+'$'));
- }finally{release();}
+ }finally{
+  release();
+  // Drain the asserted PATCH callbacks before Playwright tears down this page.
+  // Waiting retains callback failures; ignoring them would hide the regression.
+  await page.unrouteAll({behavior:'wait'});
+ }
 });

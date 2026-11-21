@@ -2159,6 +2159,8 @@ export class KanvasService implements McpService {
             case "kanvas.invite.revoke": return (await this.invitations.revoke(principal, a));
             case "kanvas.address.customize": return (await this.experience.addresses.customize(principal, { sessionId: a.sessionId, displayId: a.displayId, alias: a.alias }));
             case "kanvas.address.get": return (await this.experience.address(principal, a.sessionId, a.displayId));
+            case "kanvas.shares.read": return this.experience.shares(principal, a);
+            case "kanvas.share.revoke": return this.experience.revokeShare(principal, a);
             case "kanvas.share.create": return (await this.experience.share(principal, a as unknown as Parameters<Experience['share']>[1]));
             case "kanvas.pairings.read": return (await this.experience.pairings(principal, a.sessionId));
             case "kanvas.pairing.revoke": return (await this.experience.revokePairing(principal, a as unknown as Parameters<Experience['revokePairing']>[1]));

@@ -1,0 +1,47 @@
+import { afterEach, describe, expect, it } from 'vitest';
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+import { startHarness, success, denied, type Harness } from '../core/harness.js';
+
+describe('public share lifecycle operations', () => {
+  let h:Harness,client:Client|undefined;
+  afterEach(async()=>{await client?.close();await h?.close();});
+  it('discovers, lists and revokes only the owner’s link and its approved/pending browsers, then restores private overview',async()=>{
+    h=await startHarness();const owner=await h.account(),other=await h.account(),sessionId=(await owner.session()).id,displayId=(await owner.display(sessionId)).id;
+    const issued=await h.runtime.auth.issueToken(owner.user!.id,'Share lifecycle',['read','publish']);
+    client=new Client({name:'share-lifecycle',version:'1'});
+    await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',h.baseUrl),{requestInit:{headers:{Authorization:`Bearer ${issued.value}`}}}));
+    const call=async(operationId:string,args:Record<string,unknown>)=>{const result=await client!.callTool({name:'kanvas_call',arguments:{operationId,arguments:args}});expect(result.isError,JSON.stringify(result.structuredContent)).not.toBe(true);return (result.structuredContent as any).data;};
+    for(const id of ['kanvas.shares.read','kanvas.share.revoke'])expect((await client.callTool({name:'kanvas_discover',arguments:{catalog:'tools',action:'get',id}})).isError).not.toBe(true);
+    const created=await call('kanvas.share.create',{sessionId,displayId}),second=await call('kanvas.share.create',{sessionId,displayId});
+    const listed=await call('kanvas.shares.read',{sessionId});
+    expect(listed.total).toBe(2);expect(listed.shares.map((s:any)=>s.id).sort()).toEqual([created.id,second.id].sort());
+    const shareId=created.id,guests=[h.browser(),h.browser()],pairs:any[]=[];
+    for(const guest of guests)pairs.push(success(await guest.request<any>('POST','/api/pairings',{shareId,deviceName:'Share guest'})));
+    success(await owner.request('POST',`/api/pairings/${pairs[0].id}/decision`,{approve:true}));
+    success(await guests[0].request('GET',`/api/pairings/${pairs[0].id}/status`));
+    success(await guests[0].request('GET','/api/auth/me'));
+    const service=h.runtime.service,args={sessionId,shareId},foreign={userId:other.user!.id};
+    await expect(service.execute('kanvas.share.revoke',args,foreign)).rejects.toBeTruthy();
+    await expect(service.execute('kanvas.shares.read',{sessionId},foreign)).rejects.toBeTruthy();
+    await service.addMember({userId:owner.user!.id},sessionId,other.user!.username,'editor');
+    await expect(service.execute('kanvas.shares.read',{sessionId},foreign)).rejects.toMatchObject({code:'NOT_FOUND'});
+    await service.removeMember({userId:owner.user!.id},sessionId,other.user!.id);
+    const readToken=await h.runtime.auth.issueToken(owner.user!.id,'Read shares',['read']);
+    const readPrincipal=await h.runtime.auth.authorize({get:()=>`Bearer ${readToken.value}`} as never);
+    expect((await service.execute('kanvas.shares.read',{sessionId},readPrincipal) as any).total).toBe(2);
+    await expect(service.execute('kanvas.share.revoke',args,readPrincipal)).rejects.toMatchObject({code:'FORBIDDEN'});
+    const otherSession=(await owner.session()).id;
+    await expect(service.execute('kanvas.share.revoke',{...args,sessionId:otherSession},{userId:owner.user!.id})).rejects.toMatchObject({code:'NOT_FOUND'});
+    const revoked=await call('kanvas.share.revoke',args);
+    expect(revoked).toMatchObject({id:shareId,status:'revoked',revoked:true,closedAt:expect.any(String)});
+    expect((await call('kanvas.share.revoke',args)).closedAt).toBe(revoked.closedAt);
+    denied(await guests[0].request('GET','/api/auth/me'),[401,403]);
+    for(const pair of pairs)expect(await h.runtime.store.get<any>('pairing',pair.id)).toMatchObject({status:'revoked'});
+    expect((await call('kanvas.shares.read',{sessionId})).shares.map((s:any)=>s.id)).toEqual([second.id]);
+    const level=async()=>success(await owner.request<any>('GET','/api/start')).sessions.find((s:any)=>s.id===sessionId).sharing;
+    expect(await level()).toBe('shared');
+    await call('kanvas.share.revoke',{sessionId,shareId:second.id});
+    expect((await call('kanvas.shares.read',{sessionId})).total).toBe(0);expect(await level()).toBe('private');
+    success(await owner.request('GET',`/api/sessions/${sessionId}`));
+  });
+});

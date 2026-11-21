@@ -1,3 +1,4 @@
+import {MarkdownRenderer} from './Markdown';
 import {QrRenderer} from './Qr';
 import {Instrument} from './Instrument';
 import {instrumentDataSchema} from '../../shared/instrument';
@@ -239,6 +240,7 @@ function ContentInner(props: RendererProps) {
     case 'code': return <CodeRenderer {...surface} data={data as unknown as CodeData} />;
     case 'whiteboard': return <WhiteboardRenderer {...surface} data={data as unknown as WhiteboardData} editable={editable} revision={props.revision} onEdit={onEdit} onReady={props.onReady} onError={props.onError} />;
     case 'presentation': return <PresentationRenderer {...props} />;
+    case 'markdown': return <MarkdownRenderer preview={props.preview} data={data as unknown as import('../../shared/markdown').MarkdownData} />;
     case 'document': return <DocumentRenderer preview={props.preview} {...surface} data={data as unknown as DocumentData} />;
     case 'video': return <VideoRenderer {...surface} data={data as unknown as VideoData} revision={props.revision} command={props.preview ? undefined : props.videoCommand} serverNow={props.serverNow} preview={props.preview} onCommandResult={props.onVideoCommandResult} />;
     case 'notifications': return <NotificationsRenderer {...surface} data={data as unknown as NotificationsData} editable={editable} revision={props.revision} onEdit={onEdit} />;

@@ -59,11 +59,11 @@ const inside=(inner:{x:number;y:number;width:number;height:number},outer:{x:numb
 
 test('connector identity files are public, typed and not redirected (8f4962dc, e2573eca)',async({request})=>{
  for(const [path,type] of [['/icons/kanvas-512.png','image/png'],['/icons/kanvas-192.png','image/png'],['/favicon-48.png','image/png'],['/favicon-32.png','image/png'],['/favicon.svg','image/svg+xml'],['/favicon.ico','image/']] as const){
-  const response=await request.get(`${path}?v=0.38.0`,{maxRedirects:0,headers:{cookie:''}});
+  const response=await request.get(`${path}?v=0.39.0`,{maxRedirects:0,headers:{cookie:''}});
   expect(response.status(),path).toBe(200);expect(response.headers()['content-type'],path).toContain(type);expect((await response.body()).length,path).toBeGreaterThan(100);
  }
  const metadata=await (await request.get('/.well-known/oauth-protected-resource/mcp')).json();expect(metadata.resource_documentation).toBe('https://open-kanvas.ai');
- expect(await (await request.get('/')).text()).toContain('name="kanvas-version" content="0.38.0"');
+ expect(await (await request.get('/')).text()).toContain('name="kanvas-version" content="0.39.0"');
 });
 });
 
@@ -90,7 +90,7 @@ test('email form has centered primary action, sender guidance and centered devic
 
 test.describe("oauth coverage 4", () => {
 
-const evidence='/home/deploy/kanvas-feedback-20261029-evidence';
+const evidence=()=>test.info().outputPath("screenshots");
 async function clientFor(page:Page){const issued=await sessionApi<{token:string}>(page,'/api/tokens','POST',{name:'Disposable feedback acceptance',scopes:['read','publish']});expect(issued.status).toBe(201);const client=new Client({name:'feedback-acceptance',version:'1'});await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',page.url()),{requestInit:{headers:{Authorization:'Bearer '+issued.data!.token}}}));return {client,call:async(operationId:string,args:Record<string,unknown>)=>{const result=await client.callTool({name:'kanvas_call',arguments:{operationId,arguments:args}});expect(result.isError).not.toBe(true);return (result.structuredContent as any).data;}};}
 test('email-confirmed connector redirects only its original browser and persists through console and reload',async({page,browser})=>{
  const server=createServer();await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));const address=server.address();if(!address||typeof address==='string')throw new Error('No test server');const base=`http://127.0.0.1:${address.port}`,database=testDatabase(),mail:string[]=[],runtime=await createApp({database,publicUrl:base,allowRegistration:true,signinMailer:async(_email,link)=>{mail.push(link);}});server.on('request',runtime.app);const confirmation=await browser.newContext({viewport:page.viewportSize()!}),emailPage=await confirmation.newPage();

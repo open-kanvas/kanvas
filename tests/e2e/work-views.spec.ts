@@ -69,12 +69,13 @@ test('file tree fits its own viewport and source structure, reveals the active n
   await v.setViewportSize({width:1920,height:1080});
   await a.show({version:1,template:'code',data:{kind:'tree',files:[{path:'app.ts',kind:'file'},{path:'styles.css',kind:'file'}]}});
   const tree=v.locator('.viewer-candidate .file-tree'),font=()=>tree.evaluate(el=>parseFloat(getComputedStyle(el).fontSize));
-  await expect.poll(font).toBeGreaterThan(40);const wide=await font();
-  await v.setViewportSize({width:390,height:844});await expect.poll(font).toBeLessThan(wide);
+  // Compact trees cap sparse layouts instead of inflating two rows on a large screen.
+  await expect.poll(font).toBe(22);const wide=await font();
+  await v.setViewportSize({width:390,height:844});await expect.poll(font).toBeLessThanOrEqual(wide);await expect.poll(font).toBeGreaterThanOrEqual(10);
   await v.setViewportSize(original);
   const activePath='src/features/account/start/view.ts',files=[{path:activePath,kind:'file',status:'modified'},...Array.from({length:32},(_,i)=>({path:`src/features/module-${i}/source.ts`,kind:'file'}))];
   await a.show({version:1,template:'code-workspace',data:{files,activePath,excerpt:{kind:'code',path:activePath,code:'const source = "1.2300";'}}});
-  await expect.poll(font).toBeLessThan(wide);await expect.poll(font).toBeGreaterThanOrEqual(16);
+  await expect.poll(font).toBeLessThan(wide);await expect.poll(font).toBeGreaterThanOrEqual(10);
   const active=tree.locator('[aria-current="true"]');await active.scrollIntoViewIfNeeded();await expect(active).toBeVisible();await expect(active).toContainText('view.ts');
   const directory=tree.locator('summary').filter({hasText:'module-0'});await directory.scrollIntoViewIfNeeded();await directory.click();await expect(directory.locator('..')).toHaveAttribute('open','');
   await active.scrollIntoViewIfNeeded();await expect(v.locator('.code-workspace>section')).toContainText('1.2300');await photo(v,info,'nested-file-tree');

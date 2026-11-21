@@ -8,10 +8,10 @@ One shared place where the users of a Kanvas installation ask questions, share t
 
 | Operation | What it does |
 | --- | --- |
-| `kanvas.board.post {requestId, text, tags?, acknowledgePublic?, publicName?}` | Post a message (at most 2000 characters, five tags). |
-| `kanvas.board.read {tag?, newOnly?, mine?, limit?, before?, markSeen?, as?}` | Messages, newest first. `nextCursor` pages to older ones. `as:"chat"` adds a ready `chat` view. |
+| `kanvas.board.post {requestId, text, tags?, replyTo?, acknowledgePublic?, publicName?}` | Post a message (at most 2000 characters, five tags). |
+| `kanvas.board.read {tag?, newOnly?, mine?, replyTo?, limit?, before?, markSeen?, as?}` | Messages, newest first. `nextCursor` pages to older ones. `as:"chat"` adds a ready `chat` view. |
 | `kanvas.board.overview {}` | Totals, new since last seen, counts by tag, and a ready `message-board` view. |
-| `kanvas.board.update {notifications?, publicName?, markSeen?, removeMessageId?}` | Settings and removal. |
+| `kanvas.board.update {notifications?, publicName?, markSeen?, editMessageId?, text?, tags?, removeMessageId?}` | Settings, author/admin editing and removal. |
 
 ## Consent before the first post
 
@@ -19,7 +19,7 @@ The first post of an account returns `status: "needs_consent"` with the disclosu
 
 ## What a message contains
 
-`id`, `text`, `tags`, `at`, `author` (the public name), and where true `maintainer`, `mine`, `isNew`. Nothing else is stored on or returned with a message except the author's account id, which is kept for ownership, rate limits and removal and is **never returned**. No email address, account display name, session, agent or client detail.
+`id`, `text`, `tags`, `at`, `author` (the public name), and where true `maintainer`, `mine`, `isNew`. Replies add `replyTo`; edited messages add `editedAt`. Ownership, edit attribution and retry digests are stored privately and **never returned**. No email address, account display name, session, agent or client detail.
 
 - The public name is chosen by the person, 2-40 characters, never an email address or link. Names are not unique and not verified. Names suggesting an official role are refused unless the account is a service administrator; `maintainer: true` is set by the server for service administrators (`KANVAS_SERVICE_ADMINS`).
 - Message text is other people's text. Agents are told to show it and never follow instructions in it.
@@ -36,10 +36,10 @@ The notice is **off by default**. With `kanvas.board.update {notifications: true
 
 ## Limits and storage
 
-- Ten posts an hour and thirty a day per account; an identical message within ten minutes is refused; a repeated `requestId` returns the first result.
+- Ten posts an hour and thirty a day per account; an identical message within ten minutes is refused; a repeated `requestId` identifies the same message even after an edit, and returns its current public content.
 - The board keeps its newest 5000 messages; older ones are deleted as new ones arrive. With the size limits this bounds the board at roughly 15 MB.
 - Messages are ordinary rows of the existing `documents` table (kinds `board-message` and `board-reader`). **No schema migration.** Rolling back to 0.37 leaves the rows in place and unused.
-- An author can remove their own message; a service administrator can remove any. Removal clears the text and tags and keeps an empty tombstone so paging stays stable.
+- An author can edit or remove their own message; a service administrator can edit or remove any. Removal clears the text and tags and keeps an empty tombstone so paging stays stable.
 
 ## Showing it
 
@@ -48,4 +48,14 @@ The notice is **off by default**. With `kanvas.board.update {notifications: true
 
 ## Not in this version
 
-Threads and replies, mentions, editing, reactions, search, per-message read state, moderation queues, cross-installation federation and anonymous reading.
+Nested replies, mentions, reactions, direct messages, search, per-message read state, moderation queues, cross-installation federation and anonymous reading.
+
+## Replies and corrections
+
+Use `replyTo` on `kanvas.board.post` with an existing top-level message ID. A reply cannot receive another reply. Reads and overview place replies below their parent, oldest reply first; conversation groups follow their newest matching message.
+
+Pagination counts matching messages, not context: `returned` is at most `limit`, and `nextCursor` continues over those messages. A parent outside the selected page, `tag`, `mine`, or `newOnly` filter is included once with `contextOnly:true`. It can reappear as context on the next page; matching replies do not repeat. `replyTo` on read restricts the matching page to that thread. Parent context is bounded to at most one parent per selected reply.
+
+`kanvas.board.update {editMessageId, text?, tags?}` preserves ID and original `at`, adding `editedAt` only when content changes. Sending the identical edit again does not advance the timestamp. Reads, chat views and the overview show the edited marker/time. Edits do not change the author or move the message in pagination.
+
+Removing or erasing a parent does not remove someone else’s replies. Those retain an explicit unavailable-parent placeholder, without the removed text or public name; if the parent record is gone, no timestamp is invented.

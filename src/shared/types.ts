@@ -10,7 +10,7 @@ export type Role = 'owner' | 'editor' | 'viewer';
 export interface Principal { userId: string; agentId?: string; tokenId?: string; scopes?: string[] }
 export interface Provenance { title?: string; url?: string; locator?: string; timestamp?: string }
 export interface ViewAction { id: string; label: string; kind: 'button'|'choice'|'input'; options?: string[]; placeholder?: string }
-export interface ViewSpec { format?: import('./regional.js').RegionalPreferences; selection?: Selection; version: 1; template: TemplateId; title?: string; showTitle?: boolean; showCaption?: boolean; showControls?: boolean; data: Record<string, unknown>; actions?: ViewAction[] }
+export interface ViewSpec { theme?: 'light' | 'dark'; format?: import('./regional.js').RegionalPreferences; selection?: Selection; version: 1; template: TemplateId; title?: string; showTitle?: boolean; showCaption?: boolean; showControls?: boolean; data: Record<string, unknown>; actions?: ViewAction[] }
 export interface SessionConfig { branding?: import('./accounts.js').Branding; textSize?:number; readingFontSize?:number; readingWpm?:number; readingZoom?:number; style?: string; theme: 'dark'|'light'|'system'; accent: string; numberLocale?: string; unitSystem?: 'source'|'metric'|'imperial'; dateFormat?: 'source'|'dmy'|'mdy'|'iso'; timeFormat?: 'locale'|'12h'|'24h'; timeZone?: string; syncMode?: 'independent'|'presenter'|'shared'; presenterViewerId?: string }
 export interface SessionRecord {
   serverVersion?:string;

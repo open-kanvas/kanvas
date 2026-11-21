@@ -1,3 +1,4 @@
+import {chartMeasure, wrapChartTick} from './chart-text';
 import { geographyPoints } from '../../shared/geography/points';
 import boundaries from '../../shared/geography/boundaries.json';
 import { geographyCodes } from '../../shared/geography/codes';
@@ -55,8 +56,8 @@ export function wrapChartLabel(text: string, characters: number): string[] {
   if (line || !result.length) result.push(line);
   return result;
 }
-function SvgLabel({ text, x, y, characters, anchor = 'middle', className = '' }: { text: string; x: number; y: number; characters: number; anchor?: 'start' | 'middle' | 'end'; className?: string }) {
-  return <text className={`advanced-label ${className}`} x={x} y={y} textAnchor={anchor} aria-label={text}><title>{text}</title>{wrapChartLabel(text, characters).map((line, index) => <tspan key={index} x={x} dy={index ? 19 : 0}>{line}</tspan>)}</text>;
+function SvgLabel({ text, x, y, characters, lines, anchor = 'middle', className = '' }: { text: string; x: number; y: number; characters: number; lines?:string[]; anchor?: 'start' | 'middle' | 'end'; className?: string }) {
+  return <text className={`advanced-label ${className}`} x={x} y={y} textAnchor={anchor} aria-label={text}><title>{text}</title>{(lines??wrapChartLabel(text, characters)).map((line, index) => <tspan key={index} x={x} dy={index ? '1.2em' : 0}>{line}</tspan>)}</text>;
 }
 function Svg({ width, height, title, children }: { width: number; height: number; title: string; children: ReactNode }) {
   return <svg className="chart-svg advanced-chart-svg" width={width} height={height} style={{ width, height }} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title}><title>{title}</title>{children}</svg>;
@@ -118,25 +119,32 @@ function CartesianPlot({ data, width, height, inspect }: PlotProps) {
   if (lo === Infinity) return <p className="content-empty">No numeric observations supplied.</p>;
   if (!Number.isFinite(hi - lo)) return <ExactDataTable data={data} />;
   const yTicks = lo === hi ? [lo] : Array.from({ length: 5 }, (_, i) => lo + (hi - lo) * (i / 4));
-  const left = Math.max(65, ...yTicks.map(value => pretty(value).length * 8.5 + 12)) + (data.yLabel || data.unit ? 27 : 0), right = data.kind === 'bubble' ? 34 : 22, top = 28;
+  const scale=data.textScale??1,fitFinancial=['candlestick','ohlc'].includes(data.kind)&&data.fitWidth!==false,measure=chartMeasure(16*scale);
+  const left = Math.max(65, ...yTicks.map(value => measure(pretty(value)) + 12*scale)) + (data.yLabel || data.unit ? 27*scale : 0), right = data.kind === 'bubble' ? 34 : 22, top = 28;
   // Label length affects wrapping, not bar width. Only genuinely dense charts
   // need horizontal scrolling; thirteen monthly categories fit a desktop.
   const slot = data.kind === 'waterfall' ? 52 : 68;
-  const plotWidth = continuous ? Math.max(180, width - left - right) : Math.max(width - left - right, labels.length * slot);
+  const plotWidth = continuous||fitFinancial ? Math.max(180, width - left - right) : Math.max(width - left - right, labels.length * slot);
   const actualWidth = left + plotWidth + right, categoryWidth = plotWidth / labels.length;
-  const labelLines = continuous ? 3 : Math.max(...labels.map(label => wrapChartLabel(String(label), (categoryWidth - 12) / 8).length));
-  const bottomMargin = Math.max(65, labelLines * 19 + 30 + (data.xLabel ? 28 : 0));
+  // Thin category labels evenly while retaining both range endpoints. Edge labels
+  // anchor inward, and wrapped text has a bounded allocation in the bottom gutter.
+  const financialTickCount = Math.min(labels.length, Math.max(2, Math.floor(plotWidth / (110 * scale))));
+  const financialTicks = new Set(Array.from({length:financialTickCount}, (_,i) => Math.round(i * (labels.length - 1) / Math.max(1, financialTickCount - 1))));
+  let xLo = Infinity, xHi = -Infinity;
+  if (continuous) for (const { point } of entries) { xLo = Math.min(xLo, asX(point)); xHi = Math.max(xHi, asX(point)); }
+  const bubbleInset = data.kind === 'bubble' ? maximumBubbleRadius + 2 : 0;
+  const xTicks = continuous ? Array.from({ length: xLo === xHi ? 1 : Math.max(2, Math.min(5, Math.floor(plotWidth / ((dateX ? 135 : 90)*scale)))) }, (_, index) => index) : [];
+  const ticks = xTicks.map((_, index) => { const value = xLo + (xHi - xLo) * (xTicks.length === 1 ? .5 : index / (xTicks.length - 1)); return { value, label: dateX ? regionalDate(value, regional, 'UTC', () => new Date(value).toISOString().slice(0, 10)) : pretty(value) }; });
+  const tickLines=ticks.map(tick=>wrapChartTick(tick.label,(plotWidth-2*bubbleInset)/Math.max(2,ticks.length),measure));
+  const categoryLines=labels.map((label,index)=>!fitFinancial||financialTicks.has(index)?wrapChartTick(String(label),fitFinancial?plotWidth/Math.max(2,financialTickCount):Math.max(20,categoryWidth-12),measure):[]);
+  const labelLines=Math.max(1,...(continuous?tickLines:categoryLines).map(lines=>lines.length));
+  const bottomMargin = Math.max(65, labelLines * 20*scale + 30*scale + (data.xLabel ? 28*scale : 0));
   const plotHeight = Math.max(140, height - top - bottomMargin), bottom = top + plotHeight, actualHeight = bottom + bottomMargin;
   // Radius is in real CSS pixels. Reserve its full extent at every data edge,
   // including an extremal observation whose size is the largest in the set.
-  const bubbleInset = data.kind === 'bubble' ? maximumBubbleRadius + 2 : 0;
   const y = (value: number) => lo === hi ? top + plotHeight / 2 : bottom - bubbleInset - (value - lo) / (hi - lo) * (plotHeight - bubbleInset * 2);
-  let xLo = Infinity, xHi = -Infinity;
-  if (continuous) for (const { point } of entries) { xLo = Math.min(xLo, asX(point)); xHi = Math.max(xHi, asX(point)); }
   const continuousX = (value: number) => xLo === xHi ? left + plotWidth / 2 : left + bubbleInset + (value - xLo) / (xHi - xLo) * (plotWidth - bubbleInset * 2);
   const x = (point: ChartPoint, index: number) => continuous ? continuousX(asX(point)) : left + ((sequential ? index : labels.indexOf(point.x)) + .5) * categoryWidth;
-  const xTicks = continuous ? Array.from({ length: xLo === xHi ? 1 : Math.max(2, Math.min(5, Math.floor(plotWidth / (dateX ? 135 : 90)))) }, (_, index) => index) : [];
-  const ticks = xTicks.map((_, index) => { const value = xLo + (xHi - xLo) * (xTicks.length === 1 ? .5 : index / (xTicks.length - 1)); return { value, label: dateX ? regionalDate(value, regional, 'UTC', () => new Date(value).toISOString().slice(0, 10)) : pretty(value) }; });
   const bubbleMaximum = Math.max(1e-300, ...entries.map(entry => entry.point.size ?? 0));
   const content = data.series.map((series, si) => {
     const ink = seriesColor(si, data.series.length);
@@ -178,10 +186,10 @@ function CartesianPlot({ data, width, height, inspect }: PlotProps) {
   });
   return <Svg width={actualWidth} height={actualHeight} title={`${data.kind} chart${data.yLabel ? ` of ${data.yLabel}` : ''}`}>
     {data.kind==='area'&&<rect data-chart-snap-plot x={left} y={top} width={plotWidth} height={plotHeight} fill="transparent"/>}
-    {yTicks.map((value, i) => <g key={i} className="advanced-axis"><line x1={left} x2={actualWidth - right} y1={y(value)} y2={y(value)} /><text x={left - 10} y={y(value) + 5} textAnchor="end">{pretty(value)}</text></g>)}
-    {continuous ? ticks.map((tick, i) => <SvgLabel key={i} text={tick.label} x={continuousX(tick.value)} y={bottom + 27} characters={dateX ? 10 : 12} anchor={i === 0 ? 'start' : i === ticks.length - 1 ? 'end' : 'middle'} />) : labels.map((label, index) => <SvgLabel key={index} text={String(label)} x={left + (index + .5) * categoryWidth} y={bottom + 28} characters={(categoryWidth - 12) / 8} />)}
-    {(data.yLabel || data.unit) && <text className="advanced-label" x="17" y={top + plotHeight / 2} transform={`rotate(-90 17 ${top + plotHeight / 2})`} textAnchor="middle">{[data.yLabel, data.unit].filter(Boolean).join(' · ')}</text>}
-    {data.xLabel && <text className="advanced-label" x={left + plotWidth / 2} y={actualHeight - 9} textAnchor="middle">{data.xLabel}</text>}
+    {yTicks.map((value, i) => <g key={i} className="advanced-axis"><line x1={left} x2={actualWidth - right} y1={y(value)} y2={y(value)} /><text x={left - 10} y={y(value) + 5*scale} textAnchor="end">{pretty(value)}</text></g>)}
+    {continuous ? ticks.map((tick, i) => <SvgLabel key={i} text={tick.label} x={continuousX(tick.value)} y={bottom + 27*scale} characters={dateX ? 10 : 12} lines={tickLines[i]} anchor={ticks.length===1?'middle':i === 0 ? 'start' : i === ticks.length - 1 ? 'end' : 'middle'} />) : labels.map((label, index) => fitFinancial&&!financialTicks.has(index)?null:<SvgLabel key={index} text={String(label)} x={fitFinancial&&labels.length>1&&index===0?left:fitFinancial&&labels.length>1&&index===labels.length-1?left+plotWidth:left + (index + .5) * categoryWidth} y={bottom + 28*scale} characters={100} lines={categoryLines[index]} anchor={fitFinancial&&labels.length>1?(index===0?'start':index===labels.length-1?'end':'middle'):'middle'} />)}
+    {(data.yLabel || data.unit) && <text className="advanced-label" x={17*scale} y={top + plotHeight / 2} transform={`rotate(-90 ${17*scale} ${top + plotHeight / 2})`} textAnchor="middle">{[data.yLabel, data.unit].filter(Boolean).join(' · ')}</text>}
+    {data.xLabel && <text className="advanced-label" x={left + plotWidth / 2} y={actualHeight - 9*scale} textAnchor="middle">{data.xLabel}</text>}
     {content}
   </Svg>;
 }
@@ -439,7 +447,7 @@ export function AdvancedChartRenderer({ data, showControls = false }: { data: Ch
     // The contained body is sized by its parent, never by its own SVG. Use its
     // content box, after toolbar/source layout, rather than guessed deductions.
     const measure = () => { const element = body.current, preview = Boolean(root.current?.closest('.is-preview')); if (element?.clientWidth && element.clientHeight) { const width = element.clientWidth, height = element.clientHeight; setViewport(old => old.width === width && old.height === height && old.preview === preview ? old : {width,height,preview}); } };
-    const observer = new ResizeObserver(measure); observer.observe(body.current); measure(); return () => observer.disconnect();
+    let live=true;const observer = new ResizeObserver(measure); observer.observe(body.current); measure();void document.fonts?.ready.then(()=>{if(live){measure();setViewport(old=>({...old}));}});return () => {live=false;observer.disconnect();};
   }, []);
   const props: PlotProps = { data, width: viewport.preview ? 960 : Math.max(240, viewport.width), height: viewport.preview ? 530 : Math.max(180, viewport.height), inspect: setSelected, uid, details: showControls };
   let plot: ReactNode;

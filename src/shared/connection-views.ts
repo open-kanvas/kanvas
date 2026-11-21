@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const topologyDataSchema=z.object({
   layout:z.enum(['connections','map']).default('connections'),
+  density:z.enum(['comfortable','compact']).default('comfortable'),
   groupBy:z.enum(['all','people','devices','displays']).default('all').describe('Agent-selected view: all shows displays, people, devices and windows together. No on-screen grouping controls.'),
   includeOffline:z.boolean().default(true),
   includeLocation:z.boolean().default(false).describe('Owner-authorized display of approximate IP-derived country/region/city, never GPS or precise addresses.'),

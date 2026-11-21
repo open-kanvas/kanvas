@@ -4,6 +4,13 @@ Kanvas is your agent's screen: a visual surface for people and their AI agents, 
 
 You talk or type to your agent, and the relevant thing appears on the screen while you speak: a chart, a checklist, a map, a code snippet, a plan. You react, it changes. The goal is the shortest time to clarity, like working through a problem with a colleague at a whiteboard. Full statement: [docs/mission.md](docs/mission.md).
 
+<table>
+<tr><td><img src="docs/images/024.png" alt="Kanvas workspace with a file tree and code diff" width="440"></td><td><img src="docs/images/033.png" alt="Interactive Kanvas task list" width="440"></td></tr>
+<tr><td><img src="docs/images/052.png" alt="Text draft with suggested edits and inline comments" width="440"></td><td><img src="docs/images/054.png" alt="Large Kanvas quick-fact text for reading across a room" width="440"></td></tr>
+</table>
+
+[See all screenshots](https://open-kanvas.ai/#gallery)
+
 ## What is in this repository
 
 The complete Kanvas application: the server, the web client and the agent-facing MCP interface, in one TypeScript package.

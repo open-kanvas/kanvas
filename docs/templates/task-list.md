@@ -11,6 +11,19 @@ Columns are open. Start with none and add what the work needs (a common starting
 
 Filter and sort run on the stored data, on the server for reads and by the same function on the display: `filter` takes `status`, `tags`, `done` and `fields`, which filters on your own columns in plain text as `column=value` (for example `{"fields":["owner=Anna","owner=Bo"]}`; entries for the same column are alternatives, different columns must all match); `sort.by` takes `number`, `title`, `status`, `tag`, `position` or the key of one of your columns. Matching ignores case.
 
-Each item can store a long `detail` (up to 8000 characters) and a `source`. On a display only the highlighted item carries its detail; other rows show title and a two-line summary. Done items move to the bottom, muted, and visibly travel there. The display is read-only: ticking is done through the agent.
+Each item can store a long `detail` (up to 8000 characters) and a `source`. On a display only the highlighted item carries its detail; other rows show title and a two-line summary. Done items stay in their written position by default; doneLast:true opts into moving them to the bottom. Expand/collapse item detail locally with its title button; ticking is done through the agent. Only that displayed list can be read through the screen-scoped detail endpoint.
 
 Limits: 200 items per list, 50 lists per session, 50 changes per call.
+
+
+## Subtasks and display references
+
+A parent may carry up to 100 `subtasks:[{id?,title,checked?,status?,description?,detail?}]`. Omitted ids are assigned once. Overview rows show a done/total count; subtasks open with the parent’s detail. `kanvas.tasklist.read` with `item` returns all stored subtasks.
+
+Use `kanvas.tasklist.update` with `subtasks:[{item:7,add:[{title:"Bars"}],items:[{id:"stable-id",status:"doing"}],check:["stable-id"],uncheck:[],remove:[],highlight:"stable-id"}]`. Each group addresses one permanent parent number or id. Highlighting a subtask also opens its parent; null clears the subtask highlight. Parent and subtask changes share the existing revision/idempotency transaction.
+
+`items[].reference` is free plain text, never an operational key. `showNumber` defaults true and `showReference` defaults false; both can be set independently at creation or through tasklist.update. Hiding a number never changes it, and moving/removing items does not reuse their permanent numbers.
+
+Storage stays in existing JSON documents; no SQL migration is needed. Older binaries reject new fields on mutation, so retain the newer binary when editing lists that contain subtasks/references.
+
+A parent plus its subtask detail is bounded to64KiB so an item read remains complete within MCP's response limit. The stored list is bounded to2MiB across cumulative delta updates; rejected updates save nothing.

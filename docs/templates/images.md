@@ -39,7 +39,7 @@ An image may include a normalized `crop: {x, y, width, height}`. The schema requ
 
 ## Loading and failure
 
-For collections of up to **20 images**, use `image-gallery`. Its default grid uses a 2×2 arrangement for four images, and three columns on wide screens/two columns on tall screens for six. `columns` explicitly overrides the automatic layout. Click/tap or Enter/Space enlarges an image; Back or Escape returns to the grid and restores focus. `mode: "carousel"` provides previous/next buttons, keyboard navigation and touch swipes, including for anonymous public-session viewers. Owner broadcast navigation reaches public viewers immediately and survives their reload; a public viewer's local browsing does not move everyone else.
+For collections of up to **256 images**, use `image-gallery`. Its default grid uses a 2×2 arrangement for four images, and three columns on wide screens/two columns on tall screens for six. `columns` (1–16) explicitly overrides the automatic layout. Titles and captions are opt-in per image and centred with that image. Click/tap or Enter/Space enlarges an image; Back or Escape returns to the grid and restores focus. `mode: "carousel"` provides previous/next buttons, keyboard navigation and touch swipes, including for anonymous public-session viewers. Owner broadcast navigation reaches public viewers immediately and survives their reload; a public viewer's local browsing does not move everyone else.
 
 Titles and captions are hidden unless the corresponding per-image `showTitle` or `showCaption` flag is true. Their original values remain stored. Every image remains contained rather than cropped.
 

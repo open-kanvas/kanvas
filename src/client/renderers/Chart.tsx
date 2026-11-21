@@ -1,8 +1,10 @@
+import {chartMeasure, wrapChartTick} from './chart-text';
+export {wrapChartTick} from './chart-text';
 import {DistributionChart} from './DistributionChart';
 import {ComposableChart} from './ComposableChart';
 import { pointEmphasis } from '../../shared/emphasis';
 import { useRegional } from './Regional';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState,type CSSProperties } from 'react';
 import { AdvancedChartRenderer } from './AdvancedCharts';
 import { isAdvancedChartKind } from '../../shared/chart-contract';
 import type { ChartData, ChartPoint } from '../../shared/chart-contract';
@@ -20,38 +22,15 @@ const numeric = (value: unknown): value is number => typeof value === 'number' &
 const unique = <T,>(items: T[]) => [...new Set(items)];
 const format = (n: number) => new Intl.NumberFormat(undefined, { notation: Math.abs(n) >= 10000 ? 'compact' : 'standard', maximumSignificantDigits: 4 }).format(n);
 
-export function ChartRenderer(props: { data: ChartData; showControls?: boolean }) {
+function ChartBody(props: { data: ChartData; showControls?: boolean }) {
   if(props.data.distribution)return <DistributionChart data={props.data}/>;
   if(['bar','line','area'].includes(props.data.kind)&&(props.data.stacking||props.data.orientation||props.data.showValues!==undefined||props.data.showTotals!==undefined||props.data.legend!==undefined||props.data.numberFormat||props.data.yMin!==undefined||props.data.yMax!==undefined||props.data.series.some(s=>s.stackGroup||s.kind||s.axis||s.color||s.lineWidth||s.dashed)))return <ComposableChart data={props.data}/>;
   return isAdvancedChartKind(props.data.kind) ? <AdvancedChartRenderer {...props} /> : <LegacyChartRenderer {...props} />;
 }
-export type ChartTextMeasure = (text: string) => number;
-/** Wrap by measured glyph width, including identifiers with no spaces. Source text stays in the accessible label. */
-export function wrapChartTick(label: string, width: number, measure: ChartTextMeasure): string[] {
-  const lines: string[] = [];
-  let line = '';
-  const words = label.trim().split(/\s+/u);
-  for (const word of words) {
-    if (!word) continue;
-    const joined = line ? `${line} ${word}` : word;
-    if (measure(joined) <= width) { line = joined; continue; }
-    if (line) { lines.push(line); line = ''; }
-    if (measure(word) <= width) { line = word; continue; }
-    const glyphs = typeof Intl.Segmenter === 'function'
-      ? Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(word), part => part.segment)
-      : Array.from(word);
-    for (const glyph of glyphs) {
-      while (line && measure(line + glyph) > width) {
-        const boundary = Math.max(line.lastIndexOf('-'), line.lastIndexOf('–'), line.lastIndexOf('/')) + 1;
-        if (boundary && boundary < line.length) { lines.push(line.slice(0, boundary)); line = line.slice(boundary); }
-        else { lines.push(line); line = ''; }
-      }
-      line += glyph;
-    }
-  }
-  if (line) lines.push(line);
-  return lines.length ? lines : [''];
+export function ChartRenderer(props:{data:ChartData;showControls?:boolean}){
+ return <div className="chart-text-surface" style={{display:'contents','--chart-text-scale':props.data.textScale??1} as CSSProperties}><ChartBody {...props}/></div>;
 }
+export type ChartTextMeasure = (text: string) => number;
 export interface ChartTickLayout {
   index: number; label: string; lines: string[]; x: number; width: number; left: number; right: number; rotation?: number;
 }
@@ -102,13 +81,6 @@ export function layoutXAxisTicks(labels: string[], positions: number[], left: nu
   }
   return { ticks, usesKey: false, indexed: false };
 }
-function chartMeasure(fontSize: number, fontFamily: string): ChartTextMeasure {
-  if (typeof document !== 'undefined') {
-    const context = document.createElement('canvas').getContext('2d');
-    if (context) { context.font = `400 ${fontSize}px ${fontFamily}`; return text => context.measureText(text).width + (text ? 1 : 0); }
-  }
-  return text => Array.from(text).reduce((width, glyph) => width + (/\s/u.test(glyph) ? .3 : /[ilI.,'!|]/u.test(glyph) ? .3 : /[MW@]/u.test(glyph) ? .9 : /[^\x00-\xff]/u.test(glyph) ? 1 : .6), 0) * fontSize;
-}
 const sourceX = (point: ChartPoint) => point.rawX !== undefined ? point.rawX : point.x;
 const sourceY = (point: ChartPoint) => point.rawY !== undefined ? point.rawY : point.y;
 const scalarText = (value: Scalar | undefined) => value === null || value === undefined ? 'Missing' : String(value);
@@ -143,7 +115,7 @@ function LegacyChartRenderer({ data, showControls = false }: { data: ChartData; 
     const measure = (fontsChanged = false) => {
       if (disposed || !element.clientWidth || !element.clientHeight) return;
       const fontFamily = getComputedStyle(element).fontFamily;
-      const fontSize = element.closest('.is-preview') ? 7 : 16;
+      const fontSize = (element.closest('.is-preview') ? 7 : 16)*(data.textScale??1);
       setViewport(old => {
         const next = { width: element.clientWidth, height: element.clientHeight, fontFamily, fontSize, fontRevision: old.fontRevision + Number(fontsChanged) };
         return Object.keys(next).every(key => next[key as keyof typeof next] === old[key as keyof typeof old]) ? old : next;
@@ -158,7 +130,7 @@ function LegacyChartRenderer({ data, showControls = false }: { data: ChartData; 
     void document.fonts?.ready.then(fontsChanged);
     measure();
     return () => { disposed = true; observer?.disconnect(); window.removeEventListener('resize', resize); document.fonts?.removeEventListener('loadingdone', fontsChanged); };
-  }, [showControls, data.kind, hasPoints]);
+  }, [showControls, data.kind, hasPoints,data.textScale]);
   useEffect(() => { setSelected(null); }, [data]);
   const measure = useMemo(() => chartMeasure(viewport.fontSize, viewport.fontFamily), [viewport.fontSize, viewport.fontFamily, viewport.fontRevision]);
   const all = data.series.flatMap(series => series.points);

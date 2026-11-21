@@ -19,3 +19,13 @@
 /* Current view on each display node (report: show what each screen shows). */
 .topology-display header .topology-display-view{display:block;margin:.15em 0 .2em;font-size:.95em;font-weight:550;color:var(--text);opacity:.9;max-width:34ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .topology-display header .topology-display-view.is-blank{font-weight:400;opacity:.55}
+
+/* Independent-height display cards use the whole width; each card remains a readable hierarchy. */
+.topology-groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));align-content:start;align-items:start}
+.topology-groups>.topology-display,.topology-groups>.topology-person{min-width:0}
+.topology-display-people{margin-left:12px;padding-left:14px}
+.topology-display-people .topology-devices{margin-left:0;padding-left:12px}
+.session-topology[data-density=compact] .topology-groups{padding:12px;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))}
+.session-topology[data-density=compact] .topology-window{padding:8px}
+.session-topology[data-density=compact] .topology-display-people{gap:12px;margin-top:10px}
+.session-topology[data-density=compact] .topology-devices{margin-top:10px;gap:10px}

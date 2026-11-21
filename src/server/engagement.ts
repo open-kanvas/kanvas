@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { formDataSchema, pollDataSchema, qaDataSchema, type FormField } from '../shared/view-schemas.js';
 import type { DisplayRecord, TemplateResponseState, ViewSpec } from '../shared/types.js';
 import { AppError, id, now, Store } from './store.js';
+import type {ViewerUploadRecord} from './session-uploads.js';
 import { hash } from './auth.js';
 
 export interface EngagementDisplay extends DisplayRecord { interactionEpoch?: string }
@@ -19,6 +20,7 @@ export function replaceLeaf(view: ViewSpec, data: Record<string, unknown>): View
 function validateField(field: FormField, value: unknown): unknown {
   const empty = value === undefined || (typeof value === 'string' && !value.trim()) || (Array.isArray(value) && !value.length);
   if (empty) { if (field.required) fail('A required form field is empty.'); return undefined; }
+  if(field.type==='file'){if(!Array.isArray(value)||value.length>field.maxCount||new Set(value).size!==value.length||value.some(x=>typeof x!=='string'||x.length>128))fail('Choose files within the displayed count limit.');return value;}
   if (field.type === 'checkbox') { if (typeof value !== 'boolean' || (field.required && !value)) fail('A required checkbox must be checked.'); return value; }
   if (field.type === 'number' || field.type === 'range') {
     if (typeof value !== 'number' || !Number.isFinite(value)) fail('A numeric field must contain a finite number.');
@@ -57,6 +59,13 @@ export class Engagement {
       const input = z.object({ kind: z.literal('form.submit'), values: z.record(z.string(), z.unknown()) }).strict().parse(raw);
       const data = formDataSchema.parse(view!.data); if (data.closed) throw new AppError('RESPONSE_CLOSED', 'This form is closed.', 409);
       if (Object.keys(input.values).some(key => !data.fields.some(field => field.id === key))) fail('The response contains an unknown form field.');
+      for(const field of data.fields)if(field.type==='file'&&Array.isArray(input.values[field.id])){
+       const records=await this.store.list<ViewerUploadRecord>('viewer-upload',display.sessionId);
+       for(const assetId of input.values[field.id] as unknown[]){
+        const upload=records.find(r=>r.assetId===assetId&&r.actor===userId&&r.displayId===display.id&&r.revision===display.revision&&r.fieldId===field.id);
+        if(!upload||!field.accept.includes(upload.mimeType as typeof field.accept[number])||upload.size>field.maxSize||!await this.store.get('asset',upload.assetId))fail('A file is unavailable to this form response.');
+       }
+      }
       value = Object.fromEntries(data.fields.flatMap(field => { const result = validateField(field, input.values[field.id]); return result === undefined ? [] : [[field.id, result]]; }));
     } else if (kind === 'poll') {
       const input = z.object({ kind: z.literal('poll.vote'), optionIds: z.array(z.string().min(1).max(128)).min(1).max(20) }).strict().parse(raw);

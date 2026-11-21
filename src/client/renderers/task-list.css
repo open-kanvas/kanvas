@@ -22,3 +22,10 @@
 @keyframes task-check{0%{transform:scale(.4);opacity:.2}60%{transform:scale(1.35)}100%{transform:scale(1)}}@keyframes task-done{0%{background:color-mix(in srgb,var(--accent) 35%,transparent)}100%{background:transparent}}
 .task-list tr.just-done .task-box{animation:task-check .45s ease-out}.task-list tr.just-done>td{animation:task-done .9s ease-out}
 @media(prefers-reduced-motion:reduce){.task-list tr.just-done .task-box,.task-list tr.just-done>td{animation:none}}
+
+.task-detail-toggle{display:flex;justify-content:space-between;gap:1em;text-align:left;width:100%;padding:0;font:inherit;color:inherit}
+.task-subtask-progress{display:block;color:var(--muted);font-size:.75em}
+.task-subtasks{list-style:none;padding:0;margin:1em 0}
+.task-subtasks>li{display:flex;gap:.7em;padding:.6em;border-left:2px solid var(--line)}
+.task-subtasks>li[aria-current=true]{background:color-mix(in srgb,var(--accent) 15%,transparent);border-color:var(--accent)}
+.task-subtasks p{white-space:pre-wrap;font-size:.85em}.task-reference{max-width:16ch;overflow-wrap:anywhere}.task-detail{white-space:pre-wrap}

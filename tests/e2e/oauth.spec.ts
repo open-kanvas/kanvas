@@ -59,11 +59,11 @@ const inside=(inner:{x:number;y:number;width:number;height:number},outer:{x:numb
 
 test('connector identity files are public, typed and not redirected (8f4962dc, e2573eca)',async({request})=>{
  for(const [path,type] of [['/icons/kanvas-512.png','image/png'],['/icons/kanvas-192.png','image/png'],['/favicon-48.png','image/png'],['/favicon-32.png','image/png'],['/favicon.svg','image/svg+xml'],['/favicon.ico','image/']] as const){
-  const response=await request.get(`${path}?v=0.39.0`,{maxRedirects:0,headers:{cookie:''}});
+  const response=await request.get(`${path}?v=0.40.0`,{maxRedirects:0,headers:{cookie:''}});
   expect(response.status(),path).toBe(200);expect(response.headers()['content-type'],path).toContain(type);expect((await response.body()).length,path).toBeGreaterThan(100);
  }
  const metadata=await (await request.get('/.well-known/oauth-protected-resource/mcp')).json();expect(metadata.resource_documentation).toBe('https://open-kanvas.ai');
- expect(await (await request.get('/')).text()).toContain('name="kanvas-version" content="0.39.0"');
+ expect(await (await request.get('/')).text()).toContain('name="kanvas-version" content="0.40.0"');
 });
 });
 

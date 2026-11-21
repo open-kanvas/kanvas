@@ -5,6 +5,8 @@ import {limitError} from './limit-errors.js';
 import {STORED_SESSION_FACTOR} from './usage-limits.js';
 import {Friction,type FrictionCall} from './friction.js';
 import {Agents} from './agents.js';
+import {sessionCaptureLimit} from './usage-limits.js';
+import {SessionUploads} from './session-uploads.js';
 import {TaskLists} from './task-lists.js';
 import {MonitorStreams} from './monitor-streams.js';
 import {MessageBoard} from './message-board.js';
@@ -151,6 +153,7 @@ export class KanvasService implements McpService {
     readonly friction: Friction;
     readonly agents: Agents;
     readonly taskLists: TaskLists;
+    readonly sessionUploads: SessionUploads;
     readonly monitorStreams: MonitorStreams;
     readonly board: MessageBoard;
     readonly pickers: Pickers;
@@ -200,6 +203,7 @@ export class KanvasService implements McpService {
         this.friction.start();
         this.agents = new Agents(this);
         this.taskLists = new TaskLists(this);
+        this.sessionUploads = new SessionUploads(this);
         this.monitorStreams = new MonitorStreams(this);
         this.monitorStreams.start();
         this.board = new MessageBoard(this);
@@ -1860,7 +1864,7 @@ export class KanvasService implements McpService {
         return (await this.storeMedia(sessionId, input));
     }
     /** Only trusted derivative capture bytes may use this path without publishing permission. */
-    private async storeMedia(sessionId: string, input: MediaInput): Promise<Awaited<AssetRecord>> {
+    async storeMedia(sessionId: string, input: MediaInput): Promise<Awaited<AssetRecord>> {
         return this.store.atomic(async () => {
             const media = validateMedia(input);
             if ((await this.store.list<AssetRecord>('asset', sessionId)).reduce((n, a) => n + a.size, 0) + media.size > 200 * 1024 * 1024)
@@ -2282,8 +2286,9 @@ export class KanvasService implements McpService {
                     result.metadata.export = { base64: result.image.toString('base64'), mimeType: result.mimeType, name: `kanvas-snapshot-${display.revision}.jpg`, size: result.image.length };
                 // Capturing already-readable pixels may create a bounded derivative asset,
                 // but never accepts arbitrary uploaded bytes or grants publish permission.
-                if ((await this.store.list('capture-asset', a.sessionId)).length >= 100 || (await this.store.list<AssetRecord>('asset', a.sessionId)).reduce((n, x) => n + x.size, 0) + result.image.length > 200 * 1024 * 1024) {
-                    Object.assign(result.metadata, { reusable: false, storageNote: 'Snapshot returned inline. Remove unused capture assets before saving more; maximum 100 per session and normal media quota apply.' });
+                const captureLimit=await sessionCaptureLimit(this.store,a.sessionId);
+                if ((await this.store.list('capture-asset', a.sessionId)).length >= captureLimit || (await this.store.list<AssetRecord>('asset', a.sessionId)).reduce((n, x) => n + x.size, 0) + result.image.length > 200 * 1024 * 1024) {
+                    Object.assign(result.metadata, { reusable: false, storageNote: 'Snapshot returned inline. Remove unused capture assets before saving more; '+(Number.isFinite(captureLimit)?'maximum '+captureLimit+' captures per session; ':'')+'the 200 MiB session media budget still applies.' });
                     return result;
                 }
                 const asset = (await this.storeMedia(a.sessionId, { name: `Display snapshot revision ${display.revision}.jpg`, mimeType: result.mimeType, base64: result.image.toString('base64') }));

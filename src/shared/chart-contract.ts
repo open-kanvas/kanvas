@@ -178,6 +178,8 @@ function validatePolygon(rings: Position[][]): string | undefined {
 }
 
 export const chartDataSchema = z.object({
+  textScale:z.number().min(.5).max(3).optional().describe('Scale chart labels, ticks, unit/axis captions and legend independently of the plot. 1 is the default. Label density adapts; source observations are unchanged.'),
+  fitWidth:z.boolean().optional().describe('Candlestick/OHLC: default true fits all observations to the available width; false preserves scrollable wider bars.'),
   distribution:distributionSchema.optional().describe('Supplied numeric line curves with shaded x-ranges and supplied low/high bands; no probability calculation. Ranges reference a series by name.'),
   emphasis:emphasisSchema.optional(),
   stacking:z.enum(['grouped','stacked','percent']).optional(),orientation:z.enum(['vertical','horizontal']).optional(),showValues:z.boolean().optional(),showTotals:z.boolean().optional(),legend:z.boolean().optional(),numberFormat:z.object({notation:z.enum(['standard','compact']).default('compact'),maximumFractionDigits:z.number().int().min(0).max(8).default(2),prefix:z.string().max(20).optional(),suffix:z.string().max(20).optional()}).strict().optional(),yMin:finite.optional(),yMax:finite.optional(),secondaryLabel:short.optional(),

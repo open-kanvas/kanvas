@@ -345,9 +345,9 @@ describe("media coverage 11", () => {
         expect(() => validateView({ ...record, data: { ...record.data, statusColor: 'red' } })).toThrow();
         for (const name of ['story-cards', 'recipe', 'itinerary', 'website'] as const)
             expect(validateView(samples[name]).template).toBe(name);
-        const images = Array.from({ length: 20 }, (_, i) => ({ url: `https://example.com/${i}.png` }));
+        const images = Array.from({ length: 256 }, (_, i) => ({ url: `https://example.com/${i}.png` }));
         const gallery = validateView({ version: 1, template: 'image-gallery', data: { images } });
-        expect(gallery.data.images).toHaveLength(20);
+        expect(gallery.data.images).toHaveLength(256);
         expect(() => validateView({ ...gallery, data: { ...gallery.data, images: [...images, images[0]] } })).toThrow();
     });
 });

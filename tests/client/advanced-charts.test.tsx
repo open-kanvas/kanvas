@@ -17,6 +17,15 @@ describe('real single-visual advanced chart renderers', () => {
     expect(candle).toContain('data-chart-part="open-close-body"'); expect(candle).toContain('data-chart-part="doji"'); expect(candle).toContain('data-chart-part="high-low"');
     expect(ohlc).toContain('data-chart-part="open"'); expect(ohlc).toContain('data-chart-part="close"'); expect(ohlc).not.toContain('open-close-body');
   });
+  it.each(['candlestick','ohlc'] as const)('%s keeps both date endpoints when fitting dense enlarged labels without dropping source marks', kind => {
+    const points = Array.from({length:50}, (_,i) => ({x:new Date(Date.UTC(2026,9,i+1)).toISOString().slice(0,10),y:102+i,open:100+i,close:102+i,high:105+i,low:98+i}));
+    const data = chartDataSchema.parse({kind,textScale:1.75,series:[{name:'Price',points}]}), original=structuredClone(data);
+    const html=renderToStaticMarkup(<AdvancedChartRenderer data={data}/>), labels=[...html.matchAll(/class="advanced-label [^"]*"[^>]*aria-label="([^"]+)"/g)].map(match=>match[1]);
+    expect(labels[0]).toBe(points[0].x);expect(labels.at(-1)).toBe(points.at(-1)!.x);expect(labels.length).toBeLessThan(points.length);
+    expect(html.match(/data-chart-x="/g)).toHaveLength(50);expect(data).toEqual(original);
+    const scrolling=renderToStaticMarkup(<AdvancedChartRenderer data={{...data,fitWidth:false}}/>);
+    expect([...scrolling.matchAll(/class="advanced-label [^"]*"[^>]*aria-label="([^"]+)"/g)]).toHaveLength(50);
+  });
   it('does not bridge missing area observations with fabricated fill', () => {
     const data = chartDataSchema.parse({ kind: 'area', series: [{ name: 'Source', points: [{ x: 1, y: 2 }, { x: 2, y: null }, { x: 3, y: 6 }] }] });
     const html = renderToStaticMarkup(<AdvancedChartRenderer data={data} />); expect(html.match(/data-chart-mark="area-fill"/g)).toHaveLength(2); expect(html.match(/data-chart-mark="area"/g)).toHaveLength(2);

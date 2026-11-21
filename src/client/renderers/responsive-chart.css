@@ -16,3 +16,16 @@
 .is-preview .legacy-chart .chart-point-detail{font-size:8px;padding:4px}
 
 .legacy-chart .legacy-chart-plot{contain:size layout;scrollbar-gutter:stable}
+
+/* Text-only scale: no zoom/transform on the plot or its source observations. */
+.chart-text-surface .chart-legend{font-size:calc(16px * var(--chart-text-scale,1))}
+.chart-text-surface .advanced-label,.chart-text-surface .advanced-axis text{font-size:calc(16px * var(--chart-text-scale,1))}
+.chart-text-surface .advanced-chart-key,.chart-text-surface .advanced-chart-legend,.chart-text-surface .advanced-series-key,.chart-text-surface .advanced-color-scale{font-size:calc(16px * var(--chart-text-scale,1))}
+.chart-text-surface .advanced-treemap-label,.chart-text-surface .advanced-treemap-label strong{font-size:calc(16px * var(--chart-text-scale,1))}
+
+/* SVG layouts measure their own scaled type; do not override it with global axis defaults. */
+.chart-text-surface .composable-chart .chart-axis text,.chart-text-surface .distribution-chart .chart-axis text{font-size:inherit}
+.chart-text-surface .chart-legend button{font-size:inherit}
+
+/* Override the shared glance chrome size only inside an explicitly scaled chart. */
+.render-surface:not(.is-preview) .chart-text-surface .legacy-chart .chart-legend{font-size:calc(16px * var(--chart-text-scale,1))}

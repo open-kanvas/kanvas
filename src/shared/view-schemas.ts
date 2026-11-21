@@ -30,6 +30,7 @@ import {welcomeDataSchema} from './welcome.js';
 import {tableRowStyleSchema,tableCellStyleSchema} from './table-style.js';
 import {workSchemas} from './work-views.js';
 import {selectionSchema,selectionKey} from './selection.js';
+import {fileConstraints} from './file-upload.js';
 import {countdownDataSchema} from './timer.js';
 import {nowPlayingDataSchema} from './now-playing.js';
 import {rosterDataSchema} from './roster.js';
@@ -209,6 +210,7 @@ const numericBounds = (value: { min?: number; max?: number }, ctx: z.RefinementC
   if (value.min !== undefined && value.max !== undefined && value.max <= value.min) ctx.addIssue({ code: 'custom', path: ['max'], message: 'Maximum must be greater than minimum' });
 };
 export const formFieldSchema = z.discriminatedUnion('type', [
+  z.object({...fieldBase,type:z.literal('file'),...fileConstraints}).strict(),
   z.object({ ...fieldText, type: z.literal('text') }).strict(),
   z.object({ ...fieldText, type: z.literal('textarea') }).strict(),
   z.object({ ...fieldText, type: z.literal('email') }).strict(),
@@ -256,7 +258,7 @@ export const actionSchema = z.object({ id: identifier, label, kind: z.enum(['but
   .refine((v) => v.kind !== 'choice' || Boolean(v.options?.length), 'Choice action needs options')
   .meta({ allOf: [{ if: { properties: { kind: { const: 'choice' } }, required: ['kind'] }, then: { required: ['options'] } }] });
 export const codeWorkspaceDataSchema=z.object({files:codeDataSchema.shape.files.unwrap(),activePath:z.string().min(1).max(500),excerpt:codeDataSchema}).strict().refine(v=>v.files.some(f=>f.path===v.activePath&&f.kind==='file'),'Active path must name a supplied file.').refine(v=>['code','diff'].includes(v.excerpt.kind),'Workspace excerpt must be code or diff.');
-const base = { format: viewFormatSchema.optional().describe('Display-only format overrides; source stays ISO.'), selection: selectionSchema.optional().describe('Agent-controlled filter/sort/highlight; full source is retained. No display filter widgets.'), version: z.literal(1).default(1), title: short.optional(), showTitle: z.boolean().optional().describe('Show the stored title on the display only when explicitly true.'), showCaption: z.boolean().optional().describe('Opt in to supporting captions on the display; content remains stored when hidden.'), showControls: z.boolean().optional().describe('Default off for every template. Opt in to utility controls such as chart data; tables have no filter/sort/reset widgets. Intrinsic responses and navigation remain available.'), actions: z.array(actionSchema).max(8).refine(uniqueIds, 'Action IDs must be unique').optional() };
+const base = { theme:z.enum(['light','dark']).optional().describe('Theme for this view only; omission inherits the session. Does not change session settings.'), format: viewFormatSchema.optional().describe('Display-only format overrides; source stays ISO.'), selection: selectionSchema.optional().describe('Agent-controlled filter/sort/highlight; full source is retained. No display filter widgets.'), version: z.literal(1).default(1), title: short.optional(), showTitle: z.boolean().optional().describe('Show the stored title on the display only when explicitly true.'), showCaption: z.boolean().optional().describe('Opt in to supporting captions on the display; content remains stored when hidden.'), showControls: z.boolean().optional().describe('Default off for every template. Opt in to utility controls such as chart data; tables have no filter/sort/reset widgets. Intrinsic responses and navigation remain available.'), actions: z.array(actionSchema).max(8).refine(uniqueIds, 'Action IDs must be unique').optional() };
 export const leafViewSchema = z.discriminatedUnion('template', [
   z.object({...base,template:z.literal('database-schema'),data:databaseSchemaDataSchema}).strict(),
   z.object({...base,template:z.literal('sing-along'),data:venueSchemas['sing-along']}).strict(),

@@ -2,3 +2,9 @@
 
 .custom-visual-host{width:100%;height:100%;min-height:0;display:flex}.custom-visual-host>.custom-visual{flex:1;min-width:0}
 .render-surface.is-live>.render-body>.custom-visual-host{flex:1;min-height:0}.render-surface.is-live>.render-body>.custom-visual-host>.custom-visual{min-height:0;display:block}
+
+/* Sandboxed documents own a viewport, not the intrinsic height of their authored flow.
+   Absolute/fixed roots must not collapse the host during a live replacement. */
+.template-html>.render-body{display:flex;min-height:0;flex:1}
+.custom-visual-host{position:relative;flex:1;min-height:0;align-self:stretch}
+.custom-visual-host>.custom-visual{position:absolute;inset:0;display:block;width:100%;height:100%;min-height:0}

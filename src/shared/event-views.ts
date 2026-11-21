@@ -6,6 +6,7 @@ const label=z.string().min(1).max(200);
 const value=z.union([z.number().finite(),z.string().max(120)]);
 export const scoreboardDataSchema=z.object({
   sides:z.array(z.object({id,name:label,logo:imageReferenceSchema.optional(),score:value,color:z.string().regex(/^#[0-9a-fA-F]{6}$/).optional()}).strict()).min(2).max(16),
+  size:z.enum(['standard','large','extra-large']).default('large'),logoPosition:z.enum(['beside','above']).default('beside'),logoSize:z.number().min(.5).max(3).default(1),
   context:z.string().max(300).optional(),period:z.string().max(120).optional(),clock:z.string().max(80).optional(),
   event:z.object({text:z.string().min(1).max(1000),sideId:id.optional(),type:z.enum(['goal','penalty','card','substitution','score','timeout','info']).optional()}).strict().nullable().optional(),
   interactive:z.boolean().default(true),step:z.number().int().min(1).max(1000).default(1),

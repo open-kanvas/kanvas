@@ -48,7 +48,7 @@ Kanvas has a deliberate philosophy: a light visual surface with no intelligence 
 
 [CONTRIBUTING.md](CONTRIBUTING.md) covers local development and tests. Documentation map: [docs/README.md](docs/README.md). Security policy: [SECURITY.md](SECURITY.md).
 
-Schemas are always taken from the running instance at /docs/; release identity lives in package.json and /version.json.
+Schemas are always taken from the running instance at /docs/; release identity lives in package.json and /readyz (deployment packages may also provide /version.json).
 
 ## License
 

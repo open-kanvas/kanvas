@@ -34,6 +34,7 @@ export interface SafeError {
     diagnosticId?: string;
 }
 const messages: Record<string, string> = {
+    CONNECTION_ID_REQUIRED: 'Reduced guidance needs an isolated connection identity. Use a legacy MCP session, or send a fresh unique Kanvas-Connection-Id header or kanvas/connectionId tool _meta value on every call from this connection. Never reuse it across connections.',
     NAVIGATION_UNAVAILABLE: "This action or page is unavailable for the current view. Read kanvas_call with operationId:\"kanvas.navigation.read\" and arguments:{\u2026} for supported actions and pageCount. See /docs/navigation.",
     VIEWER_UNAVAILABLE: "Select a connected viewer using kanvas_call with operationId:\"kanvas.viewers.read\" and arguments:{\u2026}.",
     PRESENTER_REQUIRED: "Select a connected presenterViewerId from kanvas_call with operationId:\"kanvas.viewers.read\" and arguments:{\u2026} before enabling presenter mode.",

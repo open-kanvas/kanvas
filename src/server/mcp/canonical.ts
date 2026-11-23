@@ -63,7 +63,6 @@ import {PUBLISHING_DESCRIPTION} from './publishing-guidance.js';
 import {SESSION_CONTINUITY_TOOL_GUIDANCE} from './session-continuity.js';
 import {VISUAL_INTENT_SUBMIT_HINT} from './visual-intent.js';
 
-/** The session's declared tempo; auto returns to the deterministic default. See help kanvas.help.modes. */
 
 export interface Definition {
   domain: string;

@@ -27,11 +27,8 @@ import { validateView } from '../../src/shared/view-schemas.js';
 import { applyResponsePolicy } from '../../src/server/mcp/response-policy.js';
 import { ContactLedger } from '../../src/server/mcp/response-policy.js';
 import { CONTACT_IDLE_MS } from '../../src/server/mcp/response-policy.js';
-import { deriveMode } from '../../src/server/session-mode.js';
-import { AGENT_IDLE_MS } from '../../src/server/session-mode.js';
 import { AGENT_CONDUCT } from '../../src/shared/philosophy.js';
 import { MISSION } from '../../src/shared/philosophy.js';
-import { MODE_GUIDANCE } from '../../src/shared/philosophy.js';
 import { RHYTHM_NUDGE } from '../../src/shared/philosophy.js';
 import { safeError } from '../../src/server/mcp/results.js';
 import { collapseRepeatedIssues } from '../../src/server/input-errors.js';
@@ -111,12 +108,11 @@ describe("pointing coverage 1", () => {
         description: string;
         example?: unknown;
     }[]);
-    describe('0875e953 response policy and session mode (pure rules)', () => {
+    describe('0875e953 response policy (pure rules)', () => {
         const orientation = { guide: { tool: "kanvas.guide" }, viewerLink: 'how to connect a receiver', toolSelection: 'x', recovery: 'y' };
         const guidance = { boundary: 'b', levels: [{ scope: 'user', id: 'user:1', text: 'be proactive', revision: 3 }] };
-        const mode = { current: 'live', source: 'default', guidance: MODE_GUIDANCE.live, set: 'kanvas.session.settings.update' };
-        const run = (ledger: ContactLedger, overrides: Partial<Parameters<typeof applyResponsePolicy>[1]> = {}, structured: Record<string, unknown> = { data: { status: 'accepted', sessionId: 's1' }, orientation }, key = 'conn', at = Date.now()) => applyResponsePolicy(structured, { state: ledger.observe(key, at), context: { mode, displayConnected: true }, guidance, isError: false, operation: "kanvas.submit", sessionId: 's1', ...overrides }).structured!;
-        it('first contact carries the purpose, full guidance and full orientation; later calls carry a pointer', () => {
+        const run = (ledger: ContactLedger, overrides: Partial<Parameters<typeof applyResponsePolicy>[1]> = {}, structured: Record<string, unknown> = { data: { status: 'accepted', sessionId: 's1' }, orientation }, key = 'conn', at = Date.now()) => applyResponsePolicy(structured, { state: ledger.observe(key, at), context: { displayConnected: true }, guidance, isError: false, operation: "kanvas.submit", sessionId: 's1', ...overrides }).structured!;
+        it('first contact carries the purpose, full guidance and full orientation; later calls repeat guidance', () => {
             const ledger = new ContactLedger(), first = run(ledger);
             expect(first.firstContact).toMatchObject({ purpose: AGENT_CONDUCT, rules: expect.any(Array), help: expect.objectContaining({ philosophy: 'kanvas.help.philosophy' }) });
             expect((first.agentGuidance as {
@@ -126,7 +122,7 @@ describe("pointing coverage 1", () => {
             expect(first.rhythm).toBe(RHYTHM_NUDGE);
             const second = run(ledger);
             expect(second.firstContact).toBeUndefined();
-            expect(second.agentGuidance).toMatchObject({ unchanged: true, mode: 'live' });
+            expect(second.agentGuidance).toEqual(guidance);
             expect(second.orientation).toEqual({ guide: orientation.guide, help: 'kanvas.help.getting-started.steps' });
             expect(second.rhythm).toBeUndefined();
             expect(JSON.stringify(second).length).toBeLessThan(JSON.stringify(first).length / 2);

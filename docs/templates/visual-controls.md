@@ -1,6 +1,6 @@
 # Visual controls
 
-- `view.theme:"light"|"dark"` overrides only the current view (including a slide/pane). Omission inherits the session; session mode/style/account settings are not modified.
+- `view.theme:"light"|"dark"` overrides only the current view (including a slide/pane). Omission inherits the session; session style/account settings are not modified.
 - Charts accept `data.textScale` from 0.5–3 (default 1), affecting labels/ticks/axis units/legends independently of plot zoom. Financial plots fit all observations to width by default, thinning labels only; `fitWidth:false` restores scrollable bars.
 - Countdown `data.precision`: seconds (default), minutes, or auto (hide seconds at ten minutes or more). Down-counts round displayed minutes up; count-up rounds down. Original timing/pausing math stays in seconds.
 - Scoreboard `size`: standard, large (default), extra-large. `logoPosition`: beside/above; `logoSize`: 0.5–3. Score/name fitting stays bounded per side.

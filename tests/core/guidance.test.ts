@@ -29,11 +29,8 @@ import { validateView } from '../../src/shared/view-schemas.js';
 import { applyResponsePolicy } from '../../src/server/mcp/response-policy.js';
 import { ContactLedger } from '../../src/server/mcp/response-policy.js';
 import { CONTACT_IDLE_MS } from '../../src/server/mcp/response-policy.js';
-import { deriveMode } from '../../src/server/session-mode.js';
-import { AGENT_IDLE_MS } from '../../src/server/session-mode.js';
 import { AGENT_CONDUCT } from '../../src/shared/philosophy.js';
 import { MISSION } from '../../src/shared/philosophy.js';
-import { MODE_GUIDANCE } from '../../src/shared/philosophy.js';
 import { RHYTHM_NUDGE } from '../../src/shared/philosophy.js';
 import { safeError } from '../../src/server/mcp/results.js';
 import { collapseRepeatedIssues } from '../../src/server/input-errors.js';
@@ -110,12 +107,11 @@ describe("guidance coverage 1", () => {
         description: string;
         example?: unknown;
     }[]);
-    describe('0875e953 response policy and session mode (pure rules)', () => {
+    describe('0875e953 response policy (pure rules)', () => {
         const orientation = { guide: { tool: "kanvas.guide" }, viewerLink: 'how to connect a receiver', toolSelection: 'x', recovery: 'y' };
         const guidance = { boundary: 'b', levels: [{ scope: 'user', id: 'user:1', text: 'be proactive', revision: 3 }] };
-        const mode = { current: 'live', source: 'default', guidance: MODE_GUIDANCE.live, set: 'kanvas.session.settings.update' };
-        const run = (ledger: ContactLedger, overrides: Partial<Parameters<typeof applyResponsePolicy>[1]> = {}, structured: Record<string, unknown> = { data: { status: 'accepted', sessionId: 's1' }, orientation }, key = 'conn', at = Date.now()) => applyResponsePolicy(structured, { state: ledger.observe(key, at), context: { mode, displayConnected: true }, guidance, isError: false, operation: "kanvas.submit", sessionId: 's1', ...overrides }).structured!;
-        it('guidance returns in full when its revision or the mode changes, and never in between', () => {
+        const run = (ledger: ContactLedger, overrides: Partial<Parameters<typeof applyResponsePolicy>[1]> = {}, structured: Record<string, unknown> = { data: { status: 'accepted', sessionId: 's1' }, orientation }, key = 'conn', at = Date.now()) => applyResponsePolicy(structured, { state: ledger.observe(key, at), context: { preference: 'concise', displayConnected: true }, guidance, isError: false, operation: "kanvas.submit", sessionId: 's1', ...overrides }).structured!;
+        it('concise guidance returns in full when its revision or scope changes, and never in between', () => {
             const ledger = new ContactLedger();
             run(ledger);
             expect(run(ledger).agentGuidance).toMatchObject({ unchanged: true });
@@ -124,15 +120,15 @@ describe("guidance coverage 1", () => {
             expect((revised.agentGuidance as {
                 levels: unknown[];
             }).levels).toHaveLength(1);
-            const quieter = run(ledger, { guidance: { ...guidance, levels: [{ ...guidance.levels[0], revision: 4 }] }, context: { mode: { ...mode, current: 'signage', guidance: MODE_GUIDANCE.signage }, displayConnected: true } });
-            expect(quieter.agentGuidance).toMatchObject({ changed: true, mode: { current: 'signage' } });
+            const scoped = run(ledger, {guidance:{...guidance,levels:[{...guidance.levels[0],scope:'session',id:'session:s1',revision:4}]} });
+            expect(scoped.agentGuidance).toMatchObject({changed:true,levels:[{scope:'session'}]});
         });
         it('orientation returns on errors, a missing target and a session with no connected display', () => {
             const ledger = new ContactLedger();
             run(ledger);
             expect(run(ledger, { isError: true }, { error: { code: 'INVALID_ARGUMENT' }, orientation }).orientation).toEqual(orientation);
             expect(run(ledger, {}, { data: { status: 'needs_target' }, orientation }).orientation).toMatchObject({ viewerLink: orientation.viewerLink });
-            expect(run(ledger, { context: { mode, displayConnected: false } }).orientation).toMatchObject({ viewerLink: orientation.viewerLink });
+            expect(run(ledger, { context: { displayConnected: false } }).orientation).toMatchObject({ viewerLink: orientation.viewerLink });
             expect(run(ledger).orientation).not.toHaveProperty('viewerLink');
         });
     });
@@ -199,7 +195,7 @@ describe("guidance coverage 4", () => {
         const schema = guidanceTools.find(t => t.name === "kanvas.guidance.set")!.schema;
         expect(schema.safeParse({ scope: 'user', text: 'å'.repeat(5000), requestId: 'long', expectedRevision: 0 }).success).toBe(true);
         expect(schema.safeParse({ scope: 'user', text: 'x'.repeat(5001), requestId: 'long', expectedRevision: 0 }).success).toBe(false);
-        expect(DEFAULT_AGENT_GUIDANCE).toContain('Default behavior: be proactive with Kanvas');
+        expect(DEFAULT_AGENT_GUIDANCE).toContain('Show things when they are easier to see than to say');
     });
 });
 describe("guidance coverage 5", () => {
@@ -257,8 +253,8 @@ describe("guidance coverage 6", () => {
     });
 });
 describe("guidance coverage 7", () => {
-    // 2026-11-10 (0875e953): guidance and orientation blocks are conditional by default. These tests verify the
-    // content and isolation of the full blocks, which are sent on every response under the declared 'full' preference.
+    // Guidance repeats by default. The legacy environment value must not change
+    // authorized content, scope isolation or recovery information.
     const priorGuidanceDefault = process.env.KANVAS_GUIDANCE_DEFAULT;
     beforeAll(() => { process.env.KANVAS_GUIDANCE_DEFAULT = 'full'; });
     afterAll(() => {
@@ -327,7 +323,7 @@ describe("guidance coverage 7", () => {
             expect(accepted.structuredContent?.orientation).toBeDefined();
             expect((await owner.settle(session.id, 'quiet-publish')).detail.displays[0].view?.data.text).toBe('One useful visual');
         });
-        it('makes focused guidance read-only and keeps dynamic modes/policy in current state', async () => {
+        it('makes focused guidance read-only and keeps dynamic settings in current state', async () => {
             const owner = await h.account(), session = await owner.session(), p = await connect(owner, [session.id]);
             const original = (await owner.detail(session.id)).session;
             const inventory = await p.client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'help', action: 'list' } });

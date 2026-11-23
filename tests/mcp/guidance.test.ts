@@ -49,8 +49,8 @@ describe('contextual discovery and first contact',()=>{
 
 describe("guidance coverage 2", () => {
 
-// 2026-11-10 (0875e953): guidance and orientation blocks are conditional by default. These tests verify the
-// content and isolation of the full blocks, which are sent on every response under the declared 'full' preference.
+// Guidance repeats by default; these fixtures also retain the legacy environment value
+// to ensure it does not alter the authorized content and isolation contract.
 const priorGuidanceDefault=process.env.KANVAS_GUIDANCE_DEFAULT;
 beforeAll(()=>{process.env.KANVAS_GUIDANCE_DEFAULT='full';});
 afterAll(()=>{if(priorGuidanceDefault===undefined)delete process.env.KANVAS_GUIDANCE_DEFAULT;else process.env.KANVAS_GUIDANCE_DEFAULT=priorGuidanceDefault;});
@@ -64,9 +64,9 @@ it.each(['modern','legacy'])('%s repeats authorized distinct guidance on catalog
  if(era==='modern'){client=new Client({name:'guidance-current',version:'1'});await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',h.baseUrl),{requestInit:{headers}}));}
  else{client=new LegacyClient({name:'guidance-legacy',version:'1'});await client.connect(new LegacyTransport(new URL('/mcp',h.baseUrl),{requestInit:{headers}}));}
  for(const args of [{catalog:'tools',action:'list'},{catalog:'tools',action:'search',query:'guidance'},{catalog:'tools',action:'get',id:'kanvas.guidance.read'},{catalog:'tools',action:'get',id:'nonexistent'}]){
-  const result=await client.callTool({name:'kanvas_discover',arguments:args});expect(JSON.stringify(result)).toContain('agentGuidance');expect(JSON.stringify(result)).toContain('be proactive with Kanvas');
+  const result=await client.callTool({name:'kanvas_discover',arguments:args});expect(JSON.stringify(result)).toContain('agentGuidance');expect(JSON.stringify(result)).toContain('Show things when they are easier to see than to say');
  }
- for(const [sessionId,expected] of [[s.id,true],[foreign.id,false]] as const){const result=await client.callTool({name:'kanvas_call',arguments:{operationId:'kanvas.session.state',arguments:{sessionId}}});expect(JSON.stringify(result).includes('Only publish when I ask')).toBe(expected);expect(JSON.stringify(result)).not.toContain('PRIVATE FOREIGN GUIDANCE');expect(JSON.stringify(result)).toContain('be proactive with Kanvas');}
+ for(const [sessionId,expected] of [[s.id,true],[foreign.id,false]] as const){const result=await client.callTool({name:'kanvas_call',arguments:{operationId:'kanvas.session.state',arguments:{sessionId}}});expect(JSON.stringify(result).includes('Only publish when I ask')).toBe(expected);expect(JSON.stringify(result)).not.toContain('PRIVATE FOREIGN GUIDANCE');expect(JSON.stringify(result)).toContain('Show things when they are easier to see than to say');}
  const malformed=await client.callTool({name:'kanvas_call',arguments:{operationId:'kanvas.flashcards.control',arguments:{sessionId:s.id}}});expect(malformed.isError).toBe(true);expect(JSON.stringify(malformed)).toContain('Only publish when I ask');
  const detail=(malformed.content as {text:string}[]).find(item=>item.text?.startsWith('{'));
  expect(detail).toBeDefined();expect(JSON.parse(detail!.text)).toEqual(malformed.structuredContent);
@@ -81,7 +81,7 @@ describe("guidance coverage 3", () => {
             h = await startHarness({ mcpProfile: 'discovery' });
             const owner = await h.account(), { value } = await h.runtime.auth.issueToken(owner.user!.id, 'Nov10 contract', ['read', 'publish']);
             client = new Client({ name: 'nov10-contract', version: '9.9.9' });
-            await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', h.baseUrl), { requestInit: { headers: { Authorization: `Bearer ${value}` } } }));
+            await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', h.baseUrl), { requestInit: { headers: { 'Kanvas-Connection-Id': 'guidance-contract-connection', Authorization: `Bearer ${value}` } } }));
             return owner;
         };
         const use = async (id: string, args: Record<string, unknown>) => { const result = await client!.callTool({ name: 'kanvas_call', arguments: { operationId: id, arguments: args } }); return { error: result.isError === true, body: result.structuredContent as Record<string, any> }; };
@@ -93,12 +93,12 @@ describe("guidance coverage 3", () => {
             expect(first.error).toBe(false);
             expect(first.body.firstContact.purpose).toBe(AGENT_CONDUCT);
             expect(first.body.agentGuidance.levels.length).toBeGreaterThan(0);
-            expect(first.body.data.mode.current).toBe('live');
+            expect(first.body.data).not.toHaveProperty('mode');
             expect(first.body.data.manage.displays.change).toContain('kanvas.display.register');
             const firstBytes = JSON.stringify(first.body).length;
             const second = await use('kanvas.session.state', { sessionId: session.id });
             expect(second.body.firstContact).toBeUndefined();
-            expect(second.body.agentGuidance).toMatchObject({ unchanged: true });
+            expect(second.body.agentGuidance).toEqual(first.body.agentGuidance);
             expect(second.body.orientation.help).toBe('kanvas.help.getting-started.steps');
             // A display connects: the receiver instructions are no longer repeated.
             const controller = new AbortController();

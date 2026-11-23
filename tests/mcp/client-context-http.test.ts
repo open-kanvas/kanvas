@@ -7,7 +7,7 @@ let h:Harness,client:Client|LegacyClient;
 afterEach(async()=>{await client?.close();await h?.close();});
 it.each(['modern','legacy'])('%s preserves protocol hints separately from optional session client claims',async era=>{
  h=await startHarness();const owner=await h.account(),token=await h.runtime.auth.issueToken(owner.user!.id,'Context regression',['read','publish']);
- const headers={Authorization:'Bearer '+token.value,'User-Agent':'Kanvas-context-test/1'};
+ const headers={Authorization:'Bearer '+token.value,'User-Agent':'Kanvas-context-test/1','Kanvas-Connection-Id':'context-test-connection'};
  if(era==='modern'){client=new Client({name:'context-current',version:'1'});await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',h.baseUrl),{requestInit:{headers}}));}
  else{client=new LegacyClient({name:'context-legacy',version:'1'});await client.connect(new LegacyTransport(new URL('/mcp',h.baseUrl),{requestInit:{headers}}));}
  const result=await client.callTool({name:'kanvas_call',arguments:{operationId:'kanvas.session.create',arguments:{name:'Client session',initialDisplay:false,clientDetails:{agent:'Claimed agent',interaction_mode:'voice'}}}});expect(result.isError).not.toBe(true);

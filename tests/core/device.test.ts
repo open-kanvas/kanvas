@@ -50,11 +50,8 @@ import { templateViewSchema } from '../../src/shared/view-schemas.js';
 import { applyResponsePolicy } from '../../src/server/mcp/response-policy.js';
 import { ContactLedger } from '../../src/server/mcp/response-policy.js';
 import { CONTACT_IDLE_MS } from '../../src/server/mcp/response-policy.js';
-import { deriveMode } from '../../src/server/session-mode.js';
-import { AGENT_IDLE_MS } from '../../src/server/session-mode.js';
 import { AGENT_CONDUCT } from '../../src/shared/philosophy.js';
 import { MISSION } from '../../src/shared/philosophy.js';
-import { MODE_GUIDANCE } from '../../src/shared/philosophy.js';
 import { RHYTHM_NUDGE } from '../../src/shared/philosophy.js';
 import { safeError } from '../../src/server/mcp/results.js';
 import { collapseRepeatedIssues } from '../../src/server/input-errors.js';
@@ -273,27 +270,25 @@ describe("device coverage 5", () => {
         const call = (name: string, args: Record<string, unknown> = {}, principal = p) => h.runtime.service.execute(name, args, principal) as Promise<any>;
         /** A real connection: its token exists, so account checks pass exactly as for an MCP client. */
         const agentPrincipal = async (name: string) => { const { token } = await h.runtime.auth.issueToken(p.userId, name, ['read', 'publish']); return { userId: p.userId, agentId: token.agentId, tokenId: token.id }; };
-        it('0875e953: an agent absent for longer than the idle window finds the session in ambient mode', async () => {
-            const agent = await agentPrincipal('Idle agent');
-            expect((await h.runtime.service.responseContext(agent, { sessionId: s }, 'conn-a')).mode).toMatchObject({ current: 'live' });
-            const record = (await h.runtime.store.get<{
-                agentSeenAt: string;
-            }>('session-mode', s))!;
-            await h.runtime.store.put('session-mode', { ...record, agentSeenAt: new Date(Date.now() - AGENT_IDLE_MS - 60000).toISOString() } as never);
-            // Nobody is watching: the absence alone changes nothing.
-            expect((await h.runtime.service.responseContext(agent, { sessionId: s }, 'conn-a')).mode).toMatchObject({ current: 'live' });
-            await h.runtime.store.put('session-mode', { ...record, agentSeenAt: new Date(Date.now() - AGENT_IDLE_MS - 60000).toISOString() } as never);
+        it('inactivity and legacy stored modes do not steer a returning agent', async () => {
+            const agent = await agentPrincipal('Returning agent');
+            expect(await h.runtime.service.responseContext(agent, {sessionId:s}, 'conn-a')).not.toHaveProperty('mode');
+            expect(await h.runtime.store.get('session-mode',s)).toBeUndefined();
+            const record={id:s,sessionId:s,idle:'ambient',explicit:'signage',agentSeenAt:'2000-01-01T00:00:00.000Z'};
+            await h.runtime.store.put('session-mode',record);
+            expect(await h.runtime.service.responseContext(agent, {sessionId:s}, 'conn-a')).not.toHaveProperty('mode');
+            expect(await h.runtime.store.get('session-mode',s)).toEqual(record);
             const controller = new AbortController();
-            const stream = await o.raw(`/api/sessions/${s}/events?displayId=${d}&tabId=wall`, {}, { signal: controller.signal });
-            expect(stream.status).toBe(200);
-            const context = await h.runtime.service.responseContext(agent, { sessionId: s }, 'conn-a');
-            expect(context.mode).toMatchObject({ current: 'ambient', source: 'agent-idle' });
-            expect(context.displayConnected).toBe(true);
-            expect(context.preference).toBe('concise');
-            // It stays ambient for the next call too, until someone says otherwise.
-            expect((await h.runtime.service.responseContext(agent, { sessionId: s }, 'conn-a')).mode?.current).toBe('ambient');
-            await h.runtime.service.execute("kanvas.client.context.update", { sessionId: s, clientDetails: { guidance: 'full' } }, agent);
-            controller.abort();
+            try {
+                const stream = await o.raw('/api/sessions/'+s+'/events?displayId='+d+'&tabId=wall', {}, {signal:controller.signal});
+                expect(stream.status).toBe(200);
+                const context=await h.runtime.service.responseContext(agent,{sessionId:s},'conn-a');
+                expect(context).not.toHaveProperty('mode');
+                expect(context.displayConnected).toBe(true);
+                expect(context.preference).toBe('full');
+                expect(await h.runtime.service.responseContext(agent,{sessionId:s},'conn-a')).not.toHaveProperty('mode');
+                expect(await h.runtime.store.get('session-mode',s)).toEqual(record);
+            } finally {controller.abort();}
         });
     });
 });

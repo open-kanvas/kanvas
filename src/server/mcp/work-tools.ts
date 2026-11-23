@@ -13,7 +13,7 @@ export const chatAppendSchema=z.object({...target,messages:z.array(chatMessageSc
 export const selectionInputSchema=z.object({...target,selection:selectionSchema.nullable()}).strict();
 export const workTools: readonly Definition[] = [
     {
-        name: "kanvas.client.context.update", description: 'Optional unverified client hints for this connection. Separate observed User-Agent/MCP identity; conflicts flagged. Private account history. Sharing helps adaptation, diagnosis and session recognition; omit unknowns.', schema: z.object({ sessionId: id, clientDetails: clientDetailsSchema }).strict(),
+        name: "kanvas.client.context.update", description: 'Set clientDetails.guidance to concise to reduce repeated guidance for this connection without changing saved text; full restores the default repetition. No permission from the person is needed to reduce your own repetition. Stateless clients must send a unique Kanvas-Connection-Id header or kanvas/connectionId tool _meta on every call. Optional unverified client hints for this connection. Separate observed User-Agent/MCP identity; conflicts flagged. Private account history. Sharing helps adaptation, diagnosis and session recognition; omit unknowns.', schema: z.object({ sessionId: id, clientDetails: clientDetailsSchema }).strict(),
         domain: "session",
         requiredScope: "publish" as const,
         discovery: {"group":"sessions","hint":"Optional unverified client context for this connection, visible to its account.","examples":[{"sessionId":"session-id","clientDetails":{"agent":"Example agent","interaction_mode":"voice"}}]},

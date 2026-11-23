@@ -24,7 +24,8 @@ export class ContactLedger {
 }
 export interface ResponseContext {
   preference?: GuidancePreference;
-  mode?: { current: string; source: string; guidance: string; set: string };
+  /** Explicit full opt-in retains complete orientation independently of the guidance default. */
+  fullOrientation?: boolean;
   /** false when the targeted session has no connected display. */
   displayConnected?: boolean;
   displayNameHint?: string;
@@ -34,22 +35,21 @@ export interface ResponseContext {
   /** Opt-in message board notice: new public messages since the account last looked. */
   messageBoard?: { newMessages: number; note: string };
 }
-export const FIRST_CONTACT_HELP = { philosophy: 'kanvas.help.philosophy', manage: 'kanvas.help.manage', displays: 'kanvas.help.displays', policy: ['kanvas.help.policy-links', 'kanvas.help.policy-consent'], modes: 'kanvas.help.modes' } as const;
+export const FIRST_CONTACT_HELP = { philosophy: 'kanvas.help.philosophy', manage: 'kanvas.help.manage', displays: 'kanvas.help.displays', policy: ['kanvas.help.policy-links', 'kanvas.help.policy-consent'], guidance: 'kanvas.help.agent-guidance' } as const;
 export function firstContactBlock(context: ResponseContext): Record<string, unknown> {
   return {
     purpose: AGENT_CONDUCT,
     rules: AGENT_RULES,
     example: AGENT_EXAMPLE,
-    ...(context.mode ? { mode: context.mode } : {}),
     ...(context.displayNameHint ? { displayName: context.displayNameHint } : {}),
     ...(context.manage ? { manage: context.manage } : {}),
     help: FIRST_CONTACT_HELP,
-    sentOnce: 'This block and your saved guidance are sent on first contact and again only when they change. Orientation is sent in full on first contact, on errors, when a target is missing and when no display is connected. To receive everything on every response, declare clientDetails.guidance "full" with kanvas.client.context.update.',
+    sentOnce: 'This introduction is sent on first contact. Guidance repeats by default. To reduce only your own connection’s repetition, call kanvas.client.context.update with sessionId and clientDetails:{guidance:"concise"}; "full" restores repetition. Concise still sends changed guidance. Stateless clients must supply a unique Kanvas-Connection-Id header or kanvas/connectionId tool _meta value on each call. Saved guidance belongs to the person: change it only when they ask.',
   };
 }
-const guidanceSignature = (guidance: unknown, mode?: string): string => {
+const guidanceSignature = (guidance: unknown): string => {
   const levels = guidance && typeof guidance === 'object' && Array.isArray((guidance as { levels?: unknown }).levels) ? (guidance as { levels: { scope?: string; id?: string; revision?: number }[] }).levels : [];
-  return `${levels.map(level => `${level.scope}:${level.id ?? ''}:${level.revision ?? 0}`).join('|')}#${mode ?? ''}`;
+  return `${levels.map(level => `${level.scope}:${level.id ?? ''}:${level.revision ?? 0}`).join('|')}`;
 };
 const PUBLISH_OPERATIONS = new Set(["kanvas.submit"]);
 const settled = (status: unknown) => typeof status === 'string' && ['accepted', 'prepared', 'applied', 'delivered', 'painted', 'published'].includes(status);
@@ -66,16 +66,16 @@ export function applyResponsePolicy(structured: Record<string, unknown> | undefi
     structured?: Record<string, unknown>;
     extra?: Record<string, unknown>;
 } {
-    // A service that reports no preference still honours the installation default.
-    const { state, context, guidance } = input, full = (context.preference ?? (process.env.KANVAS_GUIDANCE_DEFAULT === 'full' ? 'full' : 'concise')) === 'full';
-    const signature = guidanceSignature(guidance, context.mode?.current), changed = state.contact.guidance !== undefined && state.contact.guidance !== signature;
+    // Guidance repeats by default; only this connection can reduce repetition.
+    const { state, context, guidance } = input, full = context.preference !== 'concise';
+    const signature = guidanceSignature(guidance), changed = state.contact.guidance !== undefined && state.contact.guidance !== signature;
     const sendGuidance = full || state.first || changed;
     state.contact.guidance = signature;
     const additions: Record<string, unknown> = {};
     if (guidance)
         additions.agentGuidance = sendGuidance
-            ? { ...(guidance as Record<string, unknown>), ...(context.mode ? { mode: context.mode } : {}), ...(changed && !state.first ? { changed: true } : {}) }
-            : { unchanged: true, ...(context.mode ? { mode: context.mode.current } : {}), note: 'Same guidance and mode as sent earlier on this connection.' };
+            ? { ...(guidance as Record<string, unknown>), ...(changed && !state.first ? { changed: true } : {}) }
+            : { unchanged: true, note: 'Same guidance as sent earlier on this connection.' };
     if (state.first)
         additions.firstContact = firstContactBlock(context);
     if (context.pointing && !input.isError)
@@ -94,7 +94,7 @@ export function applyResponsePolicy(structured: Record<string, unknown> | undefi
         return { extra: Object.keys(additions).length ? additions : undefined };
     let result: Record<string, unknown> = { ...structured };
     const orientation = structured.orientation && typeof structured.orientation === 'object' ? structured.orientation as Record<string, unknown> : undefined;
-    if (orientation && !full && !state.first && !input.isError) {
+    if (orientation && !context.fullOrientation && !state.first && !input.isError) {
         const needsTarget = data?.status === 'needs_target' || data?.status === 'needs_template';
         const keepViewerLink = (needsTarget || context.displayConnected === false) && orientation.viewerLink !== undefined;
         result.orientation = { ...(orientation.guide !== undefined ? { guide: orientation.guide } : {}), help: 'kanvas.help.getting-started.steps', ...(keepViewerLink ? { viewerLink: orientation.viewerLink } : {}), ...(input.operation === "kanvas.session.create" && orientation.sessionContinuity !== undefined ? { sessionContinuity: orientation.sessionContinuity } : {}) };

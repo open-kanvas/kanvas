@@ -102,7 +102,7 @@ const operationExtras: Record<string, string> = {
     "kanvas.display.update": 'resize display viewport width height hold freeze display size change display',
     "kanvas.window.present": 'put this on that screen move window to display send to tv show on second screen point device at display',
     "kanvas.checklist.update": 'tick item check off uncheck mark done single item by id add item remove item highlight current item',
-    "kanvas.session.state": 'current state displays revisions mode tempo manage map what can i change',
+    "kanvas.session.state": 'current state displays revisions manage map what can i change',
     "kanvas.toast": 'notification notify toast alert message banner popup icon',
 };
 /** Words people actually use for an operation whose verb is not theirs. Search title only; the id is unchanged. */

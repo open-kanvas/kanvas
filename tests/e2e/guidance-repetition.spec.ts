@@ -1,0 +1,23 @@
+import {test,expect} from '@playwright/test';
+test('public guidance follows the person and documents connection-local repetition',async({page},info)=>{
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.goto('/docs/agent-guidance',{waitUntil:'domcontentloaded'});
+ await expect(page.getByRole('heading',{name:'Editable agent guidance',exact:true})).toBeVisible();
+ await expect(page.locator('body')).toContainText('Guidance repeats on every authorized tool response by default');
+ await expect(page.locator('body')).toContainText('even for the same account and agent');
+ await expect(page.locator('body')).toContainText('rewrite or clear it only when they ask');
+ await expect(page.locator('body')).not.toContainText('concise is the default');
+ await expect(page.locator('body')).not.toContainText('Session modes:');
+ await expect(page.locator('body')).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
+ await page.screenshot({path:info.outputPath('guidance-viewport.png')});
+ await page.screenshot({path:info.outputPath('guidance.png'),fullPage:true});
+ await page.goto('/docs/philosophy',{waitUntil:'domcontentloaded'});
+ await expect(page.getByRole('heading',{name:'What is Kanvas? What it is for and how to use it',exact:true})).toBeVisible();
+ await expect(page.locator('body')).toContainText('Follow the person’s lead');
+ await expect(page.locator('body')).not.toContainText('three tempos');
+ await expect(page.locator('body')).not.toContainText('Publish proactively.');
+ const old=await page.request.get('/docs/modes');expect(old.status()).toBe(404);
+ const index=await (await page.request.get('/docs/index.json')).text();expect(index).not.toContain('kanvas.help.modes');
+ expect(errors).toEqual([]);
+});

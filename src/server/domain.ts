@@ -1,6 +1,5 @@
 import {KANVAS_VERSION} from '../shared/version.js';
 import {mapSplitViews} from '../shared/split-screen.js';
-import {SessionModes} from './session-mode.js';
 import {limitError} from './limit-errors.js';
 import {STORED_SESSION_FACTOR} from './usage-limits.js';
 import {Friction,type FrictionCall} from './friction.js';
@@ -11,7 +10,6 @@ import {TaskLists} from './task-lists.js';
 import {MonitorStreams} from './monitor-streams.js';
 import {MessageBoard} from './message-board.js';
 import {Pickers} from './pickers.js';
-import type {SessionMode} from '../shared/philosophy.js';
 import type {ResponseContext} from './mcp/response-policy.js';
 import {manageMap} from './mcp/manage-map.js';
 import {attribute,eventContext} from './raw-events.js';
@@ -149,7 +147,6 @@ export class KanvasService implements McpService {
     readonly flashcards: Flashcards;
     readonly guidance: AgentGuidance;
     readonly checklists: Checklists;
-    readonly modes: SessionModes;
     readonly friction: Friction;
     readonly agents: Agents;
     readonly taskLists: TaskLists;
@@ -198,7 +195,6 @@ export class KanvasService implements McpService {
         this.flashcards = new Flashcards(this);
         this.guidance = new AgentGuidance(this);
         this.checklists = new Checklists(this);
-        this.modes = new SessionModes(this);
         this.friction = new Friction(this);
         this.friction.start();
         this.agents = new Agents(this);
@@ -403,7 +399,9 @@ export class KanvasService implements McpService {
     async recordAgentContext(principal: AuthPrincipal, sessionId: string, details: unknown, started = false) {
         await this.fullAccount(principal, 'read');
         await this.access(principal, sessionId);
-        const ctx = currentToolContext(), selfReported = Object.fromEntries(Object.entries(clientDetailsSchema.parse(details ?? {})).map(([k, v]) => [k, redactReportText(v)])) as ClientDetails, connection = ctx?.connectionId ?? principal.agentId ?? principal.tokenId ?? 'direct';
+        const ctx = currentToolContext(), selfReported = Object.fromEntries(Object.entries(clientDetailsSchema.parse(details ?? {})).map(([k, v]) => [k, redactReportText(v)])) as ClientDetails, connection = ctx?.connectionId && !ctx.connectionId.startsWith('request:') ? ctx.connectionId : principal.agentId ?? principal.tokenId ?? 'direct';
+        if (selfReported.guidance === 'concise' && (!ctx?.connectionId || ctx.connectionId.startsWith('request:')))
+            throw new AppError('CONNECTION_ID_REQUIRED', 'Reduced guidance needs an isolated connection identity. Use a legacy MCP session, or send a unique Kanvas-Connection-Id header or kanvas/connectionId tool _meta value on every call from this connection. Never reuse it across connections.');
         const key = hash(`${principal.userId}:${sessionId}:${connection}`), old = await this.store.get<AgentConnection>('agent-connection', key), inferred = { ...old?.inferred, ...ctx?.inferred };
         const supplied = { ...old?.selfReported, ...selfReported };
         const conflicts: string[] = [];
@@ -415,7 +413,7 @@ export class KanvasService implements McpService {
             event.client = { ...event.client, selfReported: Object.fromEntries(Object.entries(supplied).filter(([key]) => ['agent', 'model', 'harness', 'effort_or_mode', 'interaction_mode', 'device'].includes(key))), contextVerified: false };
         await this.store.put('agent-connection', value);
         // A declared preference belongs to the connection, across its sessions.
-        if (selfReported.guidance)
+        if (selfReported.guidance && ctx?.connectionId && !ctx.connectionId.startsWith('request:'))
             await this.store.put('guidance-preference', { id: hash(`${principal.userId}:${connection}`), userId: principal.userId, preference: selfReported.guidance, updatedAt: now() });
         return value;
     }
@@ -425,17 +423,19 @@ export class KanvasService implements McpService {
         const a = args && typeof args === 'object' && !Array.isArray(args) ? args as {
             sessionId?: unknown;
         } : {}, out: ResponseContext = {};
-        // The installation default applies to every caller, also one whose grant is too narrow to read more.
-        out.preference = process.env.KANVAS_GUIDANCE_DEFAULT === 'full' ? 'full' : 'concise';
+        // The repeated guidance default applies to every caller, also one whose grant is too narrow to read more.
+        out.preference = 'full';
         try {
             await this.fullAccount(principal);
         }
         catch {
             return out;
         }
-        out.preference = (await this.store.get<{
+        const preference = (await this.store.get<{
             preference: 'concise' | 'full';
-        }>('guidance-preference', hash(`${principal.userId}:${connectionId}`)))?.preference ?? (process.env.KANVAS_GUIDANCE_DEFAULT === 'full' ? 'full' : 'concise');
+        }>('guidance-preference', hash(`${principal.userId}:${connectionId}`)))?.preference;
+        out.preference = preference ?? 'full';
+        out.fullOrientation = preference === 'full' || process.env.KANVAS_GUIDANCE_DEFAULT === 'full';
         try {
             if (!(await this.auth.displayNameSet(principal.userId)))
                 out.displayNameHint = 'This account has no display name yet; set one with kanvas.profile.update {displayName} so screens show a name, not an email.';
@@ -446,7 +446,6 @@ export class KanvasService implements McpService {
                 await this.access(principal, a.sessionId);
                 const online = (await this.experience.receiving.viewers(a.sessionId, undefined, true)).length > 0;
                 out.displayConnected = online; /* A failed call records nothing. */
-                out.mode = failed ? await this.modes.read(a.sessionId) : await this.modes.observeAgent(principal, a.sessionId, online);
             }
             catch { /* An unauthorized or ended session contributes nothing. */ }
         }
@@ -470,16 +469,15 @@ export class KanvasService implements McpService {
                 status?: string;
             }[];
         };
-        const mode = await this.modes.read(a.sessionId);
         if (principal.scopedSessionId)
-            return { ...detail, mode };
+            return detail;
         const all = a.includeUpdates === 'all', pending = detail.interactions.filter(item => item.status === 'pending');
         return { ...detail,
             updates: all ? detail.updates : detail.updates.slice(-5),
             interactions: all ? detail.interactions : pending.slice(-20),
             counts: { updates: detail.updates.length, interactions: detail.interactions.length, pendingInteractions: pending.length, displays: detail.displays.length },
             ...(all ? {} : { more: 'updates holds the last 5 and interactions only pending ones. Pass includeUpdates:"all" for the complete lists, or read kanvas.session.log / kanvas.interactions.read.' }),
-            mode, manage: manageMap() };
+            manage: manageMap() };
     }
     async agentConnections(principal: AuthPrincipal, sessionId: string) {
         if (principal.scopedSessionId || principal.pairingId)
@@ -2020,6 +2018,9 @@ export class KanvasService implements McpService {
             throw toolArgumentError(name, raw) ?? new InputError();
         }
         const a = parsed.data as Record<string, never>;
+        const connectionId = currentToolContext()?.connectionId;
+        if ((a.clientDetails as ClientDetails | undefined)?.guidance === 'concise' && (!connectionId || connectionId.startsWith('request:')))
+            throw new AppError('CONNECTION_ID_REQUIRED', 'Reduced guidance needs an isolated connection identity. Send a unique Kanvas-Connection-Id header or kanvas/connectionId tool _meta value on every call, or use a legacy MCP session.');
         if (venueTools.some(t => t.name === name))
             return venueUpdate(this, principal, name, a);
         if (name.startsWith('kanvas.account.templates.'))
@@ -2213,8 +2214,7 @@ export class KanvasService implements McpService {
                 const result = await this.createReadySession(principal, a.name, a.initialDisplay);
                 if (a.clientDetails)
                     await this.recordAgentContext(principal, result.id, a.clientDetails, true);
-                const mode = a.mode ? await this.modes.set(principal, result.id, a.mode as SessionMode | 'auto') : await this.modes.read(result.id);
-                return { ...result, mode, agentConnections: await this.agentConnections(principal, result.id) };
+                return { ...result, agentConnections: await this.agentConnections(principal, result.id) };
             }
             case "kanvas.client.context.update": return this.recordAgentContext(principal, a.sessionId, a.clientDetails);
             case "kanvas.session.state": return (await this.sessionState(principal, a as unknown as {
@@ -2296,21 +2296,7 @@ export class KanvasService implements McpService {
                 Object.assign(result.metadata, { assetId: asset.id, assetUrl: new URL(asset.url, this.publicUrl).href, assetPath: asset.url, reusable: true });
                 return result;
             }
-            case "kanvas.config.update": {
-                const { mode: requestedMode, ...settings } = a as Record<string, unknown> & {
-                    mode?: SessionMode | 'auto';
-                };
-                if (settings.config === undefined && requestedMode === undefined)
-                    throw new InputError([{ path: 'config', problem: 'Supply config with at least one setting, or mode.' }]);
-                if (requestedMode === undefined)
-                    return (await this.experience.scopedSettings(principal, settings));
-                if ((settings.scope ?? 'session') !== 'session')
-                    throw new InputError([{ path: 'mode', problem: 'mode belongs to one session. Use scope "session" (the default).' }]);
-                // A mode-only call changes no settings and needs no settings revision.
-                const changesSettings = settings.config && typeof settings.config === 'object' && Object.keys(settings.config as object).length > 0;
-                const result = changesSettings ? await this.experience.scopedSettings(principal, settings) : { sessionId: a.sessionId };
-                return { ...(result as object), mode: await this.modes.set(principal, a.sessionId, requestedMode) };
-            }
+            case "kanvas.config.update": return this.experience.scopedSettings(principal, a);
             case "kanvas.submit": {
                 const result = await this.publication.show(principal, a as unknown as PublishInput);
                 if (a.clientDetails && 'sessionId' in result && typeof result.sessionId === 'string')

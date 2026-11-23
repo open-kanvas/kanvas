@@ -8,7 +8,7 @@ Metres, right-handed XYZ, +Y up. `objects` is a record keyed by stable IDs match
 
 `camera.mode` is `perspective` or `overhead`; position/target specify a look-at camera. Perspective FOV is vertical degrees. Overhead is a true orthographic X/Z projection of the **same transformed geometry**, +Z down on the page; position/FOV are retained for switching back. `span` is metres across the central 800 SVG units. Dimension rulers measure visible world-axis bounding extents (including rotations); object labels/list show scaled local XYZ size, not clearance. These are supplied schematic measurements, not surveyed or engineering-certified facts.
 
-The dependency-free SVG renderer clips polygons at 0.02 m before perspective division and sorts faces back-to-front. This painter ordering is approximate for intersecting geometry, not a depth buffer; avoid interpenetrating objects. Flat colors/edges, faceted spheres/cylinders; no shadows/textures. Extremely close camera poses can fill/clip the viewport. Explicit camera target/span controls framing, not automatic fit. Mobile label readability and complex overlapping geometry need owner acceptance.
+The dependency-free SVG renderer clips polygons at 0.02 m before perspective division and sorts faces back-to-front. This painter ordering is approximate for intersecting geometry, not a depth buffer; avoid interpenetrating objects. Flat colors/edges, faceted spheres/cylinders; no shadows/textures. Extremely close camera poses can fill/clip the viewport. Explicit camera target/span controls framing, not automatic fit. Check label readability and complex overlapping geometry on the intended receiving devices.
 
 ## Narrow operations, atomic batches and history
 

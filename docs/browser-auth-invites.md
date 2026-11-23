@@ -30,4 +30,4 @@ Disabled by default. Enable only with `KANVAS_INVITE_EMAIL=true`, `KANVAS_MAIL_F
 
 Use dedicated test accounts only. List two full browsers via MCP, log out one and verify an already-open stream ends plus protected requests fail; the other browser and agent OAuth should remain valid. Repeat all-browser logout, verify pairings remain separate, then sign in anew and verify an exact retry does not revoke the new browser. Inspect discover schemas for both target alternatives.
 
-Email tests use mocked delivery only. Before any real dev delivery, explicitly authorize the exact recipient and enable the operator flag; verify onboarding and session-share content, recipient acceptance/approval, expiry/revocation, and exact retry status without a duplicate email. No live sending or account revocation was performed during implementation.
+Email tests use mocked delivery only. Before any real dev delivery, explicitly authorize the exact recipient and enable the operator flag; verify onboarding and session-share content, recipient acceptance/approval, expiry/revocation, and exact retry status without a duplicate email.

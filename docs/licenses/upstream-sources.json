@@ -13,5 +13,12 @@
     "item": "KaTeX-fonts",
     "url": "https://raw.githubusercontent.com/KaTeX/katex-fonts/master/LICENSE",
     "sha256": "a7bd44abd8419bf78185be51f34216356af1adb0806ce39d6a9ca0940bd49b70"
+  },
+  {
+    "item": "@napi-rs/lzma-linux-x64-gnu@1.5.1",
+    "repository": "https://github.com/Brooooooklyn/lzma",
+    "revision": "f164df92d83e095f195d628b1a68a141ae2eb638",
+    "declaredLicense": "MIT",
+    "noticeStatus": "No licence text in the published package or its exact npm gitHead tree; no copyright notice synthesized."
   }
 ]

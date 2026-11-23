@@ -20,11 +20,11 @@ Tokens use existing account connection IDs, scoped access credentials, refresh r
 
 ## Rollback
 
-Additive generic-store record kinds only (`oauth-device` and optional consent fields); no SQL schema migration. Older code cannot redeem new device requests. Before downgrade, wait ten minutes for pending requests to expire; do not send old code pending device consent IDs. Existing issued tokens use the unchanged connection format and remain revocable. Never restore an old database over current user data. Production deployment remains approval-gated.
+Additive generic-store record kinds only (`oauth-device` and optional consent fields); no SQL schema migration. Older code cannot redeem new device requests. Before downgrade, wait ten minutes for pending requests to expire; do not send old code pending device consent IDs. Existing issued tokens use the unchanged connection format and remain revocable. Never restore an old database over current user data.
 
 ## Verification
 
-Release gates and client compatibility results are recorded separately for each exact commit. Standards coverage is not proof of named-host support; untested interactive host acceptance remains pending. References: RFC 8628 §§3–5, RFC 7591 registration, RFC 8707 resource indicators; MCP authorization discovery preserves the existing public OAuth and protected-resource metadata.
+Release gates and client compatibility results are recorded separately for each exact commit. Standards coverage is not proof of named-host support; interactive host compatibility must be verified independently. References: RFC 8628 §§3–5, RFC 7591 registration, RFC 8707 resource indicators; MCP authorization discovery preserves the existing public OAuth and protected-resource metadata.
 
 ## Version-pinned compatibility and recipes
 

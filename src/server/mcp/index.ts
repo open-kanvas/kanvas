@@ -146,6 +146,15 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
         server.setRequestHandler('tools/list', async () => ({ tools: toolDefinitions }));
         server.setRequestHandler('tools/call', async (request, extra) => {
             const outer = request.params.arguments ?? {};
+            // Reserved read-only alias: validate both envelopes, then use discovery below.
+            // Never feed its nested arguments back to the operation dispatcher.
+            const discoveryFallback = request.params.name === 'kanvas_call' && outer.operationId === 'kanvas.discover';
+            const discoveryInput = () => {
+                if (!discoveryFallback) return outer;
+                const envelope = parseDiscoveryInput('kanvas_call', outer);
+                const args = envelope.arguments as Record<string, unknown>;
+                return { ...args, ...(!Object.hasOwn(args, 'activeContext') && Object.hasOwn(envelope, 'activeContext') ? { activeContext: envelope.activeContext } : {}) };
+            };
             const connectionId = guidanceConnectionId(current().request, request.params._meta, randomUUID());
             const guidanceArgs = guidanceContext(request.params.name, outer);
             // Aggregate friction counters: names, classes and sizes only.
@@ -247,19 +256,21 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
                 friction(result, content, operation, connectionId);
                 return { ...result, content, ...(structuredContent ? { structuredContent } : {}) };
             };
-            if (isDiscoveryTool(request.params.name) && request.params.name !== 'kanvas_call') {
+            if (discoveryFallback || (isDiscoveryTool(request.params.name) && request.params.name !== 'kanvas_call')) {
                 return (async () => {
                     const started = Date.now();
                     let status: 'completed' | 'failed' = 'completed';
                     try {
-                        if (outer.action === 'resolve') {
-                            const input = parseDiscoveryInput('kanvas_discover', outer);
+                        extra.mcpReq.signal.throwIfAborted();
+                        const raw = discoveryInput();
+                        if (raw.action === 'resolve') {
+                            const input = parseDiscoveryInput('kanvas_discover', raw);
                             if (!service.resolveIntent)
                                 throw new Error('Intent resolution unavailable.');
                             const data = await service.resolveIntent(current().principal, input), result = { data };
                             return decorate({ content: [{ type: 'text' as const, text: JSON.stringify(result) }], structuredContent: result });
                         }
-                        return decorate(discoveryResult(request.params.name, request.params.arguments, { principal: current().principal, signal: extra.mcpReq.signal, privateTemplates: await service.customTemplateCatalog?.(current().principal) }));
+                        return decorate(discoveryResult('kanvas_discover', raw, { principal: current().principal, signal: extra.mcpReq.signal, privateTemplates: await service.customTemplateCatalog?.(current().principal) }));
                     }
                     catch (error) {
                         status = 'failed';

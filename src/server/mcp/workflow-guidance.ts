@@ -1,6 +1,7 @@
 /** Server-authored workflow links, never derived from submitted source text. */
 export const PLANNER_BOUNDARY = 'After verifying a successful committed result, tell the user: this plan is committed within Kanvas only as a visual/organizational artifact. No external calendar, invitations or email have been updated or sent. Applying real-world changes is a separate step using the agent’s calendar/email tools, only when the user explicitly asks and agrees.';
 const families: Record<string, readonly string[]> = {
+ 'task-list': ['tasklist.read', 'tasklist.update', 'tasklist.show', 'navigation.read', 'navigation.control'],
  instrument:['display.current','view.patch'],
  'live-captions':['display.current','view.patch'],
  flashcards: ['flashcards.read','flashcards.control','flashcards.show'],

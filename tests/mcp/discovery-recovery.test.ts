@@ -2,7 +2,7 @@ import {afterEach,describe,expect,it,vi} from 'vitest';
 import {z} from 'zod';
 import {Ajv2020} from 'ajv/dist/2020.js';
 import {harness} from './harness.js';
-import {discoverSchema,discoveryToolDefinitions,parseDiscoveryInput} from '../../src/server/mcp/discovery.js';
+import {discoverSchema,discoveryToolDefinitions,parseDiscoveryInput,parseDiscoveryRequest} from '../../src/server/mcp/discovery.js';
 import {guidanceContext} from '../../src/server/mcp/active-context.js';
 import {resolveIntent} from '../../src/server/mcp/intent-resolve.js';
 import type {McpService} from '../../src/server/mcp/types.js';
@@ -12,6 +12,22 @@ const unwrap=(result:any)=>{expect(result.isError,JSON.stringify(result.structur
 const fallback=(client:any,args:object)=>client.callTool({name:'kanvas_call',arguments:{operationId:'kanvas.discover',arguments:args}});
 
 describe('discovery visibility and bounded recovery regression',()=>{
+ it('shares strict direct and reserved-route validation without fabricating an operation',()=>{
+  const args={catalog:'tools',action:'search',query:'scroll'};
+  const envelope={operationId:'kanvas.discover',arguments:args};
+  expect(parseDiscoveryRequest('kanvas_call',envelope)).toEqual(parseDiscoveryRequest('kanvas_discover',args));
+  expect(parseDiscoveryRequest('kanvas_call',{...envelope,activeContext:{sessionId:'outer'}}).activeContext).toEqual({sessionId:'outer'});
+  expect(parseDiscoveryRequest('kanvas_call',{...envelope,activeContext:{sessionId:'outer'},arguments:{...args,activeContext:null}}).activeContext).toBeNull();
+  expect(parseDiscoveryRequest('kanvas_call',{...envelope,activeContext:{sessionId:'outer'},arguments:{...args,activeContext:{sessionId:'inner'}}}).activeContext).toEqual({sessionId:'inner'});
+  for(const invalid of [
+   {...envelope,injected:true}, {...envelope,arguments:{...args,extra:true}},
+   {...envelope,arguments:envelope}, {...envelope,arguments:null},
+   {...envelope,operationId:'kanvas.session.create'},
+   {...envelope,activeContext:{sessionId:'invalid space'}},
+  ]) expect(()=>parseDiscoveryRequest('kanvas_call',invalid)).toThrow();
+  expect(()=>parseDiscoveryRequest('other',args)).toThrow();
+ });
+
  it('projects the Zod union root without weakening action-specific validation',()=>{
   const original=z.toJSONSchema(discoverSchema,{io:'input'}) as any;
   expect(original.properties).toBeUndefined(); // Root cause: fields only under oneOf.

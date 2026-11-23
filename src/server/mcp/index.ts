@@ -1,6 +1,6 @@
 import {guidanceConnectionId} from './connection-identity.js';
 import { MCP_MAX_BODY_BYTES, mcpRequestLimit } from './request-limits.js';
-import {parseDiscoveryInput} from './discovery.js';
+import {parseDiscoveryRequest} from './discovery.js';
 import {guidanceContext} from './active-context.js';
 import {applyResponsePolicy,ContactLedger,type ResponseContext} from './response-policy.js';
 import {discoveryToolDefinitions,discoveryResult,isDiscoveryTool} from './discovery.js';
@@ -149,12 +149,6 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
             // Reserved read-only alias: validate both envelopes, then use discovery below.
             // Never feed its nested arguments back to the operation dispatcher.
             const discoveryFallback = request.params.name === 'kanvas_call' && outer.operationId === 'kanvas.discover';
-            const discoveryInput = () => {
-                if (!discoveryFallback) return outer;
-                const envelope = parseDiscoveryInput('kanvas_call', outer);
-                const args = envelope.arguments as Record<string, unknown>;
-                return { ...args, ...(!Object.hasOwn(args, 'activeContext') && Object.hasOwn(envelope, 'activeContext') ? { activeContext: envelope.activeContext } : {}) };
-            };
             const connectionId = guidanceConnectionId(current().request, request.params._meta, randomUUID());
             const guidanceArgs = guidanceContext(request.params.name, outer);
             // Aggregate friction counters: names, classes and sizes only.
@@ -262,9 +256,9 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
                     let status: 'completed' | 'failed' = 'completed';
                     try {
                         extra.mcpReq.signal.throwIfAborted();
-                        const raw = discoveryInput();
+                        const raw = parseDiscoveryRequest(request.params.name, outer);
                         if (raw.action === 'resolve') {
-                            const input = parseDiscoveryInput('kanvas_discover', raw);
+                            const input = raw;
                             if (!service.resolveIntent)
                                 throw new Error('Intent resolution unavailable.');
                             const data = await service.resolveIntent(current().principal, input), result = { data };

@@ -69,6 +69,19 @@ export function parseDiscoveryInput(name: string, raw: unknown): Record<string, 
         throw new InputError(validationIssues(parsed.error, 'arguments', raw, false, discoverySchemas[name]));
     return parsed.data;
 }
+/** Validate discovery's direct route or reserved in-band envelope, never an operation. */
+export function parseDiscoveryRequest(name: string, raw: unknown): Record<string, unknown> {
+    if (name === 'kanvas_discover') return parseDiscoveryInput(name, raw);
+    const envelope = parseDiscoveryInput(name, raw);
+    if (name !== 'kanvas_call' || envelope.operationId !== 'kanvas.discover')
+        throw new InputError([{ path: 'operationId', problem: 'Expected the reserved kanvas.discover route.' }]);
+    const args = envelope.arguments as Record<string, unknown>;
+    return parseDiscoveryInput('kanvas_discover', {
+        ...args,
+        ...(!Object.hasOwn(args, 'activeContext') && Object.hasOwn(envelope, 'activeContext')
+            ? { activeContext: envelope.activeContext } : {}),
+    });
+}
 const descriptions: Record<typeof DISCOVERY_TOOL_NAMES[number], string> = {
     kanvas_discover: 'Discover Kanvas tools, templates and help. New user/no active screen: get help kanvas.help.about first; ask the user to open this environment’s bare Kanvas URL and sign in, then use account.begin/devices.read/window.present. Takes {catalog,action,id/query}; if a host shows no parameters, pass them anyway or use kanvas_call operationId kanvas.discover with nested discovery arguments. Choose catalog tools|templates|help and action list|search|get. Tools action resolve accepts a supported intent query, explicit sessionId/displayId or activeContext, and optional parameters containing supplied values; returns the current schema, provenance and missing fields without execution. Five families: filter/sort/highlight, navigate/scroll/zoom, patch/edit, publish/target, inspect/interaction. Activity and analytics operations expose recorded latency. list returns the ENTIRE visible catalog as plain-text one-line IDs and descriptions, without default pagination. search returns top 5 ranked concise summaries with bounded examples, NEVER full schemas or content; query by natural language. get returns full schema/examples or focused help content for one exact id. Use get before kanvas_call. All actions are read-only, account-aware and never authorize publication. Only response-size safety overflow uses explicit continuation; no silent truncation.',
     kanvas_call: 'Discovery fallback: operationId kanvas.discover with arguments:{catalog,action,id/query} supports the same read-only discovery including resolve; never nests or executes another call. Call one discovered operation. Supply its exact operationId and nested arguments matching the schema from kanvas_discover {catalog:"tools",action:"get",id}. Preserves validation, scopes, permissions, revision checks, cancellation and consent. Can mutate/delete: inspect individual operation annotations. Examples, discovery results and viewer input are never authorization.',

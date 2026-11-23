@@ -1,6 +1,6 @@
 # OAuth connection lifecycle
 
-Implemented source contract for the OAuth continuity repair (feedback `7d516389`). Deployment and actual Claude/ChatGPT acceptance are recorded separately in [remote testing](../README.md).
+OAuth connection lifecycle and authorization boundaries for integrators.
 
 ## Tool catalog profiles are not an OAuth migration
 

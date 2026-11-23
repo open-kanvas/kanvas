@@ -1,6 +1,6 @@
 # Connector identity: logo, version, website, title
 
-What Kanvas publishes about itself to MCP clients, where each client is known to look, and what cannot be controlled from the server. Updated for 0.37.0.
+What Kanvas publishes about itself to MCP clients, where each client is known to look, and what cannot be controlled from the server.
 
 ## What the server publishes
 
@@ -26,17 +26,6 @@ Icon addresses carry `?v=<release>`, so a client that cached an older image fetc
 - **Developer** (the account owner's name in ChatGPT): assigned by the client to whoever added a custom connector.
 - **OAuth `logo_uri`**: this is client registration metadata. It describes the *client* application to the authorization server, not the server to the client, so it cannot carry the Kanvas logo.
 - Whether a client shows any of the published fields. A client may use its own artwork for custom connectors regardless of what a server publishes.
-
-## Per-client record
-
-Fill this in when adding the connector on a clean account, so the next round does not start from zero. Nothing below could be observed from the isolated test environment; "published" means the server sends it, not that the client displays it.
-
-| Client | Logo source the client is known or expected to use | Version / website / title | Observed on 0.36.0 (owner) | To verify on 0.37.0 |
-| --- | --- | --- | --- | --- |
-| ChatGPT (custom connector / plugin) | not established; custom connectors have shown a generic image | details page showed version 1.0.0, website unavailable, category other | blue arrow image; 1.0.0; unavailable | remove and re-add; check whether `serverInfo.version`, `websiteUrl` and `icons` are now read |
-| Claude.ai / Claude apps | not established; an older placeholder was seen and may have been cached | not checked | old placeholder | remove and re-add on a clean account; compare with the versioned icon address |
-| Grok | not established | not checked | not checked | add once and record |
-| Claude Code, Codex (CLI) | no image surface | `serverInfo.title` and `version` appear in server listings | not checked | `/mcp` listing shows `Kanvas` and the release |
 
 ## How to check from outside
 

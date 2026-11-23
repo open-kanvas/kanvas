@@ -36,7 +36,7 @@ Private game delivery reuses the existing server-enforced **session** boundary, 
 
 No intra-shared-session secrecy is provided. Two full-account windows signed into the same owner are not two isolated players. No ACL can make a disclosed card secret again: replacing a face-up card with a back does not remove it from retained history, snapshots, previously delivered data or a viewer's memory. Only publish information the session audience may retain. When changing participants, create a fresh session; do not reuse a session containing another recipient's historical secrets. This is not a game server or inter-agent networking service.
 
-Automated evidence tests real paired-cookie API reads/denials, selected-session tokens, full-account owner access, cross-session history/snapshot/receipt denial, content-free events and revocation. Actual hardware/PWA receiving acceptance and live MCP connection remain separate manual checks. Native MCP was unavailable during implementation because Kanvas OAuth needs reconnection.
+Automated evidence tests real paired-cookie API reads/denials, selected-session tokens, full-account owner access, cross-session history/snapshot/receipt denial, content-free events and revocation. Actual hardware/PWA receiving acceptance and live MCP connection remain separate manual checks.
 
 Narrow agent patch payloads and keyed DOM updates reuse existing delivery: receiving clients still fetch an authorized complete view after invalidation. This increment does not add a delta-only delivery protocol.
 

@@ -1,3 +1,4 @@
+import { MCP_MAX_BODY_BYTES, mcpRequestLimit } from './request-limits.js';
 import {parseDiscoveryInput} from './discovery.js';
 import {guidanceContext} from './active-context.js';
 import {applyResponsePolicy,ContactLedger,type ResponseContext} from './response-policy.js';
@@ -378,10 +379,10 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
     };
     const eventBus = new AuthorizedEventBus(service, current, authRecheckMs);
     const modern = createMcpHandler(() => makeServer(), {
-        legacy: 'reject', bus: eventBus, maxSubscriptions: options.maxSubscriptions ?? 256,
+        legacy: 'reject', maxRequestBodySize: MCP_MAX_BODY_BYTES, bus: eventBus, maxSubscriptions: options.maxSubscriptions ?? 256,
         onerror: () => { },
     });
-    const handleModern = toNodeHandler(modern, { onerror: () => { } });
+    const handleModern = toNodeHandler(modern, { maxRequestBodySize: MCP_MAX_BODY_BYTES, onerror: () => { } });
     const newLegacySession = async (context: RequestContext): Promise<LegacySession> => {
         const scope: SubscriptionScope = {
             principal: context.principal,
@@ -392,6 +393,7 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
         };
         const transport = new NodeStreamableHTTPServerTransport({
             sessionIdGenerator: randomUUID,
+            maxRequestBodySize: MCP_MAX_BODY_BYTES,
             onsessioninitialized: id => { sessions.set(id, entry); },
             onsessionclosed: () => { void entry.close(); },
             enableJsonResponse: true,
@@ -439,7 +441,7 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
     expiryTimer.unref();
     // A bounded local parser also works when mounted before a global parser.
     // If the parent has parsed the body already, Express leaves it intact.
-    app.use(path, express.json({ limit: '12mb' }));
+    app.use(path, express.json({ limit: MCP_MAX_BODY_BYTES }));
     app.all(path, async (req, res) => {
         res.set('Cache-Control', 'no-store');
         res.set('X-Content-Type-Options', 'nosniff');
@@ -476,6 +478,8 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
                 res.set('WWW-Authenticate', challenge);
             return httpError(req, res, forbidden ? 403 : 401, forbidden ? 'Publisher access denied.' : 'Publisher authorization required.');
         }
+        const limitError = mcpRequestLimit(req.body);
+        if (limitError) return httpError(req, res, 400, limitError, -32600);
         const authRequest = authorizationSnapshot(req);
         const context: RequestContext = {
             request: req, principal,

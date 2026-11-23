@@ -24,13 +24,12 @@
     "test:postgres": "vitest run tests/core/postgresql.test.ts tests/core/postgresql-app.test.ts"
   },
   "dependencies": {
-    "@modelcontextprotocol/core": "2.0.0",
-    "@modelcontextprotocol/express": "2.0.0",
-    "@modelcontextprotocol/node": "2.0.0",
-    "@modelcontextprotocol/server": "2.0.0",
+    "@modelcontextprotocol/core": "2.4.0",
+    "@modelcontextprotocol/express": "2.0.2",
+    "@modelcontextprotocol/node": "2.1.2",
+    "@modelcontextprotocol/server": "2.4.0",
     "cookie-parser": "^1.4.7",
     "express": "^5.1.0",
-    "geoip-lite": "^2.0.3",
     "highlight.js": "^11.11.1",
     "katex": "0.16.22",
     "leaflet": "^1.9.4",
@@ -45,15 +44,15 @@
     "saxes": "6.0.0",
     "three": "0.187.0",
     "web-push": "^3.6.7",
-    "zod": "^4.1.0"
+    "zod": "4.5.4",
+    "maxmind": "5.1.0"
   },
   "devDependencies": {
-    "@modelcontextprotocol/client": "2.0.0",
+    "@modelcontextprotocol/client": "2.4.0",
     "@modelcontextprotocol/sdk": "1.30.0",
     "@playwright/test": "^1.63.0",
     "@types/cookie-parser": "^1.4.9",
     "@types/express": "^5.0.0",
-    "@types/geoip-lite": "^1.4.4",
     "@types/katex": "0.16.7",
     "@types/leaflet": "^1.9.21",
     "@types/node": "^24.0.0",
@@ -70,5 +69,8 @@
     "typescript": "^5.9.0",
     "vite": "^8.2.0",
     "vitest": "^3.2.0"
+  },
+  "overrides": {
+    "body-parser": "2.4.0"
   }
 }

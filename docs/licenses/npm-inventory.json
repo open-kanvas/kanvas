@@ -1,6 +1,6 @@
 {
-  "packageVersion": "0.41.0",
-  "lockfileSha256": "bf9751e76a98ba75d3feb8a970f0fbdda750a1b31e67e3d0ad4bf8bb26932211",
+  "packageVersion": "0.41.1",
+  "lockfileSha256": "9d0dc37ac21156f44a1db02517d6c04958bc34970beefbb39111f6ab84233cee",
   "packages": [
     {
       "path": "node_modules/@babel/code-frame",

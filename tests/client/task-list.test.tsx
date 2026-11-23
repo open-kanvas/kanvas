@@ -60,3 +60,10 @@ it('keeps legacy custom reference columns separate from optional built-in refere
  const markup=renderToStaticMarkup(<TaskList data={{showNumber:false,showReference:true,columns:[{key:'reference',label:'Legacy reference'}],items:[{id:'t1',number:1,title:'One',reference:'JIRA-42',checked:false,fields:{reference:'Legacy-17'}}]}}/>);
  expect(markup).toContain('Legacy reference');expect(markup).toContain('Legacy-17');expect(markup).toContain('JIRA-42');expect(markup).not.toContain('class="task-number"');
 });
+
+it('marks each subtask done only from its own stored state',()=>{
+ const markup=renderToStaticMarkup(<TaskList data={{highlight:'parent',items:[{id:'parent',number:1,title:'Parent',checked:true,subtaskProgress:{done:1,total:2},subtasks:[{id:'open',title:'Open child',checked:false},{id:'done',title:'Done child',checked:true}]}]}}/>);
+ expect(markup).toContain('<li data-subtask-id="open"');expect(markup).toContain('<li class="is-done" data-subtask-id="done"');
+ expect(markup).toContain('1/2 done');expect(markup.match(/aria-label="Done"/g)).toHaveLength(3); // table heading, parent, done child
+ expect(markup).toContain('aria-label="Open"></span>');
+});

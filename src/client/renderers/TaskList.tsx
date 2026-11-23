@@ -27,16 +27,39 @@ export function TaskList({data,sessionId,displayId}:{data:TaskListData;sessionId
  const projected=useMemo(()=>projectTasks(data.items,{sort:data.sort,filter:data.filter,doneLast:data.doneLast}),[data.items,data.sort,data.filter,data.doneLast]);
  // Items ticked since the previous render get a short in-place check-off; the first render animates nothing.
  const doneBefore=useRef<Set<string>|undefined>(undefined),justDone=useMemo(()=>{const now=new Set(data.items.filter(item=>item.checked).map(item=>String(item.id??item.number))),fresh=new Set(doneBefore.current?[...now].filter(key=>!doneBefore.current!.has(key)):[]);doneBefore.current=now;return fresh;},[data.items]);
- const body=useRef<HTMLTableSectionElement>(null),positions=useRef(new Map<string,number>()),lastHighlight=useRef<string|undefined>(undefined);
+ const body=useRef<HTMLTableSectionElement>(null),positions=useRef(new Map<string,number>());
  // When the list asks for doneLast (or is re-sorted), a moved item visibly travels to its new place.
  useLayoutEffect(()=>{const root=body.current;if(!root)return;const reduced=typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches,next=new Map<string,number>();
   for(const row of root.querySelectorAll<HTMLElement>('tr[data-task-id]')){const key=row.dataset.taskId!,top=row.offsetTop;next.set(key,top);const before=positions.current.get(key);
    if(!reduced&&before!==undefined&&Math.abs(before-top)>1&&typeof row.animate==='function')row.animate([{transform:`translateY(${before-top}px)`},{transform:'none'}],{duration:Math.min(900,350+Math.abs(before-top)/2),easing:'cubic-bezier(.2,.7,.2,1)'});}
   positions.current=next;
  },[projected]);
- useEffect(()=>{if(data.highlight===lastHighlight.current)return;lastHighlight.current=data.highlight;if(!data.highlight)return;
-  body.current?.querySelector<HTMLElement>(`tr[data-task-id="${CSS.escape(data.highlight)}"]`)?.scrollIntoView({block:'center',behavior:typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
- },[data.highlight]);
+ // Measure the expanded row, not the pre-disclosure render. Observe late detail,
+ // wrapping and viewport changes without pinning the reader during manual scrolling.
+ useEffect(()=>{
+  const row=body.current?.querySelector<HTMLElement>(`tr[data-task-id="${CSS.escape(data.highlight??'')}"]`);
+  const scroll=row?.closest<HTMLElement>('.task-list-scroll');
+  if(!data.highlight||!row||!scroll)return;
+  let frame=0,interrupted=false;
+  const interrupt=()=>{interrupted=true;cancelAnimationFrame(frame);};
+  for(const event of ['wheel','touchstart','pointerdown','keydown'])scroll.addEventListener(event,interrupt,{passive:true});
+  const reveal=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{
+   if(interrupted||!row.isConnected)return;
+   const box=scroll.getBoundingClientRect(),rect=row.getBoundingClientRect();
+   // Sticky headings occupy viewport space. Rectangles include viewer zoom,
+   // whereas scrollTop uses layout pixels.
+   const scale=scroll.offsetHeight?box.height/scroll.offsetHeight:1;
+   const header=scroll.querySelector('thead')?.getBoundingClientRect().height??0;
+   const top=box.top+scroll.clientTop*scale+header,bottom=box.top+(scroll.clientTop+scroll.clientHeight)*scale;
+   const available=bottom-top;
+   if(available<=0)return;
+   const delta=rect.height>available?rect.top-top:rect.top-top+(rect.height-available)/2;
+   if(Math.abs(delta)>1)scroll.scrollTo({top:scroll.scrollTop+delta/scale,behavior:typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+  });};
+  const observer=typeof ResizeObserver==='function'?new ResizeObserver(reveal):undefined;
+  observer?.observe(row);observer?.observe(scroll);reveal();
+  return()=>{observer?.disconnect();cancelAnimationFrame(frame);for(const event of ['wheel','touchstart','pointerdown','keydown'])scroll.removeEventListener(event,interrupt);};
+ },[data.taskListId,data.highlight,data.highlightSubtask,expanded,details]);
  const open=data.items.filter(item=>!item.checked).length,done=data.items.length-open,columns=taskCustomColumns(data.columns,data.items);
  const anyStatus=data.items.some(item=>item.status),anyTags=data.items.some(item=>item.tags?.length);
  return <div className="task-list" data-task-list={data.taskListId}>{error&&<p role="alert">{error}</p>}
@@ -50,7 +73,7 @@ export function TaskList({data,sessionId,displayId}:{data:TaskListData;sessionId
       {item.subtaskProgress&&<small className="task-subtask-progress">{item.subtaskProgress.done}/{item.subtaskProgress.total} done</small>}{item.summary&&<p className="task-summary">{item.summary}</p>}
       {isOpen&&full.detail&&<div className="task-detail">{full.detail}</div>}
       {isOpen&&full.source&&<p className="task-source">{full.source}</p>}
-      {isOpen&&full.subtasks?.length? <ul className="task-subtasks">{full.subtasks.map(sub=><li key={sub.id} data-subtask-id={sub.id} aria-current={current&&sub.id===data.highlightSubtask?'true':undefined}>
+      {isOpen&&full.subtasks?.length? <ul className="task-subtasks">{full.subtasks.map(sub=><li key={sub.id} className={sub.checked?'is-done':undefined} data-subtask-id={sub.id} aria-current={current&&sub.id===data.highlightSubtask?'true':undefined}>
        <span className="task-box" role="img" aria-label={sub.checked?'Done':'Open'}>{sub.checked?'✓':''}</span><div className="task-subtask-content"><div className="task-subtask-heading"><strong>{sub.title}</strong>{sub.status&&<span className="task-pill">{sub.status}</span>}</div>{sub.description&&<p>{sub.description}</p>}{sub.detail&&<p className="task-detail">{sub.detail}</p>}</div>
       </li>)}</ul>:null}</td>
      {anyStatus&&<td className="task-status">{item.status&&<span className="task-pill" style={colour?{'--pill':colour} as CSSProperties:undefined}>{item.status}</span>}</td>}

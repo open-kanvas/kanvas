@@ -100,7 +100,14 @@ export class TaskLists{
  private async get(sessionId:string,key:string){const saved=await this.store.get<TaskList>('task-list',key);return required(saved&&saved.sessionId===sessionId?saved:undefined,'This task list is unavailable in this session.');}
  private find(items:Stored[],reference:string|number,path:string):Stored{
   const item=items.find(candidate=>typeof reference==='number'?candidate.number===reference:candidate.id===reference);
-  if(!item)throw new InputError([{path,problem:`No item with that ${typeof reference==='number'?'number':'id'} in this task list. Read the list for its item numbers and ids.`}]);
+  if(!item){
+   // Called only after session access and list ownership checks. Search this list
+   // alone, and disclose only the matched parent number and caller-supplied id.
+   const action=/^(check|uncheck)\[/.exec(path)?.[1];
+   const parents=action&&typeof reference==='string'?items.filter(parent=>parent.subtasks?.some(sub=>sub.id===reference)):[];
+   if(parents.length)throw new InputError([{path,problem:parents.length===1?`This id is a subtask of item ${parents[0].number}, not a top-level item.`:'This id belongs to subtasks, not a top-level item. Select the intended parent.',hint:parents.length===1?`Use subtasks:[{item:${parents[0].number},${action}:[${JSON.stringify(reference)}]}].`:`Use subtasks:[{item:<parent number or id>,${action}:[${JSON.stringify(reference)}]}]. Read the list to select the intended parent.`}]);
+   throw new InputError([{path,problem:`No item with that ${typeof reference==='number'?'number':'id'} in this task list. Read the list for its item numbers and ids.`}]);
+  }
   return item;
  }
  async read(p:AuthPrincipal,raw:unknown){

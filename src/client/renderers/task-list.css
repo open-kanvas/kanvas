@@ -6,22 +6,22 @@
 .task-list td{padding:.55em .6em;border-bottom:1px solid var(--line);vertical-align:top}
 .task-number{width:1%;white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);font-weight:650}
 .task-check{width:1%}.task-box{display:inline-grid;place-items:center;width:1.25em;height:1.25em;border:2px solid var(--muted);border-radius:.3em;font-size:.9em;line-height:1}
-.is-done .task-box{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.task-list tr.is-done>.task-check>.task-box,.task-subtasks>li.is-done>.task-box{background:var(--accent);border-color:var(--accent);color:var(--surface)}
 .task-item{min-width:12ch}.task-item strong{font-weight:600;overflow-wrap:anywhere}
 .task-summary{margin:.15em 0 0;color:var(--muted);font-size:.86em;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;overflow-wrap:anywhere}
 .task-status,.task-tags{white-space:nowrap}
 .task-pill{display:inline-block;padding:.08em .7em;border-radius:999px;font-size:.82em;border:1px solid var(--pill,var(--line));background:color-mix(in srgb,var(--pill,var(--muted)) 20%,transparent)}
 .task-tag{display:inline-block;margin:0 .3em .2em 0;padding:.02em .5em;border-radius:.4em;font-size:.76em;border:1px solid var(--line);color:var(--muted)}
 .task-field{font-size:.9em;overflow-wrap:anywhere}
-.task-list tr.is-done{opacity:.5}.task-list tr.is-done .task-item strong{text-decoration:line-through}
+.task-list tr.is-done{opacity:.5}.task-list tr.is-done>.task-item>strong,.task-list tr.is-done>.task-item>.task-detail-toggle>strong,.task-subtasks>li.is-done>.task-subtask-content>.task-subtask-heading>strong{text-decoration:line-through}
 .task-list tr.is-current{opacity:1;background:color-mix(in srgb,var(--accent,#8ab4ff) 12%,transparent);box-shadow:inset 5px 0 0 var(--accent,#8ab4ff)}
 .task-list tr.is-current .task-summary{-webkit-line-clamp:unset;line-clamp:unset;display:block}
 .task-detail{margin:.5em 0 0;padding:.6em .8em;border-left:2px solid var(--line);white-space:pre-wrap;overflow-wrap:anywhere;font-size:.88em;line-height:1.45}.task-detail small{display:block;margin-top:.5em;color:var(--muted)}
 .task-source{margin:.4em 0 0;font-size:.76em;color:var(--muted);overflow-wrap:anywhere}
 @container (max-width:600px){.task-list{font-size:15px}.task-list td,.task-list thead th{padding:.5em .35em}.task-status,.task-tags{white-space:normal}.task-field,.task-list thead th:nth-child(n+6){display:none}}
 @keyframes task-check{0%{transform:scale(.4);opacity:.2}60%{transform:scale(1.35)}100%{transform:scale(1)}}@keyframes task-done{0%{background:color-mix(in srgb,var(--accent) 35%,transparent)}100%{background:transparent}}
-.task-list tr.just-done .task-box{animation:task-check .45s ease-out}.task-list tr.just-done>td{animation:task-done .9s ease-out}
-@media(prefers-reduced-motion:reduce){.task-list tr.just-done .task-box,.task-list tr.just-done>td{animation:none}}
+.task-list tr.just-done>.task-check>.task-box{animation:task-check .45s ease-out}.task-list tr.just-done>td{animation:task-done .9s ease-out}
+@media(prefers-reduced-motion:reduce){.task-list tr.just-done>.task-check>.task-box,.task-list tr.just-done>td{animation:none}}
 
 .task-detail-toggle{display:flex;justify-content:space-between;gap:1em;text-align:left;width:100%;padding:0;font:inherit;color:inherit}
 .task-subtask-progress{display:block;color:var(--muted);font-size:.75em}

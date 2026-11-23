@@ -50,3 +50,31 @@ it('agent expansion addresses stable ids or numbers, collapses on highlight chan
  const rows=(await tasks.read(p,{sessionId,taskListId}) as any).items;expect(rows.map((x:any)=>[x.id,x.number])).toEqual([['one',1],['two',2]]);
  const other=await h.account();await expect(tasks.update({userId:other.user!.id},{sessionId,taskListId,requestId:randomUUID(),expand:[1]})).rejects.toThrow();
 });
+
+it('keeps subtask state independent and guides mistaken top-level checks without leaking other lists',async()=>{
+ h=await startHarness();const owner=await h.account(),sessionId=(await owner.session()).id,displayId=(await owner.display(sessionId)).id,p={userId:owner.user!.id};
+ const published=await owner.submit(sessionId,[displayId],{version:1,template:'task-list',data:{items:[{id:'parent',title:'Private parent title',subtasks:[{id:'child',title:'Private child title',checked:false}]}]}});
+ const taskListId=String(published.detail.displays[0].view!.data.taskListId),tasks=h.runtime.service.taskLists;
+ const update=(value:Record<string,unknown>)=>tasks.update(p,{sessionId,taskListId,requestId:randomUUID(),...value});
+ await update({check:['parent']});
+ expect((await tasks.read(p,{sessionId,taskListId,item:1}) as any).item).toMatchObject({checked:true,subtasks:[{checked:false}]});
+ expect((await tasks.read(p,{sessionId,taskListId}) as any).items[0].subtaskProgress).toEqual({done:0,total:1});
+ for(const action of ['check','uncheck']){
+  const error=await update({[action]:['child']}).catch(e=>e);
+  expect(error).toMatchObject({code:'INVALID_ARGUMENT',issues:[{path:action+'[0]',problem:'This id is a subtask of item 1, not a top-level item.',hint:'Use subtasks:[{item:1,'+action+':['+JSON.stringify('child')+']}].'}]});
+  expect(JSON.stringify(error)).not.toContain('Private');
+ }
+ await update({subtasks:[{item:1,check:['child']}]});
+ expect((await tasks.read(p,{sessionId,taskListId}) as any).items[0].subtaskProgress).toEqual({done:1,total:1});
+ await update({uncheck:['parent']});expect((await tasks.read(p,{sessionId,taskListId,item:1}) as any).item.subtasks[0].checked).toBe(true);
+ const unknown=await update({check:['absent']}).catch(e=>e);expect(unknown.issues[0].hint).toBeUndefined();
+ const other=await h.account(),otherSession=(await other.session()).id;
+ for(const [principal,session] of [[{userId:other.user!.id},sessionId],[p,otherSession],[p,(await owner.session()).id]] as const){
+  const error=await tasks.update(principal,{sessionId:session,taskListId,requestId:randomUUID(),check:['child']}).catch(e=>e);
+  expect(error.code).toBe('NOT_FOUND');expect(JSON.stringify(error)).not.toContain('subtask');expect(JSON.stringify(error)).not.toContain('Private');
+ }
+ // A top-level id wins; duplicate child ids must not choose an arbitrary parent.
+ await update({add:[{id:'child',title:'Top-level child'},{title:'Another parent',subtasks:[{id:'duplicate',title:'A'}]}],subtasks:[{item:1,add:[{id:'duplicate',title:'B'}]}]});
+ await update({check:['child']});expect((await tasks.read(p,{sessionId,taskListId,item:'child'}) as any).item.checked).toBe(true);
+ const ambiguous=await update({check:['duplicate']}).catch(e=>e);expect(ambiguous.issues[0].hint).toContain('item:<parent number or id>');
+});

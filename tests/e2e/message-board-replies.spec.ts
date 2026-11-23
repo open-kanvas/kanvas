@@ -15,6 +15,11 @@ test('board overview shows one-level replies under their parent and preserves or
     const child=shown.locator(`.message-board-replies > li[data-board-message-id="${reply.message.id}"]`);await expect(child).toHaveCount(1);await expect(child.locator('.message-text')).toHaveText('Use Markdown for composed text.');
     await expect(child.locator('.message-meta > time')).toHaveAttribute('datetime',reply.message.at);await expect(child.locator('.message-edited')).toContainText('edited');await expect(child.locator('.message-edited time')).toHaveAttribute('datetime',edited.message.editedAt);await expect(child.locator('.message-tags')).toHaveText('#markdown');
     await expect(child.locator('button,input,textarea')).toHaveCount(0);
+    await expect(viewer.locator('.message-board-tags')).toHaveCount(0);
+    await expect(viewer.locator('.message-board > header + .message-board-latest')).toHaveCount(1);
+    await expect(viewer.locator('.message-board-public')).toContainText('Public');
+    await expect(viewer.locator('.message-board header')).toContainText('Messages');
+    await expect(viewer.locator('.message-board header')).toContainText('New');
     await viewer.screenshot({style:'.viewer-toast{opacity:0!important}',path:test.info().outputPath('message-board-reply-and-edit.png')});
   }finally{await client.close();}
 });

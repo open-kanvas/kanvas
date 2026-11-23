@@ -2,7 +2,7 @@ import {z} from 'zod';
 /** Task list: a table of work items kept in the session. Columns are open and
  * agent-defined; status and tags are plain text with no hidden ids. The stored
  * list holds every item's full detail; what a display receives is a projection
- * that carries full detail only for the highlighted item. */
+ * that carries full detail for expanded items. */
 const identifier=z.string().min(1).max(128).regex(/^[a-zA-Z0-9_.:-]+$/);
 export const TASK_LIST_MAX_ITEMS=200,TASK_DETAIL_MAX=8000,STATUS_COLOURS_MAX=16,TASK_ITEM_MAX_BYTES=64*1024,TASK_LIST_MAX_BYTES=2*1024*1024;
 /** Columns the list always has. Naming one in `columns` adds nothing: it is already on screen. */
@@ -57,6 +57,8 @@ export const taskListDataSchema=z.object({
  statusPalette:z.enum(['traffic','testing','workflow']).optional(),
  colors:textMap.optional(),
  items:z.array(taskItemSchema).max(TASK_LIST_MAX_ITEMS),
+ expanded:z.array(identifier).max(TASK_LIST_MAX_ITEMS).optional().describe("Expanded item ids; omitted opens the highlight, empty collapses all."),
+ expansionRevision:z.number().int().nonnegative().optional(),
  highlight:identifier.optional(),
  highlightSubtask:identifier.optional(),
  showNumber:z.boolean().optional().describe('Default true; permanent task numbers remain unchanged when hidden.'),

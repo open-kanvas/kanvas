@@ -29,3 +29,9 @@
 .task-subtasks>li{display:flex;gap:.7em;padding:.6em;border-left:2px solid var(--line)}
 .task-subtasks>li[aria-current=true]{background:color-mix(in srgb,var(--accent) 15%,transparent);border-color:var(--accent)}
 .task-subtasks p{white-space:pre-wrap;font-size:.85em}.task-reference{max-width:16ch;overflow-wrap:anywhere}.task-detail{white-space:pre-wrap}
+
+.task-subtasks>li>.task-box{flex:0 0 1.25em;box-sizing:content-box}
+.task-subtask-content{flex:1;min-width:0}
+.task-subtask-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:.8em}
+.task-subtask-heading>strong{min-width:0}
+.task-subtask-heading>.task-pill{flex:none;margin-left:auto;max-width:45%;overflow-wrap:anywhere}

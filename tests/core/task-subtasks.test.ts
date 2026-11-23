@@ -30,3 +30,23 @@ it('bounds nested task detail and cumulative delta size without partially saving
  await expect(tasks.update(p,{sessionId,taskListId,requestId:randomUUID(),subtasks:[groups('c',5)[0]]})).rejects.toThrow('64 KiB');
  expect((await tasks.read(p,{sessionId,taskListId,item:1}) as any).item.subtasks).toHaveLength(4);
 });
+
+it('agent expansion addresses stable ids or numbers, collapses on highlight changes, and applies without republishing',async()=>{
+ h=await startHarness();const owner=await h.account(),sessionId=(await owner.session()).id,displayId=(await owner.display(sessionId)).id,p={userId:owner.user!.id};
+ const published=await owner.submit(sessionId,[displayId],{version:1,template:'task-list',data:{highlight:'one',items:[{id:'one',title:'One',detail:'First detail'},{id:'two',title:'Two',subtasks:[{id:'child',title:'Child',checked:false}]}]}});
+ const taskListId=String(published.detail.displays[0].view!.data.taskListId),tasks=h.runtime.service.taskLists;
+ const update=(value:Record<string,unknown>,requestId=randomUUID())=>tasks.update(p,{sessionId,taskListId,requestId,...value});
+ const visible=async()=>((await owner.detail(sessionId)).displays[0].view!.data as any);
+ await update({expand:[2]});expect((await visible()).expanded).toEqual(['one','two']);expect((await visible()).items[1].subtasks[0].id).toBe('child');
+ await update({highlight:2});expect((await visible()).expanded).toEqual(['two']);expect((await visible()).items[0].detail).toBeUndefined();
+ await update({collapse:['two']});expect((await visible()).expanded).toEqual([]);
+ await update({expand:['one','two'],collapseAll:true});expect((await visible()).expanded).toEqual(['one','two']);
+ const once=await update({collapseAll:true},'close-all');expect((await visible()).expanded).toEqual([]);
+ expect(await update({collapseAll:true},'close-all')).toEqual(once);
+ const revision=(await visible()).taskListRevision;
+ await expect(update({expand:['absent']})).rejects.toThrow();expect((await visible()).taskListRevision).toBe(revision);
+ await update({subtasks:[{item:2,highlight:'child'}]});expect((await visible()).expanded).toEqual(['two']);
+ await update({highlight:null});expect((await visible()).expanded).toEqual([]);
+ const rows=(await tasks.read(p,{sessionId,taskListId}) as any).items;expect(rows.map((x:any)=>[x.id,x.number])).toEqual([['one',1],['two',2]]);
+ const other=await h.account();await expect(tasks.update({userId:other.user!.id},{sessionId,taskListId,requestId:randomUUID(),expand:[1]})).rejects.toThrow();
+});

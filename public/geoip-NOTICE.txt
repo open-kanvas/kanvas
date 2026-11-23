@@ -1,2 +1,12 @@
-This product includes GeoLite2 data created by MaxMind, available from https://www.maxmind.com/.
-The geoip-lite JavaScript library is Apache-2.0. Its bundled database is separately licensed; the installed package declares CC-BY-SA-4.0 and documents current provider/update requirements. See docs/licenses/README.md and the installed geoip-lite/LICENSE. Verify the exact data snapshot and applicable MaxMind terms before redistribution; this notice does not grant data rights.
+Optional IP geolocation
+
+Kanvas does not bundle a GeoLite database. Operators may supply their own
+GeoLite2-City.mmdb under MaxMind's current GeoLite End User License Agreement:
+https://www.maxmind.com/en/geolite/eula
+
+When enabled: This product includes GeoLite Data created by MaxMind,
+available from https://www.maxmind.com/.
+
+The database retains its own Creative Commons Attribution-ShareAlike 4.0 and
+additional provider terms; it is not licensed under Kanvas's Apache-2.0 licence.
+See docs/operations/self-hosting.md for optional setup and update requirements.

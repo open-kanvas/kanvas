@@ -37,11 +37,8 @@ import { validateView } from '../../src/shared/view-schemas.js';
 import { applyResponsePolicy } from '../../src/server/mcp/response-policy.js';
 import { ContactLedger } from '../../src/server/mcp/response-policy.js';
 import { CONTACT_IDLE_MS } from '../../src/server/mcp/response-policy.js';
-import { deriveMode } from '../../src/server/session-mode.js';
-import { AGENT_IDLE_MS } from '../../src/server/session-mode.js';
 import { AGENT_CONDUCT } from '../../src/shared/philosophy.js';
 import { MISSION } from '../../src/shared/philosophy.js';
-import { MODE_GUIDANCE } from '../../src/shared/philosophy.js';
 import { RHYTHM_NUDGE } from '../../src/shared/philosophy.js';
 import { safeError } from '../../src/server/mcp/results.js';
 import { collapseRepeatedIssues } from '../../src/server/input-errors.js';
@@ -201,16 +198,15 @@ describe("settings coverage 3", () => {
         description: string;
         example?: unknown;
     }[]);
-    describe('0875e953 response policy and session mode (pure rules)', () => {
+    describe('0875e953 response policy (pure rules)', () => {
         const orientation = { guide: { tool: "kanvas.guide" }, viewerLink: 'how to connect a receiver', toolSelection: 'x', recovery: 'y' };
         const guidance = { boundary: 'b', levels: [{ scope: 'user', id: 'user:1', text: 'be proactive', revision: 3 }] };
-        const mode = { current: 'live', source: 'default', guidance: MODE_GUIDANCE.live, set: 'kanvas.session.settings.update' };
-        const run = (ledger: ContactLedger, overrides: Partial<Parameters<typeof applyResponsePolicy>[1]> = {}, structured: Record<string, unknown> = { data: { status: 'accepted', sessionId: 's1' }, orientation }, key = 'conn', at = Date.now()) => applyResponsePolicy(structured, { state: ledger.observe(key, at), context: { mode, displayConnected: true }, guidance, isError: false, operation: "kanvas.submit", sessionId: 's1', ...overrides }).structured!;
-        it('a declared full preference keeps every block; a long silence is a new contact; the ledger is bounded', () => {
+        const run = (ledger: ContactLedger, overrides: Partial<Parameters<typeof applyResponsePolicy>[1]> = {}, structured: Record<string, unknown> = { data: { status: 'accepted', sessionId: 's1' }, orientation }, key = 'conn', at = Date.now()) => applyResponsePolicy(structured, { state: ledger.observe(key, at), context: { displayConnected: true }, guidance, isError: false, operation: "kanvas.submit", sessionId: 's1', ...overrides }).structured!;
+        it('a declared full preference repeats guidance independently of orientation; a long silence is a new contact; the ledger is bounded', () => {
             const ledger = new ContactLedger();
-            run(ledger, { context: { mode, displayConnected: true, preference: 'full' } });
-            const again = run(ledger, { context: { mode, displayConnected: true, preference: 'full' } });
-            expect(again.orientation).toEqual(orientation);
+            run(ledger, { context: { displayConnected: true, preference: 'full' } });
+            const again = run(ledger, { context: { displayConnected: true, preference: 'full' } });
+            expect(again.orientation).toEqual({guide:orientation.guide,help:'kanvas.help.getting-started.steps'});
             expect((again.agentGuidance as {
                 levels: unknown[];
             }).levels).toHaveLength(1);
@@ -244,7 +240,7 @@ describe("settings coverage 3", () => {
             expect(serverWebsiteUrl(false)).toBeUndefined();
             expect(serverWebsiteUrl('http://insecure.example')).toBeUndefined();
             expect(serverWebsiteUrl('javascript:alert(1)')).toBeUndefined();
-            expect(KANVAS_VERSION).toBe('0.40.0');
+            expect(KANVAS_VERSION).toBe('0.40.1');
             // Public release identity must agree in server discovery, dependency manifests and the served HTML shell.
             const packageJson = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
             const packageLock = JSON.parse(readFileSync(new URL('../../package-lock.json', import.meta.url), 'utf8'));

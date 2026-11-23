@@ -10,5 +10,5 @@ public/signage/, public/scene-assets/, public/geography-NOTICE.txt and
 src/shared/geography/LICENSE.md with redistributed copies of those assets.
 Dependency license information is also included with the installed packages.
 
-Complete third-party inventory, accompanying licence texts and unresolved rights: docs/licenses/README.md and docs/licenses/npm-inventory.json. Asset-local notices under public/ must travel with the assets.
-This product includes GeoLite2 data created by MaxMind, available from https://www.maxmind.com/.
+Third-party inventory, accompanying licence texts and distribution requirements: docs/licenses/README.md and docs/licenses/npm-inventory.json. Asset-local notices under public/ must travel with the assets.
+When optional geolocation is enabled, this product includes GeoLite Data created by MaxMind, available from https://www.maxmind.com/. No GeoLite database is bundled.

@@ -181,7 +181,12 @@ describe('authenticated MCP HTTP using published SDK clients', () => {
         // Modern MCP repeats public server discovery metadata on tool results.
         // Bound the actual application error independently of that description.
         const { _meta: metadata, ...errorBody } = failed;
-        expect(JSON.stringify(errorBody).length).toBeLessThan(1000);
+        // Stateless callers receive the public first-contact guidance on each call.
+        // Keep the private-error boundary strict without counting that approved prose.
+        const structuredError = (failed.structuredContent as { error?: unknown }).error;
+        expect(structuredError).toEqual(expect.objectContaining({code: 'INTERNAL_ERROR'}));
+        expect(JSON.stringify(structuredError).length).toBeLessThan(1000);
+        expect(JSON.stringify(errorBody).length).toBeLessThan(6000);
         expect(metadata).toEqual({ 'io.modelcontextprotocol/serverInfo': expect.objectContaining({ description: profileDescription('discovery') }) });
         expect(JSON.stringify(metadata).length).toBeLessThan(2000);
         server.service.failWithPrivateError = false;

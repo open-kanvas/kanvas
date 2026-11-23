@@ -34,7 +34,6 @@ export const view = z.strictObject({
   actions: z.array(actionSchema).max(8).optional(),
 });
 export const config = configPatchSchema;
-export const sessionModeSchema = z.enum(['live','presenting','ambient','signage','auto']);
 export const exactlyOne = (left: string, right: string) => ({
   oneOf: [
     { required: [left], not: { required: [right] } },

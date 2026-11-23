@@ -1,3 +1,5 @@
+import {guidanceConnectionId} from './connection-identity.js';
+import { MCP_MAX_BODY_BYTES, mcpRequestLimit } from './request-limits.js';
 import {parseDiscoveryInput} from './discovery.js';
 import {guidanceContext} from './active-context.js';
 import {applyResponsePolicy,ContactLedger,type ResponseContext} from './response-policy.js';
@@ -144,6 +146,7 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
         server.setRequestHandler('tools/list', async () => ({ tools: toolDefinitions }));
         server.setRequestHandler('tools/call', async (request, extra) => {
             const outer = request.params.arguments ?? {};
+            const connectionId = guidanceConnectionId(current().request, request.params._meta, randomUUID());
             const guidanceArgs = guidanceContext(request.params.name, outer);
             // Aggregate friction counters: names, classes and sizes only.
             const friction = (result: {
@@ -182,7 +185,7 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
                 structuredContent?: unknown;
                 isError?: boolean;
             }>(result: T, operation?: string): Promise<T> => {
-                const principal = current().principal, connectionId = current().request.get('mcp-session-id') ?? String(principal.agentId ?? principal.tokenId ?? 'stateless');
+                const principal = current().principal;
                 let guidance: unknown, context: ResponseContext = {};
                 try {
                     guidance = await service.agentGuidance?.(principal, guidanceArgs);
@@ -205,7 +208,9 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
                 // Pointing rides on whatever this connection calls next; a failed call keeps it for the following one.
                 if (result.isError !== true) {
                     try {
-                        const pointing = await service.pointingEvents?.(principal, connectionId, targetSession);
+                        // Preserve the existing pointing cursor for stateless clients without a host identity.
+                        const pointingConnection = connectionId.startsWith('request:') ? String(principal.agentId ?? principal.tokenId ?? 'stateless') : connectionId;
+                        const pointing = await service.pointingEvents?.(principal, pointingConnection, targetSession);
                         if (pointing)
                             context = { ...context, pointing };
                     }
@@ -272,7 +277,7 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
             return (async () => {
                 const invocationId = randomUUID(), started = Date.now();
                 const call = resolveToolCall(callProfile, request.params.name, request.params.arguments);
-                const context = call.reference && call.canonicalName ? { ...call.reference, canonicalName: call.canonicalName, connectionId: current().request.get('mcp-session-id') ?? String(current().principal.agentId ?? current().principal.tokenId ?? 'stateless'), inferred: { userAgent: current().request.get('user-agent')?.slice(0, 500), clientName: server.getClientVersion()?.name?.slice(0, 240), clientVersion: server.getClientVersion()?.version?.slice(0, 120) } } : undefined;
+                const context = call.reference && call.canonicalName ? { ...call.reference, canonicalName: call.canonicalName, connectionId, inferred: { userAgent: current().request.get('user-agent')?.slice(0, 500), clientName: server.getClientVersion()?.name?.slice(0, 240), clientVersion: server.getClientVersion()?.version?.slice(0, 120) } } : undefined;
                 // A failed read is still read-only. Validation and execution errors must
                 // not allocate diagnostic or lifecycle records in either profile.
                 const mayRecordFailure = call.canonicalName !== undefined && !isReadOnlyOperation(call.canonicalName);
@@ -378,10 +383,10 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
     };
     const eventBus = new AuthorizedEventBus(service, current, authRecheckMs);
     const modern = createMcpHandler(() => makeServer(), {
-        legacy: 'reject', bus: eventBus, maxSubscriptions: options.maxSubscriptions ?? 256,
+        legacy: 'reject', maxRequestBodySize: MCP_MAX_BODY_BYTES, bus: eventBus, maxSubscriptions: options.maxSubscriptions ?? 256,
         onerror: () => { },
     });
-    const handleModern = toNodeHandler(modern, { onerror: () => { } });
+    const handleModern = toNodeHandler(modern, { maxRequestBodySize: MCP_MAX_BODY_BYTES, onerror: () => { } });
     const newLegacySession = async (context: RequestContext): Promise<LegacySession> => {
         const scope: SubscriptionScope = {
             principal: context.principal,
@@ -392,6 +397,7 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
         };
         const transport = new NodeStreamableHTTPServerTransport({
             sessionIdGenerator: randomUUID,
+            maxRequestBodySize: MCP_MAX_BODY_BYTES,
             onsessioninitialized: id => { sessions.set(id, entry); },
             onsessionclosed: () => { void entry.close(); },
             enableJsonResponse: true,
@@ -439,7 +445,7 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
     expiryTimer.unref();
     // A bounded local parser also works when mounted before a global parser.
     // If the parent has parsed the body already, Express leaves it intact.
-    app.use(path, express.json({ limit: '12mb' }));
+    app.use(path, express.json({ limit: MCP_MAX_BODY_BYTES }));
     app.all(path, async (req, res) => {
         res.set('Cache-Control', 'no-store');
         res.set('X-Content-Type-Options', 'nosniff');
@@ -456,7 +462,7 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
         }
         if (req.method === 'OPTIONS') {
             res.set('Access-Control-Allow-Methods', 'POST, GET, DELETE, OPTIONS');
-            res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type, MCP-Protocol-Version, MCP-Session-Id, Mcp-Method, Mcp-Name, Last-Event-ID');
+            res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type, MCP-Protocol-Version, MCP-Session-Id, Mcp-Method, Mcp-Name, Kanvas-Connection-Id, Last-Event-ID');
             res.status(204).end();
             return;
         }
@@ -476,6 +482,8 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
                 res.set('WWW-Authenticate', challenge);
             return httpError(req, res, forbidden ? 403 : 401, forbidden ? 'Publisher access denied.' : 'Publisher authorization required.');
         }
+        const limitError = mcpRequestLimit(req.body);
+        if (limitError) return httpError(req, res, 400, limitError, -32600);
         const authRequest = authorizationSnapshot(req);
         const context: RequestContext = {
             request: req, principal,

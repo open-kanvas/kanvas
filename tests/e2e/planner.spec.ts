@@ -45,3 +45,13 @@ test('planner weather points are one row with icon first and no empty values; to
  await expect(detail.locator('.parameter-need.is-required')).toHaveCount(1);await viewer.screenshot({path:info.outputPath('tool-detail.png')});
 });
 });
+
+test('month planner repeats a timed conference on every covered day and excludes midnight end',async({page})=>{
+ await register(page);const sessionId=await createSession(page,'Multi-day month'),display=await createDisplay(page,sessionId,'Month'),viewer=await openViewer(page,sessionId,display.id);
+ const show=async(end:string)=>publishPrepared(page,sessionId,[display.id],validateView({version:1,template:'planner',data:{view:'month',anchorDate:'2026-11-01',timeZone:'Europe/Oslo',items:[{id:'conf',title:'Conference',start:'2026-11-17T09:00+01:00',end}]}}));
+ const cell=(day:string)=>viewer.locator('.viewer-candidate .planner-cell[data-day="'+day+'"]');
+ await show('2026-11-19T17:00+01:00');
+ for(const day of ['17','18','19'])await expect(cell('2026-11-'+day).locator('[data-item-id="conf"]')).toHaveCount(1);
+ await expect(cell('2026-11-18')).toContainText('continued');await expect(cell('2026-11-20').locator('[data-item-id="conf"]')).toHaveCount(0);
+ await show('2026-11-19T00:00+01:00');await expect(cell('2026-11-19').locator('[data-item-id="conf"]')).toHaveCount(0);
+});

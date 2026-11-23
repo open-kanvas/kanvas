@@ -31,6 +31,7 @@ export const taskListUpdateSchema=z.strictObject({sessionId:sessionKey,taskListI
  items:z.array(change).max(50).optional(),
  check:z.array(ref).max(50).optional(),uncheck:z.array(ref).max(50).optional(),
  remove:z.array(ref).max(50).optional(),
+ expand:z.array(ref).max(TASK_LIST_MAX_ITEMS).optional(),collapse:z.array(ref).max(TASK_LIST_MAX_ITEMS).optional(),collapseAll:z.boolean().optional(),
  highlight:ref.nullable().optional(),
  sort:dataShape.sort.unwrap().nullable().optional(),
  filter:dataShape.filter.unwrap().nullable().optional(),
@@ -45,7 +46,7 @@ export const taskListTools: Definition[] = [
         searchAliases: ["kanvas.tasklist.read"]
     },
     {
-        name: "kanvas.tasklist.update", idempotent: true, schema: taskListUpdateSchema, description: 'Change a saved task list by item (add, items, check, uncheck, remove, index, highlight, sort, filter, columns, showNumber, showReference). subtasks:[{item,add,items,check,uncheck,remove,highlight}] addresses stable subtask ids within a parent; unnamed items stay untouched and numbers never change. Create one by publishing a task-list view.',
+        name: "kanvas.tasklist.update", idempotent: true, schema: taskListUpdateSchema, description: 'Change a saved task list by item (add, items, check, uncheck, remove, index, highlight, expand, collapse, collapseAll, sort, filter, columns, showNumber, showReference). subtasks:[{item,add,items,check,uncheck,remove,highlight}] addresses stable subtask ids within a parent; unnamed items stay untouched and numbers never change. expand/collapse accept item ids or numbers; collapseAll closes every item. A changed highlight opens only its new item; explicit expansion in the same update is applied afterward. Create one by publishing a task-list view.',
         domain: "checklist",
         requiredScope: "publish",
         discovery: {"group":"content","hint":"Change single items of a saved task list: add, edit fields, check, uncheck, remove, highlight, sort, filter. Never republish the list.","examples":[{"sessionId":"session-id","taskListId":"task-list-id","requestId":"check-7","check":[7],"highlight":8}]},
@@ -66,13 +67,13 @@ const row=(item:Stored)=>({number:item.number,id:item.id,title:item.title,...(it
 export class TaskLists{
  constructor(private service:KanvasService){}
  private get store(){return this.service.store;}
- /** The view a display receives: every row, full detail only for the highlighted item. */
+ /** The view a display receives: every row, full detail for the expanded items. */
  view(list:TaskList):ViewSpec{
   const data=list.data,items=(data.items as Stored[]).map(item=>{
    const {detail,subtasks,...rest}=item;
    const hasDetail=Boolean(detail||subtasks?.length);
    return {...rest,hasDetail,...(subtasks?.length?{subtaskProgress:{total:subtasks.length,done:subtasks.filter(s=>s.checked).length}}:{}),
-    ...(item.id===data.highlight?{...(detail?{detail}:{}),...(subtasks?{subtasks}:{})}:{})};
+    ...((data.expanded??(data.highlight?[data.highlight]:[])).includes(item.id)?{...(detail?{detail}:{}),...(subtasks?{subtasks}:{})}:{})};
   });
   return {version:1,template:'task-list',...(list.title?{title:list.title}:{}),data:{...data,items,taskListId:list.id,taskListRevision:list.revision}} as ViewSpec;
  }
@@ -113,7 +114,7 @@ export class TaskLists{
   const ad=a.status||a.tags||a.done!==undefined;
   const projected=projectTasks(items,{sort:a.sort??list.data.sort,filter:ad?{...(a.status?{status:a.status}:{}),...(a.tags?{tags:a.tags}:{}),...(a.done!==undefined?{done:a.done}:{})}:list.data.filter});
   const page=projected.items.slice(a.offset,a.offset+a.limit);
-  return {id:list.id,sessionId:list.sessionId,revision:list.revision,title:list.title,columns:list.data.columns??[],...(list.data.highlight?{highlight:list.data.highlight}:{}),...(list.data.sort?{sort:list.data.sort}:{}),...(list.data.filter?{filter:list.data.filter}:{}),
+  return {id:list.id,sessionId:list.sessionId,revision:list.revision,title:list.title,columns:list.data.columns??[],expanded:list.data.expanded??(list.data.highlight?[list.data.highlight]:[]),...(list.data.highlight?{highlight:list.data.highlight}:{}),...(list.data.sort?{sort:list.data.sort}:{}),...(list.data.filter?{filter:list.data.filter}:{}),
    counts:{total:items.length,open:items.filter(item=>!item.checked).length,done:items.filter(item=>item.checked).length,matching:projected.items.length,hiddenByFilter:projected.hidden},
    items:page.map(row),offset:a.offset,...(a.offset+page.length<projected.items.length?{nextOffset:a.offset+page.length}:{}),
    note:'Rows are filtered and sorted by the server from stored data. Read one item (number or id) for its full detail and source.'};
@@ -167,8 +168,15 @@ export class TaskLists{
    }
    if(highlightSubtask&&!items.find(i=>i.id===highlight)?.subtasks?.some(s=>s.id===highlightSubtask))highlightSubtask=undefined;
    if(highlight&&!items.some(item=>item.id===highlight))highlight=undefined;
+   const expansionChanged=highlight!==list.data.highlight||highlightSubtask!==list.data.highlightSubtask;
+   let expanded=expansionChanged?(highlight?[highlight]:[]):(list.data.expanded??(list.data.highlight?[list.data.highlight]:[])).filter(key=>items.some(item=>item.id===key));
+   if(a.collapseAll)expanded=[];
+   for(const [index,reference] of (a.expand??[]).entries()){const key=this.find(items,reference,'expand['+index+']').id;if(!expanded.includes(key))expanded.push(key);}
+   for(const [index,reference] of (a.collapse??[]).entries()){const key=this.find(items,reference,'collapse['+index+']').id;expanded=expanded.filter(id=>id!==key);}
+   const expansionCommand=expansionChanged||a.collapseAll===true||a.expand!==undefined||a.collapse!==undefined;
+   const expansionRevision=(list.data.expansionRevision??0)+(expansionCommand?1:0);
    const {highlight:_h,highlightSubtask:_hs,sort:_s,filter:_f,...rest}=list.data;
-   const data=taskListDataSchema.parse({...rest,items,...(highlight?{highlight}:{}),...(highlightSubtask?{highlightSubtask}:{}),...(a.showNumber!==undefined?{showNumber:a.showNumber}:{}),...(a.showReference!==undefined?{showReference:a.showReference}:{}),
+   const data=taskListDataSchema.parse({...rest,items,...(expansionCommand||list.data.expanded!==undefined?{expanded,expansionRevision}:{}),...(highlight?{highlight}:{}),...(highlightSubtask?{highlightSubtask}:{}),...(a.showNumber!==undefined?{showNumber:a.showNumber}:{}),...(a.showReference!==undefined?{showReference:a.showReference}:{}),
     ...(a.sort===null?{}:a.sort?{sort:a.sort}:list.data.sort?{sort:list.data.sort}:{}),...(a.filter===null?{}:a.filter?{filter:a.filter}:list.data.filter?{filter:list.data.filter}:{}),
     ...(a.columns?{columns:a.columns.filter(column=>!isBuiltinTaskColumn(column.key))}:{}),...(a.doneLast!==undefined?{doneLast:a.doneLast}:{})});
    const ignoredColumns=(a.columns??[]).filter(column=>isBuiltinTaskColumn(column.key)).map(column=>column.key);
@@ -187,7 +195,7 @@ export class TaskLists{
     }
    }
    const final=next.data.items as Stored[];
-   const result={id:next.id,sessionId:next.sessionId,revision:next.revision,previousRevision:list.revision,title:next.title,changes,
+   const result={id:next.id,sessionId:next.sessionId,revision:next.revision,previousRevision:list.revision,title:next.title,changes,expanded:next.data.expanded,
     counts:{total:final.length,open:final.filter(item=>!item.checked).length,done:final.filter(item=>item.checked).length},
     ...(next.data.highlight?{highlight:{id:next.data.highlight,number:final.find(item=>item.id===next.data.highlight)!.number}}:{}),...(unchanged?{unchanged:true}:{}),...(ignoredColumns.length?{ignoredColumns,columnsNote:'Use showNumber/showReference for built-in number/reference visibility. columns is only for your own extra columns, filled from each item\'s fields.'}:{}),updatedAt:next.updatedAt,
     note:unchanged?'Nothing differed from the saved list; revision unchanged.':'Saved. Items not listed in changes are exactly as before; item numbers never change.'};

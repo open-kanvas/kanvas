@@ -208,6 +208,31 @@ function oauthRedirect(redirectUri: string, state: string | undefined, issuer: s
   address.searchParams.set('iss', issuer);
   return address.href;
 }
+/** Complete explicit email consent inside the email-consumption transaction.
+ * Only server-stored request fields determine the callback and PKCE binding.
+ * No browser login or original-tab polling is needed to issue this code. */
+export async function approveEmailConnection(store: Store, requestId: string, userId: string, issuer: string): Promise<string> {
+  const pending = await store.get<ConsentRequest>('oauth-consent', requestId);
+  if (!pending || pending.deviceCode || pending.status !== 'pending' || Date.parse(pending.expiresAt) <= Date.now()) {
+    throw new AppError('SIGNIN_CONNECTION_EXPIRED', 'Restart the connector request.', 410);
+  }
+  const client = await store.get<OAuthClient>('oauth-client', pending.clientId);
+  if (!client || !(client.grantTypes ?? ['authorization_code']).includes('authorization_code') ||
+      !client.redirectUris.includes(pending.redirectUri) || pending.resource !== issuer + '/mcp' ||
+      !COOKIE_VALUE.test(pending.challenge) || pending.scopes.some(scope => !client.scopes.includes(scope))) {
+    throw new AppError('SIGNIN_CONNECTION_EXPIRED', 'Restart the connector request.', 410);
+  }
+  // Defense in depth for persisted correlation data; accepted opaque state is unchanged.
+  if (pending.state !== undefined) oauthState(pending.state);
+  const code = opaque();
+  const grant: AuthorizationCode = { id: hash(code), clientId: pending.clientId, redirectUri: pending.redirectUri,
+    resource: pending.resource, scopes: pending.scopes, accessMode: 'account', userId, challenge: pending.challenge,
+    expiresAt: Date.now() + ACCESS_LIMITS.codeMs };
+  pending.status = 'approved'; pending.userId = userId; pending.decidedAt = now();
+  await store.put('oauth-code', grant); await store.put('oauth-consent', pending);
+  await store.delete('oauth-email-verification', pending.id);
+  return oauthRedirect(pending.redirectUri, pending.state, issuer, { code });
+}
 export function pairingMetadata(pair: PairingRecord) {
   const { id, sessionId, displayId, deviceName, label, status, createdAt, expiresAt, decidedAt, shareId, requestedInteractive, interactive, grantExpiresAt } = pair;
   return { id, sessionId, displayId, deviceName, label, status, createdAt, expiresAt,selfName:pair.selfName,requestContext:pair.requestContext,failedAttempts:pair.failedAttempts??0,closeReason:pair.closeReason, ...(decidedAt ? { decidedAt } : {}),
@@ -555,7 +580,7 @@ export function mountAccessFlows(app: Express, options: AccessFlowOptions): () =
       const pending = (await consent(body.requestId));
       required((await store.get<OAuthClient>('oauth-client', pending.clientId)), 'This client connection is unavailable.');
       if(body.approve&&(body.accessMode!=='account'||body.sessionIds!==undefined))throw new AppError('INVALID_SCOPE','New connections require explicit account access approval. Existing selected-session grants remain restricted.');
-      if(body.approve&&!pending.deviceCode){const verification=await store.get<{userId:string;browserId:string;expiresAt:number}>('oauth-email-verification',pending.id);if(!verification||verification.userId!==principal.userId||verification.browserId!==principal.browserId||verification.expiresAt<=Date.now())throw new AppError('EMAIL_CONFIRMATION_REQUIRED','Confirm your email for this connection in the original browser.',403);await store.delete('oauth-email-verification',pending.id);}
+      if(body.approve&&!pending.deviceCode){const verification=await store.get<{userId:string;browserId:string;expiresAt:number}>('oauth-email-verification',pending.id);if(!verification||verification.userId!==principal.userId||verification.browserId!==principal.browserId||verification.expiresAt<=Date.now())throw new AppError('EMAIL_CONFIRMATION_REQUIRED','Open the email for this connection and explicitly confirm it.',403);await store.delete('oauth-email-verification',pending.id);}
       pending.userId = principal.userId; pending.decidedAt = now();
       if (!body.approve) {
         pending.status = 'denied'; (await store.put('oauth-consent', pending));

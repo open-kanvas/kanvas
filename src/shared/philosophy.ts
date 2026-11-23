@@ -6,16 +6,10 @@
 
 export const MISSION = [
   'Kanvas is your agent\'s screen. It is a visual surface for people and their agents: any browser, any size, with no intelligence inside; the intelligence lives in the agent.',
-  'You talk or type to your agent, and the relevant thing appears on the screen while you speak: a chart, a checklist, a map, a code snippet, a plan. You react, it changes. The goal is the shortest time to clarity, like working through a problem with a colleague at a whiteboard. Nobody asks permission, nobody narrates the mechanics, and your words get shorter because the detail is already visible. Templates, operations and schemas are how Kanvas is built; this rhythm is what it is.',
+  'You talk or type to your agent, and the relevant thing appears on the screen while you speak: a chart, a checklist, a map, a code snippet, a plan. You react, it changes. The goal is the shortest time to clarity, like working through a problem with a colleague at a whiteboard. The agent follows your lead on pace, avoids narrating the mechanics, and your words get shorter because the detail is already visible. Templates, operations and schemas are how Kanvas is built; this rhythm is what it is.',
   'Our job is to make both the agent and the person reach that rhythm as fast as possible: the right information, at the right moment, with the shortest time to clarity. Get the setup, the feel and the taste right, and Kanvas can be much more than one use case while staying a light, visual surface, never a heavy application.',
 ] as const;
 
-export const TEMPOS = [
-  { id: 'live', pace: 'seconds', text: 'Live session: publish while talking, patch on reaction. This is where taste shows most and where onboarding must land first.' },
-  { id: 'kept-up', pace: 'hours', text: 'Ambient / kept-up: a checklist, a planner, a monitor, a scoreboard that stays current between conversations. Same templates, lower tempo.' },
-  { id: 'static', pace: 'days', text: 'Static / signage: a menu board, opening hours, a sign. An agent sets it once and leaves it. Same surface, slowest tempo.' },
-] as const;
-export const TEMPO_RULES = 'All three share the same rules: no backend intelligence, native templates first, one glanceable beat per view, readable from across a room, works on any screen. A feature that only makes sense as a mini-app, a dashboard product or an orchestration layer is outside the surface regardless of tempo.';
 
 /** Rendering 1, for the person: the first-time ready screen and "what is this". */
 export const HUMAN_INVITATION = {
@@ -24,16 +18,15 @@ export const HUMAN_INVITATION = {
 } as const;
 
 /** Rendering 2, for the agent: returned once on first contact and as help. */
-export const AGENT_CONDUCT = 'Use the screen as you work through a problem with a colleague. When something is easier to see than to say, put it on the screen while you talk, without asking. One idea per view. When the person reacts, patch the view rather than republishing. Keep your spoken words short; the detail is on the screen. Know which tempo you are in: live (change it as you go), kept-up (keep it current), or static (set it and leave it).';
-export const AGENT_RULES = ['Publish proactively.', 'One glanceable beat per view.', 'Patch, don\'t rebuild.'] as const;
+export const AGENT_CONDUCT = 'Show things when they are easier to see than to say. Follow the person’s lead on how proactive to be. One idea per view; patch it when the person reacts. Keep spoken words short when the detail is visible. Save or change the person’s guidance only when they ask; you may reduce repetition for your own connection without asking.';
+export const AGENT_RULES = ['Follow the person’s lead.', 'One glanceable beat per view.', 'Patch, don\'t rebuild.'] as const;
 export const AGENT_EXAMPLE = 'The person says "how do the three options compare?" You publish a comparison and say "on screen; B is cheaper but slower."';
 /** Said once, right after the first successful publish in a session. */
-export const RHYTHM_NUDGE = 'On screen. Keep publishing as you speak; patch this view with kanvas.view.patch when the person reacts.';
+export const RHYTHM_NUDGE = 'On screen. Follow the person’s lead; patch this view with kanvas.view.patch when they ask for a change.';
 
 /** Rendering 3, for whoever changes Kanvas: asked before accepting any change. */
 export const YARDSTICK = [
   'Does it serve the surface rather than add an application?',
-  'At which tempo (live, kept-up, static), and does it fit that tempo?',
   'Does it reduce time to clarity for the agent or the person, or at least not increase it?',
   'Does it keep intelligence on the agent side?',
 ] as const;
@@ -65,19 +58,6 @@ export const THEME_TOKENS = {
   '--kanvas-panel': 'Raised surface behind grouped content.',
   '--kanvas-font': 'The Kanvas text font stack.',
 } as const;
-
-/** One declared tempo per session. Deterministic, never inferred by a model. */
-export const SESSION_MODES = ['live', 'presenting', 'ambient', 'signage'] as const;
-export type SessionMode = typeof SESSION_MODES[number];
-export const MODE_GUIDANCE: Record<SessionMode, string> = {
-  live: 'Live: publish proactively while talking; patch on reaction.',
-  presenting: 'Presenting: stay inside the deck, navigate on cue, add nothing unless asked.',
-  ambient: 'Ambient: refresh on schedule; no unprompted new content.',
-  signage: 'Signage: never publish unprompted; confirm every change.',
-};
-/** Quieter wins a tie: a wrong-quiet guess costs one request, a wrong-loud one redraws a sign. */
-export const MODE_QUIETNESS: Record<SessionMode, number> = { live: 0, presenting: 1, ambient: 2, signage: 3 };
-export const SIGNAGE_PACK = ['menu-board', 'opening-hours', 'closed-sign', 'custom-sign', 'hiring', 'back-at', 'health-notice', 'todays-special', 'signage'] as const;
 
 /** The session -> displays -> devices/windows model in five lines. */
 export const DISPLAY_MODEL = [

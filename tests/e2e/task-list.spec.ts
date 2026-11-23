@@ -54,4 +54,30 @@ test.describe("task list coverage 1", () => {
             await client.close();
         }
     });
+    test('agent disclosure replaces clicked expansion and subtask badges and checkboxes align',async({page,baseURL})=>{
+        const {s,d,viewer}=await setup(page,'Task disclosure'),client=await mcp(page,baseURL!);
+        try{
+            await shown(page,viewer,s,d.id,view('task-list',{highlight:'one',items:[
+                {id:'one',title:'First task',subtasks:[{id:'a',title:'Short',status:'todo'},{id:'b',title:'A much longer title which must wrap without shrinking its checkbox',status:'issue'}]},
+                {id:'two',title:'Second task',detail:'Second task detail'},
+                {id:'three',title:'Third task',detail:'Third task detail'}]}));
+            const root=viewer.locator('.viewer-candidate .task-list'),row=(id:string)=>root.locator('tr[data-task-id="'+id+'"]'),toggle=(id:string)=>row(id).locator('.task-detail-toggle');
+            await expect(toggle('one')).toHaveAttribute('aria-expanded','true');
+            const boxes=await row('one').locator('.task-subtasks .task-box').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {x:r.x,width:r.width,height:r.height};}));
+            expect(boxes).toHaveLength(2);expect(Math.abs(boxes[0].width-boxes[1].width)).toBeLessThan(1);expect(Math.abs(boxes[0].x-boxes[1].x)).toBeLessThan(1);expect(Math.abs(boxes[0].width-boxes[0].height)).toBeLessThan(1);
+            const badges=await row('one').locator('.task-subtask-heading .task-pill').evaluateAll(els=>els.map(el=>el.getBoundingClientRect().right));expect(Math.abs(badges[0]-badges[1])).toBeLessThan(1);
+            const lists=(await use(client,'kanvas.tasklist.read',{sessionId:s})).structured.data,taskListId=lists.taskLists[0].id;
+            let revision=0;const update=async(args:Record<string,unknown>)=>{const result=await use(client,'kanvas.tasklist.update',{sessionId:s,taskListId,requestId:'disclosure-'+(++revision),...args});expect(result.isError).toBe(false);};
+            await toggle('three').click();await expect(toggle('three')).toHaveAttribute('aria-expanded','true');
+            await update({highlight:'two'});await expect(toggle('one')).toHaveAttribute('aria-expanded','false');await expect(toggle('three')).toHaveAttribute('aria-expanded','false');await expect(toggle('two')).toHaveAttribute('aria-expanded','true');
+            await update({collapse:['two']});await expect(toggle('two')).toHaveAttribute('aria-expanded','false');
+            await update({expand:[1,3]});await expect(toggle('one')).toHaveAttribute('aria-expanded','true');await expect(toggle('three')).toHaveAttribute('aria-expanded','true');
+            await update({collapseAll:true});await expect(root.locator('.task-detail-toggle[aria-expanded="true"]')).toHaveCount(0);
+            // A repeated collapse is a fresh command even if stored disclosure was already empty.
+            await toggle('one').click();await expect(toggle('one')).toHaveAttribute('aria-expanded','true');await update({collapseAll:true});await expect(toggle('one')).toHaveAttribute('aria-expanded','false');
+            await update({highlight:'one'});await expect(toggle('one')).toHaveAttribute('aria-expanded','true');
+            const shownAgain=await use(client,'kanvas.tasklist.show',{sessionId:s,taskListId,displayId:d.id,requestId:'show-disclosure'});expect(shownAgain.isError).toBe(false);await expect(toggle('one')).toHaveAttribute('aria-expanded','true');await expect(toggle('two')).toHaveAttribute('aria-expanded','false');
+        }finally{await client.close();}
+    });
+
 });

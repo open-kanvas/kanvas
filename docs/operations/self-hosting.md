@@ -87,7 +87,21 @@ Backups, service units, credentials, host-specific notes and production content 
 
 ## Third-party data and notices
 
-Keep third-party notices when distributing builds, including `public/browser-icons/`. The `geoip-lite` library uses Apache-2.0, but its GeoLite database has separate MaxMind/data terms and update requirements. Check the installed package’s LICENSE and README and the current data provider terms before redistributing a container or updating the database. Do not treat the application’s Apache-2.0 license as a license for those datasets. See [the complete licence index and unresolved rights](../licenses/README.md). Provision any update credentials outside source and command-line arguments.
+Keep third-party notices when distributing builds, including public/browser-icons/ and [the dependency licence index](../licenses/README.md). Runtime picker caches and operator-provided data retain separate terms.
+
+### Optional IP geolocation
+
+Kanvas starts and joins sessions normally without a geolocation database. Location is simply unavailable, never guessed from browser language. No database is bundled or downloaded by the application, and an IP address is never sent to MaxMind for lookup.
+
+To enable coarse location:
+
+1. Create your own free MaxMind account and licence key, and review the [current GeoLite agreement](https://www.maxmind.com/en/geolite/eula). The hosted service and each self-hoster use their own credentials.
+2. Install MaxMind's [GeoIP Update tool](https://dev.maxmind.com/geoip/updating-databases/). Obtain its pre-filled GeoIP.conf from your account; set EditionIDs to GeoLite2-City and an external DatabaseDirectory, such as /var/lib/GeoIP. Keep the configuration and key private and outside this repository, images, logs and command-line arguments.
+3. Run geoipupdate -f /etc/GeoIP.conf, using the operator-owned protected configuration. Give the Kanvas service read access only to the resulting database, not the key. For containers, mount the database directory read-only (directory mounts preserve atomic replacements).
+4. Set KANVAS_GEOLITE_CITY_PATH=/var/lib/GeoIP/GeoLite2-City.mmdb in the service environment. It must be an absolute local path. No key is supplied to Kanvas.
+5. Schedule the updater with your service manager and monitor failures. Kanvas checks for file replacement at most once a minute on lookup. Missing, unreadable or corrupt files yield unavailable location without preventing startup or session use.
+
+The GeoLite agreement (updated February 12, 2026) incorporates CC-BY-SA-4.0 and additional terms. Retain MaxMind attribution and notices. It requires prompt updates and cessation of use/destruction of old versions within 30 days after a new release, and destruction on termination; ensure backups and old release images do not retain database snapshots indefinitely. Do not use approximate IP location to identify a household or individual, or for prohibited eligibility decisions. Review the current agreement before redistributing data; Kanvas's Apache licence does not grant database rights.
 
 ## Console and documentation domains
 

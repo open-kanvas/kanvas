@@ -23,3 +23,7 @@ See the [template index](README.md) and [authoritative schemas](../../src/shared
 ## Month and year overviews
 
 `view: "month"` renders every real day of the supplied month as a Monday-first grid, with exact supplied timezone-aware events in their day cells. `months` shows1–12 months beginning with the supplied date's month, controlled by the optional months field; `year` shows January–December. Optional eventStyle selects detailed/compact events, and a supplied legend can explain source colors. Day and week remain supported. `date`, `timeZone` and `events` are still explicit source fields; no events are inferred from a calendar image. For a genuinely bespoke visual, see [static HTML](html.md).
+
+### Timed multi-day month entries
+
+In planner and calendar month views, a timed event appears on every local calendar day its interval covers, using the view's `timeZone`. The first day shows its start time; later days show a continuation label. An event ending at local midnight does not occupy that end day. Date-only all-day events retain their exclusive-end spanning bars. Busy days keep the existing overflow count rather than silently dropping entries.

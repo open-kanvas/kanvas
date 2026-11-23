@@ -27,11 +27,8 @@ import { validateView } from '../../src/shared/view-schemas.js';
 import { applyResponsePolicy } from '../../src/server/mcp/response-policy.js';
 import { ContactLedger } from '../../src/server/mcp/response-policy.js';
 import { CONTACT_IDLE_MS } from '../../src/server/mcp/response-policy.js';
-import { deriveMode } from '../../src/server/session-mode.js';
-import { AGENT_IDLE_MS } from '../../src/server/session-mode.js';
 import { AGENT_CONDUCT } from '../../src/shared/philosophy.js';
 import { MISSION } from '../../src/shared/philosophy.js';
-import { MODE_GUIDANCE } from '../../src/shared/philosophy.js';
 import { RHYTHM_NUDGE } from '../../src/shared/philosophy.js';
 import { safeError } from '../../src/server/mcp/results.js';
 import { collapseRepeatedIssues } from '../../src/server/input-errors.js';
@@ -64,19 +61,18 @@ describe("response policy coverage 1", () => {
         description: string;
         example?: unknown;
     }[]);
-    describe('0875e953 response policy and session mode (pure rules)', () => {
+    describe('0875e953 response policy (pure rules)', () => {
         const orientation = { guide: { tool: "kanvas.guide" }, viewerLink: 'how to connect a receiver', toolSelection: 'x', recovery: 'y' };
         const guidance = { boundary: 'b', levels: [{ scope: 'user', id: 'user:1', text: 'be proactive', revision: 3 }] };
-        const mode = { current: 'live', source: 'default', guidance: MODE_GUIDANCE.live, set: 'kanvas.session.settings.update' };
-        const run = (ledger: ContactLedger, overrides: Partial<Parameters<typeof applyResponsePolicy>[1]> = {}, structured: Record<string, unknown> = { data: { status: 'accepted', sessionId: 's1' }, orientation }, key = 'conn', at = Date.now()) => applyResponsePolicy(structured, { state: ledger.observe(key, at), context: { mode, displayConnected: true }, guidance, isError: false, operation: "kanvas.submit", sessionId: 's1', ...overrides }).structured!;
-        it('mode is derived from observable facts and the quieter one wins', () => {
-            expect(deriveMode({ templates: ['chart'] })).toEqual({ current: 'live', source: 'default' });
-            expect(deriveMode({ templates: ['presentation', 'chart'] })).toEqual({ current: 'presenting', source: 'template' });
-            expect(deriveMode({ templates: ['presentation', 'menu-board'] })).toEqual({ current: 'signage', source: 'template' });
-            expect(deriveMode({ templates: ['presentation'], idle: 'ambient' })).toEqual({ current: 'ambient', source: 'agent-idle' });
-            expect(deriveMode({ templates: ['opening-hours'], idle: 'ambient' })).toEqual({ current: 'signage', source: 'template' });
-            expect(deriveMode({ explicit: 'live', templates: ['signage'], idle: 'ambient' })).toEqual({ current: 'live', source: 'explicit' });
-            expect(AGENT_IDLE_MS).toBe(30 * 60000);
+        const run = (ledger: ContactLedger, overrides: Partial<Parameters<typeof applyResponsePolicy>[1]> = {}, structured: Record<string, unknown> = { data: { status: 'accepted', sessionId: 's1' }, orientation }, key = 'conn', at = Date.now()) => applyResponsePolicy(structured, { state: ledger.observe(key, at), context: { displayConnected: true }, guidance, isError: false, operation: "kanvas.submit", sessionId: 's1', ...overrides }).structured!;
+        it('session modes and tempo help are absent from public contracts', () => {
+            expect(CANONICAL_TOOLS.find(t => t.name === 'kanvas.session.create')!.schema.safeParse({name:'Topic',mode:'live'}).success).toBe(false);
+            expect(CANONICAL_TOOLS.find(t => t.name === 'kanvas.config.update')!.schema.safeParse({sessionId:'s',mode:'signage'}).success).toBe(false);
+            expect(CANONICAL_TOOLS.find(t => t.name === 'kanvas.config.update')!.schema.safeParse({sessionId:'s'}).success).toBe(false);
+            expect(helpCatalog().some(t => t.id === 'kanvas.help.modes')).toBe(false);
+            expect(AGENT_CONDUCT).toContain('Follow the person’s lead');
+            expect(AGENT_CONDUCT).not.toMatch(/tempo|without asking\. One/);
+            expect(JSON.stringify(HELP_PAGES.philosophy)).not.toContain('three tempos');
         });
     });
     describe('server behaviour behind the exposure reports', () => {
@@ -90,24 +86,23 @@ describe("response policy coverage 1", () => {
         const call = (name: string, args: Record<string, unknown> = {}, principal = p) => h.runtime.service.execute(name, args, principal) as Promise<any>;
         /** A real connection: its token exists, so account checks pass exactly as for an MCP client. */
         const agentPrincipal = async (name: string) => { const { token } = await h.runtime.auth.issueToken(p.userId, name, ['read', 'publish']); return { userId: p.userId, agentId: token.agentId, tokenId: token.id }; };
-        it('f7374ccd / 0875e953: session.state is light by default and carries mode and the manage map', async () => {
+        it('f7374ccd / 0875e953: session.state is light by default and carries the manage map without mode', async () => {
             for (let i = 0; i < 8; i++)
                 await o.submit(s, [d], { version: 1, template: 'fact', data: { text: `Fact ${i}` } } as never);
             const state = await call("kanvas.session.state", { sessionId: s });
             expect(state.updates).toHaveLength(5);
             expect(state.counts).toMatchObject({ updates: 8, displays: 1 });
-            expect(state.mode).toMatchObject({ current: 'live', source: 'default', guidance: MODE_GUIDANCE.live });
+            expect(state).not.toHaveProperty('mode');
             expect(state.manage.displays.change).toContain('kanvas.display.register');
             expect((await call("kanvas.session.state", { sessionId: s, includeUpdates: 'all' })).updates).toHaveLength(8);
-            // Explicit mode, without touching settings; then the deterministic default again.
-            const set = await call("kanvas.config.update", { sessionId: s, mode: 'signage' });
-            expect(set.mode).toMatchObject({ current: 'signage', source: 'explicit' });
-            expect((await call("kanvas.session.state", { sessionId: s })).mode.current).toBe('signage');
-            expect((await call("kanvas.config.update", { sessionId: s, mode: 'auto' })).mode).toMatchObject({ current: 'live', source: 'default' });
+            await expect(call('kanvas.config.update', {sessionId:s,mode:'signage'})).rejects.toThrow();
+            expect(await call('kanvas.session.state', {sessionId:s})).not.toHaveProperty('mode');
+            await expect(call('kanvas.config.update', {sessionId:s,mode:'auto'})).rejects.toThrow();
             await o.submit(s, [d], { version: 1, template: 'opening-hours', data: (await import('../../src/shared/template-examples.js')).samples['opening-hours'].data } as never);
-            expect((await call("kanvas.session.state", { sessionId: s })).mode).toMatchObject({ current: 'signage', source: 'template' });
-            const created = await call("kanvas.session.create", { name: 'Wall board', mode: 'ambient', initialDisplay: false });
-            expect(created.mode).toMatchObject({ current: 'ambient', source: 'explicit' });
+            expect(await call('kanvas.session.state', {sessionId:s})).not.toHaveProperty('mode');
+            const created = await call('kanvas.session.create', {name:'Wall board',initialDisplay:false});
+            expect(created).not.toHaveProperty('mode');
+            await expect(call('kanvas.session.create', {name:'Old mode',mode:'ambient'})).rejects.toThrow();
         });
     });
 });

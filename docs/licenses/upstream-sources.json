@@ -1,0 +1,17 @@
+[
+  {
+    "item": "saxes@6.0.0",
+    "url": "https://raw.githubusercontent.com/lddubeau/saxes/v6.0.0/LICENSE",
+    "sha256": "0fac2374380621b22e6b50451057721a9c52935b02d16d106a9f04897f061d0e"
+  },
+  {
+    "item": "http_ece@1.2.0",
+    "url": "https://raw.githubusercontent.com/martinthomson/encrypted-content-encoding/v1.2.0/LICENSE",
+    "sha256": "717363ac0c7f0883042868db171cfed1f4b423119249eac9bce5131291017ea8"
+  },
+  {
+    "item": "KaTeX-fonts",
+    "url": "https://raw.githubusercontent.com/KaTeX/katex-fonts/master/LICENSE",
+    "sha256": "a7bd44abd8419bf78185be51f34216356af1adb0806ce39d6a9ca0940bd49b70"
+  }
+]

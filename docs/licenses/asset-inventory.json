@@ -1,0 +1,719 @@
+{
+  "scope": "All tracked public resources, geography and media asset extensions; excludes untracked install/build output",
+  "files": [
+    {
+      "path": "docs/images/024.png",
+      "group": "Documentation screenshots \u2014 depicted media rights unverified",
+      "bytes": 122199,
+      "sha256": "23818513bb5ba8d8d29af2344599761bf9c1fd12fc2237b3e093bef773420502"
+    },
+    {
+      "path": "docs/images/033.png",
+      "group": "Documentation screenshots \u2014 depicted media rights unverified",
+      "bytes": 106834,
+      "sha256": "181475610bc0cb4a2dc0e520ac06b1d837d255639557ccf5b56d88458838fab5"
+    },
+    {
+      "path": "docs/images/052.png",
+      "group": "Documentation screenshots \u2014 depicted media rights unverified",
+      "bytes": 101756,
+      "sha256": "c2069cf654a28bf2ef8575d0983916615d278dd86ef91d2af2b3748c0a1acce4"
+    },
+    {
+      "path": "docs/images/054.png",
+      "group": "Documentation screenshots \u2014 depicted media rights unverified",
+      "bytes": 76194,
+      "sha256": "3da785f56b3259074c8b254e7d5a2c4cb8ea67e3594ef88a9c051d1629b8fa02"
+    },
+    {
+      "path": "public/boot-check.js",
+      "group": "Application-authored public resource; no external provenance identified",
+      "bytes": 2148,
+      "sha256": "6bb5fe39e7e5b59f2200e709b8f203fc2151fd801556bd90b021fa7bcb1e97b5"
+    },
+    {
+      "path": "public/brand/README.md",
+      "group": "Kanvas trademark",
+      "bytes": 738,
+      "sha256": "96d67d96fef6d332b54e8f6c76b82b404468f725a5c30bb994f58be42b537b6a"
+    },
+    {
+      "path": "public/brand/kanvas-logo-black.svg",
+      "group": "Kanvas trademark",
+      "bytes": 4081,
+      "sha256": "5d0ae94a3554e1ebafc3fe2c2890faf17d98e2448d287d5e563db9097060f840"
+    },
+    {
+      "path": "public/brand/kanvas-logo-email.png",
+      "group": "Kanvas trademark",
+      "bytes": 7272,
+      "sha256": "eb2a8ce0d23d3ac1baab01e833ce30ceb456ee9eedfc29a091cee555acbe71a4"
+    },
+    {
+      "path": "public/brand/kanvas-logo-white.svg",
+      "group": "Kanvas trademark",
+      "bytes": 4081,
+      "sha256": "0a8637ea6b4052ce91c38a2aacf1da47f5eb8700017ddcae413b76daf4a146e0"
+    },
+    {
+      "path": "public/brand/kanvas-mark-black.svg",
+      "group": "Kanvas trademark",
+      "bytes": 600,
+      "sha256": "c956cb9817fa1b4db7025ac750d4da90180656a198a2aa24d9bd3c0e243930b1"
+    },
+    {
+      "path": "public/brand/kanvas-mark-white.svg",
+      "group": "Kanvas trademark",
+      "bytes": 600,
+      "sha256": "58ec18b938a467bbae981c80fdf179b6b8d1c8c27fff564abe5b92a9b5b52730"
+    },
+    {
+      "path": "public/brand/kanvas-social.png",
+      "group": "Kanvas trademark",
+      "bytes": 16514,
+      "sha256": "435f66595db901810fdc2087bd3cf2ea81a0760cbdaf21f4097f6e004982b0cb"
+    },
+    {
+      "path": "public/browser-icons/LICENSE.txt",
+      "group": "Browser logos",
+      "bytes": 1055,
+      "sha256": "a8fa11ef7da0447b701294ffa4c9649670f33bd727ceac0ac47f7e0cce4087c4"
+    },
+    {
+      "path": "public/browser-icons/NOTICE.txt",
+      "group": "Browser logos",
+      "bytes": 267,
+      "sha256": "8d264810083e3287d9376efbd703563926ed848c06dcf06333b2c5a3f56960d8"
+    },
+    {
+      "path": "public/browser-icons/chrome.svg",
+      "group": "Browser logos",
+      "bytes": 1065,
+      "sha256": "98045c791131de00b7c81c5e4bd1ce686891661c0e2c821d588c351a5add919d"
+    },
+    {
+      "path": "public/browser-icons/edge.svg",
+      "group": "Browser logos",
+      "bytes": 2886,
+      "sha256": "3b6f52dce2b57af664b63dadb3b61efd5a896fb0f98abe5d85fe312fa6a93228"
+    },
+    {
+      "path": "public/browser-icons/firefox.svg",
+      "group": "Browser logos",
+      "bytes": 7488,
+      "sha256": "3f3742d1e78c0db6c2d3531250f70c30675ee5310de32fa89befaf738c54efd0"
+    },
+    {
+      "path": "public/browser-icons/opera.svg",
+      "group": "Browser logos",
+      "bytes": 1020,
+      "sha256": "c44ee714df96334b0c31509841b156e920b45549b392a40e255f63e5b5fca383"
+    },
+    {
+      "path": "public/browser-icons/safari.svg",
+      "group": "Browser logos",
+      "bytes": 5254,
+      "sha256": "80fd72ca5eb8545f1981277b31f4f92951d469d4efebd078e4086b676fe517dc"
+    },
+    {
+      "path": "public/browser-icons/sources.json",
+      "group": "Browser logos",
+      "bytes": 1092,
+      "sha256": "30718687fbf906bdc46b5284666401a11af74b4085492d5432bad7a7a3e121f4"
+    },
+    {
+      "path": "public/favicon-16.png",
+      "group": "Kanvas trademark",
+      "bytes": 341,
+      "sha256": "fa1beacdb3496766b695cc6e9d16e8c7023d0ab09aaa4975754a749aaba90280"
+    },
+    {
+      "path": "public/favicon-32.png",
+      "group": "Kanvas trademark",
+      "bytes": 657,
+      "sha256": "4f30a8769c140a385eeeb752a9b379a078989c632949807795e87c76f7b5bab2"
+    },
+    {
+      "path": "public/favicon-48.png",
+      "group": "Kanvas trademark",
+      "bytes": 938,
+      "sha256": "8857bea730cf0f5cc0e36366a35d61a022aff57dc7fabe922081d54729e3e59c"
+    },
+    {
+      "path": "public/favicon.ico",
+      "group": "Kanvas trademark",
+      "bytes": 1990,
+      "sha256": "5c72bbfeb7f1595c71f4ce980cc20139268f099d74ec501d8e8a3162d7ed536b"
+    },
+    {
+      "path": "public/favicon.svg",
+      "group": "Kanvas trademark",
+      "bytes": 680,
+      "sha256": "61337d2fce6bf3d19de3e930f387ad0230d0863884833b20a9d963f31dae8a02"
+    },
+    {
+      "path": "public/fonts/Inter-OFL.txt",
+      "group": "Local fonts",
+      "bytes": 4377,
+      "sha256": "5b9321a4298cfeb6b34354164a1c3afc3db114569984c502b9b35d988fd58c57"
+    },
+    {
+      "path": "public/fonts/Inter-Regular-Variable.ttf",
+      "group": "Local fonts",
+      "bytes": 876576,
+      "sha256": "29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031"
+    },
+    {
+      "path": "public/fonts/PatrickHand-OFL.txt",
+      "group": "Local fonts",
+      "bytes": 4376,
+      "sha256": "377f4f9c19e935228552478eb68cc2ed82910988a60ba60e2ac73b09f32d02d1"
+    },
+    {
+      "path": "public/fonts/PatrickHand-Regular.ttf",
+      "group": "Local fonts",
+      "bytes": 214772,
+      "sha256": "0f173b3e6cb6d1af25babf7f0057c5ac4ee11f9992b0469bb817e967ef4ad0fc"
+    },
+    {
+      "path": "public/fonts/README.txt",
+      "group": "Local fonts",
+      "bytes": 524,
+      "sha256": "f2134cf269ba535707aadce9f7508d8d143f5d7a76773ad9df3790c5dc7facea"
+    },
+    {
+      "path": "public/geography-NOTICE.txt",
+      "group": "Natural Earth",
+      "bytes": 5603,
+      "sha256": "19f88db4a761bad80271dfd011245d6285685b38a7012809cd2c5059abdd5ba4"
+    },
+    {
+      "path": "public/icons/apple-touch-icon.png",
+      "group": "Kanvas trademark",
+      "bytes": 3223,
+      "sha256": "5222d5a2c38ffe5b2e209784381cfb4a9bc47a6494fad8dca213cfa02ed4c5f3"
+    },
+    {
+      "path": "public/icons/kanvas-192.png",
+      "group": "Kanvas trademark",
+      "bytes": 3406,
+      "sha256": "22d93e8a5c9a1b6afb57cd30102197458a4dcaf300ffe0ef67d77bdd11083ca5"
+    },
+    {
+      "path": "public/icons/kanvas-512.png",
+      "group": "Kanvas trademark",
+      "bytes": 9474,
+      "sha256": "acb7798d75d967b4f5cdbcdcad2e10b49390125823ae58841b4cb64e268e4517"
+    },
+    {
+      "path": "public/icons/kanvas-maskable-512.png",
+      "group": "Kanvas trademark",
+      "bytes": 9474,
+      "sha256": "acb7798d75d967b4f5cdbcdcad2e10b49390125823ae58841b4cb64e268e4517"
+    },
+    {
+      "path": "public/manifest.webmanifest",
+      "group": "Application-authored public resource; no external provenance identified",
+      "bytes": 634,
+      "sha256": "efe64e297eeaec02cfe8963c5fe3f53b0b81f5d51d98b1d890d4afd792ff94af"
+    },
+    {
+      "path": "public/offline.html",
+      "group": "Application-authored public resource; no external provenance identified",
+      "bytes": 646,
+      "sha256": "fd539bf9edcb5883074a29a9c721fc4205689293ed1c8ed9e4b592ad023c9f1b"
+    },
+    {
+      "path": "public/scene-assets/THREE-LICENSE.txt",
+      "group": "Kenney scene assets / Three tooling",
+      "bytes": 1081,
+      "sha256": "8b378ebe60e2fe500158cb0ac71cb5e8b7d92953c2abcc63a0eb90499653b5bc"
+    },
+    {
+      "path": "public/scene-assets/boat-fan.glb",
+      "group": "Kenney scene assets / Three tooling",
+      "bytes": 40036,
+      "sha256": "7d84a1f01be34ad8de63b133784a4ccd8e576e080eb7920ee9bee577956a21af"
+    },
+    {
+      "path": "public/scene-assets/boat-fishing-small.glb",
+      "group": "Kenney scene assets / Three tooling",
+      "bytes": 31820,
+      "sha256": "b4238f6b78d4c0f7a1bb5eeb98645ffc47019f8fcf5a61380aea34c02639ec3a"
+    },
+    {
+      "path": "public/scene-assets/boat-sail-a.glb",
+      "group": "Kenney scene assets / Three tooling",
+      "bytes": 44144,
+      "sha256": "fcd853ffc993bea966d1229f30f5e8db14d3147ff042b00f7b2e5519f86f4be6"
+    },
+    {
+      "path": "public/scene-assets/car-kit-LICENSE.txt",
+      "group": "Kenney scene assets / Three tooling",
+      "bytes": 696,
+      "sha256": "c33b7f6453d134deae7b1b8493717d9ccfa754c25ab97f6de89b88f8fda19b00"
+    },
+    {
+      "path": "public/scene-assets/debris-bolt.glb",
+      "group": "Kenney scene assets / Three tooling",
+      "bytes": 17196,
+      "sha256": "41628f01eddb116e03e4b802a4e4fcb8f0cab0623e71bc231cb94b146114a24d"
+    },
+    {
+      "path": "public/scene-assets/debris-drivetrain-axle.glb",
+      "group": "Kenney scene assets / Three tooling",
+      "bytes": 31164,
+      "sha256": "d85540c6336f3177f2c80a25725a25cb10a48767fd671003ac35a7fe43eb9349"
+    },
+    {
+      "path": "public/scene-assets/debris-drivetrain.glb",
+      "group": "Kenney scene assets / Three tooling",
+      "bytes": 49320,
+      "sha256": "617e76cf51dbf1a3e73889550e73de57185a2c56ec340a2da04ee531522bae76"
+    },
+    {
+      "path": "public/scene-assets/manifest.json",
+      "group": "Kenney scene assets / Three tooling",
+      "bytes": 13570,
+      "sha256": "9228c89b3ba81256f6e31bcc76c5e4545dfadaeac913733e3841975b981018ad"
+    },
+    {
+      "path": "public/scene-assets/sedan.glb",
+      "group": "Kenney scene assets / Three tooling",
+      "bytes": 184600,
+      "sha256": "df2ffacd38e02e3053d1ccafc4dc48d044de3ae762920a3815edbfe7ed455be5"
+    },
+    {
+      "path": "public/scene-assets/watercraft-kit-LICENSE.txt",
+      "group": "Kenney scene assets / Three tooling",
+      "bytes": 717,
+      "sha256": "f5f520f81277128fb422aebe334d2f08e6d8e5f7face6008885d8ff920253724"
+    },
+    {
+      "path": "public/scene-assets/wheel-default.glb",
+      "group": "Kenney scene assets / Three tooling",
+      "bytes": 39248,
+      "sha256": "66bbe0892c7feb49ae7dc8d1bdaa0d8cebe61cb4f420a327c74a047c156706b0"
+    },
+    {
+      "path": "public/signage/LICENSE-APACHE-2.0.txt",
+      "group": "Material Symbols",
+      "bytes": 11357,
+      "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+    },
+    {
+      "path": "public/signage/NOTICE.txt",
+      "group": "Material Symbols",
+      "bytes": 329,
+      "sha256": "afe3c1e7c22fe587bbf862e8434d2cd910844426713b75f462d0435f558b2d68"
+    },
+    {
+      "path": "public/signage/accessible.svg",
+      "group": "Material Symbols",
+      "bytes": 535,
+      "sha256": "e4d9275abcac6817958523ba21855f80f2ef5d7a26a6a06119b5e7ebcc5ec2a5"
+    },
+    {
+      "path": "public/signage/baby_changing_station.svg",
+      "group": "Material Symbols",
+      "bytes": 549,
+      "sha256": "5a86a356ec5688eec1bf3239fd0c2dfa23a0e9033ef8cd04be7a079e0d7bb8fe"
+    },
+    {
+      "path": "public/signage/badge.svg",
+      "group": "Material Symbols",
+      "bytes": 654,
+      "sha256": "3a96667aca77f0dda0bcd0179cfcf3cb2ea461a11069382660bb70976bf2a5c2"
+    },
+    {
+      "path": "public/signage/bed.svg",
+      "group": "Material Symbols",
+      "bytes": 495,
+      "sha256": "38ee965d0eedda086e8247e3f16d5247f81b4c4dcaec5d4ae0b8a2c099fdc5bd"
+    },
+    {
+      "path": "public/signage/broadcast_on_home.svg",
+      "group": "Material Symbols",
+      "bytes": 835,
+      "sha256": "8cf95db8d6ab43aa098d134d3a89cbdf9966b359f04ad9987ba2f3c117df100e"
+    },
+    {
+      "path": "public/signage/build.svg",
+      "group": "Material Symbols",
+      "bytes": 508,
+      "sha256": "50ee5a9864ac7c63d533c28c2f05ddb3195e49f1e9a955e642c8fa273940e113"
+    },
+    {
+      "path": "public/signage/chair.svg",
+      "group": "Material Symbols",
+      "bytes": 662,
+      "sha256": "1a677935156af22bd8425d2723a62ba6e71a9561cffb754d19afb936194e29bc"
+    },
+    {
+      "path": "public/signage/cleaning_services.svg",
+      "group": "Material Symbols",
+      "bytes": 510,
+      "sha256": "72755942e54369842f6dc35c09d3111cd68a2a61f37f0370e9fd4eca07e78f7b"
+    },
+    {
+      "path": "public/signage/confirmation_number.svg",
+      "group": "Material Symbols",
+      "bytes": 763,
+      "sha256": "02251f788a6637bd9b066768dda697711fce7315f4f6c7b48747a41f797a1595"
+    },
+    {
+      "path": "public/signage/credits.html",
+      "group": "Material Symbols",
+      "bytes": 26442,
+      "sha256": "96392f8dfe9499ef7059224bc5c947b25f8f53737acc606a93e82d3467286cbc"
+    },
+    {
+      "path": "public/signage/dark_mode.svg",
+      "group": "Material Symbols",
+      "bytes": 426,
+      "sha256": "b45f29f9b3268bb674a00c025b619292e36a86e6dc6b28851f954763d943eca7"
+    },
+    {
+      "path": "public/signage/delete.svg",
+      "group": "Material Symbols",
+      "bytes": 300,
+      "sha256": "ec75e756af4e37a926a2f64ef8f59eac85276a658fc8a7aef0cc12c5e871e971"
+    },
+    {
+      "path": "public/signage/desk.svg",
+      "group": "Material Symbols",
+      "bytes": 208,
+      "sha256": "b7c23a92ec2887641f5faa6d0e507b6dbdc5d09d48c994eb961da1d7c4f17035"
+    },
+    {
+      "path": "public/signage/directions_bike.svg",
+      "group": "Material Symbols",
+      "bytes": 813,
+      "sha256": "633982d2900f25a111b41e1da3d4c88918d625a8d6499e0e3f186bd7a30e57bc"
+    },
+    {
+      "path": "public/signage/directions_car.svg",
+      "group": "Material Symbols",
+      "bytes": 573,
+      "sha256": "8f0a18a0a7a8ad65529fef7917a4aa7fdd4e9a7de784578c744e26cb6f3be2f1"
+    },
+    {
+      "path": "public/signage/directions_walk.svg",
+      "group": "Material Symbols",
+      "bytes": 386,
+      "sha256": "bc0c074e23c643d93f61f85546abd0385ccd98d851dd71081f698e01e732c967"
+    },
+    {
+      "path": "public/signage/do_not_disturb_on.svg",
+      "group": "Material Symbols",
+      "bytes": 415,
+      "sha256": "f7975bf9ff92cee5e091b46d92c63d3d416730be39a3f3863029679135010330"
+    },
+    {
+      "path": "public/signage/electric_scooter.svg",
+      "group": "Material Symbols",
+      "bytes": 640,
+      "sha256": "c6e011f03f9b9f951cb3f31715b42a82f3bc3624070c2e22a8ea83b2dac4582a"
+    },
+    {
+      "path": "public/signage/elevator.svg",
+      "group": "Material Symbols",
+      "bytes": 509,
+      "sha256": "57faad59a87fad5763d187e7c8eebd4be52143eff9d7eadc04ed72af744a27e5"
+    },
+    {
+      "path": "public/signage/event_seat.svg",
+      "group": "Material Symbols",
+      "bytes": 459,
+      "sha256": "cfa55ec65f2ffcfb87890d4e1add3d2edb92a2231a0accedd51e2b2dc4e16afe"
+    },
+    {
+      "path": "public/signage/fitness_center.svg",
+      "group": "Material Symbols",
+      "bytes": 294,
+      "sha256": "f462a82945b7e1e8bd71d5d85fd69c17c5bbd65b34ea694dd2919e39a4cc972e"
+    },
+    {
+      "path": "public/signage/flash_on.svg",
+      "group": "Material Symbols",
+      "bytes": 211,
+      "sha256": "d426d00c5dcdead622fb0eef8369770d743dee416b73059a658eeb1139413874"
+    },
+    {
+      "path": "public/signage/garage.svg",
+      "group": "Material Symbols",
+      "bytes": 676,
+      "sha256": "85f6d42e62113ca6a8b5d5bfc4ae340623aeae15bd943e612993920d1f40e41d"
+    },
+    {
+      "path": "public/signage/groups.svg",
+      "group": "Material Symbols",
+      "bytes": 812,
+      "sha256": "6b4d11047122bc3fb3ba8224281c6a7c9a751d9b8607e84542f9163a14dbfe67"
+    },
+    {
+      "path": "public/signage/home.svg",
+      "group": "Material Symbols",
+      "bytes": 224,
+      "sha256": "41735f056fa43ed570585a294210f4c32dad1481bdf0a617b86b1007b2a8a913"
+    },
+    {
+      "path": "public/signage/hourglass_empty.svg",
+      "group": "Material Symbols",
+      "bytes": 388,
+      "sha256": "88b87112cb06f9bd15a2fd87d1297f7f7d6ecd2be300ab7ae4f3f8dde180bba6"
+    },
+    {
+      "path": "public/signage/info.svg",
+      "group": "Material Symbols",
+      "bytes": 516,
+      "sha256": "33c77c7a4f193445d0136b970ad4b5a80ba8cc340603465d4cb46a1f8abec4ec"
+    },
+    {
+      "path": "public/signage/key.svg",
+      "group": "Material Symbols",
+      "bytes": 471,
+      "sha256": "395a811db6f02319a9ad7ffffb2f34693fcbd5bd0e88ed519ac98e33c5e3de1c"
+    },
+    {
+      "path": "public/signage/list_alt.svg",
+      "group": "Material Symbols",
+      "bytes": 633,
+      "sha256": "265561870efe3c62cba92e0ae9617ccf8f21f8780c70bc29c6bb191239c09c63"
+    },
+    {
+      "path": "public/signage/local_bar.svg",
+      "group": "Material Symbols",
+      "bytes": 232,
+      "sha256": "852df084032d1a760082bd86aacefe4bea2905da27f693154bd98d8c77052a8e"
+    },
+    {
+      "path": "public/signage/local_cafe.svg",
+      "group": "Material Symbols",
+      "bytes": 366,
+      "sha256": "c203b85663aa67b693b2ae70fbcb716b107d2c4fbc1e8f31085d7b8d6e4ede1b"
+    },
+    {
+      "path": "public/signage/local_parking.svg",
+      "group": "Material Symbols",
+      "bytes": 244,
+      "sha256": "edc2d006abb646c96eb493b2bcbbee1e05fba9d550afa56d32e4d87d70305456"
+    },
+    {
+      "path": "public/signage/luggage.svg",
+      "group": "Material Symbols",
+      "bytes": 475,
+      "sha256": "d00232fb58193cb8a2379f371a638d44ad396b9194891ca8a83e76316ea60408"
+    },
+    {
+      "path": "public/signage/man.svg",
+      "group": "Material Symbols",
+      "bytes": 295,
+      "sha256": "52091f6a2d8a151291463ad0f0f7b4d8624c61bf1759ca6a851b3d2f29d514e5"
+    },
+    {
+      "path": "public/signage/manifest.json",
+      "group": "Material Symbols",
+      "bytes": 89039,
+      "sha256": "cddfc731ff42401cb350d4d5ac1f54ddaba10ec98c27550ab78eec22371703a1"
+    },
+    {
+      "path": "public/signage/map.svg",
+      "group": "Material Symbols",
+      "bytes": 377,
+      "sha256": "a49ef8ee004dc4832a4bbe64fce0a054c0b90cb4246422c09cc234278788049b"
+    },
+    {
+      "path": "public/signage/music_note.svg",
+      "group": "Material Symbols",
+      "bytes": 218,
+      "sha256": "f02c77bc518ba3f6369e5788569a08100fbebf268031ff1a5a0e5eb66656f281"
+    },
+    {
+      "path": "public/signage/notifications.svg",
+      "group": "Material Symbols",
+      "bytes": 368,
+      "sha256": "f6e1380c76f85851dbeafde7f8eb106c799d72232cd046bf30fabae4f0a0c821"
+    },
+    {
+      "path": "public/signage/package_2.svg",
+      "group": "Material Symbols",
+      "bytes": 418,
+      "sha256": "f636ce667107594fc2d23116122bfe1247d6a6faed34cb6732425f43913bebb9"
+    },
+    {
+      "path": "public/signage/pets.svg",
+      "group": "Material Symbols",
+      "bytes": 638,
+      "sha256": "36de9fdf4f0dd9b9df0240bd3a88ad26a648bfbffe8fd53caf1de4a8f4114fb9"
+    },
+    {
+      "path": "public/signage/photo_camera.svg",
+      "group": "Material Symbols",
+      "bytes": 481,
+      "sha256": "2f0c1c7f53a7110db7efb824db4b9413253a242f1d87846f0069fc281bdedf27"
+    },
+    {
+      "path": "public/signage/pool.svg",
+      "group": "Material Symbols",
+      "bytes": 841,
+      "sha256": "93be8fe890eea81d0e99a074ee9b570e190d798ada9c4197deca7684b88990f7"
+    },
+    {
+      "path": "public/signage/radio_button_checked.svg",
+      "group": "Material Symbols",
+      "bytes": 496,
+      "sha256": "c6b22c59017880bfa2341098a879cee92bc9a4d5ac3f518bcd21def404aa980f"
+    },
+    {
+      "path": "public/signage/restaurant.svg",
+      "group": "Material Symbols",
+      "bytes": 266,
+      "sha256": "5b93a8c25a34c244cfb8894746ba90664cf2bb4639f97a0b5f7613e4a86d1159"
+    },
+    {
+      "path": "public/signage/roller_skating.svg",
+      "group": "Material Symbols",
+      "bytes": 926,
+      "sha256": "b0b70ee0c6d24565321b3bd3774faceb9d120f3940b980a3dbae496243ea6c23"
+    },
+    {
+      "path": "public/signage/schedule.svg",
+      "group": "Material Symbols",
+      "bytes": 454,
+      "sha256": "6b6606472e4d807e4b2afc8cd667a48fa634341d44487580a7b350f8dd790170"
+    },
+    {
+      "path": "public/signage/skateboarding.svg",
+      "group": "Material Symbols",
+      "bytes": 758,
+      "sha256": "469b642c7f29e827fda5aacee1e16a6daf0b028171bb4c45290825b250963edb"
+    },
+    {
+      "path": "public/signage/smartphone.svg",
+      "group": "Material Symbols",
+      "bytes": 315,
+      "sha256": "adce120934460969df08130c181f6f23012fe9577839032ffdefb1ad2f2519ee"
+    },
+    {
+      "path": "public/signage/smoking_rooms.svg",
+      "group": "Material Symbols",
+      "bytes": 454,
+      "sha256": "6af48727fa32ecf07dd4e1507e5287405c5279f2c741c65fe7ac07180ba6cbd4"
+    },
+    {
+      "path": "public/signage/spa.svg",
+      "group": "Material Symbols",
+      "bytes": 612,
+      "sha256": "6b07373490021813a0500456d10582f53731320f11d7bd0df66a3423001ebfc4"
+    },
+    {
+      "path": "public/signage/stairs.svg",
+      "group": "Material Symbols",
+      "bytes": 337,
+      "sha256": "5c198e1591ae234b9706c9b08ee6199bb80a8a2ad17828c259ebd6e1dae67948"
+    },
+    {
+      "path": "public/signage/touch_app.svg",
+      "group": "Material Symbols",
+      "bytes": 568,
+      "sha256": "0d32214a771e436a8b073ca310484cd3121a97168ac57e3af2a721c7f3025856"
+    },
+    {
+      "path": "public/signage/videocam.svg",
+      "group": "Material Symbols",
+      "bytes": 285,
+      "sha256": "c08eb2f9cabf43eda0aed18b7f928ea8a29118259342d262d2639d414120e233"
+    },
+    {
+      "path": "public/signage/volume_off.svg",
+      "group": "Material Symbols",
+      "bytes": 476,
+      "sha256": "196492ec299a22b1a7fe38840bf99cd3e1c04359e3a567234cc342508c90f53c"
+    },
+    {
+      "path": "public/signage/wc.svg",
+      "group": "Material Symbols",
+      "bytes": 483,
+      "sha256": "34b22b708b5769e573f23fa5fae779bd3ddbd7a74010a724c3d8ddc42389c756"
+    },
+    {
+      "path": "public/signage/wifi.svg",
+      "group": "Material Symbols",
+      "bytes": 414,
+      "sha256": "dc8d418b687726a857da5e718046d410d378c829d96231149cdf358c1851396b"
+    },
+    {
+      "path": "public/signage/woman.svg",
+      "group": "Material Symbols",
+      "bytes": 287,
+      "sha256": "6411fb7f96c0143dbddb048175bc8b83d0457f6cc19da93c120ab5d36be320da"
+    },
+    {
+      "path": "public/sw.js",
+      "group": "Application-authored public resource; no external provenance identified",
+      "bytes": 4561,
+      "sha256": "87434d6c5250540eacdb87a3d85cc6157094700cc7953f7993420aec0bc48e86"
+    },
+    {
+      "path": "src/shared/geography/LICENSE.md",
+      "group": "Natural Earth",
+      "bytes": 4636,
+      "sha256": "2631b5b39b6d1acc56de75235109b5af2dbb4b0ac5a127b6f06185977247fd4b"
+    },
+    {
+      "path": "src/shared/geography/README.md",
+      "group": "Natural Earth",
+      "bytes": 1046,
+      "sha256": "94de0aca34cd711ababbf2b4dae4578e34f02edb9b192c1c86033e95d284625f"
+    },
+    {
+      "path": "src/shared/geography/boundaries.json",
+      "group": "Natural Earth",
+      "bytes": 303810,
+      "sha256": "4ec663f8693674437c3f6a300a54865a4f16ca4e196d91f69a7696c053f1dcb2"
+    },
+    {
+      "path": "src/shared/geography/codes.ts",
+      "group": "Natural Earth",
+      "bytes": 5047,
+      "sha256": "917fdb95f13d14e168ca6156b3d2a468f19bd8cfe2f424b4aac507a397111dc7"
+    },
+    {
+      "path": "src/shared/geography/points.ts",
+      "group": "Natural Earth",
+      "bytes": 1135,
+      "sha256": "6e91cbcbc0e79982aad77533f3a91d5b82fcabdb96f9eb7e2957765b3338e5f7"
+    },
+    {
+      "path": "tests/fixtures/feedback-plot.png",
+      "group": "Application-authored public resource; no external provenance identified",
+      "bytes": 407,
+      "sha256": "3b0d21b7065fb4791ecfb9cc7a1ca2f33dc2e814a763c6964c8e54808a566de5"
+    },
+    {
+      "path": "tests/rendering/fixtures/sample.gif",
+      "group": "Sample media \u2014 provenance unresolved",
+      "bytes": 68,
+      "sha256": "2944f56d8c70f21b0c104ebe0555f3c8054a6d033ee5dbb2b79998081ead839d"
+    },
+    {
+      "path": "tests/rendering/fixtures/sample.jpg",
+      "group": "Sample media \u2014 provenance unresolved",
+      "bytes": 633,
+      "sha256": "4bc26e70433453fe20496df8ed4a833dfb71950680fe62fd61521f3e242ddc43"
+    },
+    {
+      "path": "tests/rendering/fixtures/sample.mp4",
+      "group": "Sample media \u2014 provenance unresolved",
+      "bytes": 1647,
+      "sha256": "617d7600d2f5c6b1cdeaf58e99f392c8226e05b52c465eecbe95bd3ebbe4e6f0"
+    },
+    {
+      "path": "tests/rendering/fixtures/sample.webp",
+      "group": "Sample media \u2014 provenance unresolved",
+      "bytes": 62,
+      "sha256": "42c427ec7fc1ced4f820cc26053ab949324e582d59cbbbbe37ab6a1295b2c3ff"
+    }
+  ]
+}

@@ -1,17 +1,15 @@
 # Contributing
 
-Draft for maintainer review before public release.
-
 ## The yardstick: ask this before accepting any change
 
-Kanvas is your agent's screen: a light visual surface with no intelligence inside. The [mission](docs/mission.md) is the measure for every change, including feedback items. Before accepting one, ask:
+Kanvas is your agent's screen: a light visual surface with no intelligence inside. The [full philosophy statement](src/shared/philosophy.ts) is the measure for every change, including feedback items. Before accepting one, ask:
 
 1. Does it serve the surface rather than add an application?
 2. At which tempo (live, kept-up, static), and does it fit that tempo?
 3. Does it reduce time to clarity for the agent or the person, or at least not increase it?
 4. Does it keep intelligence on the agent side?
 
-A change that fails the first or the last question is out of scope however useful it looks. The same four questions head the feedback review process: write the answers next to each item you implement.
+We prefer changes that keep Kanvas lightweight and leave intelligence and agent-side logic in the agent. The same four questions head the feedback review process: write the answers next to each item you implement.
 
 Use Node.js 24+, npm and an isolated PostgreSQL instance. Do not use customer or production data in tests, screenshots, fixtures or reports. Keep credentials and local configuration outside git.
 
@@ -35,7 +33,7 @@ Keep source contracts under `src/shared`, enforce authorization in domain operat
 
 When behaviour changes, review what describes it in the same change: the help entry (`src/shared/help.ts`), the tool description and discovery hint, the template guidance and example, and the page under `docs/`. `tests/core/documentation-current.test.ts` and the per-release feedback tests assert the statements most likely to drift; add an assertion for each statement you had to correct.
 
-Use logical commits and document compatibility/migrations. Do not commit operational archives, local databases, credentials, generated releases or private reports. Run `git diff --check` and inspect all staged files before committing. A license and public contribution process are still awaiting maintainer review.
+Use logical commits and document compatibility/migrations. Do not commit operational archives, local databases, credentials, generated releases or private reports. Run `git diff --check` and inspect all staged files before committing. Keep third-party notices with redistributed material; see [the licence index](docs/licenses/README.md).
 
 ## Test organization
 

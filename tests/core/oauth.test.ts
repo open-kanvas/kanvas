@@ -314,7 +314,7 @@ it('requires current version acceptance at final email confirmation and stores i
 describe("oauth coverage 4", () => {
 
 let h!:Harness;afterEach(async()=>{await h?.close();});
-it('requires fresh email for OAuth and completes only the originating browser, preserving state/PKCE',async()=>{
+it('requires fresh email for OAuth and completes in the email browser without signing in either browser',async()=>{
  let link='';h=await startHarness({signinMailer:async(_email,url)=>{link=url;}});const owner=h.browser(),origin=h.browser(),emailBrowser=h.browser();success(await owner.request('POST','/api/auth/email/request',{email:'owner@example.invalid'}));const initialToken=new URL(link).hash.split('=')[1];const initial=success(await owner.request<any>('POST','/api/auth/email/consume',{token:initialToken,confirm:true,acceptedLegalVersion:'2026-10-14'}));owner.user=initial.user;owner.csrf=initial.csrfToken;const verifier=randomBytes(32).toString('base64url'),callback='https://client.example/callback';
  const registered=await owner.raw('/oauth/register',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({client_name:'Email test',redirect_uris:[callback],grant_types:['authorization_code'],response_types:['code'],token_endpoint_auth_method:'none'})});const client=await registered.json();
  const state='opaque-'+ 'x'.repeat(1500),query=new URLSearchParams({client_id:client.client_id,redirect_uri:callback,response_type:'code',scope:'read publish',resource:'http://127.0.0.1/mcp',state,code_challenge_method:'S256',code_challenge:createHash('sha256').update(verifier).digest('base64url')});
@@ -322,13 +322,15 @@ it('requires fresh email for OAuth and completes only the originating browser, p
  expect((await owner.request('POST','/api/oauth/approve',{requestId,approve:true,accessMode:'account'})).status).toBe(403);
  success(await origin.request('POST','/api/auth/email/request',{email:owner.user!.username,authorizationRequestId:requestId,acceptedLegalVersion:'2026-10-14'}));
  const token=new URL(link).hash.split('=')[1];expect((await origin.request('POST','/api/auth/email/complete',{})).status).toBe(410);
- const confirmation=success(await emailBrowser.request<any>('POST','/api/auth/email/consume',{token,confirm:true,acceptedLegalVersion:'2026-10-14',target:'current'}));expect(confirmation).toEqual({approved:true,connectionReceipt:expect.stringMatching(/^[A-Za-z0-9_-]{43}$/)});const receipt={receipt:confirmation.connectionReceipt};const pending=await emailBrowser.request<any>('POST','/api/auth/email/connection-status',receipt);expect(success(pending)).toEqual({status:'pending'});expect(pending.headers.get('cache-control')).toBe('no-store');expect(success(await emailBrowser.request('POST','/api/auth/email/connection-status',{receipt:randomBytes(32).toString('base64url')}))).toEqual({status:'unavailable'});expect(confirmation).not.toHaveProperty('redirectUri');expect(confirmation).not.toHaveProperty('csrfToken');
+ const confirmationResponse=await emailBrowser.request<any>('POST','/api/auth/email/consume',{token,confirm:true,acceptedLegalVersion:'2026-10-14',target:'current'}),confirmation=success(confirmationResponse);expect(confirmation).toEqual({approved:true,redirectUri:expect.any(String)});expect(confirmationResponse.headers.get('cache-control')).toBe('no-store');expect(confirmation).not.toHaveProperty('csrfToken');
  expect((await emailBrowser.request('POST','/api/auth/email/complete',{})).status).toBe(410);
- const signed=success(await origin.request<any>('POST','/api/auth/email/complete',{}));origin.csrf=signed.csrfToken;
- expect((await owner.request('POST','/api/oauth/approve',{requestId,approve:true,accessMode:'account'})).status).toBe(403);
- const approval=success(await origin.request<any>('POST','/api/oauth/approve',{requestId,approve:true,accessMode:'account'})),redirect=new URL(approval.redirectUri);expect(redirect.searchParams.get('state')).toBe(state);expect(redirect.searchParams.has('code')).toBe(true);expect(success(await emailBrowser.request('POST','/api/auth/email/connection-status',receipt))).toEqual({status:'connected'});expect((await emailBrowser.request('GET','/api/auth/me')).status).toBe(401);
+ expect((await origin.request('POST','/api/auth/email/complete',{})).status).toBe(410);
+ expect((await owner.request('POST','/api/oauth/approve',{requestId,approve:true,accessMode:'account'})).status).toBeGreaterThanOrEqual(400);
+ const redirect=new URL(confirmation.redirectUri);expect(redirect.searchParams.get('state')).toBe(state);expect(redirect.searchParams.has('code')).toBe(true);expect(success(await origin.request('GET','/api/auth/email/status'))).toEqual({status:'connected'});expect((await emailBrowser.request('GET','/api/auth/me')).status).toBe(401);expect((await origin.request('GET','/api/auth/me')).status).toBe(401);
  expect((await origin.request('POST','/api/oauth/approve',{requestId,approve:true,accessMode:'account'})).status).toBeGreaterThanOrEqual(400);
  expect((await emailBrowser.request('POST','/api/auth/email/consume',{token,confirm:true,acceptedLegalVersion:'2026-10-14'})).status).toBe(410);
+ const exchange=await emailBrowser.raw('/oauth/token',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',client_id:client.client_id,redirect_uri:callback,resource:'http://127.0.0.1/mcp',code:redirect.searchParams.get('code')!,code_verifier:verifier}).toString()});expect(exchange.status).toBe(200);
+
 });
 });
 

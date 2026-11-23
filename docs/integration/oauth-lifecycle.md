@@ -1,12 +1,12 @@
 # OAuth connection lifecycle
 
-Implemented source contract for the OAuth continuity repair (feedback `7d516389`). Deployment and actual Claude/ChatGPT acceptance are recorded separately in [remote testing](../README.md).
+Protocol behavior and security boundaries for connecting an OAuth client to Kanvas.
 
 ## Tool catalog profiles are not an OAuth migration
 
 The [two-tool discovery interface](../architecture/mcp-discovery.md) is deployed at the **same `/mcp` resource and audience** for every accepted profile setting. Modern/legacy MCP protocol negotiation is independent of the catalog. After upgrading, refresh/reconnect the host catalog; no new consent, changed scopes, client registration or database migration is required. Existing OAuth grants, refresh families and session/account boundaries retain their original lifetime and authority. Old callable aliases are intentionally rejected; clients use `kanvas_discover` and `kanvas_call`. This changes tool routing, not existing OAuth authority.
 
-The older code-only/refresh upgrade rules below concern the prior OAuth continuity feature, not the twelve-tool switch. Rollback restores code/profile while preserving current grants and all subsequent user data; do not restore an old database to recover a tool catalog. Real profile-switch/refresh/revocation tests and public HTTPS OAuth checks passed; see the [delivery record](../README.md). Actual host UI catalog refresh remains host-specific.
+The older code-only/refresh upgrade rules below concern the prior OAuth continuity feature, not the twelve-tool switch. Rollback restores code/profile while preserving current grants and all subsequent user data; do not restore an old database to recover a tool catalog. Host UI catalog refresh remains host-specific.
 
 ## Connect once, choose the authority explicitly
 
@@ -62,9 +62,13 @@ Connection metadata exposes `accessMode`, `refreshable`, the effective `refreshE
 
 Every new authorization-code connection asks for an editable email address, even when the browser is already signed in. The page identifies the requested client and reading/publishing permissions, includes the Terms of Use and Privacy Policy, and offers **Continue with email**. Account creation and sign-in use this same flow; registration-disabled installations still accept only existing eligible accounts.
 
-The email link only confirms the pending request. It never signs in the email browser or redirects that browser to the OAuth client. The original requesting browser holds an HttpOnly proof, completes its approved request, and receives a new account session. A short-lived verification record binds that browser, account and exact OAuth consent. Only it may finish account approval and redirect to the registered callback. An existing login, another browser, another consent or a reused link cannot substitute for this proof.
+Opening the email link only shows a consent screen; it never signs in a browser or grants access. **Confirm email and connect** consumes the single-use link and approves its exact pending OAuth request in one transaction. The email page then sends the authorization code to the registered client callback. It works even when the original tab is paused or closed. Neither browser is signed in by this connector confirmation; ordinary browser sign-in remains a separate flow.
 
-The original tab shows **Check your email** and finishes automatically after deliberate confirmation. Keep that tab open. Expired or denied requests must be restarted from the agent. The email screen shows the account/client and permission summary before confirmation; only confirm a connection you started. Screen sign-in with six letters remains a separate flow.
+The code retains the original client, exact callback, opaque state, S256 PKCE challenge, resource and requested scopes. No callback or grant fields are accepted from the confirmation page. Concurrent confirmations can issue only one code, and token redemption remains single-use. An existing login, a different request or a reused link cannot substitute for deliberate email confirmation.
+
+The original tab shows **Check your email** and can be closed. If kept open, it reports approval without issuing another code or navigating to a second callback. Approval means Kanvas has issued the code, not that the client has exchanged it: the app may take up to half a minute to finish. The email page provides a **Continue to your app** link if automatic navigation does not complete. If the callback cannot be completed, start a fresh connection from the app; do not reuse a consumed email link.
+
+The email screen shows the account, client-supplied name, requested permissions and legal links before confirmation. Confirm only a connection you started; client names are not verified identities. Expired or denied requests must be restarted from the agent. Screen sign-in with six letters remains a separate flow.
 
 ## Callback-free device authorization
 

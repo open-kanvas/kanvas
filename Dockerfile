@@ -22,6 +22,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends postgresql-clie
     && chmod -R a+rX /ms-playwright \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build --chown=node:node /app/dist ./dist
+COPY --from=build --chown=node:node /app/LICENSE /app/NOTICE ./
+COPY --from=build --chown=node:node /app/docs/licenses ./docs/licenses
 RUN mkdir -p /app/.kanvas && chown node:node /app/.kanvas && chmod 700 /app/.kanvas
 USER node
 EXPOSE 8787

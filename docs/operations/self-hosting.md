@@ -23,6 +23,54 @@ Registration can be disabled with `KANVAS_ALLOW_REGISTRATION=false`; provision a
 
 `KANVAS_MCP_PROFILE=discovery` is the default. All accepted former profile settings also expose only the same two tools, `kanvas_discover` and `kanvas_call`; obsolete callable aliases are rejected, not retained as alternate catalogs. Clients connect to `/mcp` and follow OAuth discovery and consent. Keep proxy forwarding and origin settings consistent; do not make a viewer URL public merely to bypass authentication.
 
+## First account and first view
+
+Start from a new checkout (Git is required):
+
+~~~sh
+git clone https://github.com/open-kanvas/kanvas.git
+cd kanvas
+cp .env.example .env
+chmod 600 .env
+~~~
+
+Provision the dedicated database/role first, then edit .env for that database and origin before the install/build/start commands above. For a local-only trial, the example HTTP loopback origin is supported; public access requires HTTPS. Keep registration disabled. In another interactive terminal, load the **same environment file** to create the initial account:
+
+~~~sh
+node --env-file=.env dist/server/create-user.js
+~~~
+
+The command asks for username, display name and a masked password. It does not enable public registration. Using plain npm run create-user without exporting the environment does not load .env.
+
+The normal browser UI uses email sign-in; it does not show a password form. For a local-only trial with email sign-in disabled, open /console and use the browser developer console on that same origin to sign in with the account just created, then publish a synthetic view through the normal authenticated API (never paste untrusted code into developer tools). The temporary local password is entered at a browser prompt (visible, not masked), not stored in the snippet or shell history. Use this only on your private test screen; normal deployments should configure email sign-in:
+
+~~~js
+const login = await fetch('/api/auth/login', {method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({username: prompt('Local username'), password: prompt('Local password')})});
+if (!login.ok) throw new Error('Local sign-in failed');
+const auth = (await (await fetch('/api/auth/me')).json()).data;
+async function post(path, body) {
+  const response = await fetch(path, {method: 'POST', headers: {
+    'Content-Type': 'application/json', 'X-Kanvas-CSRF': auth.csrfToken
+  }, body: JSON.stringify(body)});
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error?.message ?? 'Request failed');
+  return result.data;
+}
+const session = await post('/api/sessions', {name: 'First view', initialDisplay: false});
+const display = await post('/api/sessions/' + session.id + '/displays', {
+  name: 'My screen', width: 1200, height: 800, pixelRatio: 1
+});
+await post('/api/sessions/' + session.id + '/submit', {
+  requestId: crypto.randomUUID(), displayIds: [display.id],
+  view: {version: 1, template: 'fact', data: {text: 'Hello from your Kanvas'}}
+});
+location.href = '/view/' + session.id + '/' + display.id;
+~~~
+
+You should see “Hello from your Kanvas”. The viewer is still private: a viewer URL is not an access credential. Check /readyz, /healthz and /version.json; all release versions should agree. This smoke uses password sign-in and the browser API, not OAuth. External-agent OAuth sign-in additionally needs the configured mailer and public HTTPS origin described above. If optional capture is needed, install a matching Playwright Chromium with npx playwright install --with-deps --only-shell chromium.
+
 ## Containers
 
 `Dockerfile` builds a production image with the matching client/server, PostgreSQL tools and headless Chromium. `compose.yaml` expects an externally provisioned PostgreSQL host and a private service-readable password file mounted as a secret. The application runs unprivileged with a read-only filesystem and bounded temporary storage. Supply required environment settings before `docker compose up --build`; review host-specific resource limits and backups.
@@ -39,7 +87,7 @@ Backups, service units, credentials, host-specific notes and production content 
 
 ## Third-party data and notices
 
-Keep third-party notices when distributing builds, including `public/browser-icons/`. The `geoip-lite` library uses Apache-2.0, but its GeoLite database has separate MaxMind/data terms and update requirements. Check the installed package’s LICENSE and README and the current data provider terms before redistributing a container or updating the database. Do not treat the application’s eventual license as a license for those datasets. Provision any update credentials outside source and command-line arguments.
+Keep third-party notices when distributing builds, including `public/browser-icons/`. The `geoip-lite` library uses Apache-2.0, but its GeoLite database has separate MaxMind/data terms and update requirements. Check the installed package’s LICENSE and README and the current data provider terms before redistributing a container or updating the database. Do not treat the application’s Apache-2.0 license as a license for those datasets. See [the complete licence index and unresolved rights](../licenses/README.md). Provision any update credentials outside source and command-line arguments.
 
 ## Console and documentation domains
 

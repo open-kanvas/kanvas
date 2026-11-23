@@ -2,7 +2,7 @@
 
 This is the standing product reference for developing or changing KANVAS templates. Read it before choosing layout or interaction. It applies to the full-screen visual surface, not the separate account-management application.
 
-Agents see these principles as help `kanvas.help.design-philosophy` and, in compact form, in the `html` template guidance. They are the **default** when the person has not asked for something specific; an explicit request always wins. The purpose behind them is the [mission](../mission.md).
+Agents see these principles as help `kanvas.help.design-philosophy` and, in compact form, in the `html` template guidance. They are the **default** when the person has not asked for something specific; an explicit request always wins. The purpose behind them is the [philosophy statement](../../src/shared/philosophy.ts).
 
 **Navigation and editing happen through the agent. Templates render content and intrinsic responses only; never navigation chrome.** On-screen navigation of the agent's content (procedure and recipe steps, itinerary day picker, sing-along pages) appears only when the view sets `showControls: true`. Intrinsic responses stay: a poll's choices, a form's fields, satisfaction faces, a question input.
 

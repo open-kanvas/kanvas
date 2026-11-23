@@ -1,0 +1,2 @@
+This product includes GeoLite2 data created by MaxMind, available from https://www.maxmind.com/.
+The geoip-lite JavaScript library is Apache-2.0. Its bundled database is separately licensed; the installed package declares CC-BY-SA-4.0 and documents current provider/update requirements. See docs/licenses/README.md and the installed geoip-lite/LICENSE. Verify the exact data snapshot and applicable MaxMind terms before redistribution; this notice does not grant data rights.

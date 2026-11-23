@@ -1,8 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import {readFileSync} from 'node:fs';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), {name: 'third-party-notices', generateBundle() { this.emitFile({type: 'asset', fileName: 'assets/THIRD-PARTY-NOTICES.txt', source: readFileSync('public/THIRD-PARTY-NOTICES.txt', 'utf8')}); }}],
   build: {
     outDir: 'dist/client', sourcemap: false,
     // Keep font files same-origin: the application CSP intentionally rejects data: fonts.

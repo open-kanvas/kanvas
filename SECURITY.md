@@ -1,10 +1,8 @@
 # Security
 
-Draft for maintainer review before public release.
-
 ## Reporting
 
-Do not disclose credentials, personal data or a live exploit in a public issue. A private reporting channel must be designated by the maintainer before publication. Until then, report privately through the existing maintainer relationship; this draft does not invent an unmonitored address.
+Do not disclose credentials, personal data or a live exploit in a public issue. Report security concerns privately to [kanvas@open-kanvas.ai](mailto:kanvas@open-kanvas.ai).
 
 Include affected version, a minimal synthetic reproduction, expected/actual behavior and impact. Redact tokens, authorization headers, cookies, account identifiers and source content. Avoid testing against another person’s account or deployment.
 

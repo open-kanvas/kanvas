@@ -71,3 +71,12 @@ it('month entries cover timed multi-day intervals in the planner timezone with a
  expect(render('2026-11-17T09:00+01:00','2026-11-19T00:00+01:00').match(/data-item-id="conf"/g)).toHaveLength(2);
  expect(render('2026-10-31T23:30Z','2026-11-02T00:00+01:00').match(/data-item-id="conf"/g)).toHaveLength(1);
 });
+
+it('includes sub-minute midnight intervals without including an exact-midnight exclusive end',()=>{
+ const render=(start:string,end:string)=>renderToStaticMarkup(<Renderer view={validateView({version:1,template:'planner',data:{view:'month',anchorDate:'2026-11-01',timeZone:'Europe/Oslo',items:[{id:'precise',title:'Precise',start,end}]}})}/>);
+ const count=(start:string,end:string)=>(render(start,end).match(/data-item-id="precise"/g)??[]).length;
+ expect(count('2026-11-18T23:00:00+01:00','2026-11-19T00:00:30+01:00')).toBe(2);
+ expect(count('2026-11-19T00:00:05+01:00','2026-11-19T00:00:30+01:00')).toBe(1);
+ expect(count('2026-11-18T23:00:00+01:00','2026-11-19T00:00:00+01:00')).toBe(1);
+ expect(count('2026-11-18T23:00:00+01:00','2026-11-19T00:00:00.001+01:00')).toBe(2);
+});

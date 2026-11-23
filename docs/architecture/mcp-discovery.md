@@ -16,10 +16,12 @@ Examples demonstrate routing, not permission or real source data. Get the operat
 
 ## One mental model
 
-The required `catalog` is `tools | templates | help`; the required `action` is `list | search | get`.
-- **list** has no limit or filter: return every visible ID and one-line description in flat plain text, not JSON. No default pagination.
-- **search** requires a bounded natural-language `query`; default `limit:5` (1–20). Return ranked ID/description summaries, never detail schemas, examples or full content. The result gives matching total, catalog total, returned count and explicit continuation for alternatives.
-- **get** requires exact `id`. Return one complete operation schema/annotations/examples, template schema/examples, or focused help content. Unknown and unavailable IDs have indistinguishable errors. No fuzzy fallback.
+The required `catalog` is `tools | templates | help`; `action` is `list | search | get`, or `resolve` for the tools catalog only. [Intent resolution](../intent-discovery.md) covers the bounded five-family read-only workflow.
+- **list** has no default pagination or count limit: return every visible ID and one-line description in flat plain text, not JSON. Optional `prefix` explicitly narrows IDs; optional `examples:true` adds minimal examples and may require safety-budget continuation.
+- **search** requires a bounded natural-language `query`; default `limit:5` (1–20). Return ranked ID/description summaries with bounded minimal examples when available, never full schemas or full help content. The result gives matching total, catalog total, returned count and explicit continuation for alternatives.
+- **get** requires exact `id`. Return an operation schema/annotations/examples, template schema/examples, or focused help content. Template get defaults to `expand:"own"`: nested view slots are named references, not the entire recursive template union; `expand:"full"` requests that union. Unknown and unavailable IDs have indistinguishable errors. No fuzzy fallback.
+
+Both tools accept optional per-call `activeContext`. When a host hides discovery parameters, use the read-only fallback `kanvas_call {operationId:"kanvas.discover",arguments:{catalog:"help",action:"get",id:"kanvas.help.about"}}`. This fallback cannot execute a nested call.
 
 Search results are intentionally not exhaustive; list is. A 384 KiB response-safety budget may split exceptionally large inventories at entry boundaries. In that case list explicitly says INCOMPLETE and prints the exact cursor continuation; search includes `nextCursor`. The cursor binds account, scopes, query/action and visible catalog revision/content. Never silently truncate a contract or return a partial schema. An individually oversized get fails with actionable provider guidance.
 

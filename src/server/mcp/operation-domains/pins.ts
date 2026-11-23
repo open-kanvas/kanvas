@@ -8,7 +8,7 @@ import {name} from '../operation-fields.js';
 /** pins operation contracts. Domain services enforce current account, role and scope. */
 export const pinsOperations: readonly Definition[] = [
 {
-        name: "kanvas.pin.save", description: 'Pin current or retained source content with a label. Separate bounded snapshot survives linear-history pruning. No display content change. Max 40 pins / 6 MB per session.', schema: pinSaveSchema, idempotent: true,
+        name: "kanvas.pin.save", description: 'Pin current or retained source content with a label. Separately bounded snapshot; chronological history preserves forward views, and pins do not bypass the fixed 1000-publication session limit. No display content change. Max 40 pins / 6 MB per session.', schema: pinSaveSchema, idempotent: true,
         domain: "pins",
         requiredScope: "publish",
         discovery: {"group":"controls","hint":"Bookmark current or retained view with a label without publishing.","examples":[{"sessionId":"session-id","displayId":"display-id","requestId":"pin-1","label":"Options to revisit"}]},

@@ -27,7 +27,7 @@ export const displayOperations: readonly Definition[] = [
         idempotent: true,
         domain: "display",
         requiredScope: "publish",
-        discovery: {"group":"displays","hint":"Viewport/hold only, NOT content. Publish with kanvas_call with operationId:\"kanvas.submit\" and arguments:{…}; a held change also requires expectedRevision.","examples":[{"sessionId":"session-id","displayId":"display-id","width":443,"height":823},{"sessionId":"session-id","displayId":"display-id","expectedRevision":3,"held":true}]},
+        discovery: {"group":"displays","hint":"Viewport/hold only, NOT content. Publish with kanvas_call with operationId:\"kanvas.submit\" and arguments:{…}; expectedRevision optionally rejects stale held changes.","examples":[{"sessionId":"session-id","displayId":"display-id","width":443,"height":823},{"sessionId":"session-id","displayId":"display-id","expectedRevision":3,"held":true}]},
         searchAliases: ["kanvas.display.update"]
     },
 {

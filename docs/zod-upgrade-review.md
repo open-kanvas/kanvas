@@ -1,59 +1,21 @@
-# Zod 4.6.7 review (2026-11-23)
+# Reviewing Zod upgrades
 
-Zod is pinned exactly to 4.6.7. Official npm metadata dates this release to
-2026-10-12T16:29:37.778Z, making it the newest stable release older than the
-conservative seven-full-day cutoff (2026-11-16T00:00Z).
+Zod is part of the runtime validation and MCP JSON Schema boundary. The exact dependency and notice versions live in package.json, package-lock.json and [the licence inventory](licenses/README.md), not in a dated review snapshot here.
 
-## Supply-chain checks
+## Selection and provenance
 
-- The downloaded tarball matches npm SHA-512 integrity and provenance subjects.
-- npm 11.17.0 audit signatures verified its registry signature and attestation.
-- The attested source commit, npm gitHead, v4.6.7 tag and successful official
-  release workflow all identify b500a2ee95134f81d74da7911d7378dd2853d042.
-- All 333 shipped source/licence files match the upstream archive at that commit.
-- No install lifecycle hooks or reviewed September-loader indicators occur in
-  the selected package. This is not an exhaustive malware analysis.
+For an authorized update, record the exact candidate, publication time and requested stability/age policy. Check official release notes and security advisories. Verify the downloaded tarball against registry integrity, registry signatures and available provenance; compare the attested source, npm gitHead, release tag and official release workflow. Inspect package lifecycle hooks and the source/licence diff. Explicitly explain any history-rewrite or provenance mismatch rather than waiving it.
 
-The September compromise is real according to GitHub/npm incident advisory
-208477 and Zod's 4.6.6 release notes. Upstream says six malicious commits were
-reverted in PR 6620 on September 21, subsequently removed from main history,
-and never published to npm. These publishing outcomes are upstream
-incident-response statements, not independently reconstructed registry history.
-4.6.6 has a documented pre-/post-history-rewrite provenance difference; 4.6.7
-instead matches the rewritten source commit directly, so no mismatch is waived.
+An advisory search or matching source archive does not establish absence of unknown vulnerabilities or malicious build tooling. State whether compiled outputs were independently reproduced. Keep timestamped metadata, hashes, advisory responses and exact-commit test receipts in external evidence or the PR, not this reference directory.
 
-Upstream GitHub advisories, the exact-version OSV query and Snyk's version page
-showed no known direct advisory for 4.6.7 at review time. Database coverage and
-source/provenance checks do not establish absence of unknown vulnerabilities or
-malicious build tooling. Compiled outputs were not independently reproduced.
+## Compatibility checks
 
-## Compatibility scope
+Exercise lazy error-map materialization, collection bounds before element validation, composed JSON Schema bounds, recursive parsing and the formats actually used by the application. Include email behavior and schema conversion, template examples, schema compaction, public MCP contracts, request bounds and application-error recovery. A recursive correctness test does not measure retained heap. Keep media’s separate canonical base64 and byte-size validation and the MCP prevalidation request bounds intact.
 
-The focused regression test covers lazy error-map materialization, pre-element
-array/set/map caps, conjunctive JSON Schema bounds, emoji component rejection,
-numeric enum options, email acceptance/patterns, multi-megabyte composed base64
-and recursive parse correctness. Existing template, schema-compaction, MCP
-public contract, request-limit and application-error tests cover integration.
-The recursive correctness test does not claim to measure retained heap.
+Use isolated test data and the repository’s shared build lock on constrained hosts. Report the exact tests, failures/corrective reruns and uncovered behaviors; do not claim a full suite when only focused checks ran.
 
-No application global error-map switching or emoji/numeric-enum/base64 Zod
-format reliance was identified. Email and schema conversion are used directly.
-Media retains its separate canonical base64 and byte-size validation. No MCP
-request bounds were removed and no new rate quota was introduced.
+## Notices and release identity
 
-The licence inventory changes only Zod's version, tarball/integrity, unchanged
-MIT notice and the lockfile digest. Other licence caveats remain in the existing
-inventory documentation. A later application version bump must refresh the
-inventory packageVersion and lockfileSha256 again.
+Update the locked inventory’s package version, tarball/integrity, authentic licence notice and lockfile digest. An application version bump must refresh inventory packageVersion and lockfileSha256 again. Preserve unrelated licence caveats. Dependency approval alone does not authorize application deployment.
 
-## Primary sources
-
-- https://registry.npmjs.org/zod
-- https://registry.npmjs.org/-/npm/v1/attestations/zod@4.6.7
-- https://github.com/colinhacks/zod/releases/tag/v4.6.7
-- https://github.com/colinhacks/zod/releases/tag/v4.6.6
-- https://github.com/colinhacks/zod/releases/tag/v4.6.0
-- https://github.com/colinhacks/zod/actions/runs/38270975828/attempts/1
-- https://github.com/orgs/community/discussions/208477
-- https://github.com/colinhacks/zod/pull/6620
-- https://security.snyk.io/package/npm/zod/4.6.7
+References: [npm registry](https://registry.npmjs.org/zod), [official releases](https://github.com/colinhacks/zod/releases), [OSV](https://osv.dev/), and [MCP request bounds](integration/mcp-request-limits.md).

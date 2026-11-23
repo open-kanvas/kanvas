@@ -50,3 +50,11 @@ Read the current catalog through `kanvas_discover` with `catalog:"templates"`: `
 - [Web sources](web-sources.md)
 - [Whiteboard](whiteboard.md)
 - [Work views](work-views.md)
+
+## Additional reference guides
+
+- [Colour](colour.md), [file uploads](file-uploads.md), [pickers](pickers.md)
+- [Split screen](split-screen.md), [task lists](task-list.md), [tool-call details](tool-call-details.md), [visual controls](visual-controls.md)
+- [Math](../math-workspace.md), [molecules](../integration/molecules.md), [signage](../integration/signage.md), [scene assets](../scene-assets.md)
+
+Several template IDs intentionally share a guide. Discover each exact template schema and example before publication; this index is not a promise of a dedicated prose manual or browser qualification for every renderer.

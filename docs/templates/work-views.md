@@ -7,6 +7,7 @@ These source-driven templates extend KANVAS without connecting it to email, chat
 | `email` | `messages`: from/to/cc/subject/timestamp/body; exact text and thread boundaries |
 | `inbox` | `items`: sender, subject, snippet, timestamp and unread; read-only rows with paging or scrolling, no embedded full-message actions |
 | `chat` | `messages`: stable id, sender, source timestamp and exact text; optional `contextLabel`, `conversationLabel` and `participants`; `kanvas_call` with `operationId:"kanvas.chat.append"` and nested `arguments` accumulates new messages |
+| `record-detail` | One supplied id/title, optional status/assignees/description/scalar fields, bounded activity and related records; no provider connection |
 | `cards` | Generic records with id/title, free status, labels, assignees and custom scalar fields |
 | `bookmarks` | External URL collection with optional categories/favicon; Web view drilldown and viewer-activated new-tab link |
 | `tool-inventory` | Persistent left integration rail and independently scrollable selected tools; `activeGroup` supplies the initial selection; agent paging changes groups |
@@ -19,7 +20,7 @@ Get each exact contract and a ready example through `kanvas_discover` with `cata
 
 ## Agent-authored selection
 
-`kanvas_call` with `operationId:"kanvas.selection.set"` and nested `arguments` requires sessionId, displayId, requestId, expectedRevision and selection. The view stores the original complete source and a separate selection instruction. Setting selection to null restores all records in their original order.
+`kanvas_call` with `operationId:"kanvas.selection.set"` and nested `arguments` requires sessionId, displayId and selection. Supply a stable requestId for retries; expectedRevision is an optional stale-write guard. The view stores the original complete source and a separate selection instruction. Setting selection to null restores all records in their original order.
 
 ```json
 {
@@ -48,3 +49,9 @@ Bookmarks are external URLs, not KANVAS content pins. Opening one preserves the 
 When an image cannot load directly, KANVAS can fetch the exact current source URL anonymously through a bounded public-network request. Successful raster bytes are delivered through an authorization- and revision-bound endpoint. Public SVGs use a static raster preview created in isolated Chromium with scripts and network subrequests blocked. Original URLs/content remain stored. Host diagnostics distinguish observed DNS failures, HTTP refusal, timeout, invalid image content and private-network rejection; they do not infer a hotlink/CORS cause from a browser error alone.
 
 There is no private-cookie forwarding, login bypass, or fabricated substitute for an unavailable source.
+
+## Record details and story cards
+
+`record-detail` requires id and title. It accepts up to 30 scalar custom fields, 20 assignees, 200 activity entries with unique IDs, and 100 related records. Descriptions retain up to 100,000 characters; activity text up to 20,000 per entry. Optional URLs refer to supplied sources, not fetched records.
+
+`story-cards` presents 1–20 supplied items. Each requires a headline and can include summary and image:{url,alt}; use safe public URLs or authorized protected asset references. It does not fetch news, infer summaries or prove image delivery. Discover its current schema for exact text bounds.

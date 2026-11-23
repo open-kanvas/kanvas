@@ -41,7 +41,7 @@ There is nothing to poll. What people pointed at since your previous call arrive
 }}
 ```
 
-- Sent **once per connection** and only when there is something new, like the conditional `agentGuidance` block. A failed call keeps it for the next one.
+- Sent **once per connection** and only when there is something new. Guidance is separate and repeats by default unless that connection opts into concise guidance. A failed call keeps it for the next one.
 - A connection receives gestures for the sessions it has worked in, as long as the account may still read them.
 - `viewChangedSince: true` marks a gesture made on an earlier revision of the display.
 - At most eight gestures per block (`earlierOmitted` counts the rest). The queue holds thirty gestures per session for ten minutes, in memory only; a restart empties it.

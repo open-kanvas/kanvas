@@ -19,14 +19,14 @@ export const mediaTools: Definition[] = [
         name: "kanvas.media.list", schema: z.object({ query: z.string().max(200).optional(), tag: z.string().max(80).optional(), offset: z.number().int().min(0).max(200).default(0), limit: z.number().int().min(1).max(50).default(50) }).strict(), readOnly: true, description: "List/search your private reusable uploaded image library by filename or tag. User uploads using file/photo/camera picker in Account \u2192 Media library at /admin?account=media; no agent file tool required. Session kanvas_call with operationId:\"kanvas.asset.import\" and arguments:{\u2026} is separate: copy an existing asset with kanvas_call with operationId:\"kanvas.media.import\" and arguments:{\u2026} to make it account-reusable. The returned stable /api/media/ID URL works in every image URL field. Publication grants viewing of that image only to the selected session; listing stays private.",
         domain: "account",
         requiredScope: "read",
-        discovery: {"group":"content","hint":"Use the discovered schema for this account-scoped or live state operation.","examples":[{"query":"lunch"}]},
+        discovery: {"group":"content","hint":"List/search authorized stored asset metadata; this does not upload or publish.","examples":[{"query":"lunch"}]},
         searchAliases: ["kanvas.media.list"]
     },
     {
         name: "kanvas.media.get", schema: z.object({ mediaId: key }).strict(), readOnly: true, description: 'Get one of your uploaded media items and its stable protected image URL.',
         domain: "account",
         requiredScope: "read",
-        discovery: {"group":"content","hint":"Use the discovered schema for this account-scoped or live state operation.","examples":[{"mediaId":"media-id"}]},
+        discovery: {"group":"content","hint":"Read one authorized stored asset by mediaId; this does not upload or publish.","examples":[{"mediaId":"media-id"}]},
         searchAliases: ["kanvas.media.get"]
     },
 ];

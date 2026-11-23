@@ -13,28 +13,28 @@ export const customTools: Definition[] = [
         name: "kanvas.account.templates.create", schema: customDefinitionSchema, description: 'Create a private account custom template: name, bounded JSON schema (object/properties/required; arrays/items, string/number/integer/boolean), static well-formed HTML and CSS. Bind escaped fields with {{field}} and repeat arrays of objects with named fields: schema items:{type:"object",properties:{text:{type:"string"}}}, HTML {{#each items}}<li>{{text}}</li>{{/each}}. For primitive arrays use {{#each points}}<li>{{value}}</li>{{/each}}; implicit {{this}} is not supported. No scripts, event handlers, external resources, URLs, raw bindings or CSS escapes/imports. No editing/versioning: create a replacement then explicitly delete the old ID.',
         domain: "template",
         requiredScope: "publish",
-        discovery: {"group":"content","hint":"Use the discovered schema for this account-scoped or live state operation.","examples":[{"name":"My headline","schema":{"type":"object","properties":{"headline":{"type":"string"}},"required":["headline"]},"html":"<h1>{{headline}}</h1>","css":"h1 {font-size: 64px;}"}]},
+        discovery: {"group":"content","hint":"Store a private reusable definition; creating it does not publish a view.","examples":[{"name":"My headline","schema":{"type":"object","properties":{"headline":{"type":"string"}},"required":["headline"]},"html":"<h1>{{headline}}</h1>","css":"h1 {font-size: 64px;}"}]},
         searchAliases: ["kanvas.account.templates.create"]
     },
     {
         name: "kanvas.account.templates.list", schema: z.object({ query: z.string().max(200).optional() }).strict(), readOnly: true, description: 'List/search only your own reusable custom templates. Also included alongside built-ins in kanvas_discover templates search/list.',
         domain: "template",
         requiredScope: "read",
-        discovery: {"group":"content","hint":"Use the discovered schema for this account-scoped or live state operation.","examples":[{"query":"headline"}]},
+        discovery: {"group":"content","hint":"List/search your authorized private template definitions without publishing.","examples":[{"query":"headline"}]},
         searchAliases: ["kanvas.account.templates.list"]
     },
     {
         name: "kanvas.account.templates.delete", schema: z.object({ templateId: key }).strict(), destructive: true, description: 'Delete your custom template definition. Published snapshots remain visible; new publication or data updates using the deleted definition are unavailable.',
         domain: "template",
         requiredScope: "publish",
-        discovery: {"group":"content","hint":"Use the discovered schema for this account-scoped or live state operation.","examples":[{"templateId":"template-id"}]},
+        discovery: {"group":"content","hint":"Delete only your private definition; published snapshots remain.","examples":[{"templateId":"template-id"}]},
         searchAliases: ["kanvas.account.templates.delete"]
     },
     {
-        name: "kanvas.account.templates.publish", schema: z.object({ templateId: key, values: z.record(z.string(), z.unknown()), sessionId: key, displayIds: z.array(key).min(1).max(20), requestId: key }).strict(), description: 'Publish your private template by ID using schema-validated values. Data updates use normal publish.replace / publish.patch with the account-template view data {templateId,values}. Name is separate from built-in templateHint. Creating a definition does not publish it.', idempotent: true,
+        name: "kanvas.account.templates.publish", schema: z.object({ templateId: key, values: z.record(z.string(), z.unknown()), sessionId: key, displayIds: z.array(key).min(1).max(20), requestId: key }).strict(), description: 'Publish your private template by ID using schema-validated values. Publish complete validated values with kanvas.account.templates.publish. For existing views, inspect the supported template contract and kanvas.display.edit/kanvas.view.patch schemas before choosing a narrow update. Name is separate from built-in templateHint. Creating a definition does not publish it.', idempotent: true,
         domain: "template",
         requiredScope: "publish",
-        discovery: {"group":"content","hint":"Use the discovered schema for this account-scoped or live state operation.","examples":[{"templateId":"template-id","values":{"headline":"Hello"},"sessionId":"session-id","displayIds":["display-id"]}]},
+        discovery: {"group":"content","hint":"Explicitly publish validated values through your private definition to selected authorized displays.","examples":[{"templateId":"template-id","values":{"headline":"Hello"},"sessionId":"session-id","displayIds":["display-id"]}]},
         searchAliases: ["kanvas.account.templates.publish"]
     },
 ];
@@ -121,5 +121,5 @@ export class CustomTemplates {
         if (error instanceof AppError && error.code === 'FORBIDDEN')
             return [];
         throw error;
-    } const templates = await this.list(p); return templates.map(t => ({ id: 'account.template.' + t.id, provider: 'account', revision: t.createdAt, title: t.name, summary: 'Private reusable template: ' + t.name, keywords: t.name, text: t.name + ' ' + JSON.stringify(t.schema), detail: () => ({ id: 'account.template.' + t.id, templateId: t.id, name: t.name, schema: t.schema, operationId: 'kanvas.account.templates.publish', arguments: { templateId: t.id, values: {}, sessionId: 'SESSION', displayIds: ['DISPLAY'] }, update: 'Use normal publish.replace or publish.patch on data.values. Private definition; publishing deliberately shares rendered content with that display.' }) })); }
+    } const templates = await this.list(p); return templates.map(t => ({ id: 'account.template.' + t.id, provider: 'account', revision: t.createdAt, title: t.name, summary: 'Private reusable template: ' + t.name, keywords: t.name, text: t.name + ' ' + JSON.stringify(t.schema), detail: () => ({ id: 'account.template.' + t.id, templateId: t.id, name: t.name, schema: t.schema, operationId: 'kanvas.account.templates.publish', arguments: { templateId: t.id, values: {}, sessionId: 'SESSION', displayIds: ['DISPLAY'] }, update: 'Publish complete validated values with kanvas.account.templates.publish; inspect kanvas.display.edit/kanvas.view.patch and supported template contracts before a narrow existing-view update. Private definition; publishing deliberately shares rendered content with that display.' }) })); }
 }

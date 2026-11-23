@@ -6,7 +6,7 @@ Protocol behavior and security boundaries for connecting an OAuth client to Kanv
 
 The [two-tool discovery interface](../architecture/mcp-discovery.md) is deployed at the **same `/mcp` resource and audience** for every accepted profile setting. Modern/legacy MCP protocol negotiation is independent of the catalog. After upgrading, refresh/reconnect the host catalog; no new consent, changed scopes, client registration or database migration is required. Existing OAuth grants, refresh families and session/account boundaries retain their original lifetime and authority. Old callable aliases are intentionally rejected; clients use `kanvas_discover` and `kanvas_call`. This changes tool routing, not existing OAuth authority.
 
-The older code-only/refresh upgrade rules below concern the prior OAuth continuity feature, not the twelve-tool switch. Rollback restores code/profile while preserving current grants and all subsequent user data; do not restore an old database to recover a tool catalog. Host UI catalog refresh remains host-specific.
+The older code-only/refresh upgrade rules below concern the prior OAuth continuity feature, not the two-tool discovery switch. Rollback restores code/profile while preserving current grants and all subsequent user data; do not restore an old database to recover a tool catalog. Host UI catalog refresh remains host-specific.
 
 ## Connect once, choose the authority explicitly
 

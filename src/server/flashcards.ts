@@ -15,10 +15,10 @@ export const flashcardTools: Definition[] = [
         searchAliases: ["kanvas.flashcards.read"]
     },
     {
-        name: "kanvas.flashcards.control", schema: flashcardControlSchema, idempotent: true, description: 'Control displayed deck: reveal/next/previous/answer/restart. Answer records spoken/typed response for current cardId. exact matches normalized answer/acceptedAnswers, NOT semantics; self needs explicit correct; none is ungraded. Answer reveals, next advances. Supply both revisions and stable requestId. Restart resets the whole deck and may set mode; cardId is ignored for restart, while both revision guards remain required.',
+        name: "kanvas.flashcards.control", schema: flashcardControlSchema, idempotent: true, description: 'Control displayed deck: reveal/next/previous/answer/restart. Answer records spoken/typed response for current cardId. exact matches normalized answer/acceptedAnswers, NOT semantics; self needs explicit correct; none is ungraded. Answer reveals, next advances. Supply a stable requestId for safe retries. expectedRevision and expectedDeckRevision are independent optional stale-write guards. Include current cardId even for restart; restart resets the deck and may set mode, ignoring the card identity comparison.',
         domain: "flashcards",
         requiredScope: "publish",
-        discovery: {"group":"controls","hint":"Submit spoken/typed answer for the current card with deck and display revisions. Exact matching is not semantic grading.","examples":[{"sessionId":"session-id","displayId":"display-id","deckId":"deck-id","expectedRevision":1,"expectedDeckRevision":0,"requestId":"answer-1","cardId":"hola","action":"answer","response":"hello","grading":"exact"}]},
+        discovery: {"group": "controls", "hint": "Submit spoken/typed answer for the current card with deck and display revisions. Exact matching is not semantic grading.", "examples": [{"sessionId": "session-id", "displayId": "display-id", "deckId": "deck-id", "expectedRevision": 1, "expectedDeckRevision": 0, "requestId": "answer-1", "cardId": "hola", "action": "answer", "response": "hello", "grading": "exact"}, {"sessionId": "session-id", "displayId": "display-id", "deckId": "deck-id", "cardId": "hola", "action": "restart", "requestId": "restart-1"}]},
         searchAliases: ["kanvas.flashcards.control"]
     },
     {

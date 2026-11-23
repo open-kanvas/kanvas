@@ -16,28 +16,28 @@ export const venueTools: Definition[] = [
         name: "kanvas.seat.map.update", schema: seatUpdate, description: 'Update the current seat-map live: place/move a person (occupied destination automatically swaps), swap two people, add/remove/clear a seat, add a person to the visible unseated pool. Supply stable IDs. Removing or clearing a seat never deletes its person. Publish seat-map first with one of 14 layouts, up to 1000 seats/people. Optional expectedRevision guards the display; omitted applies atomically to current state.', idempotent: true,
         domain: "publish",
         requiredScope: "publish",
-        discovery: {"group":"content","hint":"Use the discovered schema for this account-scoped or live state operation.","examples":[{"sessionId":"session-id","displayId":"display-id","action":"move","personId":"person-id","seatId":"seat-2"}]},
+        discovery: {"group":"content","hint":"Move/place/swap people using stable person/seat IDs; removing a seat does not delete its person.","examples":[{"sessionId":"session-id","displayId":"display-id","action":"move","personId":"person-id","seatId":"seat-2"}]},
         searchAliases: ["kanvas.seat.map.update"]
     },
     {
         name: "kanvas.menu.update", schema: menuUpdate, description: 'Narrow live updates to menu-board or todays-special: price, availability (available/sold-out/hidden), swap-special, add/remove item by section/item IDs, or quick preset/accent/theme/showPrice/size style. All content fields are optional. No bespoke restaurant CSS.', idempotent: true,
         domain: "publish",
         requiredScope: "publish",
-        discovery: {"group":"content","hint":"Use the discovered schema for this account-scoped or live state operation.","examples":[{"sessionId":"session-id","displayId":"display-id","action":"price","itemId":"burger","price":189}]},
+        discovery: {"group":"content","hint":"Change menu item price/availability, replace the special, or adjust named board style fields.","examples":[{"sessionId":"session-id","displayId":"display-id","action":"price","itemId":"burger","price":189}]},
         searchAliases: ["kanvas.menu.update"]
     },
     {
         name: "kanvas.kanban.update", schema: kanbanUpdate, description: 'Atomically add, remove, edit or move a card on the current kanban view; reorder-columns uses all columnIds in their desired order. index places a card within its destination. WIP limits are visible advisory limits, not silent rejection. Multiple displays may hold independent boards.', idempotent: true,
         domain: "publish",
         requiredScope: "publish",
-        discovery: {"group":"content","hint":"Use the discovered schema for this account-scoped or live state operation.","examples":[{"sessionId":"session-id","displayId":"display-id","action":"move-card","cardId":"card-id","columnId":"doing"}]},
+        discovery: {"group":"content","hint":"Add/edit/remove/move cards or reorder columns in the current board; IDs remain stable.","examples":[{"sessionId":"session-id","displayId":"display-id","action":"move-card","cardId":"card-id","columnId":"doing"}]},
         searchAliases: ["kanvas.kanban.update"]
     },
     {
         name: "kanvas.signage.update", schema: signUpdate, description: 'Quickly set or clear one of seven shop signs, replace opening hours or set one day. set requires template and data; clear restores the view saved before the sign, without resupplying it. Switching signs preserves that original return view. Sale posters support safe static custom HTML/CSS; other signs use curated presets.', idempotent: true,
         domain: "publish",
         requiredScope: "publish",
-        discovery: {"group":"content","hint":"Use the discovered schema for this account-scoped or live state operation.","examples":[{"sessionId":"session-id","displayId":"display-id","action":"set","template":"back-at","data":{"time":"14:30"}}]},
+        discovery: {"group": "content", "hint": "Set a prepared shop sign or restore the saved pre-sign view with clear.", "examples": [{"sessionId": "session-id", "displayId": "display-id", "action": "set", "template": "back-at", "data": {"time": "14:30"}}, {"sessionId": "session-id", "displayId": "display-id", "action": "clear", "requestId": "clear-1"}]},
         searchAliases: ["kanvas.signage.update"]
     },
 ];

@@ -13,7 +13,7 @@ A monitor stream gets live events into a session from things that are not signed
 
 - It can only append events to that one stream. It cannot read events, publish views, or reach the account or session. It is not accepted as a credential by any other endpoint.
 - It expires: 60 minutes by default, at most 24 hours. It can be revoked earlier.
-- It is never written to logs or event history. Requests to it are not recorded as events, whether accepted or rejected.
+- Kanvas excludes ingest requests from application event history and redacts stream-token paths in buffered event content. Reverse-proxy/CDN/access logs are separate operator-controlled surfaces: configure path and Referer redaction before using real capability URLs. Application behavior alone does not prove an installation’s logs are safe.
 
 ## Retention and limits
 
@@ -56,7 +56,7 @@ Both must print `202 1`. A `403` without the header is the edge, not Kanvas.
 
 ### Operators: let reporters through the edge
 
-The address is the credential: rights are already limited by the token, the 4 KB cap, the rate limits, expiry and revocation. Bot and user-agent filtering adds nothing on this path and silently drops legitimate reporters. Exempt **only** `POST /in/*` from user-agent, browser-integrity and bot challenges at your CDN or WAF; keep them everywhere else, and keep volumetric rate limiting on. Do not log the request path for this route.
+The address is the credential: rights are already limited by the token, the 4 KB cap, the rate limits, expiry and revocation. Bot and user-agent filtering adds nothing on this path and silently drops legitimate reporters. Exempt **only** `POST /in/*` from user-agent, browser-integrity and bot challenges at your CDN or WAF; keep them everywhere else, and keep volumetric rate limiting on. Redact the token-bearing request path and any same-origin Referer path/query that can contain `/in/<token>`; preserve ordinary external-referrer analytics without recording the capability. Verify both accepted and rejected requests with synthetic tokens. Do not disable all logging or unrelated security controls.
 
 ## Event content is untrusted
 
@@ -125,4 +125,4 @@ Read events with `kanvas.monitor.stream.read` and use any template: `log` for th
 
 ## Self-hosting
 
-No configuration is required. The ingest route is `POST /in/<token>`; make sure your reverse proxy forwards it and does not log request paths for it if you consider the address sensitive (it grants only append access to one stream).
+No configuration is required. The ingest route is `POST /in/<token>`; make sure your reverse proxy forwards it and redacts token-bearing request paths and Referer values. The address is a credential even though its authority is limited to append access to one stream.

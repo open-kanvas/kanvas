@@ -54,8 +54,7 @@ their existing authorization grants are session-wide, not active-slot scoped.
 Ordinary event card images remain supported. Protected session visual assets are
 authorized to a paired display only while their milestone is active.
 
-Use existing publication patch (`kanvas_publish` operation `patch`, canonical
-`kanvas.view.patch`) with sessionId, displayId, requestId, expectedRevision, and:
+Use `kanvas_call` with operationId `kanvas.view.patch` with sessionId, displayId, requestId, expectedRevision, and:
 
 ```json
 {"operations":[{"op":"timeline","action":"select","eventId":"prototype"}]}

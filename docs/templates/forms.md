@@ -14,6 +14,7 @@ A form has 1–40 unique-ID `fields`, optional `description` (up to 4,000 charac
 | `choice` | 2–20 unique-ID `{id,label}` options | Selected option ID |
 | `multi-choice` | 2–20 options; optional `maxChoices` | Unique selected option IDs |
 | `checkbox` | No type-specific fields | Boolean; required means checked |
+| `file` | `accept?`, `maxSize?` (up to 10 MiB), `maxCount?` (1–5, default 1) | Authorized uploaded asset references; see [file uploads](file-uploads.md) |
 
 The inputs are real labelled browser fields with keyboard support, required/limit feedback and a single structured submission. Empty optional values are omitted. A successfully submitted form shows its persisted receipt after reload. Read-only participants see disabled fields, and closed forms do not accept responses.
 

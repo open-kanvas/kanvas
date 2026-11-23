@@ -14,7 +14,7 @@ Top-level view flags are independent and default to false:
 - `showCaption: true` displays supplied captions verbatim in a readable, bounded caption area. Long captions can be scrolled; their text is not truncated.
 - `showControls: true` provides an overlaid “Open original” link for each safe source URL. It does not reserve a footer.
 
-Presentation slides inherit caption, source and utility flags from their deck unless explicitly overridden. Titles are opted into per view, not repeated from a deck on every slide.
+Presentation slides inherit showCaption and showControls from their deck unless explicitly overridden; no source-label fields exist. Titles are opted into per view, not repeated from a deck on every slide.
 
 ## Galleries and explicit crops
 

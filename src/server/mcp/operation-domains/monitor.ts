@@ -8,7 +8,7 @@ import {name} from '../operation-fields.js';
 export const monitorOperations: readonly Definition[] = [
 {
         name: "kanvas.monitoring.start",
-        description: 'Explicitly start bounded server-side refresh of a public HTTPS source into one display, deterministically. Requires editor access and current expectedRevision. Example config:{mode:"uptime",url:"https://example.com/healthz",intervalSeconds:60,durationSeconds:3600}. JSON mode maps exact response data with {$path:"/field"}, {$each:"/items",map:{...}}, literal JSON; image mode accepts validated raster snapshots. Minimum interval 30s, maximum duration 7 days. No scripts, credentials, custom headers, private/local endpoints or silent background setup. Returns durable job ID/health; a newer display publication supersedes the job. Browser application and source health are separate.',
+        description: 'Explicitly start bounded server-side refresh of a public HTTPS source into one display, deterministically. Editor access is required; expectedRevision is an optional stale-write guard. Example config:{mode:"uptime",url:"https://example.com/healthz",intervalSeconds:60,durationSeconds:3600}. JSON mode maps exact response data with {$path:"/field"}, {$each:"/items",map:{...}}, literal JSON; image mode accepts validated raster snapshots. Minimum interval 30s, maximum duration 7 days. No scripts, credentials, custom headers, private/local endpoints or silent background setup. Returns durable job ID/health; a newer display publication supersedes the job. Browser application and source health are separate.',
         schema: monitoringStartSchema, idempotent: true, openWorld: true,
         domain: "monitor",
         requiredScope: "publish",

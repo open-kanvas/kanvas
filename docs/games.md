@@ -1,6 +1,6 @@
 # Supplied game and puzzle positions
 
-`game-board` is a visual template (distinct from the retired historical `game` format), not a rules/game/network service. Publish a complete explicitly supplied position through ordinary `kanvas_publish` show; read `display.current`; mutate through `kanvas_publish` patch. Complete 15-preset catalog: chess, checkers, backgammon, go, reversi, poker, blackjack, solitaire, tic-tac-toe, connect-four, battleship, sudoku, crossword, word-search, sliding-tile. Presets initialize empty unless the agent supplies objects; the schema/sample catalog exposes an illustrative chess position, not a generated legal game.
+`game-board` is a visual template (distinct from the retired historical `game` format), not a rules/game/network service. Publish a complete explicitly supplied position through `kanvas_call` with operationId `kanvas.submit`; read `kanvas.display.current`; mutate with `kanvas.view.patch`. Discover each exact operation schema before calling. Complete 15-preset catalog: chess, checkers, backgammon, go, reversi, poker, blackjack, solitaire, tic-tac-toe, connect-four, battleship, sudoku, crossword, word-search, sliding-tile. Presets initialize empty unless the agent supplies objects; the schema/sample catalog exposes an illustrative chess position, not a generated legal game.
 
 ## Stable state and patch
 
@@ -9,7 +9,7 @@ All game dictionaries have stable caller-chosen IDs. Cells use one-based `r1c1` 
 Example atomic knight move plus capture:
 
 ```json
-{"operation":"patch","sessionId":"session-id","displayId":"display-id","requestId":"knight-1","expectedRevision":3,"operations":[{"op":"set","path":"/data/pieces/knight/cell","value":"r6c6"},{"op":"remove","path":"/data/pieces/captured-bishop"}]}
+{"operationId":"kanvas.view.patch","arguments":{"sessionId":"session-id","displayId":"display-id","requestId":"knight-1","expectedRevision":3,"operations":[{"op":"set","path":"/data/pieces/knight/cell","value":"r6c6"},{"op":"remove","path":"/data/pieces/captured-bishop"}]}}
 ```
 
 Add a piece/card/cell by setting its keyed object; remove via remove; flip/reveal by replacing the complete card object, reorder by its order field. Flip to unknown by replacing the face-up object with `{ "face":"back", "zone":"seat1", "order":0 }`: **do not keep rank/suit on backs**. The schema rejects that, as well as unsupported private/recipient fields. Updates validate the complete final state atomically; no chess move legality, scoring, solving or turn enforcement. Shared existing request/revision rules apply. Stable React piece nodes survive cell moves; unchanged object IDs are not regenerated.

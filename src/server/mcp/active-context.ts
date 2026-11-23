@@ -1,7 +1,7 @@
 import { z } from 'zod';
 /** Host-owned, per-call context. Never persisted on an account or connection. */
 export const activeContextSchema = z.strictObject({ sessionId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/) }).nullable().optional();
-export const ACTIVE_CONTEXT_HELP = 'Optional activeContext:{sessionId} attaches authorized session guidance to this call only. Explicit operation sessionId/groupId takes precedence. Switch by supplying another ID; clear by null or omission. Context never fills operation arguments, grants access, or selects a browser window.';
+export const ACTIVE_CONTEXT_HELP = 'Optional activeContext:{sessionId} attaches authorized session guidance to this call only. Explicit operation sessionId/groupId takes precedence. Switch by supplying another ID; clear by null or omission. For ordinary calls, context only scopes guidance and never fills operation arguments. Resolve may use explicitly supplied authorized context to propose session arguments, but never executes a call. Context never grants access or selects a browser window.';
 export function guidanceContext(name: string, raw: unknown): unknown {
  const outer = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
  // The fallback is the same discovery envelope, not a separate context source.

@@ -143,7 +143,15 @@ export const CANONICAL_TOOLS: readonly Definition[] = definitions.map(forgiving)
     ? { ...tool, description: `${tool.description} First use: provide the actual literal, clickable, copyable URL as text, including in voice mode; do not repeat it after every update. ${VIEWER_LINK_TOOL_GUIDANCE[tool.name as keyof typeof VIEWER_LINK_TOOL_GUIDANCE]}` }
     : tool).map(tool => tool.name === "kanvas.submit" ? { ...tool, description: `${VISUAL_INTENT_SUBMIT_HINT} ${tool.description} ${PUBLISHING_DESCRIPTION}` }
     : tool.name === "kanvas.guide" ? { ...tool, description: `${tool.description} Topic tools groups the callable capabilities and distinguishes their effects; topic publishing provides complete context/data/intent recipes and common exact data shapes without a required schema round trip.` } : tool)
-    .map(tool => { const shape = tool.schema instanceof z.ZodObject ? tool.schema.shape : undefined; return shape?.expectedRevision || shape?.expectedVersion || shape?.expectedRevisions || shape?.expectedDraftRevision || shape?.expectedDeckRevision ? { ...tool, description: tool.description.replace(/Requires expectedRevision/gi, 'Optional expectedRevision').replace(/(?:requires?|supply|uses?) (?:the )?current (?:display )?(?:expectedRevision|revision)/gi, 'may use an explicit revision guard') + ' Concurrency: expectedRevision/expectedVersion is OPTIONAL. Omit it to atomically apply to current authorized state; supplying it opts into stale-write rejection. Conflicts return currentRevision for retry.' } : tool; })
+    .map(tool => {
+      const shape = tool.schema instanceof z.ZodObject ? tool.schema.shape : undefined;
+      const guards = shape ? Object.keys(shape).filter(key => /^expected(?:.*Revision(?:s)?|Version)$/.test(key)) : [];
+      if (!guards.length) return tool;
+      const optional = guards.filter(key => shape![key].isOptional()), required = guards.filter(key => !shape![key].isOptional());
+      const requirements = [optional.length ? `${optional.join(', ')} ${optional.length === 1 ? 'is' : 'are'} OPTIONAL stale-write ${optional.length === 1 ? 'guard' : 'guards'}.` : '', required.length ? `${required.join(', ')} ${required.length === 1 ? 'is' : 'are'} REQUIRED by this schema.` : ''].filter(Boolean).join(' ');
+      const description = optional.includes('expectedRevision') ? tool.description.replace(/Requires expectedRevision/gi, 'Optional expectedRevision').replace(/(?:requires?|supply|uses?) (?:the )?current (?:display )?(?:expectedRevision|revision)/gi, 'may use an explicit revision guard') : tool.description;
+      return { ...tool, description: description + ` Concurrency: ${requirements} Supplying a stale guard rejects the call; omitting optional guards does not waive authorization or other preconditions. After a conflict, inspect the operation-specific error and read current authorized state before retrying; current-value fields vary by operation.` };
+    })
     .map(tool => Object.hasOwn(SESSION_CONTINUITY_TOOL_GUIDANCE, tool.name) ? { ...tool, description: `${tool.description} ${SESSION_CONTINUITY_TOOL_GUIDANCE[tool.name as keyof typeof SESSION_CONTINUITY_TOOL_GUIDANCE]}` } : tool);
 
 export const CANONICAL_TOOL_NAMES = CANONICAL_TOOLS.map(tool => tool.name);

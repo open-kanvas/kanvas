@@ -116,4 +116,39 @@ test.describe("task list coverage 1", () => {
         }finally{await client.close();}
     });
 
+    test('manual scroll survives deferred task detail and unrelated updates until an explicit command',async({page,baseURL})=>{
+        const {s,d,viewer}=await setup(page,'Deferred task detail'),client=await mcp(page,baseURL!);
+        let release=()=>{};
+        try{
+            await viewer.emulateMedia({reducedMotion:'no-preference'});
+            await shown(page,viewer,s,d.id,view('task-list',{highlight:'task-13',expanded:[],items:Array.from({length:14},(_,i)=>({id:'task-'+(i+1),title:'Task '+(i+1),summary:'A row summary',...(i===12?{checked:true,detail:'Deferred detail arrived',subtasks:[{id:'child',title:'Independent unchecked child',checked:false}]}:{})}))}));
+            const root=viewer.locator('.viewer-candidate .task-list'),row=root.locator('[data-task-id="task-13"]'),scroll=root.locator('.task-list-scroll');
+            const taskListId=(await use(client,'kanvas.tasklist.read',{sessionId:s})).structured.data.taskLists[0].id;
+            let revision=0;const update=async(args:Record<string,unknown>)=>{const result=await use(client,'kanvas.tasklist.update',{sessionId:s,taskListId,requestId:'deferred-'+(++revision),...args});expect(result.isError).toBe(false);};
+            let requested=false;const held=new Promise<void>(resolve=>{release=resolve;});
+            await viewer.route('**/task-items/task-13',async route=>{const response=await route.fetch();requested=true;await held;await route.fulfill({response});});
+            await row.locator('.task-detail-toggle').click();
+            await expect.poll(()=>requested).toBe(true);
+            // User input occurs while the API response is held, not after disclosure settles.
+            await scroll.dispatchEvent('wheel',{deltaY:-1000});await scroll.evaluate(el=>el.scrollTo({top:0,behavior:'instant'}));
+            release();await expect(row.locator('.task-detail')).toHaveText('Deferred detail arrived');
+            await viewer.waitForTimeout(800);expect(await scroll.evaluate(el=>el.scrollTop)).toBeLessThan(2);
+            await update({items:[{item:1,status:'updated'}]});
+            await expect(row.locator('.task-detail')).toHaveText('Deferred detail arrived');
+            await viewer.waitForTimeout(400);expect(await scroll.evaluate(el=>el.scrollTop)).toBeLessThan(2);
+            // Even an explicit expansion of the already-highlighted row rearms positioning.
+            await update({expand:[13]});await expect.poll(()=>scroll.evaluate(el=>el.scrollTop)).toBeGreaterThan(100);
+            // Interrupt a native smooth scroll through keyboard input; stop at the current position.
+            await scroll.dispatchEvent('keydown',{key:'ArrowUp'});await scroll.evaluate(el=>el.scrollTo({top:0,behavior:'instant'}));
+            await viewer.waitForTimeout(400);expect(await scroll.evaluate(el=>el.scrollTop)).toBeLessThan(2);
+            await update({highlight:2});await update({highlight:13});await expect.poll(()=>scroll.evaluate(el=>el.scrollTop)).toBeGreaterThan(100);
+            // A completed noncurrent parent must not dim its independently open children.
+            await update({highlight:2,expand:[13]});await expect(row).not.toHaveClass(/is-current/);
+            const child=row.locator('[data-subtask-id="child"]');await expect(child).toBeVisible();
+            expect(await child.evaluate(el=>{let opacity=1;for(let node:Element|null=el;node&&!node.classList.contains('task-list');node=node.parentElement)opacity*=Number(getComputedStyle(node).opacity);return opacity;})).toBe(1);
+            await expect(child.locator('.task-box')).toHaveAttribute('aria-label','Open');await expect(child.locator('strong')).toHaveCSS('text-decoration-line','none');
+            await expect(row.locator(':scope>.task-check')).toHaveCSS('opacity','0.5');
+        }finally{release();await client.close();}
+    });
+
 });

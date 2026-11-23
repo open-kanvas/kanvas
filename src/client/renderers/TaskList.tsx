@@ -22,11 +22,14 @@ export function TaskList({data,sessionId,displayId}:{data:TaskListData;sessionId
   return()=>{cancelled=true;};
  },[data.items,data.taskListRevision,expanded,sessionId,displayId]);
  // Agent commands replace local disclosure overrides; unrelated row updates preserve them.
- useEffect(()=>{setExpanded(initialExpanded());},[data.highlight,data.highlightSubtask,data.expansionRevision]);
+ useEffect(()=>{setExpanded(initialExpanded());},[data.highlight,data.highlightSubtask,data.expansionRevision??0]);
  const toggle=(item:TaskItem)=>{const key=String(item.id??item.number),open=expanded[key]??false;setExpanded(old=>({...old,[key]:!open}));setError('');};
  const projected=useMemo(()=>projectTasks(data.items,{sort:data.sort,filter:data.filter,doneLast:data.doneLast}),[data.items,data.sort,data.filter,data.doneLast]);
  // Items ticked since the previous render get a short in-place check-off; the first render animates nothing.
  const doneBefore=useRef<Set<string>|undefined>(undefined),justDone=useMemo(()=>{const now=new Set(data.items.filter(item=>item.checked).map(item=>String(item.id??item.number))),fresh=new Set(doneBefore.current?[...now].filter(key=>!doneBefore.current!.has(key)):[]);doneBefore.current=now;return fresh;},[data.items]);
+ // Cancellation belongs to the agent command, not to a detail-fetch render.
+ const scrollInterrupted=useRef(false),expansionCommand=data.expansionRevision??0;
+ useEffect(()=>{scrollInterrupted.current=false;},[data.taskListId,data.highlight,data.highlightSubtask,expansionCommand]);
  const body=useRef<HTMLTableSectionElement>(null),positions=useRef(new Map<string,number>());
  // When the list asks for doneLast (or is re-sorted), a moved item visibly travels to its new place.
  useLayoutEffect(()=>{const root=body.current;if(!root)return;const reduced=typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches,next=new Map<string,number>();
@@ -40,11 +43,14 @@ export function TaskList({data,sessionId,displayId}:{data:TaskListData;sessionId
   const row=body.current?.querySelector<HTMLElement>(`tr[data-task-id="${CSS.escape(data.highlight??'')}"]`);
   const scroll=row?.closest<HTMLElement>('.task-list-scroll');
   if(!data.highlight||!row||!scroll)return;
-  let frame=0,interrupted=false;
-  const interrupt=()=>{interrupted=true;cancelAnimationFrame(frame);};
+  let frame=0;
+  const interrupt=()=>{scrollInterrupted.current=true;cancelAnimationFrame(frame);
+   // Cancel an already-started native smooth scroll, including keyboard/pointer input.
+   scroll.scrollTo({top:scroll.scrollTop,left:scroll.scrollLeft,behavior:'instant'});
+  };
   for(const event of ['wheel','touchstart','pointerdown','keydown'])scroll.addEventListener(event,interrupt,{passive:true});
   const reveal=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{
-   if(interrupted||!row.isConnected)return;
+   if(scrollInterrupted.current||!row.isConnected)return;
    const box=scroll.getBoundingClientRect(),rect=row.getBoundingClientRect();
    // Sticky headings occupy viewport space. Rectangles include viewer zoom,
    // whereas scrollTop uses layout pixels.
@@ -59,7 +65,7 @@ export function TaskList({data,sessionId,displayId}:{data:TaskListData;sessionId
   const observer=typeof ResizeObserver==='function'?new ResizeObserver(reveal):undefined;
   observer?.observe(row);observer?.observe(scroll);reveal();
   return()=>{observer?.disconnect();cancelAnimationFrame(frame);for(const event of ['wheel','touchstart','pointerdown','keydown'])scroll.removeEventListener(event,interrupt);};
- },[data.taskListId,data.highlight,data.highlightSubtask,expanded,details]);
+ },[data.taskListId,data.highlight,data.highlightSubtask,data.expansionRevision,expanded,details]);
  const open=data.items.filter(item=>!item.checked).length,done=data.items.length-open,columns=taskCustomColumns(data.columns,data.items);
  const anyStatus=data.items.some(item=>item.status),anyTags=data.items.some(item=>item.tags?.length);
  return <div className="task-list" data-task-list={data.taskListId}>{error&&<p role="alert">{error}</p>}

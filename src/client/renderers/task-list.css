@@ -13,7 +13,7 @@
 .task-pill{display:inline-block;padding:.08em .7em;border-radius:999px;font-size:.82em;border:1px solid var(--pill,var(--line));background:color-mix(in srgb,var(--pill,var(--muted)) 20%,transparent)}
 .task-tag{display:inline-block;margin:0 .3em .2em 0;padding:.02em .5em;border-radius:.4em;font-size:.76em;border:1px solid var(--line);color:var(--muted)}
 .task-field{font-size:.9em;overflow-wrap:anywhere}
-.task-list tr.is-done{opacity:.5}.task-list tr.is-done>.task-item>strong,.task-list tr.is-done>.task-item>.task-detail-toggle>strong,.task-subtasks>li.is-done>.task-subtask-content>.task-subtask-heading>strong{text-decoration:line-through}
+.task-list tr.is-done:not(.is-current)>td:not(.task-item),.task-list tr.is-done:not(.is-current)>.task-item>:not(.task-subtasks){opacity:.5}.task-list tr.is-done>.task-item>strong,.task-list tr.is-done>.task-item>.task-detail-toggle>strong,.task-subtasks>li.is-done>.task-subtask-content>.task-subtask-heading>strong{text-decoration:line-through}
 .task-list tr.is-current{opacity:1;background:color-mix(in srgb,var(--accent,#8ab4ff) 12%,transparent);box-shadow:inset 5px 0 0 var(--accent,#8ab4ff)}
 .task-list tr.is-current .task-summary{-webkit-line-clamp:unset;line-clamp:unset;display:block}
 .task-detail{margin:.5em 0 0;padding:.6em .8em;border-left:2px solid var(--line);white-space:pre-wrap;overflow-wrap:anywhere;font-size:.88em;line-height:1.45}.task-detail small{display:block;margin-top:.5em;color:var(--muted)}

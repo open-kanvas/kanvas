@@ -42,6 +42,10 @@ describe('conversation overview',()=>{
   const search=data(discoveryResult('kanvas_discover',{catalog:'operations',action:'search',query:'tasklist',examples:false},context));
   expect(search.results.every((row:any)=>!Object.hasOwn(row,'example'))).toBe(true);
  });
+ it('finds the primary publish operation for everyday display wording',()=>{
+  const result=new DiscoveryCatalog().query('tool','search',{query:'publish a view to a display',limit:5},{principal:{userId:'owner'}});
+  expect((result.results as {id:string}[]).map(row=>row.id)).toContain('kanvas.submit');
+ });
  it('filters administrator-only operations before listing, search and exact retrieval',()=>{
   const catalog=new DiscoveryCatalog(),regular={principal:{userId:'owner'}},admin={...regular,serviceAdmin:true};
   const id='kanvas.friction.read';

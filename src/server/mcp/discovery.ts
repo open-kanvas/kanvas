@@ -113,6 +113,7 @@ function schemaTerms(value: unknown): string {
 }
 const short = (text: string) => text.split(/(?<=[.!?])\s/)[0].slice(0, 240);
 const operationExtras: Record<string, string> = {
+    "kanvas.submit": "publish a view to a display show supplied content on my screen",
     "kanvas.pairing.revoke": 'disconnect unpair signout approved paired browser viewer watching access',
     "kanvas.topology.read": 'connected people browsers windows tabs live hierarchy who watching',
     "kanvas.dataset.import": 'save spreadsheet excel csv ingest load upload rows lossless data',
@@ -132,6 +133,7 @@ const operationExtras: Record<string, string> = {
 };
 /** Words people actually use for an operation whose verb is not theirs. Search title only; the id is unchanged. */
 const operationTitles: Record<string, string> = {
+    "kanvas.submit": "publish a view to a display, show supplied content on a screen",
     "kanvas.display.register": 'create a display, add a new display, second screen',
 };
 let operations: CatalogItem[] | undefined;

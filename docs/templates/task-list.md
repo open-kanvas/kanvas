@@ -53,3 +53,10 @@ release or subsequent publication; genuinely published revisions are reobserved
 and can become superseded. Releasing hold alone does not replay skipped updates.
 After releasing it, use `kanvas.tasklist.show` with a new request ID to show the latest
 saved list. A no-change update neither publishes nor implies browser application.
+
+Collapsed task details are served from the displayed document revision, not the
+latest mutable list. Before a held revision first diverges, its complete document
+is retained as a session-owned snapshot; repeated updates while it remains held
+do not duplicate it. This also keeps detail stable after release until an explicit
+show. No existing data is purged. Older pre-fix views without a retained detail
+snapshot return unavailable rather than silently showing newer detail.

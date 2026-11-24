@@ -191,6 +191,10 @@ export class TaskLists{
    const next:TaskList=unchanged?list:{...list,title,data,nextNumber,revision:list.revision+1,updatedAt:now()};
    const displayRevisions:Record<string,number>={},heldDisplayIds:string[]=[];
    if(!unchanged){
+    // Display views omit collapsed detail. Retain the old durable document
+    // whenever a matching screen may still request detail for its frozen view.
+    const matching=(await this.store.list<DisplayRecord>('display',a.sessionId)).some(display=>display.held&&display.view?.template==='task-list'&&display.view.data.taskListId===list.id&&display.view.data.taskListRevision===list.revision);
+    if(matching)await this.store.put('task-list-snapshot',{...list,id:list.id+':'+list.revision});
     await this.store.put('task-list',next);
     const view=this.view(next);
     for(const display of await this.store.list<DisplayRecord>('display',a.sessionId)){
@@ -217,7 +221,11 @@ export class TaskLists{
   const display=await this.service.display(p,sessionId,displayId);
   const leaf=display.view?.template==='presentation'?(display.view.data.slides as ViewSpec[])[Number(display.view.data.index??0)]:display.view;
   if(leaf?.template!=='task-list'||typeof leaf.data.taskListId!=='string')throw new AppError('NOT_FOUND','No task list on this display.',404);
-  const list=await this.get(sessionId,leaf.data.taskListId);
+  const latest=await this.get(sessionId,leaf.data.taskListId),revision=leaf.data.taskListRevision;
+  const list=typeof revision==='number'&&revision!==latest.revision
+   ?await this.store.get<TaskList>('task-list-snapshot',latest.id+':'+revision):latest;
+  // Never replace an older on-screen item's detail with a newer saved document.
+  if(!list||list.sessionId!==sessionId)throw new AppError('NOT_FOUND','Detail for this displayed list revision is unavailable. Show the latest saved list to refresh it.',404);
   return this.find(list.data.items as Stored[],itemId,'item');
  }
  async show(p:AuthPrincipal,raw:unknown){

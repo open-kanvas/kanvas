@@ -4,6 +4,7 @@ import { operationTable } from '../../src/server/mcp/operations.js';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import ts from 'typescript';
+import { operationCatalog } from '../../src/server/mcp/discovery.js';
 
 const catalogOnly = ['kanvas.help', 'kanvas.guide', 'kanvas.template.get'];
 const definitionPaths = [
@@ -34,6 +35,12 @@ function authoredDefinitions() {
 }
 
 describe('authored operation summaries', () => {
+  it('patch registry detail uses bounded acknowledgements and conditional inspection', () => {
+    const detail = operationCatalog().find(entry => entry.id === 'kanvas.view.patch')!.detail();
+    expect(detail.description).toContain('Waits briefly for genuine browser acknowledgement');
+    expect(detail.description).toContain('inspect later only when unconfirmed');
+    expect(detail.description).not.toContain('check delivery separately');
+  });
   it('covers all 189 callable operations and three catalog-only definitions', () => {
     expect(CANONICAL_TOOLS).toHaveLength(192);
     expect(operationTable().size).toBe(189);

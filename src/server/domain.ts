@@ -1505,7 +1505,16 @@ export class KanvasService implements McpService {
             const revisions = value.displayRevisions as Record<string, number>;
             const update: UpdateRecord = { id: '', sessionId: value.sessionId, requestId: '', displayIds: Object.keys(revisions), revisions, status: 'prepared', createdAt: now() };
             const observed = await waitForDelivery(this, update, false);
-            return { ...value, delivery: observed.delivery };
+            // These targets were skipped atomically with the durable-list mutation.
+            // Keep that outcome on retry, even after release or a later publication;
+            // there is no new revision to acknowledge and no old paint to borrow.
+            const heldDisplayIds = Array.isArray(value.heldDisplayIds) ? value.heldDisplayIds as string[] : [];
+            const held = await Promise.all(heldDisplayIds.map(async displayId => {
+                const display = await this.store.get<DisplayRecord>('display', displayId);
+                return [displayId, {status: 'held' as const, ...(display ? {displayName: display.name} : {}), waitedMs: 0,
+                    message: 'This request saved the list but skipped this held display; its content and revision were unchanged. Release hold and show the saved list with a new request to refresh it.'}] as const;
+            }));
+            return { ...value, delivery: {...observed.delivery, ...Object.fromEntries(held)} };
         }
         return result;
     }

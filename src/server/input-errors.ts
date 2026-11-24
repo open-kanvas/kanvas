@@ -55,7 +55,8 @@ function schemaSelector(root: any) {
   const select = (node: any, value: any): any => {
     const choices = branches(node);
     if (choices.length === 1) return choices[0];
-    const matches = choices.filter(choice => Object.entries(choice?.properties ?? {}).every(([key, rule]: [string, any]) =>
+    const compatible = choices.filter(choice => !choice?.type || (choice.type === 'object' ? value !== null && typeof value === 'object' && !Array.isArray(value) : choice.type === 'array' ? Array.isArray(value) : choice.type === 'null' ? value === null : choice.type === 'integer' ? Number.isInteger(value) : typeof value === choice.type));
+    const matches = compatible.filter(choice => Object.entries(choice?.properties ?? {}).every(([key, rule]: [string, any]) =>
       value?.[key] === undefined && !choice.required?.includes(key) ? true : rule.const !== undefined ? value?.[key] === rule.const : Array.isArray(rule.enum) ? rule.enum.includes(value?.[key]) : true));
     return matches.length === 1 ? matches[0] : undefined;
   };

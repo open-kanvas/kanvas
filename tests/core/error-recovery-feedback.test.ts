@@ -73,3 +73,11 @@ describe('f1ffebf8 invalid mutation preserves saved state',()=>{
   });
 });
 
+
+// Scalar alternatives must not hide strict-object field hints in nested unions.
+it('preserves allowed fields for object items in scalar-or-object unions',()=>{
+ const schema=z.object({items:z.array(z.union([z.string(),z.object({text:z.string()}).strict()]))}).strict();
+ const input={items:[{text:'kept',title:'unsupported'}]};
+ const parsed=schema.safeParse(input);expect(parsed.success).toBe(false);
+ if(!parsed.success)expect(validationIssues(parsed.error,'arguments',input,false,schema)[0]).toMatchObject({path:'arguments.items[0].title',allowedFields:['text']});
+});

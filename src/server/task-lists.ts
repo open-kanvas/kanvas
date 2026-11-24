@@ -46,14 +46,14 @@ export const taskListTools: Definition[] = [
         searchAliases: ["kanvas.tasklist.read"]
     },
     {
-        name: "kanvas.tasklist.update", summary: "Change tasks, subtasks, expansion, sorting, or filters when maintaining a saved task list by stable identity.", idempotent: true, schema: taskListUpdateSchema, description: 'Saves the durable list and refreshes matching unheld displays only. Held displays keep their content and revision; release hold and call tasklist.show to catch up. Identical retries never publish skipped displays. Change a saved task list by item (add, items, check, uncheck, remove, highlight, expand, collapse, collapseAll, sort, filter, columns, showNumber, showReference). Position additions/edited items with add[].index or items[].index. subtasks:[{item,add,items,check,uncheck,remove,highlight}] addresses stable subtask ids within a parent; unnamed items stay untouched and numbers never change. expand/collapse accept item ids or numbers; collapseAll closes every item. A changed highlight opens only its new item; explicit expansion in the same update is applied afterward. Create one by publishing a task-list view.',
+        name: "kanvas.tasklist.update", summary: "Change tasks, subtasks, expansion, sorting, or filters when maintaining a saved task list by stable identity.", idempotent: true, schema: taskListUpdateSchema, description: 'Saves the durable list and refreshes matching unheld displays only. Held displays keep their content and revision; release hold and call tasklist.show to catch up. Identical retries never publish skipped displays. Returns durable updateId/requestId receipts; delivery waits up to the configurable 2-second default, and late acknowledgements remain recoverable through kanvas.update.status. Change a saved task list by item (add, items, check, uncheck, remove, highlight, expand, collapse, collapseAll, sort, filter, columns, showNumber, showReference). Position additions/edited items with add[].index or items[].index. subtasks:[{item,add,items,check,uncheck,remove,highlight}] addresses stable subtask ids within a parent; unnamed items stay untouched and numbers never change. expand/collapse accept item ids or numbers; collapseAll closes every item. A changed highlight opens only its new item; explicit expansion in the same update is applied afterward. Create one by publishing a task-list view.',
         domain: "checklist",
         requiredScope: "publish",
         discovery: {"group":"content","hint":"Change single items of a saved task list: add, edit fields, check, uncheck, remove, highlight, sort, filter. Never republish the list.","examples":[{"sessionId":"session-id","taskListId":"task-list-id","requestId":"check-7","check":[7],"highlight":8}]},
         searchAliases: ["kanvas.tasklist.update"]
     },
     {
-        name: "kanvas.tasklist.show", summary: "Restore a saved task list on a display in its session when returning to existing work.", idempotent: true, schema: taskListShowSchema, description: 'Show a saved task list on a display of the same session without resupplying items.',
+        name: "kanvas.tasklist.show", summary: "Restore a saved task list on a display in its session when returning to existing work.", idempotent: true, schema: taskListShowSchema, description: 'Show a saved task list on a display of the same session without resupplying items. Honors hold/access and identical requestId retries. Returns durable updateId/requestId and bounded browser delivery; use kanvas.update.status for a later unconfirmed outcome.',
         domain: "checklist",
         requiredScope: "publish",
         discovery: {"group":"content","hint":"Put a saved task list on a display of the same session without resupplying items.","examples":[{"sessionId":"session-id","taskListId":"task-list-id","displayId":"display-id","requestId":"show-tasks"}]},
@@ -133,6 +133,7 @@ export class TaskLists{
    const key=hash(`${p.userId}:${p.tokenId??''}:${a.sessionId}:tasklist:${a.requestId}`),digest=hash(JSON.stringify(a));
    const prior=await this.store.get<{digest:string;result:{revision:number}}>('task-list-request',key);
    if(prior){if(prior.digest!==digest)throw new AppError('REQUEST_ID_CONFLICT','This request ID refers to a different task list update.',409);return prior.result;}
+   await this.service.assertUnusedUpdateRequest(p,a.sessionId,a.requestId);
    const list=await this.get(a.sessionId,a.taskListId);this.service.assertRevision(a.expectedRevision,list.revision);
    const before=JSON.stringify([list.title,list.data]);
    const items=(list.data.items as Stored[]).map(item=>({...item}));
@@ -214,6 +215,8 @@ export class TaskLists{
     counts:{total:final.length,open:final.filter(item=>!item.checked).length,done:final.filter(item=>item.checked).length},
     ...(next.data.highlight?{highlight:{id:next.data.highlight,number:final.find(item=>item.id===next.data.highlight)!.number}}:{}),...(unchanged?{unchanged:true}:{}),...(ignoredColumns.length?{ignoredColumns,columnsNote:'Use showNumber/showReference for built-in number/reference visibility. columns is only for your own extra columns, filled from each item\'s fields.'}:{}),updatedAt:next.updatedAt,
     note:unchanged?'Nothing differed from the saved list; revision unchanged.':'Saved. Items not listed in changes are exactly as before; item numbers never change. Held displays retain their snapshot; release hold and show the saved list to refresh them.'};
+   const update=await this.service.recordNarrowUpdate(p,a,'tasklist-update',displayRevisions,heldDisplayIds);
+   Object.assign(result,{updateId:update.id,requestId:a.requestId});
    await this.store.put('task-list-request',{id:key,sessionId:a.sessionId,digest,result});return result;
   }));
  }

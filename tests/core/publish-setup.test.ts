@@ -13,7 +13,7 @@ async function server(options: Parameters<typeof startHarness>[0] = {}) { const 
 const principal = (b: Browser): AuthPrincipal => ({ userId: b.user!.id });
 const input = (more: Partial<PublishInput> = {}): PublishInput => ({ requestId: randomUUID(), view: fact('Exact supplied sentence.'), ...more });
 interface Receipt extends UpdateRecord { updateId: string; targetRef: string; createdSession: boolean; createdDisplays: string[]; targets: { displayId: string; viewerUrl: string; shortUrl: string }[] }
-const show = async (h: Harness, p: AuthPrincipal, args: PublishInput) => (await h.runtime.service.execute("kanvas.submit", args, p)) as Promise<Receipt>;
+const show = async (h: Harness, p: AuthPrincipal, args: PublishInput) => (await h.runtime.service.execute("kanvas.publish", args, p)) as Promise<Receipt>;
 const count = async (h: Harness, kind: string) => (await h.runtime.store.list(kind)).length;
 
 describe('publish-first orchestration through the real service and PostgreSQL', () => {

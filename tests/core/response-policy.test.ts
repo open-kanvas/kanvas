@@ -64,11 +64,11 @@ describe("response policy coverage 1", () => {
     describe('0875e953 response policy (pure rules)', () => {
         const orientation = { guide: { tool: "kanvas.guide" }, viewerLink: 'how to connect a receiver', toolSelection: 'x', recovery: 'y' };
         const guidance = { boundary: 'b', levels: [{ scope: 'user', id: 'user:1', text: 'be proactive', revision: 3 }] };
-        const run = (ledger: ContactLedger, overrides: Partial<Parameters<typeof applyResponsePolicy>[1]> = {}, structured: Record<string, unknown> = { data: { status: 'accepted', sessionId: 's1' }, orientation }, key = 'conn', at = Date.now()) => applyResponsePolicy(structured, { state: ledger.observe(key, at), context: { displayConnected: true }, guidance, isError: false, operation: "kanvas.submit", sessionId: 's1', ...overrides }).structured!;
+        const run = (ledger: ContactLedger, overrides: Partial<Parameters<typeof applyResponsePolicy>[1]> = {}, structured: Record<string, unknown> = { data: { status: 'accepted', sessionId: 's1' }, orientation }, key = 'conn', at = Date.now()) => applyResponsePolicy(structured, { state: ledger.observe(key, at), context: { displayConnected: true }, guidance, isError: false, operation: "kanvas.publish", sessionId: 's1', ...overrides }).structured!;
         it('session modes and tempo help are absent from public contracts', () => {
             expect(CANONICAL_TOOLS.find(t => t.name === 'kanvas.session.create')!.schema.safeParse({name:'Topic',mode:'live'}).success).toBe(false);
-            expect(CANONICAL_TOOLS.find(t => t.name === 'kanvas.config.update')!.schema.safeParse({sessionId:'s',mode:'signage'}).success).toBe(false);
-            expect(CANONICAL_TOOLS.find(t => t.name === 'kanvas.config.update')!.schema.safeParse({sessionId:'s'}).success).toBe(false);
+            expect(CANONICAL_TOOLS.find(t => t.name === 'kanvas.settings.update')!.schema.safeParse({sessionId:'s',mode:'signage'}).success).toBe(false);
+            expect(CANONICAL_TOOLS.find(t => t.name === 'kanvas.settings.update')!.schema.safeParse({sessionId:'s'}).success).toBe(false);
             expect(helpCatalog().some(t => t.id === 'kanvas.help.modes')).toBe(false);
             expect(AGENT_CONDUCT).toContain('Follow the person’s lead');
             expect(AGENT_CONDUCT).not.toMatch(/tempo|without asking\. One/);
@@ -95,9 +95,9 @@ describe("response policy coverage 1", () => {
             expect(state).not.toHaveProperty('mode');
             expect(state.manage.displays.change).toContain('kanvas.display.register');
             expect((await call("kanvas.session.state", { sessionId: s, includeUpdates: 'all' })).updates).toHaveLength(8);
-            await expect(call('kanvas.config.update', {sessionId:s,mode:'signage'})).rejects.toThrow();
+            await expect(call('kanvas.settings.update', {sessionId:s,mode:'signage'})).rejects.toThrow();
             expect(await call('kanvas.session.state', {sessionId:s})).not.toHaveProperty('mode');
-            await expect(call('kanvas.config.update', {sessionId:s,mode:'auto'})).rejects.toThrow();
+            await expect(call('kanvas.settings.update', {sessionId:s,mode:'auto'})).rejects.toThrow();
             await o.submit(s, [d], { version: 1, template: 'opening-hours', data: (await import('../../src/shared/template-examples.js')).samples['opening-hours'].data } as never);
             expect(await call('kanvas.session.state', {sessionId:s})).not.toHaveProperty('mode');
             const created = await call('kanvas.session.create', {name:'Wall board',initialDisplay:false});

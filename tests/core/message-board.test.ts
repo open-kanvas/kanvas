@@ -122,7 +122,7 @@ describe("message board coverage 1", () => {
             await expect(call("kanvas.board.read", {}, { ...pb, scopedSessionId: 'some-session' })).rejects.toMatchObject({ code: 'FORBIDDEN' });
             await expect(call("kanvas.board.read", {}, selected)).rejects.toMatchObject({ code: 'FORBIDDEN' });
             await expect(call("kanvas.board.overview", {}, selected)).rejects.toMatchObject({ code: 'FORBIDDEN' });
-            await expect(call("kanvas.board.update", { notifications: true }, readOnly)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+            await expect(call("kanvas.board.preferences.update", { notifications: true }, readOnly)).rejects.toMatchObject({ code: 'FORBIDDEN' });
             expect((await call("kanvas.board.read", {}, readOnly)).messages).toHaveLength(1);
             expect((await call("kanvas.board.read", {}, pb)).messages.filter((m: any) => m.author === 'Bo')).toEqual([]);
             // No HTTP route serves the board to a browser without a session, or at all.
@@ -186,7 +186,7 @@ describe("message board coverage 1", () => {
             await post(pa, 'Hello again');
             const board = h.runtime.service.board;
             expect(await board.notice(pb as never)).toBeUndefined();
-            expect(await call("kanvas.board.update", { notifications: true }, pb)).toMatchObject({ updated: true, notifications: true });
+            expect(await call("kanvas.board.preferences.update", { notifications: true }, pb)).toMatchObject({ updated: true, notifications: true });
             const notice = await board.notice(pb as never);
             expect(notice).toMatchObject({ newMessages: 2 });
             expect(notice!.note).toMatch(/^2 new messages on the public message board since you last looked\./);
@@ -198,16 +198,16 @@ describe("message board coverage 1", () => {
             expect(applyResponsePolicy({ data: {} }, { state: ledger.observe('u:c'), context: { messageBoard: notice }, guidance: undefined, isError: false }).structured).not.toHaveProperty('messageBoard');
             expect(applyResponsePolicy({ data: {} }, { state: ledger.observe('u:c'), context: { messageBoard: notice }, guidance: undefined, isError: false, operation: "kanvas.session.create" }).structured).not.toHaveProperty('messageBoard');
             expect(applyResponsePolicy({ data: {} }, { state: ledger.observe('u:c'), context: { messageBoard: { newMessages: 3, note: '3' } }, guidance: undefined, isError: false, operation: "kanvas.session.create" }).structured).toMatchObject({ messageBoard: { newMessages: 3 } });
-            await call("kanvas.board.update", { markSeen: true }, pb);
+            await call("kanvas.board.messages.seen", {}, pb);
             expect(await board.notice(pb as never)).toBeUndefined();
-            await call("kanvas.board.update", { notifications: false }, pb);
+            await call("kanvas.board.preferences.update", { notifications: false }, pb);
             await post(pa, 'Third');
             expect(await board.notice(pb as never)).toBeUndefined();
         });
         it('lets an author remove their own message and nobody else, except a service administrator', async () => {
             const mine = await post(pa, 'Remove me', consent('Ada'));
-            await expect(call("kanvas.board.update", { removeMessageId: mine.message.id }, pb)).rejects.toMatchObject({ code: 'NOT_FOUND' });
-            expect(await call("kanvas.board.update", { removeMessageId: mine.message.id }, pa)).toMatchObject({ updated: true, removed: mine.message.id });
+            await expect(call("kanvas.board.message.delete", {messageId: mine.message.id }, pb)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+            expect(await call("kanvas.board.message.delete", {messageId: mine.message.id }, pa)).toMatchObject({ updated: true, removed: mine.message.id });
             expect((await call("kanvas.board.read", {}, pb)).messages).toEqual([]);
             expect((await call("kanvas.board.overview", {}, pb)).total).toBe(0);
             const stored = await h.runtime.service.store.get<any>('board-message', mine.message.id);
@@ -218,7 +218,7 @@ describe("message board coverage 1", () => {
                 serviceAdmins: Set<string>;
             };
             admins.serviceAdmins.add(a.user!.id);
-            expect(await call("kanvas.board.update", { removeMessageId: theirs.message.id }, pa)).toMatchObject({ removed: theirs.message.id });
+            expect(await call("kanvas.board.message.delete", {messageId: theirs.message.id }, pa)).toMatchObject({ removed: theirs.message.id });
             expect(await h.runtime.service.store.get<any>('board-message', theirs.message.id)).toMatchObject({ text: '', removedBy: 'maintainer' });
             expect((await post(pa, 'From the maintainer')).message.maintainer).toBe(true);
             expect((await call("kanvas.board.read", {}, pb)).messages[0]).toMatchObject({ author: 'Ada', maintainer: true });

@@ -177,7 +177,7 @@ describe("settings coverage 2", () => {
         success(await owner.request('PATCH', `/api/sessions/${s}/config`, { expectedRevision: 0, config: { timeFormat: '12h' } }));
         expect((await owner.detail(s)).session.config.timeFormat).toBe('12h');
         const principal = { userId: owner.user!.id };
-        const pref = await h.runtime.service.execute("kanvas.preferences.get", {}, principal) as any;
+        const pref = await h.runtime.service.execute("kanvas.preferences.read", {}, principal) as any;
         await h.runtime.service.execute("kanvas.preferences.update", { expectedRevision: pref.revision, config: { timeFormat: '24h' } }, principal);
         expect((await owner.session()).config.timeFormat).toBe('24h');
         expect((await owner.detail(s)).session.config.timeFormat).toBe('12h');
@@ -201,7 +201,7 @@ describe("settings coverage 3", () => {
     describe('0875e953 response policy (pure rules)', () => {
         const orientation = { guide: { tool: "kanvas.guide" }, viewerLink: 'how to connect a receiver', toolSelection: 'x', recovery: 'y' };
         const guidance = { boundary: 'b', levels: [{ scope: 'user', id: 'user:1', text: 'be proactive', revision: 3 }] };
-        const run = (ledger: ContactLedger, overrides: Partial<Parameters<typeof applyResponsePolicy>[1]> = {}, structured: Record<string, unknown> = { data: { status: 'accepted', sessionId: 's1' }, orientation }, key = 'conn', at = Date.now()) => applyResponsePolicy(structured, { state: ledger.observe(key, at), context: { displayConnected: true }, guidance, isError: false, operation: "kanvas.submit", sessionId: 's1', ...overrides }).structured!;
+        const run = (ledger: ContactLedger, overrides: Partial<Parameters<typeof applyResponsePolicy>[1]> = {}, structured: Record<string, unknown> = { data: { status: 'accepted', sessionId: 's1' }, orientation }, key = 'conn', at = Date.now()) => applyResponsePolicy(structured, { state: ledger.observe(key, at), context: { displayConnected: true }, guidance, isError: false, operation: "kanvas.publish", sessionId: 's1', ...overrides }).structured!;
         it('a declared full preference repeats guidance independently of orientation; a long silence is a new contact; the ledger is bounded', () => {
             const ledger = new ContactLedger();
             run(ledger, { context: { displayConnected: true, preference: 'full' } });
@@ -240,7 +240,7 @@ describe("settings coverage 3", () => {
             expect(serverWebsiteUrl(false)).toBeUndefined();
             expect(serverWebsiteUrl('http://insecure.example')).toBeUndefined();
             expect(serverWebsiteUrl('javascript:alert(1)')).toBeUndefined();
-            expect(KANVAS_VERSION).toBe('0.42.0');
+            expect(KANVAS_VERSION).toBe('0.43.0');
             // Public release identity must agree in server discovery, dependency manifests and the served HTML shell.
             const packageJson = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
             const packageLock = JSON.parse(readFileSync(new URL('../../package-lock.json', import.meta.url), 'utf8'));
@@ -291,7 +291,7 @@ describe("settings coverage 5", () => {
             expect(paused.status).toBe('paused');
             await expect(update("kanvas.autoplay.control", { action: 'resume', expectedVersion: started.version })).rejects.toMatchObject({ code: 'REVISION_CONFLICT', currentRevision: paused.version });
             await update("kanvas.autoplay.control", { action: 'stop' });
-            await call("kanvas.config.update", { sessionId: s, config: { theme: 'light' } });
+            await call("kanvas.settings.update", { sessionId: s, config: { theme: 'light' } });
             expect((await o.detail(s)).session.config.theme).toBe('light');
         });
     });

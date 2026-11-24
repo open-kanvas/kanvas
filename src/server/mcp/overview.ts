@@ -3,7 +3,7 @@ import {discoveryCatalog} from './discovery.js';
 import {KANVAS_VERSION} from '../../shared/version.js';
 export const OVERVIEW_POINTER = 'If you have not loaded the overview in this conversation, call discover with no arguments once to get every operation and template name.';
 export interface OverviewContext { screens: Record<string, unknown>[]; recentSessions: {id: string; name: string; updatedAt: string}[]; savedGuidance: unknown; }
-export const PUBLISH_RECIPE = {tool: 'kanvas_call', arguments: {operationId: 'kanvas.submit', arguments: {requestId: 'show-supplied-text-1', view: {version: 1, template: 'fact', data: {text: 'The exact supplied sentence.'}}}}};
+export const PUBLISH_RECIPE = {tool: 'kanvas_call', arguments: {operationId: 'kanvas.publish', arguments: {requestId: 'show-supplied-text-1', view: {version: 1, template: 'fact', data: {text: 'The exact supplied sentence.'}}}}};
 /** Registry content is shared; account context is fetched afresh and never cached. */
 export function overview(context: CatalogContext, account: OverviewContext) {
  const entry = (item: {id: string; summary: string}) => ({id: item.id, description: item.summary});

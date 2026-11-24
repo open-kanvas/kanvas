@@ -21,7 +21,7 @@ let finishPendingModel: (() => void) | undefined;
 afterEach(async () => { finishPendingModel?.(); finishPendingModel = undefined; await server?.close(); server = undefined; });
 describe('inspectable publishing recipes without mandatory schema lookup', () => {
     it.each(PUBLISHING_RECIPES)('$id is a complete submit that prepares its documented template', async (recipe) => {
-        const definition = MCP_TOOLS.find(tool => tool.name === "kanvas.submit")!;
+        const definition = MCP_TOOLS.find(tool => tool.name === "kanvas.publish")!;
         expect(definition.schema.safeParse(recipe.arguments).success).toBe(true);
         const submitted = request(structuredClone(recipe.arguments));
         if (recipe.arguments.datasetId)
@@ -46,10 +46,10 @@ describe('inspectable publishing recipes without mandatory schema lookup', () =>
         expect(guide.guidance).toEqual(PUBLISHING_GUIDANCE);
         expect(guide.recipes).toEqual(PUBLISHING_RECIPES);
         expect(guide.commonDataShapes).toEqual(COMMON_DATA_SHAPES);
-        const submit = canonicalToolDefinitions().find(tool => tool.name === "kanvas.submit")!;
+        const submit = canonicalToolDefinitions().find(tool => tool.name === "kanvas.publish")!;
         expect(submit.description).toContain(PUBLISHING_DESCRIPTION);
         // The wire exposes this operation detail, not the internal metadata with inline examples appended.
-        const publicDetail = operationCatalog().find(entry => entry.id === 'kanvas.submit')!.detail() as { description: string };
+        const publicDetail = operationCatalog().find(entry => entry.id === 'kanvas.publish')!.detail() as { description: string };
         expect(publicDetail.description.length).toBeLessThanOrEqual(4096);
         expect(PUBLISHING_DESCRIPTION.length).toBeLessThanOrEqual(1400);
         expect(COMMON_DATA_SHAPES).toHaveLength(7);
@@ -58,7 +58,7 @@ describe('inspectable publishing recipes without mandatory schema lookup', () =>
         expect(submit.annotations).toMatchObject({ idempotentHint: false, destructiveHint: false, openWorldHint: false });
         const inline = /Literal transcription example arguments: (\{.+?\})\. Common native data shapes:/.exec(PUBLISHING_DESCRIPTION);
         expect(inline).not.toBeNull();
-        expect(MCP_TOOLS.find(tool => tool.name === "kanvas.submit")!.schema.safeParse(JSON.parse(inline![1])).success).toBe(true);
+        expect(MCP_TOOLS.find(tool => tool.name === "kanvas.publish")!.schema.safeParse(JSON.parse(inline![1])).success).toBe(true);
     });
     it('keeps every documented JSON publication complete and identical to an exercised recipe', () => {
         const documentation = readFileSync(new URL('../../docs/integration/publishing-paths.md', import.meta.url), 'utf8');
@@ -67,11 +67,11 @@ describe('inspectable publishing recipes without mandatory schema lookup', () =>
         for (const example of examples) {
             const recipe = PUBLISHING_RECIPES.find(candidate => candidate.arguments.requestId === example.arguments.arguments.requestId);
             expect(recipe).toBeDefined();
-            expect(example).toEqual({ name: 'kanvas_call', arguments: { operationId: 'kanvas.submit', arguments: recipe!.arguments } });
+            expect(example).toEqual({ name: 'kanvas_call', arguments: { operationId: 'kanvas.publish', arguments: recipe!.arguments } });
             const resolved = resolveToolCall('discovery', example.name, example.arguments);
             expect(resolved.error).toBeUndefined();
-            expect(resolved.canonicalName).toBe("kanvas.submit");
-            expect(resolved.args).toEqual(MCP_TOOLS.find(tool => tool.name === "kanvas.submit")!.schema.parse(recipe!.arguments));
+            expect(resolved.canonicalName).toBe("kanvas.publish");
+            expect(resolved.args).toEqual(MCP_TOOLS.find(tool => tool.name === "kanvas.publish")!.schema.parse(recipe!.arguments));
         }
     });
 });

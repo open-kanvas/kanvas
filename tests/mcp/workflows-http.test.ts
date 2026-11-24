@@ -64,7 +64,7 @@ describe('workflows over both MCP protocols', () => {
                 }
             }))).isError).toBe(true);
             const before = await h.runtime.service.sessions({ userId: owner.user!.id, tokenId: issued.token.id });
-            expect(await call("kanvas_call", "kanvas.account.begin", { requestId: 'wire-start' })).toMatchObject({ status: 'needs_display' });
+            expect(await call("kanvas_call", "kanvas.session.start", { requestId: 'wire-start' })).toMatchObject({ status: 'needs_display' });
             expect(await h.runtime.service.sessions({ userId: owner.user!.id, tokenId: issued.token.id })).toEqual(before);
         }
         finally {
@@ -83,7 +83,7 @@ describe('workflows over both MCP protocols', () => {
         const call = async (name: string, operation: string, args: Record<string, unknown> = {}) => { const result = await c.callTool(operationRequest({ name, arguments: { operation, ...args } })); expect(result.isError).not.toBe(true); seen.add(`${name}:${operation}`); return (result.structuredContent as any).data; };
         try {
             expect((await call("kanvas_call", "kanvas.devices.read")).devices[0]).toMatchObject({ id: device.id, connected: true });
-            const renamed = await call("kanvas_call", "kanvas.device.rename", { deviceId: device.id, name: 'Living room TV', expectedVersion: device.version });
+            const renamed = await call("kanvas_call", "kanvas.device.update", { deviceId: device.id, name: 'Living room TV', expectedVersion: device.version });
             expect(renamed.name).toBe('Living room TV');
             const input = { deviceId: device.id, sessionId: s.id, displayId: d.id, expectedVersion: renamed.version, requestId: randomUUID() }, sent = await call("kanvas_call", "kanvas.device.present", input);
             expect(sent.device.command.status).toBe('pending');
@@ -108,7 +108,7 @@ describe('workflows over both MCP protocols', () => {
             expect((await reader.callTool(operationRequest({
                 name: "kanvas_call",
                 arguments: {
-                    operationId: "kanvas.device.rename",
+                    operationId: "kanvas.device.update",
                     arguments: {
                         deviceId: device.id, name: 'Refused', expectedVersion: sent.device.version
                     }
@@ -199,7 +199,7 @@ describe('workflows over both MCP protocols', () => {
                         const result = await c.callTool(operationRequest({
                             name: "kanvas_call",
                             arguments: {
-                                operationId: "kanvas.submit",
+                                operationId: "kanvas.publish",
                                 arguments: {
                                     sessionId: s.id, displayIds: [d.id], requestId, view: encoded ? JSON.stringify(view) : view
                                 }
@@ -214,7 +214,7 @@ describe('workflows over both MCP protocols', () => {
             const malformed = await c.callTool(operationRequest({
                 name: "kanvas_call",
                 arguments: {
-                    operationId: "kanvas.submit",
+                    operationId: "kanvas.publish",
                     arguments: {
                         sessionId: s.id, displayIds: [d.id], requestId: randomUUID(), view: '{"version":1,"template":"document","data":{"text":"first\nsecond"}}'
                     }

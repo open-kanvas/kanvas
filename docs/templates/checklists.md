@@ -39,7 +39,7 @@ Held displays keep their complete stored snapshot, revision and previous deliver
 record; no display-change event is emitted for them. The result records
 `heldDisplayIds` separately from `displayRevisions` and reports `delivery[id].status:
 "held"` without a revision: the old applied revision is not proof of this update.
-Mixed targets can therefore report held and applied/offline/failed/timed_out together.
+Mixed targets can therefore report held and applied/offline/failed/unconfirmed together.
 
 An identical request-ID retry does not modify the list again or publish targets
 that were skipped. Its held outcome describes that original request, even after

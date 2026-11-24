@@ -22,7 +22,7 @@ describe('operation discovery metadata and usable examples', () => {
     // Check inline discovery metadata and materializable content; do not
     // repeat 57 tests comparing metadata with the constants that generated it.
     it('supplies usable operation examples, including prepared source and reproduction prose', () => {
-        for (const name of ["kanvas.submit", "kanvas.display.register", "kanvas.presentation.create", "kanvas.display.edit", "kanvas.pairing.decide", "kanvas.error.report", "kanvas.monitoring.start"]) {
+        for (const name of ["kanvas.publish", "kanvas.display.register", "kanvas.presentation.create", "kanvas.display.edit", "kanvas.pairing.decide", "kanvas.error.report", "kanvas.monitoring.start"]) {
             const tool = published.find(item => item.name === name)!, definition = MCP_TOOLS.find(item => item.name === name)!;
             const examples = inlineExamples(tool.description!);
             expect(examples.length).toBeGreaterThan(0);
@@ -43,7 +43,7 @@ describe('operation discovery metadata and usable examples', () => {
         }
     });
     it('front-loads the publish/viewport/full-edit/field-patch distinctions with correct fact and transcript shapes', () => {
-        for (const name of ["kanvas.submit", "kanvas.display.update", "kanvas.display.edit", "kanvas.view.patch"]) {
+        for (const name of ["kanvas.publish", "kanvas.display.update", "kanvas.display.edit", "kanvas.view.patch"]) {
             const description = published.find(tool => tool.name === name)!.description!;
             expect(description.indexOf('Example arguments JSON:')).toBeLessThan(400);
         }
@@ -53,7 +53,7 @@ describe('operation discovery metadata and usable examples', () => {
         expect(TOOL_SELECTION_GUIDANCE.patch).toContain('expectedRevision');
         expect(toolDiscovery()["kanvas.display.update"].hint).toContain('NOT content');
         expect(toolDiscovery()["kanvas.display.edit"].hint).toContain('not a partial merge');
-        const [first, continuation, explicit, transcription] = toolDiscovery()["kanvas.submit"].examples;
+        const [first, continuation, explicit, transcription] = toolDiscovery()["kanvas.publish"].examples;
         expect(first).toMatchObject({ requestId: 'first-visual', templateHint: 'fact', data: { text: 'Exact supplied sentence.' } });
         expect(first).not.toHaveProperty('sessionId');
         expect(continuation).toMatchObject({ targetRef: 'returned-target-ref' });
@@ -89,15 +89,15 @@ describe('operation discovery metadata and usable examples', () => {
         expect(Buffer.from(String(example.base64), 'base64').subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
     });
     it('does not let a caller mutate shared examples or change unknown tool metadata', () => {
-        const first = canonicalToolDefinitions().find(tool => tool.name === "kanvas.submit")!;
-        const original = structuredClone(toolDiscovery()["kanvas.submit"].examples);
+        const first = canonicalToolDefinitions().find(tool => tool.name === "kanvas.publish")!;
+        const original = structuredClone(toolDiscovery()["kanvas.publish"].examples);
         const examples = first.inputSchema.examples as Record<string, unknown>[];
         (examples[0].data as {
             text: string;
         }).text = 'Caller changed this copy';
         examples.push({ unexpected: true });
-        expect(toolDiscovery()["kanvas.submit"].examples).toEqual(original);
-        expect(canonicalToolDefinitions().find(tool => tool.name === "kanvas.submit")!.inputSchema.examples).toEqual(original);
+        expect(toolDiscovery()["kanvas.publish"].examples).toEqual(original);
+        expect(canonicalToolDefinitions().find(tool => tool.name === "kanvas.publish")!.inputSchema.examples).toEqual(original);
         const unknown: Tool = { name: 'future-tool', description: 'Unchanged metadata.', inputSchema: { type: 'object', properties: {} }, annotations: { readOnlyHint: true } };
         expect(withToolDiscovery(unknown)).toBe(unknown);
     });

@@ -189,8 +189,8 @@ describe("account coverage 2", () => {
             const claude = await agentPrincipal('Claude agent'), codex = { userId: p.userId, agentId: stored.agentId, tokenId: stored.id };
             const invoke = (principal: typeof claude, canonical: string, clientName: string, userAgent: string, sessionId?: string, createdSession?: boolean) => h.runtime.service.recordToolCall(principal, { id: randomUUID(), tool: 'kanvas_call', operation: canonical, canonical, sessionId, ...(createdSession ? { createdSession } : {}), timestamp: new Date().toISOString(), status: 'completed', durationMs: 5, clientContext: { clientName, clientVersion: '1.0.0', userAgent } });
             await invoke(claude, "kanvas.session.create", 'Anthropic/ClaudeAI', 'Claude-User', s);
-            await invoke(claude, "kanvas.submit", 'Anthropic/ClaudeAI', 'Claude-User', s);
-            await invoke(codex, "kanvas.submit", 'openai-mcp (Codex)', 'openai-mcp/1.0.0', s);
+            await invoke(claude, "kanvas.publish", 'Anthropic/ClaudeAI', 'Claude-User', s);
+            await invoke(codex, "kanvas.publish", 'openai-mcp (Codex)', 'openai-mcp/1.0.0', s);
             const list = await call("kanvas.agents.read", {}, claude);
             expect(list.agents.map((a: {
                 name: string;
@@ -215,10 +215,10 @@ describe("account coverage 2", () => {
             };
             expect(await overview(s)).toMatchObject({ createdBy: 'Claude.ai' });
             const byHand = (await o.session()).id;
-            await invoke(codex, "kanvas.submit", 'openai-mcp (Codex)', 'openai-mcp/1.0.0', byHand);
+            await invoke(codex, "kanvas.publish", 'openai-mcp (Codex)', 'openai-mcp/1.0.0', byHand);
             expect((await overview(byHand)).createdBy).toBeUndefined();
             const implicit = (await o.session()).id;
-            await invoke(codex, "kanvas.submit", 'openai-mcp (Codex)', 'openai-mcp/1.0.0', implicit, true);
+            await invoke(codex, "kanvas.publish", 'openai-mcp (Codex)', 'openai-mcp/1.0.0', implicit, true);
             expect(await overview(implicit)).toMatchObject({ createdBy: 'Codex' });
             // Another account sees none of this.
             const other = await h.account();

@@ -153,7 +153,7 @@ describe('source-preserving positional browsing and read views', () => {
         const result: any = await h.runtime.service.execute("kanvas.session.overview", { sessionId: s.id }, p);
         expect(result.publishRecipe.view).toMatchObject({ template: 'overview', data: { order: 'oldest' } });
         expect(result.publishRecipe.displayIds).toHaveLength(1);
-        const failure = resolveToolCall('discovery', 'kanvas_call', { operationId: 'kanvas.submit', arguments: {sessionId: s.id, displayId: d.id, requestId: 'bad-target', view: fact('Exact text')} });
+        const failure = resolveToolCall('discovery', 'kanvas_call', { operationId: 'kanvas.publish', arguments: {sessionId: s.id, displayId: d.id, requestId: 'bad-target', view: fact('Exact text')} });
         expect(JSON.stringify(failure)).toContain('displayIds');
         expect(JSON.stringify(failure)).toContain('displayId');
         expect(validateView({ version: 1, template: 'overview', data: {} }).data.order).toBe('oldest');

@@ -11,7 +11,10 @@ One shared place where the users of a Kanvas installation ask questions, share t
 | `kanvas.board.post {requestId, text, tags?, replyTo?, acknowledgePublic?, publicName?}` | Post a message (at most 2000 characters, five tags). |
 | `kanvas.board.read {tag?, newOnly?, mine?, replyTo?, limit?, before?, markSeen?, as?}` | Messages, newest first. `nextCursor` pages to older ones. `as:"chat"` adds a ready `chat` view. |
 | `kanvas.board.overview {}` | Totals, new since last seen, counts by tag, and a ready `message-board` view. |
-| `kanvas.board.update {notifications?, publicName?, markSeen?, editMessageId?, text?, tags?, removeMessageId?}` | Settings, author/admin editing and removal. |
+| `kanvas.board.preferences.update {notifications?, publicName?}` | Account notice and public-name preferences. |
+| `kanvas.board.messages.seen {}` | Mark current activity seen after the person viewed it. |
+| `kanvas.board.message.edit {messageId, text?, tags?}` | Author/admin text or tag editing. |
+| `kanvas.board.message.delete {messageId}` | Author/admin message removal. |
 
 ## Consent before the first post
 
@@ -32,7 +35,7 @@ Every operation needs a full-account grant. Posting and settings need the `publi
 
 Each account has one mark: "seen up to here". `newOnly` returns what other people posted after it; `newCount` counts them. Reading does not move the mark; `markSeen: true` does, once the person has actually seen the messages.
 
-The notice is **off by default**. With `kanvas.board.update {notifications: true}`, Kanvas adds `messageBoard: {newMessages, note}` to a response once at the start of a conversation and when a session is created, and not again for the same number: "14 new messages on the public message board since you last looked." The person decides whether to open it.
+The notice is **off by default**. With `kanvas.board.preferences.update {notifications: true}`, Kanvas adds `messageBoard: {newMessages, note}` to a response once at the start of a conversation and when a session is created, and not again for the same number: "14 new messages on the public message board since you last looked." The person decides whether to open it.
 
 ## Limits and storage
 
@@ -56,6 +59,6 @@ Use `replyTo` on `kanvas.board.post` with an existing top-level message ID. A re
 
 Pagination counts matching messages, not context: `returned` is at most `limit`, and `nextCursor` continues over those messages. A parent outside the selected page, `tag`, `mine`, or `newOnly` filter is included once with `contextOnly:true`. It can reappear as context on the next page; matching replies do not repeat. `replyTo` on read restricts the matching page to that thread. Parent context is bounded to at most one parent per selected reply.
 
-`kanvas.board.update {editMessageId, text?, tags?}` preserves ID and original `at`, adding `editedAt` only when content changes. Sending the identical edit again does not advance the timestamp. Reads, chat views and the overview show the edited marker/time. Edits do not change the author or move the message in pagination.
+`kanvas.board.message.edit {messageId, text?, tags?}` preserves ID and original `at`, adding `editedAt` only when content changes. Sending the identical edit again does not advance the timestamp. Reads, chat views and the overview show the edited marker/time. Edits do not change the author or move the message in pagination.
 
 Removing or erasing a parent does not remove someone else’s replies. Those retain an explicit unavailable-parent placeholder, without the removed text or public name; if the parent record is gone, no timestamp is invented.

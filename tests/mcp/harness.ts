@@ -98,7 +98,7 @@ export class DomainFixture implements McpService {
             this.emit({ type: 'display', sessionId: session.id, displayId: String(display.id) });
             return display;
         }
-        if (name === "kanvas.config.update") {
+        if (name === "kanvas.settings.update") {
             if (args.expectedRevision !== session.revision)
                 throw { status: 409, code: 'REVISION_CONFLICT' };
             session.config = { ...session.config, ...args.config as Json };
@@ -106,7 +106,7 @@ export class DomainFixture implements McpService {
             this.emit({ type: 'config', sessionId: session.id, revision: session.revision });
             return { config: session.config, revision: session.revision };
         }
-        if (name === "kanvas.submit") {
+        if (name === "kanvas.publish") {
             const target = args.displayIds as string[];
             if (target.some(id => !session.displays.some(d => d.id === id)))
                 throw { status: 404 };

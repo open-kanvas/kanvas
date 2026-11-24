@@ -32,7 +32,7 @@ test('one first publication opens the returned screen, continues slides without 
         expect(homes).toHaveLength(1);
         expect(homes[0].name).toBe('Home');
         const input = { requestId: 'first-publication', view: { version: 1, template: 'presentation', showControls: true, data: { slides: [fact('First exact slide.'), fact('Second exact slide.'), fact('Third exact slide.')], index: 0 } } };
-        const [first, retry] = await Promise.all([call<Receipt>("kanvas_call", "kanvas.submit", input), call<Receipt>("kanvas_call", "kanvas.submit", input)]);
+        const [first, retry] = await Promise.all([call<Receipt>("kanvas_call", "kanvas.publish", input), call<Receipt>("kanvas_call", "kanvas.publish", input)]);
         expect(first.id).toBe(retry.id);
         expect(first.targetRef).toBe(retry.targetRef);
         expect(await call("kanvas_call", "kanvas.sessions.list")).toHaveLength(2);
@@ -53,15 +53,15 @@ test('one first publication opens the returned screen, continues slides without 
         await expect(viewer.getByText('Third exact slide.', { exact: true })).toBeVisible();
         expect(current.view?.data.slides).toEqual(input.view.data.slides);
         const sourceText = 'So the quick brown fox jumped over the fence.', targetText = 'Den raske brune reven hoppet over gjerdet.';
-        const configured = await call<SessionRecord>("kanvas_call", "kanvas.config.update", { sessionId, expectedRevision: 0, config: { theme: 'light' } });
-        await call("kanvas_call", "kanvas.submit", { targetRef: first.targetRef, requestId: 'supplied-translation', templateHint: 'translation', data: { sourceText, targetText, sourceLanguage: 'en', targetLanguage: 'nb' } });
+        const configured = await call<SessionRecord>("kanvas_call", "kanvas.settings.update", { sessionId, expectedRevision: 0, config: { theme: 'light' } });
+        await call("kanvas_call", "kanvas.publish", { targetRef: first.targetRef, requestId: 'supplied-translation', templateHint: 'translation', data: { sourceText, targetText, sourceLanguage: 'en', targetLanguage: 'nb' } });
         await waitForDisplay(page, sessionId, displayId, d => d.view?.template === 'translation' && d.appliedRevision === d.revision);
         await expect(viewer.getByText(sourceText, { exact: true })).toBeVisible();
         await expect(viewer.getByText(targetText, { exact: true })).toBeVisible();
         await info.attach('translation-receiving-screen', { body: await viewer.screenshot({ animations: 'disabled' }), contentType: 'image/png' });
-        await call("kanvas_call", "kanvas.submit", { targetRef: first.targetRef, requestId: 'intentional-fact', view: fact(targetText) });
+        await call("kanvas_call", "kanvas.publish", { targetRef: first.targetRef, requestId: 'intentional-fact', view: fact(targetText) });
         await waitForDisplay(page, sessionId, displayId, d => d.view?.template === 'fact' && d.appliedRevision === d.revision);
-        await call("kanvas_call", "kanvas.config.update", { sessionId, expectedRevision: configured.configRevision, config: { theme: 'dark' } });
+        await call("kanvas_call", "kanvas.settings.update", { sessionId, expectedRevision: configured.configRevision, config: { theme: 'dark' } });
         const state = await call<{
             session: SessionRecord;
         }>("kanvas_call", "kanvas.session.state", { sessionId });
@@ -73,10 +73,10 @@ test('one first publication opens the returned screen, continues slides without 
         const choice = await call<{
             status: string;
             resolutionRef: string;
-        }>("kanvas_call", "kanvas.submit", choiceInput);
+        }>("kanvas_call", "kanvas.publish", choiceInput);
         expect(choice.status).toBe('needs_target');
         await expect(viewer.getByText(targetText, { exact: true })).toBeVisible();
-        await call("kanvas_call", "kanvas.submit", { ...choiceInput, resolution: { ref: choice.resolutionRef, sessionId, displayIds: [displayId] } });
+        await call("kanvas_call", "kanvas.publish", { ...choiceInput, resolution: { ref: choice.resolutionRef, sessionId, displayIds: [displayId] } });
         await expect(viewer.getByText('Explicitly selected destination.', { exact: true })).toBeVisible();
         await viewer.close();
     }

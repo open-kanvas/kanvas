@@ -111,11 +111,11 @@ export const workTools: readonly Definition[] = [
         searchAliases: ["kanvas.device.unlock"]
     },
     {
-        name: "kanvas.device.rename", summary: "Update a device's name, location, role, tags, or home session when organizing registered account screens.", description: 'Edit an owned device name, location, role, tags or defaultSessionId at expectedVersion. Null clears text/default; [] clears tags. Home/start opens the configured default with access rechecked. Account-wide owner authority required.', schema: deviceRenameSchema,
+        name: "kanvas.device.update", summary: "Update a device's name, location, role, tags, or home session when organizing registered account screens.", description: 'Edit an owned device name, location, role, tags or defaultSessionId at expectedVersion. Null clears text/default; [] clears tags. Home/start opens the configured default with access rechecked. Account-wide owner authority required.', schema: deviceRenameSchema,
         domain: "devices",
         requiredScope: "publish" as const,
         discovery: {"group":"displays","hint":"Give an owned registered device a useful name for conversational targeting.","examples":[{"deviceId":"device-id","name":"TV","expectedVersion":0}]},
-        searchAliases: ["kanvas.device.rename"]
+        searchAliases: ["kanvas.device.update"]
     },
     {
         name: "kanvas.start.read", summary: "Read the account start page and recent accessible sessions when choosing a destination for new conversation work.", description: 'At the start of a new conversation or connection, offer this account start page and its ten most recent accessible sessions. Returns names, IDs, real short URLs when already reserved, older-page cursor and explicit new-session capability. Select by the user’s chosen name/ID; never publish to the newest session automatically. No session or short address is created by this read.', schema: z.object({ offset: z.number().int().min(0).max(10000).default(0) }).strict(), readOnly: true,

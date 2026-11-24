@@ -66,13 +66,19 @@ it.each(['modern', 'legacy'])('%s MCP exposes and executes every account/history
         expect(result.truncated).not.toBe(true);
     }
     const exact = '{"amount":9007199254740993.001,"data":[true,null]}';
-    await call("kanvas_call", "kanvas.submit", { sessionId: s.id, displayIds: [d.id], requestId: randomUUID(), view: { version: 1, template: 'json', data: { json: exact } } });
+    await call("kanvas_call", "kanvas.publish", { sessionId: s.id, displayIds: [d.id], requestId: randomUUID(), view: { version: 1, template: 'json', data: { json: exact } } });
     await call("kanvas_call", "kanvas.group.access.set", { sessionId: s.id, groupId: group.id, expectedRevision: grant.revision, role: null });
     expect((await person.request('GET', '/api/sessions/' + s.id)).status).toBe(404);
     const archived = await owner.session('Synthetic archive fixture');
-    await call("kanvas_call", "kanvas.archive.manage", { sessionId: archived.id, resource: 'session' });
+    await call("kanvas_call", "kanvas.archive.create", { sessionId: archived.id, resource: 'session' });
     expect((await call("kanvas_call", "kanvas.archive.list")).items.some((item: any) => item.targetId === archived.id)).toBe(true);
-    await call("kanvas_call", "kanvas.archive.manage", { sessionId: archived.id, resource: 'session', action: 'restore' });
+    await call("kanvas_call", "kanvas.archive.restore", { sessionId: archived.id, resource: 'session' });
+    const disposable=await owner.display(archived.id),target={sessionId:archived.id,resource:'display',targetId:disposable.id};
+    const request=await call('kanvas_call','kanvas.archive.delete.request',{...target,confirmationDisplayId:disposable.id});
+    expect(request.words).toBeUndefined();
+    // Test-only observation of the disposable browser confirmation, not a production bypass.
+    const challenge:any=await h.runtime.store.get('delete-challenge',request.challengeId),toast:any=await h.runtime.store.get('toast',challenge.toastId);
+    expect(await call('kanvas_call','kanvas.archive.delete.confirm',{...target,challengeId:request.challengeId,words:toast.confirmationWords})).toMatchObject({deleted:true});
     expect(ACCOUNT_MAPPING.every(([, tool, operation]) => seen.has(tool + ':' + operation))).toBe(true);
     const forbidden = await client.callTool(operationRequest({
         name: "kanvas_call",

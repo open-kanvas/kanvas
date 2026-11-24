@@ -25,7 +25,7 @@ describe('public argument-type recovery', () => {
     }
     expect(definitions.get('kanvas.pairing.decide')!.inputSchema.properties?.approve).toMatchObject({ type: 'boolean' });
     expect(definitions.get('kanvas.pairing.decide')!.inputSchema.properties?.confirm).toMatchObject({ type: 'boolean', const: true });
-    expect(definitions.get('kanvas.submit')!.inputSchema.properties?.displayIds).toMatchObject({ type: 'array', items: { type: 'string' } });
+    expect(definitions.get('kanvas.publish')!.inputSchema.properties?.displayIds).toMatchObject({ type: 'array', items: { type: 'string' } });
   });
   it('decodes exactly one host JSON layer in known non-text operation arguments', () => {
     for (const operation of operationTable().values()) for (const example of operation.definition.discovery.examples) {
@@ -50,7 +50,7 @@ describe('public argument-type recovery', () => {
     }
     expect(call('kanvas.pairing.decide', { ...pair, approve: 'false', interactive: 'false' }).args).toMatchObject({ approve: false, confirm: true, interactive: false });
     for (const expectedRevision of ['', 'null', 'false', 'NaN', '-1', '0.5', '"0"', '9007199254740993']) expect(call('kanvas.display.update', { sessionId: 's', displayId: 'd', held: 'false', expectedRevision }).error).toBeDefined();
-    expect(call('kanvas.submit', { sessionId: 's', requestId: 'r', displayIds: '["d"]', view: '{broken}' }).error).toBeDefined();
+    expect(call('kanvas.publish', { sessionId: 's', requestId: 'r', displayIds: '["d"]', view: '{broken}' }).error).toBeDefined();
   });
   it('preserves literal JSON/CSV/prose and scalar strings, rejecting lossy encoded numbers', () => {
     const json = '[{"value":9007199254740993,"decimal":1.2300}]';
@@ -59,8 +59,8 @@ describe('public argument-type recovery', () => {
     expect(call('kanvas.error.report', { sessionId: 's', requestId: 'r', title: 'Repro', description: 'Exact prose', steps: prose }).args?.steps).toBe(prose);
     const args = { sessionId: 's', requestId: 'r', displayIds: '["d"]' };
     const original = { version: 1, template: 'fact', data: { text: '{"value":1.2300,"large":9007199254740993}', subtitle: 'false' } };
-    expect(call('kanvas.submit', { ...args, view: JSON.stringify(original) }).args?.view).toEqual(original);
-    for (const value of ['9007199254740993', '1.234567890123456789', '1e999', '1e-999']) expect(call('kanvas.submit', { ...args, view: `{"version":1,"template":"number","data":{"value":${value}}}` }).error?.issues).toEqual([{ path: 'view', problem: expect.stringContaining('cannot be represented exactly') }]);
-    expect(call('kanvas.submit', { ...args, view: JSON.stringify(JSON.stringify(original)) }).error).toBeDefined();
+    expect(call('kanvas.publish', { ...args, view: JSON.stringify(original) }).args?.view).toEqual(original);
+    for (const value of ['9007199254740993', '1.234567890123456789', '1e999', '1e-999']) expect(call('kanvas.publish', { ...args, view: `{"version":1,"template":"number","data":{"value":${value}}}` }).error?.issues).toEqual([{ path: 'view', problem: expect.stringContaining('cannot be represented exactly') }]);
+    expect(call('kanvas.publish', { ...args, view: JSON.stringify(JSON.stringify(original)) }).error).toBeDefined();
   });
 });

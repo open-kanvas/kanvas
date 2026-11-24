@@ -113,14 +113,14 @@ function schemaTerms(value: unknown): string {
 }
 const short = (text: string) => text.split(/(?<=[.!?])\s/)[0].slice(0, 240);
 const operationExtras: Record<string, string> = {
-    "kanvas.submit": "publish a view to a display show supplied content on my screen",
+    "kanvas.publish": "publish a view to a display show supplied content on my screen",
     "kanvas.pairing.revoke": 'disconnect unpair signout approved paired browser viewer watching access',
     "kanvas.topology.read": 'connected people browsers windows tabs live hierarchy who watching',
     "kanvas.dataset.import": 'save spreadsheet excel csv ingest load upload rows lossless data',
     "kanvas.navigation.control": 'scroll pages zoom enlarge magnify smaller bigger font text size focus',
-    "kanvas.config.update": 'session settings appearance font typography larger text theme',
+    "kanvas.settings.update": 'session settings appearance font typography larger text theme',
     "kanvas.autoplay.control": 'timed automatic slideshow play advance slide deck',
-    "kanvas.display.request.capture": 'actual browser screenshot consent native screen share picker',
+    "kanvas.display.capture.request": 'actual browser screenshot consent native screen share picker',
     "kanvas.display.snapshot": 'server rendered image snapshot export not physical screen',
     "kanvas.checklist.show": 'restore retained checklist show on another display',
     "kanvas.display.register": 'create display add display new display second screen another screen second monitor extra screen split content across screens two screens multiple displays',
@@ -133,7 +133,7 @@ const operationExtras: Record<string, string> = {
 };
 /** Words people actually use for an operation whose verb is not theirs. Search title only; the id is unchanged. */
 const operationTitles: Record<string, string> = {
-    "kanvas.submit": "publish a view to a display, show supplied content on a screen",
+    "kanvas.publish": "publish a view to a display, show supplied content on a screen",
     "kanvas.display.register": 'create a display, add a new display, second screen',
 };
 let operations: CatalogItem[] | undefined;
@@ -175,9 +175,9 @@ const HELP_SECTION_SUMMARIES: Record<string, string> = {
     'getting-started.viewerLink': 'Prefer connected-screen presentation; if a link is needed return shortUrl first. Locators never grant access.',
     'getting-started.sessionContinuity': 'Continue an explicitly selected session or returned target instead of guessing from recent activity.',
     'getting-started.continuityRecipe': 'Follow complete session-continuity examples for starting, targeting and resuming a display.',
-    'tools.selection': 'Distinguish publication, viewport controls, structural edits and patches by their effects.',
-    'tools.examples': 'Discover operation summaries, get an exact input schema, then call it with validated arguments.',
-    'tools.exampleNotice': 'Treat examples as illustrative syntax, not source facts, live identifiers or permission to act.',
+    'operations.selection': 'Distinguish publication, viewport controls, structural edits and patches by their effects.',
+    'operations.examples': 'Discover operation summaries, get an exact input schema, then call it with validated arguments.',
+    'operations.exampleNotice': 'Treat examples as illustrative syntax, not source facts, live identifiers or permission to act.',
     'publishing.guidance': 'Publish source-preserving views, select targets and revisions, and distinguish preparation from browser paint.',
     'publishing.recipes': 'Use complete publication recipes for prepared views, contextual content and display targeting.',
     'publishing.commonDataShapes': 'Find common exact data shapes for text, charts, maps, media and other source-grounded views.',
@@ -190,11 +190,11 @@ const HELP_SECTION_SUMMARIES: Record<string, string> = {
     'templates.schemaTool': 'Get complete template schemas and publication examples by exact template ID.',
     'templates.publishing': 'Choose focused native templates, preserve source content, and avoid redundant screen titles.',
     'viewer-context.instructions': 'Read fresh, consented context from the intended receiving browser for weather, nearby and local-time tasks.',
-    'viewer-context.readTool': 'Read the operation contract for viewer visibility, freshness, location, timezone and locale.',
+    'viewer-context.readOperation': 'Read the operation contract for viewer visibility, freshness, location, timezone and locale.',
     'viewer-context.refresh': 'Refresh viewer context when needed without persisting precise coordinates in notices.',
     'viewer-context.permissions': 'Respect denied, missing and ambiguous location permissions; never enable collection by inference.',
     'feedback.offer': 'Offer feedback once after confusion or errors, and file only with user request or consent.',
-    'feedback.tools': 'Find feedback filing, error reporting, report reading, review and author follow-up capabilities.',
+    'feedback.operations': 'Find feedback filing, error reporting, report reading, review and author follow-up capabilities.',
     'feedback.limits': 'Check exact title, description, reproduction and UTF-8 report-size limits before filing.',
     'feedback.instructions': 'File private contextual reports, read complete pages, follow up with revisions, and protect credentials.',
 };
@@ -220,7 +220,7 @@ export function helpCatalog(): readonly CatalogItem[] {
     for (const topic of HELP_TOPICS) {
         const page = HELP_PAGES[topic];
         // Subjects are authored, never cut into anonymous numbered parts.
-        add(`kanvas.help.${topic}`, page.title, page.description, { steps: page.steps, ...(page.example ? {example: 'tool' in page.example ? discoveryExample(page.example) : {tool: 'kanvas_call', arguments: {operationId: 'kanvas.submit', arguments: 'version' in page.example && 'template' in page.example ? {requestId: `help-${topic}-example`, view: page.example} : Object.fromEntries(Object.entries(page.example).filter(([key]) => key !== 'operation'))}}} : {}), ...(page.aliasOf ? {aliasOf: `kanvas.help.${page.aliasOf}`} : {}), ...(page.relatedTopics ? {relatedTopics: page.relatedTopics.map(subject => `kanvas.help.${subject}`)} : {})}, HELP_KEYWORDS[topic], HELP_PRIORITY[topic]);
+        add(`kanvas.help.${topic}`, page.title, page.description, { steps: page.steps, ...(page.example ? {example: 'tool' in page.example ? discoveryExample(page.example) : {tool: 'kanvas_call', arguments: {operationId: 'kanvas.publish', arguments: 'version' in page.example && 'template' in page.example ? {requestId: `help-${topic}-example`, view: page.example} : Object.fromEntries(Object.entries(page.example).filter(([key]) => key !== 'operation'))}}} : {}), ...(page.aliasOf ? {aliasOf: `kanvas.help.${page.aliasOf}`} : {}), ...(page.relatedTopics ? {relatedTopics: page.relatedTopics.map(subject => `kanvas.help.${subject}`)} : {})}, HELP_KEYWORDS[topic], HELP_PRIORITY[topic]);
     }
     // The authored tour page already contains this guide in full. Metadata-only
     // schemaTool/exampleNotice sections become contextual notes, not fake topics.
@@ -231,7 +231,7 @@ export function helpCatalog(): readonly CatalogItem[] {
         for (const [section, value] of Object.entries(guide)) {
             if (['topic', 'version', 'principle', 'note', 'groups', 'catalogue', 'topics', 'schemaTool', 'exampleNotice'].includes(section))
                 continue;
-            add(`kanvas.help.${topic === 'tools' ? 'operations' : topic}.${section.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()}`, `${topic.replaceAll('-', ' ')}: ${section}`, helpSectionSummary(topic, section, value), section === 'schemaTool' ? { tool: 'kanvas_discover', arguments: { catalog: 'templates', action: 'list' }, next: 'Choose the exact template ID, then get its full schema.' } : value);
+            add(`kanvas.help.${topic}.${section.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()}`, `${topic.replaceAll('-', ' ')}: ${section.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase()}`, helpSectionSummary(topic, section, value), section === 'schemaTool' ? { tool: 'kanvas_discover', arguments: { catalog: 'templates', action: 'list' }, next: 'Choose the exact template ID, then get its full schema.' } : value);
         }
     }
     add('kanvas.help.operations.discovery', 'Discover and call Kanvas', 'List a complete catalog, search ranked alternatives, get exact schemas or help, then call validated operations.', {
@@ -341,7 +341,7 @@ export function templateCatalog(): readonly CatalogItem[] {
             const full = compactSchemaReferences(z.toJSONSchema(templateViewSchema(template), { unrepresentable: 'any', io: 'input', reused: 'ref' }));
             const schema = expand === 'full' ? full : collapseViewSlots(full);
             const collapsed = expand !== 'full' && JSON.stringify(schema).length < JSON.stringify(full).length;
-            return { id: `kanvas.template.${template}`, template, title: templateNames[template], ...(concept ? { whenToUse: concept.when } : {}), description: guidance.primary, example: samples[template], minimalExample: minimalExample(template), guidance: discoveryGuidanceText(guidance.detail), ...(collapsed ? { nestedViews: 'Slots that hold another view are shown as a reference. Get that template for its data shape, or repeat this get with expand:"full" for the complete union.' } : {}), schema: profileSchema(schema), relatedOperations: workflowIds(template).flatMap(id => { const operation = operationCatalog().find(item => item.id === id); return operation ? [{ id, description: operation.summary, get: { tool: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id } } }] : []; }), workflow: WORKFLOW_NOTE, submitShape: SUBMIT_SHAPE, ...(template === 'planner' ? { commitmentBoundary: PLANNER_BOUNDARY } : {}), ...(template === 'chart' ? { variants: chartVariantSamples } : {}), examples: [{ tool: 'kanvas_call', arguments: { operationId: 'kanvas.submit', arguments: { requestId: 'template-example-1', view: samples[template] } } }], exampleNotice: 'Illustrative supplied data only; replace with real sources. Schema validates a complete view, not kanvas_call arguments.' };
+            return { id: `kanvas.template.${template}`, template, title: templateNames[template], ...(concept ? { whenToUse: concept.when } : {}), description: guidance.primary, example: samples[template], minimalExample: minimalExample(template), guidance: discoveryGuidanceText(guidance.detail), ...(collapsed ? { nestedViews: 'Slots that hold another view are shown as a reference. Get that template for its data shape, or repeat this get with expand:"full" for the complete union.' } : {}), schema: profileSchema(schema), relatedOperations: workflowIds(template).flatMap(id => { const operation = operationCatalog().find(item => item.id === id); return operation ? [{ id, description: operation.summary, get: { tool: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id } } }] : []; }), workflow: WORKFLOW_NOTE, submitShape: SUBMIT_SHAPE, ...(template === 'planner' ? { commitmentBoundary: PLANNER_BOUNDARY } : {}), ...(template === 'chart' ? { variants: chartVariantSamples } : {}), examples: [{ tool: 'kanvas_call', arguments: { operationId: 'kanvas.publish', arguments: { requestId: 'template-example-1', view: samples[template] } } }], exampleNotice: 'Illustrative supplied data only; replace with real sources. Schema validates a complete view, not kanvas_call arguments.' };
         })();
         return { id: `kanvas.template.${template}`, provider: 'kanvas', title: templateNames[template], summary: concept?.summary ?? guidance.primary, keywords: `${template} ${concept?.also ?? ''}${template === 'chart' ? ` ${Object.keys(chartVariantSamples).join(' ')}` : ''}`, text: `${guidance.primary} ${guidance.detail}`, example: () => minimalExample(template), detail: options => { const expand = options?.expand === 'full' ? 'full' : 'own'; if (!details.has(expand))
                 details.set(expand, build(expand)); return details.get(expand)!; } };
@@ -414,7 +414,7 @@ export class DiscoveryCatalog {
             results.push(summary);
         }
         const next = offset + results.length;
-        return { catalog, action, ...(action === 'search' ? { query, retrieval: 'local weighted lexical + curated concepts + typo matching' } : {}), total: ranked.length, catalogTotal: all.length, returned: results.length, offset, results, complete: next === ranked.length, nextCursor: next < ranked.length ? `v2:${binding}:${next}` : null, note: action === 'search' ? 'Ranked summaries, each with a minimal valid example where one exists (a template example is a view for kanvas.submit; an operation example is kanvas_call arguments). Get exact IDs for full details. More matches are available when nextCursor is present.' : 'Complete visible inventory unless an explicit response-size continuation is shown. Get exact IDs for full details.' };
+        return { catalog, action, ...(action === 'search' ? { query, retrieval: 'local weighted lexical + curated concepts + typo matching' } : {}), total: ranked.length, catalogTotal: all.length, returned: results.length, offset, results, complete: next === ranked.length, nextCursor: next < ranked.length ? `v2:${binding}:${next}` : null, note: action === 'search' ? 'Ranked summaries, each with a minimal valid example where one exists (a template example is a view for kanvas.publish; an operation example is kanvas_call arguments). Get exact IDs for full details. More matches are available when nextCursor is present.' : 'Complete visible inventory unless an explicit response-size continuation is shown. Get exact IDs for full details.' };
     }
 }
 export const discoveryCatalog = new DiscoveryCatalog();

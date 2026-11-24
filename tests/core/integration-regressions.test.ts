@@ -133,7 +133,7 @@ describe('the published MCP feedback pagination contract', () => {
         const owner = await h.account(), session = await owner.session(), display = await owner.display(session.id);
         client = await publisher(h, owner, session.id);
         const view: ViewSpec = { ...fact('Synthetic feedback pages'), actions: [{ id: 'next', kind: 'button', label: 'Next' }] };
-        await tool(client, "kanvas.submit", { sessionId: session.id, requestId: 'pagination-source', displayIds: [display.id], view });
+        await tool(client, "kanvas.publish", { sessionId: session.id, requestId: 'pagination-source', displayIds: [display.id], view });
         const prepared = await owner.settle(session.id, 'pagination-source');
         expect(prepared.update.status).toBe('prepared');
         const ids: string[] = [];

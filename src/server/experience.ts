@@ -346,8 +346,10 @@ export class Experience {
                 else
                     (await this.log({ sessionId, displayId, revision: d.revision, stage: 'viewer.context-inbox-full' }));
             }
-            if (prior?.renderedRevision !== a.renderedRevision || prior?.status !== a.status)
-                (await this.log({ sessionId, displayId, revision: a.revision, stage: `viewer.${a.status}` }));
+            if (prior?.renderedRevision !== a.renderedRevision || prior?.status !== a.status) {
+                const update = (await this.store.list<import('../shared/types.js').UpdateRecord>('update', sessionId)).find(x => x.revisions[displayId] === a.revision);
+                await this.log({ sessionId, displayId, revision: a.revision, stage: 'viewer.'+a.status, updateId:update?.id, requestId:update?.requestId });
+            }
             this.observations.emit(displayId, record);
             const dismissed = await this.dismissedToasts(p, sessionId, viewerId);
             const toasts = (await this.store.list<ToastRecord>('toast', sessionId)).filter(x => x.displayId === displayId && Date.parse(x.expiresAt) > Date.now() && !dismissed.has(x.id) && !dismissed.has(x.groupId ?? x.id) && (!x.ownerId || !p.scopedDisplayId && p.userId === x.ownerId));

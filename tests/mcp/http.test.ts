@@ -79,7 +79,7 @@ describe('authenticated MCP HTTP using published SDK clients', () => {
         const result = data(await client.callTool(operationRequest({
             name: "kanvas_call",
             arguments: {
-                operationId: "kanvas.submit",
+                operationId: "kanvas.publish",
                 arguments: {
                     sessionId, requestId: 'request-1', displayIds: [left.id, right.id], data: { value: 42.125, unit: 'kg' }
                 }
@@ -108,7 +108,7 @@ describe('authenticated MCP HTTP using published SDK clients', () => {
             }
         })));
         expect(applied.status).toBe('applied');
-        const original = server.service.calls.find(call => call.name === "kanvas.submit")!;
+        const original = server.service.calls.find(call => call.name === "kanvas.publish")!;
         expect(original.args.data).toEqual({ value: 42.125, unit: 'kg' });
         expect(original.userId).toBe('owner');
     });
@@ -120,7 +120,7 @@ describe('authenticated MCP HTTP using published SDK clients', () => {
             {
                 name: "kanvas_call",
                 arguments: {
-                    operationId: "kanvas.clear",
+                    operationId: "kanvas.displays.clear",
                     arguments: {
                         sessionId: 'alpha', displayIds: [], requestId: 'clear'
                     }
@@ -156,7 +156,7 @@ describe('authenticated MCP HTTP using published SDK clients', () => {
             {
                 name: "kanvas_call",
                 arguments: {
-                    operationId: "kanvas.submit",
+                    operationId: "kanvas.publish",
                     arguments: {
                         sessionId: 'alpha', displayIds: ['display'], requestId: 'x', principal: { userId: 'other' }
                     }
@@ -237,7 +237,7 @@ describe('authenticated MCP HTTP using published SDK clients', () => {
         const forbidden = await modern.client.callTool(operationRequest({
             name: "kanvas_call",
             arguments: {
-                operationId: "kanvas.clear",
+                operationId: "kanvas.displays.clear",
                 arguments: {
                     sessionId: 'alpha', displayIds: ['display'], requestId: 'read-only'
                 }
@@ -266,7 +266,7 @@ describe('authenticated MCP HTTP using published SDK clients', () => {
         await client.callTool(operationRequest({
             name: "kanvas_call",
             arguments: {
-                operationId: "kanvas.config.update",
+                operationId: "kanvas.settings.update",
                 arguments: {
                     sessionId: 'alpha', expectedRevision: 0, config: { theme: 'light' }
                 }

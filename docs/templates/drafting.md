@@ -28,7 +28,7 @@ The draft text is the dominant, responsive reading surface. Supplied `status` is
 
 ## Incremental updates
 
-Create the draft through `kanvas_call` with `operationId:"kanvas.submit"` and nested `arguments`. Append each supplied text chunk through the same tool with `operationId:"kanvas.view.patch"` and nested `arguments`, using the current display revision and a stable request ID for retries:
+Create the draft through `kanvas_call` with `operationId:"kanvas.publish"` and nested `arguments`. Append each supplied text chunk through the same tool with `operationId:"kanvas.view.patch"` and nested `arguments`, using the current display revision and a stable request ID for retries:
 
 ```json
 {

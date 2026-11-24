@@ -35,7 +35,7 @@ describe('fixed client capture authorization and expiry', () => {
         const request = await capture.request(p, { sessionId: s, displayId: d, viewerId: viewers[0].id });
         expect(request.status).toBe('awaiting-user-gesture');
         expect(JSON.stringify(request)).not.toMatch(/browserId|tokenId|requester/);
-        await expect(h.runtime.service.execute("kanvas.display.request.capture", { sessionId: s, displayId: d, script: 'alert(1)' }, p)).rejects.toThrow();
+        await expect(h.runtime.service.execute("kanvas.display.capture.request", { sessionId: s, displayId: d, script: 'alert(1)' }, p)).rejects.toThrow();
         await expect(capture.request(p, { sessionId: s, displayId: d, viewerId: viewers[0].id })).rejects.toMatchObject({ code: 'CAPTURE_PENDING' });
     });
     it('binds result to browser tab/account/session and preserves CSRF and strict upload bounds', async () => {

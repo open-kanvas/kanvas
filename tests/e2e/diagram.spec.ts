@@ -90,7 +90,7 @@ test.describe("diagram coverage 2", () => {
             const title = viewer.locator('.viewer-candidate .task-item strong').first(), surface = viewer.locator('.viewer-candidate .render-surface');
             const before = (await title.boundingBox())!.height;
             const state = (await use(client, "kanvas.session.state", { sessionId: s })).structured.data;
-            const set = await use(client, "kanvas.config.update", { sessionId: s, expectedRevision: state.session?.configRevision ?? state.configRevision ?? 0, config: { textSize: 150 } });
+            const set = await use(client, "kanvas.settings.update", { sessionId: s, expectedRevision: state.session?.configRevision ?? state.configRevision ?? 0, config: { textSize: 150 } });
             expect(set.isError, JSON.stringify(set.structured).slice(0, 300)).toBe(false);
             await expect(surface).toHaveAttribute('data-text-scale', '1.5');
             await expect(surface).toHaveAttribute('data-text-mode', 'content');
@@ -114,7 +114,7 @@ test.describe("diagram coverage 2", () => {
             // The enlarged surface still fits its window: no page-level overflow.
             expect(await viewer.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
             const reset = (await use(client, "kanvas.session.state", { sessionId: s })).structured.data;
-            await use(client, "kanvas.config.update", { sessionId: s, expectedRevision: reset.session?.configRevision ?? reset.configRevision ?? 1, config: { textSize: 100 } });
+            await use(client, "kanvas.settings.update", { sessionId: s, expectedRevision: reset.session?.configRevision ?? reset.configRevision ?? 1, config: { textSize: 100 } });
             await expect(viewer.locator('.viewer-candidate .render-surface')).toHaveAttribute('data-text-scale', '1');
             // Diagram that overflows because of its own textScale.
             const nodes = Array.from({ length: 13 }, (_, i) => ({ id: `n${i}`, label: `Service number ${i}`, type: 'service' })), edges = Array.from({ length: 12 }, (_, i) => ({ from: `n${i}`, to: `n${i + 1}` }));

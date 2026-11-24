@@ -353,7 +353,7 @@ export async function createApp(options: AppOptions = {}) {
     });
     app.post('/api/sessions/:id/catalog', operation("kanvas.catalog.show", sessionArgs));
     app.post('/api/sessions/:id/client-context', operation("kanvas.client.context.update", sessionArgs));
-    app.patch('/api/sessions/:id/config', operation("kanvas.config.update", sessionArgs));
+    app.patch('/api/sessions/:id/config', operation("kanvas.settings.update", sessionArgs));
     app.post('/api/sessions/:id/displays', operation("kanvas.display.register", sessionArgs));
     app.patch('/api/sessions/:id/displays/:displayId', operation("kanvas.display.update", displayArgs));
     app.patch('/api/sessions/:id/displays/:displayId/name', operation("kanvas.display.rename", displayArgs));
@@ -380,8 +380,8 @@ export async function createApp(options: AppOptions = {}) {
     app.get('/api/sessions/:id/displays/:displayId/pointing', async (req, res) => send(res, (await service.pointing.read((await browser(req)), { sessionId: String(req.params.id), displayId: String(req.params.displayId) }))));
     app.put('/api/sessions/:id/displays/:displayId/pointing', async (req, res) => send(res, (await service.pointing.write((await browser(req)), String(req.params.id), String(req.params.displayId), bodyObject(req)))));
     app.post('/api/sessions/:id/displays/:displayId/respond', async (req, res) => send(res, (await service.respond((await browser(req)), String(req.params.id), String(req.params.displayId), bodyObject(req))), 201));
-    app.post('/api/sessions/:id/submit', operation("kanvas.submit", sessionArgs));
-    app.post('/api/sessions/:id/clear', operation("kanvas.clear", sessionArgs));
+    app.post('/api/sessions/:id/submit', operation("kanvas.publish", sessionArgs));
+    app.post('/api/sessions/:id/clear', operation("kanvas.displays.clear", sessionArgs));
     app.post('/api/feedback', operation("kanvas.feedback.submit", bodyObject));
     app.post('/api/error-reports', operation("kanvas.error.report", bodyObject));
     app.get('/api/reports', operation("kanvas.reports.read", req => ({ ...req.query, ...(req.query.allAccounts ? { allAccounts: req.query.allAccounts === 'true' } : {}), ...(req.query.limit ? { limit: Number(req.query.limit) } : {}) })));

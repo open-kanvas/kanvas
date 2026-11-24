@@ -110,7 +110,7 @@ describe("guidance coverage 1", () => {
     describe('0875e953 response policy (pure rules)', () => {
         const orientation = { guide: { tool: "kanvas.guide" }, viewerLink: 'how to connect a receiver', toolSelection: 'x', recovery: 'y' };
         const guidance = { boundary: 'b', levels: [{ scope: 'user', id: 'user:1', text: 'be proactive', revision: 3 }] };
-        const run = (ledger: ContactLedger, overrides: Partial<Parameters<typeof applyResponsePolicy>[1]> = {}, structured: Record<string, unknown> = { data: { status: 'accepted', sessionId: 's1' }, orientation }, key = 'conn', at = Date.now()) => applyResponsePolicy(structured, { state: ledger.observe(key, at), context: { preference: 'concise', displayConnected: true }, guidance, isError: false, operation: "kanvas.submit", sessionId: 's1', ...overrides }).structured!;
+        const run = (ledger: ContactLedger, overrides: Partial<Parameters<typeof applyResponsePolicy>[1]> = {}, structured: Record<string, unknown> = { data: { status: 'accepted', sessionId: 's1' }, orientation }, key = 'conn', at = Date.now()) => applyResponsePolicy(structured, { state: ledger.observe(key, at), context: { preference: 'concise', displayConnected: true }, guidance, isError: false, operation: "kanvas.publish", sessionId: 's1', ...overrides }).structured!;
         it('concise guidance returns in full when its revision or scope changes, and never in between', () => {
             const ledger = new ContactLedger();
             run(ledger);
@@ -186,7 +186,7 @@ describe("guidance coverage 3", () => {
             await expect(call("kanvas.guidance.draft.edit", { scope: 'user', text: 'Other', requestId: 'draft-stale', expectedDraftRevision: 0 })).rejects.toMatchObject({ code: 'REVISION_CONFLICT', currentRevision: 1 });
             await call("kanvas.preferences.update", { config: { theme: 'light' } });
             const prefs = await call("kanvas.preferences.update", { config: { theme: 'dark' } });
-            await expect(call("kanvas.config.update", { sessionId: s, scope: 'account', config: { theme: 'light' }, expectedRevision: 'bad' })).rejects.toMatchObject({ code: 'INVALID_ARGUMENT', currentRevision: prefs.revision });
+            await expect(call("kanvas.settings.update", { sessionId: s, scope: 'account', config: { theme: 'light' }, expectedRevision: 'bad' })).rejects.toMatchObject({ code: 'INVALID_ARGUMENT', currentRevision: prefs.revision });
         });
     });
 });
@@ -246,8 +246,8 @@ describe("guidance coverage 6", () => {
         it('settings publication returns live change guidance immediately', async () => {
             h = await startHarness();
             const a = await h.account(), p = await principal(a), s = await a.session(), d = await a.display(s.id);
-            const result: any = await h.runtime.service.execute("kanvas.submit", { sessionId: s.id, displayIds: [d.id], requestId: randomUUID(), view: { version: 1, template: 'settings', data: {} } }, p);
-            expect(result.settingsGuidance.tool).toBe("kanvas.config.update");
+            const result: any = await h.runtime.service.execute("kanvas.publish", { sessionId: s.id, displayIds: [d.id], requestId: randomUUID(), view: { version: 1, template: 'settings', data: {} } }, p);
+            expect(result.settingsGuidance.tool).toBe("kanvas.settings.update");
             expect(result.settingsGuidance.nextAction).toContain('settings.update');
         });
     });
@@ -306,7 +306,7 @@ describe("guidance coverage 7", () => {
             const index = await p.client.listTools();
             expect(index.tools.map(tool => tool.name)).toEqual(DISCOVERY_TOOL_NAMES);
             const lookup = async (query: string) => (await p.client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id: query } })).structuredContent as any;
-            const submit = (await lookup('kanvas.submit')).data.entry, viewer = (await lookup('kanvas.viewers.read')).data.entry;
+            const submit = (await lookup('kanvas.publish')).data.entry, viewer = (await lookup('kanvas.viewers.read')).data.entry;
             expect(JSON.stringify(submit)).toMatch(/current displays and revisions/);
             expect(JSON.stringify(submit)).toContain('kanvas_call');
             expect(viewer.description?.slice(0, 500)).toMatch(/location.*weather|weather.*location/i);
@@ -318,7 +318,7 @@ describe("guidance coverage 7", () => {
             expect(value<SessionRecord[]>(result).map(x => x.id)).toEqual([session.id]);
             expect(result.structuredContent?.orientation?.guide).toEqual({ tool: 'kanvas_discover', arguments: { catalog: 'help', action: 'search', query: 'getting-started' } });
             const display = value<DisplayRecord>(await p.call("kanvas.display.register", { sessionId: session.id, name: 'Screen', width: 1280, height: 800 }));
-            const accepted = await p.call("kanvas.submit", { sessionId: session.id, displayIds: [display.id], requestId: 'quiet-publish', view: fact('One useful visual') });
+            const accepted = await p.call("kanvas.publish", { sessionId: session.id, displayIds: [display.id], requestId: 'quiet-publish', view: fact('One useful visual') });
             expect(value<UpdateRecord>(accepted).status).toBe('accepted');
             expect(accepted.structuredContent?.orientation).toBeDefined();
             expect((await owner.settle(session.id, 'quiet-publish')).detail.displays[0].view?.data.text).toBe('One useful visual');
@@ -346,7 +346,7 @@ describe("guidance coverage 7", () => {
             }[])[0].text.split('\n').filter(line => line.includes(' — '))).toHaveLength(TEMPLATE_IDS.length);
             expect((await owner.detail(session.id)).session).toEqual(original);
             const previous = await p.call("kanvas.session.state", { sessionId: session.id });
-            const next = value<SessionRecord>(await p.call("kanvas.config.update", { sessionId: session.id, expectedRevision: original.configRevision, config: { theme: 'light' } }));
+            const next = value<SessionRecord>(await p.call("kanvas.settings.update", { sessionId: session.id, expectedRevision: original.configRevision, config: { theme: 'light' } }));
             expect(next.config.theme).toBe('light');
             const updated = await p.call("kanvas.session.state", { sessionId: session.id });
             expect(value<{

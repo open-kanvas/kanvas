@@ -19,7 +19,7 @@ describe("planner coverage 1", () => {
     describe('contextual discovery and first contact', () => {
         
         it('submit success proactively exposes targeted workflow operations and committed planner boundary', () => {
-            const result = toolSuccess({ status: 'prepared' }, undefined, "kanvas.submit", 'discovery', { view: { version: 1, template: 'planner', data: { status: 'committed' } } });
+            const result = toolSuccess({ status: 'prepared' }, undefined, "kanvas.publish", 'discovery', { view: { version: 1, template: 'planner', data: { status: 'committed' } } });
             expect(result.structuredContent).toMatchObject({ workflow: { relatedOperations: expect.arrayContaining([{ id: 'kanvas.planner.review', description: expect.any(String) }]) }, commitmentBoundary: expect.stringContaining('No external calendar') });
             expect(toolSuccess({}, undefined, "kanvas.planner.finalize", 'discovery').structuredContent).toHaveProperty('commitmentBoundary');
         });

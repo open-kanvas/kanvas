@@ -23,7 +23,7 @@ test('standard CommonMark/GFM renders with native reading/theme sizing while pla
     expect(await article.getByText('Unsafe',{exact:true}).getAttribute('href')).not.toMatch(/^javascript:/);
     await viewer.screenshot({style:'.viewer-toast{opacity:0!important}',path:test.info().outputPath('markdown-standard-formatting.png')});
     const before=await article.locator('p').first().evaluate(el=>el.getBoundingClientRect().height);
-    const result=await client.callTool({name:'kanvas_call',arguments:{operationId:'kanvas.config.update',arguments:{sessionId:s,config:{textSize:150,theme:'light'}}}});expect(result.isError).not.toBe(true);
+    const result=await client.callTool({name:'kanvas_call',arguments:{operationId:'kanvas.settings.update',arguments:{sessionId:s,config:{textSize:150,theme:'light'}}}});expect(result.isError).not.toBe(true);
     await expect(viewer.locator('.viewer-candidate .render-surface')).toHaveAttribute('data-text-scale','1.5');
     await expect.poll(()=>article.locator('p').first().evaluate(el=>el.getBoundingClientRect().height)).toBeGreaterThan(before*1.35);
     await expect(article.locator('h1')).toBeInViewport();

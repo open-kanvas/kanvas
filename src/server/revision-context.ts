@@ -59,7 +59,7 @@ export async function revisionContext(s: KanvasService, p: AuthPrincipal, name: 
             return r.revision;
         return undefined;
     }
-    if (name === "kanvas.config.update" && a.scope && a.scope !== 'session') {
+    if (name === "kanvas.settings.update" && a.scope && a.scope !== 'session') {
         await s.access(p, a.sessionId, 'editor');
         if (a.scope === 'account')
             return (await s.experience.preferences(p)).revision;

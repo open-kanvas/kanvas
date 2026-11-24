@@ -24,9 +24,9 @@ describe("template contracts contracts",()=>{
  const use=async(id:string,args:Record<string,unknown>)=>{const result=await client!.callTool({name:'kanvas_call',arguments:{operationId:id,arguments:args}});return {error:result.isError===true,body:result.structuredContent as Record<string,any>};};
  it('a failed publish explains itself, and limit and needs_template answers are structured',async()=>{
   const owner=await connect(),session=await owner.session('Errors'),display=await owner.display(session.id);
-  const wrong=await use('kanvas.submit',{requestId:'wrong-list',sessionId:session.id,displayIds:[display.id],view:{version:1,template:'list',data:{items:[{title:'A',text:'B'}]}}});
+  const wrong=await use('kanvas.publish',{requestId:'wrong-list',sessionId:session.id,displayIds:[display.id],view:{version:1,template:'list',data:{items:[{title:'A',text:'B'}]}}});
   expect(wrong.error).toBe(true);expect(wrong.body.error.issues[0]).toMatchObject({problem:'Unsupported field.',allowedFields:expect.arrayContaining(['text'])});expect(wrong.body.error.example).toBeTruthy();
-  const loose=await use('kanvas.submit',{requestId:'loose',sessionId:session.id,displayIds:[display.id],intent:'compare the three options',context:'Option A costs 100 and takes two days. Option B costs 80 and takes four days. Option C costs 140 and takes one day. The team prefers speed but the budget is tight this quarter.'});
+  const loose=await use('kanvas.publish',{requestId:'loose',sessionId:session.id,displayIds:[display.id],intent:'compare the three options',context:'Option A costs 100 and takes two days. Option B costs 80 and takes four days. Option C costs 140 and takes one day. The team prefers speed but the budget is tight this quarter.'});
   expect(loose.error).toBe(false);expect(loose.body.data.status).toBe('needs_template');expect(loose.body.data.candidates).toHaveLength(3);
   const search=await client!.callTool({name:'kanvas_discover',arguments:{catalog:'templates',action:'search',query:'who sits where at the wedding dinner'}});
   const hits=(search.structuredContent as {data:{results:{id:string;example?:unknown}[]}}).data.results;expect(hits[0].id).toBe('kanvas.template.seat-map');expect(hits[0].example).toBeTruthy();

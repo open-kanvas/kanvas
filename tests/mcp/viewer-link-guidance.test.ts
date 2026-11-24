@@ -9,7 +9,7 @@ import { harness } from './harness.js';
 // 2026-11-10 (0875e953): guidance and orientation blocks are conditional by default. These tests verify the
 // content and isolation of the full blocks, which are sent on every response under the declared 'full' preference.
 process.env.KANVAS_GUIDANCE_DEFAULT = 'full';
-const entryPoints = ["kanvas.session.create", "kanvas.display.register", "kanvas.submit", "kanvas.address.get"] as const;
+const entryPoints = ["kanvas.session.create", "kanvas.display.register", "kanvas.publish", "kanvas.address.get"] as const;
 let server: Awaited<ReturnType<typeof harness>> | undefined;
 afterEach(async () => { await server?.close(); server = undefined; });
 interface Envelope {
@@ -53,10 +53,10 @@ describe('bounded first-use viewer handoff guidance', () => {
         expect(VIEWER_LINK_TOOL_GUIDANCE["kanvas.session.create"]).toContain('initialDisplay:false');
         expect(VIEWER_LINK_TOOL_GUIDANCE["kanvas.display.register"]).toContain('returned viewerUrl');
         expect(VIEWER_LINK_TOOL_GUIDANCE["kanvas.display.register"]).toContain('does not publish content or prove');
-        expect(VIEWER_LINK_TOOL_GUIDANCE["kanvas.submit"]).toContain('targets[].viewerUrl/shortUrl');
-        expect(VIEWER_LINK_TOOL_GUIDANCE["kanvas.submit"]).toContain('Explicit sessionId+displayIds keeps the existing update-only result');
-        expect(VIEWER_LINK_TOOL_GUIDANCE["kanvas.submit"]).toContain('Accepted/prepared is not browser-applied');
-        expect(VIEWER_LINK_TOOL_GUIDANCE["kanvas.submit"]).toContain('needs_target is unresolved and has published nothing');
+        expect(VIEWER_LINK_TOOL_GUIDANCE["kanvas.publish"]).toContain('targets[].viewerUrl/shortUrl');
+        expect(VIEWER_LINK_TOOL_GUIDANCE["kanvas.publish"]).toContain('Explicit sessionId+displayIds keeps the existing update-only result');
+        expect(VIEWER_LINK_TOOL_GUIDANCE["kanvas.publish"]).toContain('Accepted/prepared is not browser-applied');
+        expect(VIEWER_LINK_TOOL_GUIDANCE["kanvas.publish"]).toContain('needs_target is unresolved and has published nothing');
         expect(VIEWER_LINK_TOOL_GUIDANCE["kanvas.address.get"]).toContain('short locator in url');
         expect(VIEWER_LINK_TOOL_GUIDANCE["kanvas.address.get"]).toContain('Without displayId this is a session address, not a registered-screen URL');
         expect(FIRST_DISPLAY_LINK_GUIDANCE).toContain('not proof of receiving-browser paint');
@@ -88,7 +88,7 @@ describe('real guide, catalogue and MCP result integration', () => {
         const returned: Record<typeof entryPoints[number], Record<string, unknown>> = {
             "kanvas.session.create": { id: 'source-session', name: 'Supplied session name' },
             "kanvas.display.register": { id: 'source-display', viewerUrl, shortUrl, revision: 0 },
-            "kanvas.submit": { id: 'source-update', status: 'accepted', displayIds: ['source-display'] },
+            "kanvas.publish": { id: 'source-update', status: 'accepted', displayIds: ['source-display'] },
             "kanvas.address.get": { alias: 'Source-Original', url: shortUrl, viewerUrl, access: 'locator-only' },
         };
         for (const tool of entryPoints) {
@@ -100,7 +100,7 @@ describe('real guide, catalogue and MCP result integration', () => {
             }).text).data).toEqual(original);
         }
         for (const status of ['accepted', 'prepared', 'applied', 'failed']) {
-            const original = { id: 'source-update', status }, result = envelope(toolSuccess(original, 'source-session', "kanvas.submit"));
+            const original = { id: 'source-update', status }, result = envelope(toolSuccess(original, 'source-session', "kanvas.publish"));
             expect(result.data).toEqual(original);
             expect(result.data).not.toHaveProperty('viewerUrl');
             expect(result.data).not.toHaveProperty('shortUrl');
@@ -146,13 +146,13 @@ describe('real guide, catalogue and MCP result integration', () => {
                 const submitted = envelope(await client.callTool(operationRequest({
                     name: "kanvas_call",
                     arguments: {
-                        operationId: "kanvas.submit",
+                        operationId: "kanvas.publish",
                         arguments: {
                             sessionId, displayIds: [registered.data.id], requestId, view: { version: 1, template: 'fact', data: { text: 'Exact supplied content.' } }
                         }
                     }
                 })));
-                expect(submitted.orientation?.viewerLink).toBe(publicGuidanceText(viewerLinkGuidanceFor("kanvas.submit")!, 'discovery'));
+                expect(submitted.orientation?.viewerLink).toBe(publicGuidanceText(viewerLinkGuidanceFor("kanvas.publish")!, 'discovery'));
                 expect(submitted.data.status).toBe('accepted');
                 expect(submitted.data).not.toHaveProperty('viewerUrl');
                 expect(submitted.data).not.toHaveProperty('appliedRevision');
@@ -169,7 +169,7 @@ describe('real guide, catalogue and MCP result integration', () => {
         expect(operations).not.toContain("kanvas.share.create");
         expect(operations).not.toContain("kanvas.pairing.decide");
         expect(operations).not.toContain("kanvas.member.add");
-        expect(operations).not.toContain("kanvas.config.update");
-        expect(operations.filter(name => name === "kanvas.submit")).toHaveLength(4);
+        expect(operations).not.toContain("kanvas.settings.update");
+        expect(operations.filter(name => name === "kanvas.publish")).toHaveLength(4);
     });
 });

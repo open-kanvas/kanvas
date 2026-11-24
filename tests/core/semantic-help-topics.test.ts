@@ -69,3 +69,21 @@ it('ranks subject-specific guidance first for authored search probes',()=>{
  ];
  for(const [query,topic] of probes)expect(index.search(query)[0]?.document.id,query).toBe('kanvas.help.'+topic);
 });
+
+
+it('uses operation terminology and readable words for every nested help section',()=>{
+ const entries=helpCatalog();
+ expect(entries.some(x=>x.id==='kanvas.help.'+'submit')).toBe(false);
+ expect(entries.some(x=>x.id==='kanvas.help.publish')).toBe(true);
+ expect(entries.find(x=>x.id==='kanvas.help.feedback.operations')?.title).toBe('feedback: operations');
+ expect(entries.find(x=>x.id==='kanvas.help.viewer-context.read-operation')?.title).toBe('viewer context: read operation');
+ for(const entry of entries){
+  expect(entry.id).not.toMatch(/\.(tools|read-tool)$/);
+  if(entry.title.includes(':'))expect(entry.title.split(':').slice(1).join(':')).not.toMatch(/[a-z][A-Z]/);
+ }
+});
+
+it('does not repeat first-contact orientation on every publish',async()=>{
+ const {orientationFor}=await import('../../src/server/mcp/guide.js');
+ expect(orientationFor('kanvas.publish')).toBeUndefined();
+});

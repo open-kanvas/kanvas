@@ -6,7 +6,12 @@ import { AppError, id, now, required } from './store.js';
 import type { DisplayRecord, SessionRecord } from '../shared/types.js';
 const identifier=z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 export const archiveListSchema=z.object({sessionId:identifier.optional()}).strict();
-export const archiveSchema=z.object({action:z.enum(['archive','restore','request-delete','confirm-delete']).default('archive'),resource:z.enum(['session','display','view']),sessionId:identifier,targetId:identifier.optional(),targetIds:z.array(identifier).min(1).max(100).refine(ids=>new Set(ids).size===ids.length).optional(),confirmationSessionId:identifier.optional(),confirmationDisplayId:identifier.optional(),challengeId:identifier.optional(),words:z.string().max(160).optional()}).strict();
+const archiveTargetFields={resource:z.enum(['session','display','view']),sessionId:identifier,targetId:identifier.optional(),targetIds:z.array(identifier).min(1).max(100).refine(ids=>new Set(ids).size===ids.length).optional()};
+export const archiveCreateSchema=z.strictObject(archiveTargetFields);
+export const archiveRestoreSchema=z.strictObject(archiveTargetFields);
+export const archiveDeleteRequestSchema=z.strictObject({...archiveTargetFields,confirmationSessionId:identifier.optional(),confirmationDisplayId:identifier.optional()});
+export const archiveDeleteConfirmSchema=z.strictObject({...archiveTargetFields,challengeId:identifier,words:z.string().min(1).max(160)});
+type ArchiveMutation=z.infer<typeof archiveCreateSchema>&{action:'archive'|'restore'|'request-delete'|'confirm-delete';confirmationSessionId?:string;confirmationDisplayId?:string;challengeId?:string;words?:string};
 interface Target {id:string;sessionId?:string;name?:string;view?:unknown;revision?:number;displayId?:string;archivedAt?:string}
 interface Challenge {id:string;sessionId:string;ownerId:string;resource:'session'|'display'|'view';targetId?:string;targetIds?:string[];hash:string;expiresAt:number;toastId:string;confirmationSessionId:string;attempts?:number}
 const words='Alpha Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu'.split(' ');
@@ -30,8 +35,12 @@ export class Archive {
    }
    return {items,retention:'Archived items are kept indefinitely and still count toward trial limits. Restore explicitly; permanent deletion requires a fresh 120-second visual confirmation.'};
  }
- async manage(p:AuthPrincipal,raw:unknown){return this.service.store.atomic(async()=>this.service.store.transaction(async()=>{
-   const a=archiveSchema.parse(raw),store=this.service.store;
+ async create(p:AuthPrincipal,raw:unknown){return this.mutate(p,{...archiveCreateSchema.parse(raw),action:'archive'});}
+ async restore(p:AuthPrincipal,raw:unknown){return this.mutate(p,{...archiveRestoreSchema.parse(raw),action:'restore'});}
+ async requestDelete(p:AuthPrincipal,raw:unknown){return this.mutate(p,{...archiveDeleteRequestSchema.parse(raw),action:'request-delete'});}
+ async confirmDelete(p:AuthPrincipal,raw:unknown){return this.mutate(p,{...archiveDeleteConfirmSchema.parse(raw),action:'confirm-delete'});}
+ private async mutate(p:AuthPrincipal,a:ArchiveMutation){return this.service.store.atomic(async()=>this.service.store.transaction(async()=>{
+   const store=this.service.store;
    await this.owner(p,a.sessionId);
    if(a.resource==='session'&&a.targetId&&a.targetId!==a.sessionId)throw new AppError('INVALID_TARGET','For a session, targetId must match sessionId.');
    if(a.targetIds && (a.targetId || a.resource!=='view'))throw new AppError('INVALID_TARGET','Use targetIds only for a batch of retained views, without targetId.');

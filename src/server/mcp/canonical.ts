@@ -144,8 +144,8 @@ function forgiving(tool:Definition):Definition {
 }
 export const CANONICAL_TOOLS: readonly Definition[] = definitions.map(forgiving).map(tool => Object.hasOwn(VIEWER_LINK_TOOL_GUIDANCE, tool.name)
     ? { ...tool, description: `${tool.description} First use: provide the actual literal, clickable, copyable URL as text, including in voice mode; do not repeat it after every update. ${VIEWER_LINK_TOOL_GUIDANCE[tool.name as keyof typeof VIEWER_LINK_TOOL_GUIDANCE]}` }
-    : tool).map(tool => tool.name === "kanvas.submit" ? { ...tool, description: `${VISUAL_INTENT_SUBMIT_HINT} ${tool.description} ${PUBLISHING_DESCRIPTION}` }
-    : tool.name === "kanvas.guide" ? { ...tool, description: `${tool.description} Topic tools groups the callable capabilities and distinguishes their effects; topic publishing provides complete context/data/intent recipes and common exact data shapes without a required schema round trip.` } : tool)
+    : tool).map(tool => tool.name === "kanvas.publish" ? { ...tool, description: `${VISUAL_INTENT_SUBMIT_HINT} ${tool.description} ${PUBLISHING_DESCRIPTION}` }
+    : tool.name === "kanvas.guide" ? { ...tool, description: `${tool.description} Topic operations groups the callable capabilities and distinguishes their effects; topic publishing provides complete context/data/intent recipes and common exact data shapes without a required schema round trip.` } : tool)
     .map(tool => {
       const shape = tool.schema instanceof z.ZodObject ? tool.schema.shape : undefined;
       const guards = shape ? Object.keys(shape).filter(key => /^expected(?:.*Revision(?:s)?|Version)$/.test(key)) : [];
@@ -193,5 +193,5 @@ export function canonicalArgumentError(name: string, args: unknown): InputError 
     const suppliedView = input?.view && typeof input.view === 'object' ? input.view as Record<string, unknown> : undefined;
     const requestedTemplate = suppliedView?.template ?? input?.templateHint;
     const template = typeof requestedTemplate === 'string' && TEMPLATE_IDS.some(value => value === requestedTemplate) ? requestedTemplate : undefined;
-    return result && !result.success ? new InputError(validationIssues(result.error, '', args, report, tool?.schema), template, report ? { schemaTool: "kanvas.guide", topic: 'feedback' } : template ? { schemaTool: "kanvas.template.get" } : { schemaTool: "kanvas.guide", topic: 'tools' }) : undefined;
+    return result && !result.success ? new InputError(validationIssues(result.error, '', args, report, tool?.schema), template, report ? { schemaTool: "kanvas.guide", topic: 'feedback' } : template ? { schemaTool: "kanvas.template.get" } : { schemaTool: "kanvas.guide", topic: 'operations' }) : undefined;
 }

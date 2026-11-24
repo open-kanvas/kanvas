@@ -1,3 +1,4 @@
+import {publishAckWaitMs} from './publish-delivery.js';
 import {derivedViewLabel} from '../shared/view-label.js';
 import {z} from 'zod';
 import {readingDefaults} from '../shared/reading.js';
@@ -8,10 +9,10 @@ import {AppError,id,now,required} from './store.js';
 import {initialNavigation,navigate,navigationCapabilities,navigationLeaf,navigationInputSchema,navigationActionSchema,navigationReadSchema,pinSaveSchema,pinRecallSchema,pinRemoveSchema,type NavigationAction,type NavigationSnapshot,type NavigationState} from '../shared/navigation.js';
 import type {ViewSpec} from '../shared/types.js';
 
-const publicPage=<T extends {state:NavigationState}>(p:T)=>({...p,state:{...p.state,pageIndex:p.state.page,page:p.state.page+1}});
-interface Position {action?:NavigationAction['action'];id:string;sessionId:string;displayId:string;revision:number;version:number;state:NavigationState;commandId:string;target?:string;updatedAt:string}
+const publicPage=<T extends {state:NavigationState;viewerIds?:string[]}>(p:T)=>{const {viewerIds:_targets,...position}=p;return {...position,state:{...p.state,pageIndex:p.state.page,page:p.state.page+1}};};
+interface Position {action?:NavigationAction['action'];id:string;sessionId:string;displayId:string;revision:number;version:number;state:NavigationState;commandId:string;target?:string;viewerIds?:string[];requestId?:string;updatedAt:string}
 interface Receipt {id:string;sessionId:string;digest:string;result:Position;createdAt:string}
-interface Ack {id:string;sessionId:string;displayId:string;revision:number;commandId:string;viewerId:string;status:'applied'|'unsupported'|'failed';matches?:number;scroll?:{x:number;y:number;maxX:number;maxY:number};at:string}
+interface Ack {id:string;sessionId:string;displayId:string;revision:number;commandId:string;viewerId:string;status:'applied'|'failed';code?:'NAVIGATION_UNSUPPORTED';matches?:number;scroll?:{x:number;y:number;maxX:number;maxY:number};at:string}
 interface Viewport {id:string;sessionId:string;displayId:string;viewerId:string;revision:number;version:number;width:number;height:number;maxX:number;maxY:number;at:string}
 interface Pin {title?:string;template?:string;id:string;sessionId:string;displayId:string;label:string;revision:number;view:ViewSpec;createdAt:string}
 const tab=z.string().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/);
@@ -71,7 +72,7 @@ export class Navigation {
         (await this.service.fullAccount(p));
         const acks = (await this.service.store.list<Ack>('navigation-ack', a.sessionId)).filter(x => x.displayId === d.id && x.revision === d.revision);
         const measured = (await this.service.store.list<Viewport>('navigation-viewport', a.sessionId)).filter(x => x.displayId === d.id && x.revision === d.revision && Date.now() - Date.parse(x.at) < 15000);
-        const viewers = await Promise.all((await this.service.experience.viewers(p, a.sessionId, d.id)).filter(v => !a.viewerId || v.id === a.viewerId).map(async (v) => { const current = await this.position(a.sessionId, d.id, v.id, (s.config.syncMode ?? 'independent') !== 'independent'); const viewport = measured.find(x => x.viewerId === v.id && x.version === current.version); return { viewerId: v.id, scale: current.state.scale ?? 1, commandId: current.commandId || undefined, viewport: viewport ? { width: viewport.width, height: viewport.height, maxX: viewport.maxX, maxY: viewport.maxY, contentOverflowsViewport: viewport.maxX > 1 || viewport.maxY > 1, measuredAt: viewport.at } : null, status: acks.find(x => x.viewerId === v.id && x.commandId === current.commandId)?.status ?? 'unconfirmed', matches: acks.find(x => x.viewerId === v.id && x.commandId === current.commandId)?.matches, scroll: acks.find(x => x.viewerId === v.id && x.commandId === current.commandId)?.scroll }; }));
+        const viewers = await Promise.all((await this.service.experience.viewers(p, a.sessionId, d.id)).filter(v => !a.viewerId || v.id === a.viewerId).map(async (v) => { const current = await this.position(a.sessionId, d.id, v.id, (s.config.syncMode ?? 'independent') !== 'independent'); const viewport = measured.find(x => x.viewerId === v.id && x.version === current.version); return { viewerId: v.id, scale: current.state.scale ?? 1, commandId: current.commandId || undefined, viewport: viewport ? { width: viewport.width, height: viewport.height, maxX: viewport.maxX, maxY: viewport.maxY, contentOverflowsViewport: viewport.maxX > 1 || viewport.maxY > 1, measuredAt: viewport.at } : null, status: acks.find(x => x.viewerId === v.id && x.commandId === current.commandId)?.status ?? (v.connected ? 'unconfirmed' : 'offline'), matches: acks.find(x => x.viewerId === v.id && x.commandId === current.commandId)?.matches, scroll: acks.find(x => x.viewerId === v.id && x.commandId === current.commandId)?.scroll }; }));
         return { ...publicPage(await this.withReading(p, a.sessionId, position)), capabilities: navigationCapabilities(d.view, position.state), mode: s.config.syncMode ?? 'independent', presenterViewerId: s.config.presenterViewerId || undefined, viewers, note: 'pageCount/matchingItems are logical pagination, NOT visible rows. viewport is measured per receiving browser; null means unknown or stale. Execute explicit scroll/navigation requests even on one logical page. Per-viewer receipts only. Offline or unconfirmed viewers are not assumed to have applied this position. Source revision/history are unchanged.' };
     }
     async browserRead(p: AuthPrincipal, sessionId: string, displayId: string, tabId: string): Promise<Awaited<NavigationSnapshot>> {
@@ -86,7 +87,7 @@ export class Navigation {
         const replay = await this.service.store.get<Receipt>('navigation-receipt', hash(`${p.tokenId ?? p.browserId ?? p.userId}:${a.sessionId}:${a.requestId}`));
         if (replay) {
             const target = a.viewerId ?? (a.navigation.action === 'zoom' ? replay.result.target : undefined);
-            return publicPage(await this.write(p, { ...a, ...(target ? { viewerId: target } : {}) }, target));
+            return this.confirm(p, await this.write(p, { ...a, ...(target ? { viewerId: target } : {}) }, target));
         }
         if (a.navigation.action === 'zoom' && !a.viewerId) {
             const viewers = await this.service.experience.viewers(p, a.sessionId, a.displayId);
@@ -99,7 +100,50 @@ export class Navigation {
                 throw new AppError('NAVIGATION_UNAVAILABLE', 'A single viewer navigation target requires independent mode.', 409);
             await this.liveViewer(p, a.sessionId, a.displayId, a.viewerId);
         }
-        return publicPage(await this.write(p, a, a.viewerId));
+        return this.confirm(p, await this.write(p, a, a.viewerId));
+    }
+    /** Observe exactly the viewers selected when the command committed. Joining later
+     * cannot turn a historical offline request into fabricated confirmation. */
+    private async confirm(p: AuthPrincipal, command: Position) {
+        const started = performance.now(), deadline = started + publishAckWaitMs();
+        let changed = false, wake: (() => void) | undefined;
+        const stop = this.service.onEvent(e => { if(e.sessionId === command.sessionId) { changed = true; wake?.(); } });
+        try {
+            while (true) {
+                changed = false;
+                const result = await this.service.store.snapshot(async () => {
+                    const display = await this.service.display(p, command.sessionId, command.displayId, 'editor');
+                    const session = await this.service.access(p, command.sessionId);
+                    const live = await this.service.experience.viewers(p, command.sessionId, command.displayId);
+                    const acks = await this.service.store.list<Ack>('navigation-ack', command.sessionId);
+                    const viewers = await Promise.all((command.viewerIds ?? []).map(async viewerId => {
+                        const ack = acks.find(x => x.displayId === command.displayId && x.viewerId === viewerId && x.commandId === command.commandId && x.revision === command.revision);
+                        const current = await this.position(command.sessionId, command.displayId, viewerId, (session.config.syncMode ?? 'independent') !== 'independent');
+                        const base = {viewerId, commandId:command.commandId, revision:command.revision};
+                        if(display.revision !== command.revision || current.commandId !== command.commandId) return {...base,status:'superseded' as const};
+                        if(ack) return {...base,status:ack.status,...(ack.code?{code:ack.code}:{}),matches:ack.matches,scroll:ack.scroll};
+                        if(!live.some(v => v.id === viewerId && v.connected)) return {...base,status:'offline' as const};
+                        return {...base,status:'pending' as const};
+                    }));
+                    return viewers;
+                });
+                if(!result.some(v => v.status === 'pending') || performance.now() >= deadline) {
+                    const waitedMs = Math.round(performance.now()-started);
+                    const viewers = result.map(v => ({...v,status:v.status === 'pending' ? 'unconfirmed' as const : v.status,waitedMs}));
+                    // Current access is checked after the wait, including offline/no-viewer results.
+                    await this.service.display(p, command.sessionId, command.displayId, 'editor');
+                    return {...publicPage(command),delivery:Object.fromEntries(viewers.map(v=>[v.viewerId,v])),viewers,
+                        deliveryStatus:!viewers.length?'offline':viewers.every(v=>v.status===viewers[0].status)?viewers[0].status:'unconfirmed',waitedMs,
+                        note:!viewers.length?'No receiving browser was connected; navigation is saved, not confirmed on screen.':'Per-viewer browser receipts for this command. Read navigation.read if unconfirmed; do not resend to check. No source data or history changed.'};
+                }
+                if(changed) continue;
+                await new Promise<void>(resolve => {
+                    const timer=setTimeout(done,Math.max(0,deadline-performance.now()));
+                    function done(){clearTimeout(timer);wake=undefined;resolve();}
+                    wake=done;if(changed)done();
+                });
+            }
+        } finally {stop();wake?.();}
     }
     async browserControl(p: AuthPrincipal, sessionId: string, displayId: string, raw: unknown) {
         const a = browserInput.parse(raw), snapshot = (await this.browserRead(p, sessionId, displayId, a.tabId));
@@ -128,7 +172,8 @@ export class Navigation {
                 throw new AppError('NAVIGATION_UNAVAILABLE', error instanceof Error ? error.message : 'This navigation is unavailable.', 409);
             }
             const all = (await s.store.list<Position>('navigation', a.sessionId)).filter(x => x.displayId === d.id);
-            const result: Position = { action: a.navigation.action, id: this.key(d.id, target), sessionId: a.sessionId, displayId: d.id, revision: d.revision, version: Math.max(0, ...all.map(x => x.version)) + 1, state, commandId: id(), target, updatedAt: now() };
+            const viewerIds = (await s.experience.receiving.viewers(a.sessionId, d.id)).filter(v => v.connected && (!target || v.id === target)).map(v => v.id);
+            const result: Position = { requestId:a.requestId, viewerIds, action: a.navigation.action, id: this.key(d.id, target), sessionId: a.sessionId, displayId: d.id, revision: d.revision, version: Math.max(0, ...all.map(x => x.version)) + 1, state, commandId: id(), target, updatedAt: now() };
             (await s.store.transaction(async () => {
                 if (a.navigation.action === 'reading' && a.navigation.saveDefaults) {
                     const current = (await s.experience.preferences(p)), r = state.reading!, patch: Record<string, number> = {};
@@ -163,12 +208,15 @@ export class Navigation {
     }
     async acknowledge(p: AuthPrincipal, sessionId: string, displayId: string, raw: unknown) {
         return this.service.store.atomic(async () => {
-            const a = z.object({ tabId: tab, revision: z.number().int().nonnegative(), commandId: tab, status: z.enum(['applied', 'unsupported', 'failed']), matches: z.number().int().min(0).max(100000).optional(), scroll: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1), maxX: z.number().nonnegative().max(100000000), maxY: z.number().nonnegative().max(100000000) }).strict().optional() }).strict().parse(raw);
+            const a = z.object({ tabId: tab, revision: z.number().int().nonnegative(), commandId: tab, status: z.enum(['applied', 'failed']), code:z.literal('NAVIGATION_UNSUPPORTED').optional(), matches: z.number().int().min(0).max(100000).optional(), scroll: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1), maxX: z.number().nonnegative().max(100000000), maxY: z.number().nonnegative().max(100000000) }).strict().optional() }).strict().parse(raw);
             const snapshot = (await this.browserRead(p, sessionId, displayId, a.tabId));
             if (snapshot.revision !== a.revision || snapshot.commandId !== a.commandId)
                 return { ignored: true };
-            const viewerId = snapshot.viewerId!, record: Ack = { id: hash(`${displayId}:${viewerId}`), sessionId, displayId, revision: a.revision, commandId: a.commandId, viewerId, status: a.status, matches: a.matches, scroll: a.scroll, at: now() };
-            (await this.service.store.put('navigation-ack', record));
+            const viewerId = snapshot.viewerId!, record: Ack = { id: hash([displayId,viewerId,a.commandId].join(':')), sessionId, displayId, revision: a.revision, commandId: a.commandId, viewerId, status: a.status, code:a.code, matches: a.matches, scroll: a.scroll, at: now() };
+            const prior=await this.service.store.get<Ack>('navigation-ack',record.id);
+            if(prior?.status === 'applied') return {ignored:false};
+            await this.service.store.put('navigation-ack', record);
+            this.service.emit({type:'update',sessionId,displayId,revision:a.revision});
             return { ignored: false };
         });
     }

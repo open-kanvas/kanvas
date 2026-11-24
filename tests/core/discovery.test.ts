@@ -49,7 +49,7 @@ describe("discovery coverage 1", () => {
     afterEach(async () => { await h?.close(); });
     it('describes document and Markdown reading settings separately from current-view zoom', () => {
         const tools = canonicalToolDefinitions();
-        const config = tools.find(t => t.name === "kanvas.config.update")!;
+        const config = tools.find(t => t.name === "kanvas.settings.update")!;
         expect(config.description).toContain('documents using the reading layout and markdown reading views');
         for (const field of ['readingFontSize', 'readingWpm', 'readingZoom']) {
             const serialized = JSON.stringify(config.inputSchema);
@@ -160,7 +160,7 @@ describe("discovery coverage 5", () => {
             for (const [operationId, args] of [
                 ['kanvas.report.patch', { reportId: 'r', expectedRevision: 0, note: 'Finding' }],
                 ['kanvas.asset.export', { sessionId: 's', assetId: 'a' }],
-                ['kanvas.account.begin', { requestId: 'start' }],
+                ['kanvas.session.start', { requestId: 'start' }],
             ] as const) {
                 const result = resolveToolCall('discovery', 'kanvas_call', { operationId, arguments: args });
                 expect(result.error).toBeUndefined();

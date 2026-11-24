@@ -43,7 +43,7 @@ async function setup(protocol: 'modern' | 'legacy') {
     const call = async (args: Record<string, unknown>) => await client.callTool(operationRequest({
         name: "kanvas_call",
         arguments: {
-            operationId: "kanvas.submit",
+            operationId: "kanvas.publish",
             arguments: {
                 sessionId: session.id, displayIds: [display.id], requestId: randomUUID(), ...args
             }
@@ -99,7 +99,7 @@ describe.each(['modern', 'legacy'] as const)('%s MCP countdown field guidance', 
         expect(error.message).toContain('endsAt');
         expect(error.message).toContain('targetTime');
         const diagnostic = (await h.runtime.store.get<DiagnosticRecord>('diagnostic', error.diagnosticId!));
-        expect(diagnostic).toMatchObject({ operation: "kanvas.submit", phase: 'validation', code: 'INVALID_ARGUMENT', template: 'countdown' });
+        expect(diagnostic).toMatchObject({ operation: "kanvas.publish", phase: 'validation', code: 'INVALID_ARGUMENT', template: 'countdown' });
         expect(JSON.stringify([rejected, diagnostic])).not.toContain(marker);
         expect(JSON.stringify([rejected, diagnostic])).not.toContain(privateKey);
         expect((await owner.detail(session.id)).updates).toHaveLength(0);

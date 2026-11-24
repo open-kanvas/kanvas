@@ -121,12 +121,12 @@ describe("limits coverage 2", () => {
             expect(limitMessage('SESSION_LIMIT_REACHED', 20)).toContain('free limit of 20 sessions');
             expect(limitMessage('VIEW_LIMIT_REACHED', 1000)).toMatch(/free limit of 1000 views in this session/);
             // Archiving really frees the slot the message promises; restoring takes one again.
-            await call("kanvas.archive.manage", { action: 'archive', resource: 'session', sessionId: extra.id });
+            await call("kanvas.archive.create", { resource: 'session', sessionId: extra.id });
             const replacement = await h.runtime.service.createSession(p, 'Fits after archiving');
             expect(replacement.id).toBeTruthy();
             let restore: unknown;
             try {
-                await call("kanvas.archive.manage", { action: 'restore', resource: 'session', sessionId: extra.id });
+                await call("kanvas.archive.restore", { resource: 'session', sessionId: extra.id });
             }
             catch (error) {
                 restore = error;

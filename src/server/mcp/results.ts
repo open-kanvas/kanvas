@@ -138,7 +138,7 @@ export function safeError(error: unknown): SafeError {
             }).wouldRemoveIds) ? { wouldRemoveIds: (error as InputError & {
                     wouldRemoveIds: string[];
                 }).wouldRemoveIds } : {}),
-            ...(error instanceof InputError && error.guidance ? error.guidance : error instanceof InputError && error.template ? { schemaTool: "kanvas.template.get" } : { schemaTool: "kanvas.guide", topic: 'tools' }),
+            ...(error instanceof InputError && error.guidance ? error.guidance : error instanceof InputError && error.template ? { schemaTool: "kanvas.template.get" } : { schemaTool: "kanvas.guide", topic: 'operations' }),
             ...(error instanceof InputError && (TEMPLATE_IDS as readonly string[]).includes(error.template as string) ? { template: error.template as TemplateId } : {}),
         };
     // These errors can arise during authoritative inline-source validation,
@@ -180,7 +180,7 @@ export function toolFailure(error: unknown, diagnosticId?: string, profile: McpP
     const templateIds = failure.issues?.flatMap(issue => (issue.hint?.match(/Closest valid template IDs: ([a-z0-9, -]+)\./)?.[1] ?? '').split(', ').filter(Boolean)) ?? [];
     const suggestions = templateSuggestions(templateIds);
     const extraRecovery = error instanceof InputError && 'discoveryRecovery' in error ? error.discoveryRecovery : undefined;
-    const recovery = failure.code === 'INVALID_ARGUMENT' && operation ? { operationId: operation.id, allowedFields: Object.keys(operationSchema?.properties ?? {}).slice(0,80), requiredFields: operationSchema?.required ?? [], fallback: discoveryFallback('operations', operation.id), ...(suggestions.length ? { suggestions } : {}), get: { tool: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id: operation.id } }, ...(operation.id === 'kanvas.submit' ? { shape: SUBMIT_SHAPE } : {}), ...(failure.template ? { template: { tool: 'kanvas_discover', arguments: { catalog: 'templates', action: 'get', id: `kanvas.template.${failure.template}` } } } : {}), examples: ((operation.detail().examples ?? []) as unknown[]).filter(example => JSON.stringify(example).length < 2500).slice(0, 1), note: 'Examples are syntax only and never grant consent. Substitute authorized IDs, preserve source data, and obtain any missing explicit approval rather than copying confirm:true. Validation made no change; do not retry unchanged.' } : failure.code === 'INVALID_ARGUMENT' ? extraRecovery ?? { discovery: DISCOVERY_ORIENTATION } : undefined;
+    const recovery = failure.code === 'INVALID_ARGUMENT' && operation ? { operationId: operation.id, allowedFields: Object.keys(operationSchema?.properties ?? {}).slice(0,80), requiredFields: operationSchema?.required ?? [], fallback: discoveryFallback('operations', operation.id), ...(suggestions.length ? { suggestions } : {}), get: { tool: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id: operation.id } }, ...(operation.id === 'kanvas.publish' ? { shape: SUBMIT_SHAPE } : {}), ...(failure.template ? { template: { tool: 'kanvas_discover', arguments: { catalog: 'templates', action: 'get', id: `kanvas.template.${failure.template}` } } } : {}), examples: ((operation.detail().examples ?? []) as unknown[]).filter(example => JSON.stringify(example).length < 2500).slice(0, 1), note: 'Examples are syntax only and never grant consent. Substitute authorized IDs, preserve source data, and obtain any missing explicit approval rather than copying confirm:true. Validation made no change; do not retry unchanged.' } : failure.code === 'INVALID_ARGUMENT' ? extraRecovery ?? { discovery: DISCOVERY_ORIENTATION } : undefined;
     const projected = trustedGuidance(failure) as typeof failure;
     // Never echo failed source data. Offer a schema-owned view example only
     // for template failures, with explicit authorized-session substitution.
@@ -237,7 +237,7 @@ export function toolSuccess(value: unknown, sessionId?: unknown, operation = '',
             status?: string;
         };
     } | undefined;
-    const template = operation === "kanvas.submit" ? submittedView?.template : undefined;
+    const template = operation === "kanvas.publish" ? submittedView?.template : undefined;
     const relatedOperations = template ? workflowIds(template).flatMap(id => { const item = operationCatalog().find(entry => entry.id === id); return item ? [{ id, description: item.summary }] : []; }) : [];
     const workflow = relatedOperations.length ? { relatedOperations, instruction: WORKFLOW_NOTE, get: { tool: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id: relatedOperations[0].id } } } : undefined;
     const commitmentBoundary = operation === "kanvas.planner.finalize" || template === 'planner' && submittedView?.data?.status === 'committed' ? PLANNER_BOUNDARY : undefined;

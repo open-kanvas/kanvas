@@ -26,16 +26,6 @@ export const boardReadSchema = z.strictObject({
   as: z.enum(['messages', 'chat']).default('messages').describe('chat adds a ready chat view to publish.'),
 });
 export const boardOverviewSchema = z.strictObject({});
-export const boardUpdateSchema = z.strictObject({
-  notifications: z.boolean().optional().describe('true: mention new messages once when a conversation or session starts. Off unless the person asks.'),
-  editMessageId: messageId.optional().describe('Edit your own message; a service administrator may edit any.'),
-  text: z.string().trim().min(1).max(BOARD_LIMITS.text).optional(), tags: z.array(tag).max(BOARD_LIMITS.tags).optional(),
-  publicName: publicName.optional(), markSeen: z.literal(true).optional(), removeMessageId: messageId.optional().describe('Your own message; a service administrator may remove any.'),
-}).refine(v => Object.values(v).some(x => x !== undefined), 'State what to change.')
-  .refine(v => !v.editMessageId || v.text !== undefined || v.tags !== undefined, 'Editing requires text and/or tags.')
-  .refine(v => v.editMessageId || v.text === undefined && v.tags === undefined, 'Text and tags require editMessageId.')
-  .refine(v => !(v.editMessageId && v.removeMessageId), 'Edit or remove one message, not both.');
-
 /** A reply has the same public fields but cannot itself contain replies. */
 const messageData = z.object({
   id: z.string().max(128).optional(), author: z.string().max(BOARD_LIMITS.name), maintainer: z.boolean().optional(),

@@ -1,3 +1,4 @@
+import {afterPaint} from '../after-paint.js';
 import { readingDefaults, textScale } from '../../shared/reading';
 import { textSizeMode } from '../../shared/live-surface';
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
@@ -83,7 +84,9 @@ export function BrowsingProvider({view,sessionId,displayId,revision,config,enabl
   },[local,remoteNavigation?.version,remoteNavigation?.revision,revision,sessionId,displayId]);
   useEffect(()=>{
     if(!enabled||local)return;let live=true;const poll=async()=>{if(busy.current||nativeScrollPending.current)return;const expected=latest.current.revision,epoch=inputEpoch.current;try{const result=await api<NavigationSnapshot>(`${displayPath(sessionId,displayId)}/navigation?tabId=${encodeURIComponent(tabId)}`);if(!live||latest.current.revision!==expected||result.revision!==expected||inputEpoch.current!==epoch||busy.current||nativeScrollPending.current)return;setSnapshot(result);if(result.version!==version.current){version.current=result.version;setState(result.state);}}catch{/* The session connection UI owns disconnect/revocation. */}};
-    void poll();const timer=setInterval(()=>void poll(),900);return()=>{live=false;clearInterval(timer);};
+    const changed=(event:Event)=>{const detail=(event as CustomEvent<{sessionId:string;displayId?:string;type:string}>).detail;if(detail?.sessionId===sessionId&&(!detail.displayId||detail.displayId===displayId)&&detail.type==='display')void poll();};
+    window.addEventListener('kanvas:session-change',changed);
+    void poll();const timer=setInterval(()=>void poll(),900);return()=>{live=false;clearInterval(timer);window.removeEventListener('kanvas:session-change',changed);};
   },[enabled,revision,sessionId,displayId,tabId,mode,config?.presenterViewerId]);
   const send=(action:NavigationAction)=>{
     if(!canNavigate)return;
@@ -145,8 +148,8 @@ export function BrowsingProvider({view,sessionId,displayId,revision,config,enabl
     el.addEventListener('keydown',key);el.addEventListener('scroll',scroll,true);el.addEventListener('wheel',prevent,{passive:false});el.addEventListener('touchmove',prevent,{passive:false});return()=>{el.removeEventListener('keydown',key);el.removeEventListener('scroll',scroll,true);el.removeEventListener('wheel',prevent);el.removeEventListener('touchmove',prevent);clearTimeout(timer);nativeScrollPending.current=false;};
   },[enabled,canNavigate,revision]);
   useEffect(()=>{
-    const el=root.current;if(!el)return;let cancelled=false;
-    const frame=requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    const el=root.current;if(!el)return;let cancelled=false;let cancelAck: (()=>void)|undefined;
+    const cancelPaint=afterPaint(()=>{
       if(cancelled||!el.isConnected)return;
       const caps=navigationCapabilities(view,state),panel=state.panelId?[...el.querySelectorAll<HTMLElement>('[data-code-panel]')].find(p=>p.getAttribute('data-code-panel')===state.panelId):el;let scroll=scrollElement(panel??el);
       const scrollKey=JSON.stringify([state.scroll,state.page,snapshot?.commandId]);
@@ -166,8 +169,8 @@ export function BrowsingProvider({view,sessionId,displayId,revision,config,enabl
         if(region){scroll.scrollLeft=Math.max(0,(region.x+region.width/2)*scroll.scrollWidth-scroll.clientWidth/2);scroll.scrollTop=Math.max(0,(region.y+region.height/2)*scroll.scrollHeight-scroll.clientHeight/2);surface.style.transformOrigin=`${(region.x+region.width/2)*100}% ${(region.y+region.height/2)*100}%`;}
         else if(focus){const target=focus.getBoundingClientRect(),box=surface.getBoundingClientRect();surface.style.transformOrigin=`${target.left-box.left+target.width/2}px ${target.top-box.top+target.height/2}px`;}else surface.style.transformOrigin='center';
         surface.style.transform=zoom===1?'':`scale(${zoom})`;}
-      const command=snapshot?.commandId;if(enabled&&!local&&!busy.current&&!queue.current.length&&command&&lastCommand.current!==command&&snapshot?.revision===revision&&JSON.stringify(state)===JSON.stringify(snapshot.state)){lastCommand.current=command;void api(`${displayPath(sessionId,displayId)}/navigation/ack`,{method:'POST',body:{tabId,revision,commandId:command,status:(state.focus?.text||state.line)&&!focus||snapshot.action==='scroll'&&((state.scroll.y>0&&scroll.scrollHeight<=scroll.clientHeight+1)||(state.scroll.x>0&&scroll.scrollWidth<=scroll.clientWidth+1))?'unsupported':snapshot.action==='scroll'&&(Math.abs(scroll.scrollTop-state.scroll.y*Math.max(0,scroll.scrollHeight-scroll.clientHeight))>2||Math.abs(scroll.scrollLeft-state.scroll.x*Math.max(0,scroll.scrollWidth-scroll.clientWidth))>2)?'failed':'applied',matches:state.focus?.text?textRanges(el,state.focus.text).length:state.line&&line?1:ranges.length,scroll:{x:normalizedScroll(scroll.scrollLeft,scroll.scrollWidth-scroll.clientWidth),y:normalizedScroll(scroll.scrollTop,scroll.scrollHeight-scroll.clientHeight),maxX:Math.max(0,scroll.scrollWidth-scroll.clientWidth),maxY:Math.max(0,scroll.scrollHeight-scroll.clientHeight)}}}).catch(()=>{lastCommand.current='';});}
-    }));return()=>{cancelled=true;cancelAnimationFrame(frame);};
+      cancelAck=afterPaint(()=>{if(cancelled||!el.isConnected)return;const command=snapshot?.commandId;if(enabled&&!local&&!busy.current&&!queue.current.length&&command&&lastCommand.current!==command&&snapshot?.revision===revision&&JSON.stringify(state)===JSON.stringify(snapshot.state)){lastCommand.current=command;void api(`${displayPath(sessionId,displayId)}/navigation/ack`,{method:'POST',body:{tabId,revision,commandId:command,...(((state.focus?.text||state.line)&&!focus||snapshot.action==='scroll'&&((state.scroll.y>0&&scroll.scrollHeight<=scroll.clientHeight+1)||(state.scroll.x>0&&scroll.scrollWidth<=scroll.clientWidth+1)))?{code:'NAVIGATION_UNSUPPORTED'}:{}),status:(state.focus?.text||state.line)&&!focus||snapshot.action==='scroll'&&((state.scroll.y>0&&scroll.scrollHeight<=scroll.clientHeight+1)||(state.scroll.x>0&&scroll.scrollWidth<=scroll.clientWidth+1))?'failed':snapshot.action==='scroll'&&(Math.abs(scroll.scrollTop-state.scroll.y*Math.max(0,scroll.scrollHeight-scroll.clientHeight))>2||Math.abs(scroll.scrollLeft-state.scroll.x*Math.max(0,scroll.scrollWidth-scroll.clientWidth))>2)?'failed':'applied',matches:state.focus?.text?textRanges(el,state.focus.text).length:state.line&&line?1:ranges.length,scroll:{x:normalizedScroll(scroll.scrollLeft,scroll.scrollWidth-scroll.clientWidth),y:normalizedScroll(scroll.scrollTop,scroll.scrollHeight-scroll.clientHeight),maxX:Math.max(0,scroll.scrollWidth-scroll.clientWidth),maxY:Math.max(0,scroll.scrollHeight-scroll.clientHeight)}}}).catch(()=>{lastCommand.current='';});}});
+    });return()=>{cancelled=true;cancelPaint();cancelAck?.();};
   },[state,snapshot?.commandId,enabled,revision,viewKey,sessionId,displayId,tabId,viewportRevision,surfaceTextScale,textMode]);
   useEffect(()=>{
     const el=root.current;if(!el||!enabled||local)return;

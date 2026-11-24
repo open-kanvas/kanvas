@@ -28,12 +28,12 @@ export const sessionOperations: readonly Definition[] = [
         searchAliases: ["kanvas.session.state"]
     },
 {
-        name: "kanvas.config.update", summary: "Change appearance, regional, or reading settings when applying preferences at session, account, team, or organization scope.",
+        name: "kanvas.settings.update", summary: "Change appearance, regional, or reading settings when applying preferences at session, account, team, or organization scope.",
         description: 'Ask which settings scope the user intends: session (default), account (new-session defaults), team or organization (group defaults). Supply expectedRevision for that scope and groupId for team/organization. Group writes require group administration. Appearance and regional settings are supported. textSize (percent, 50-250) is the text size of every view in the session or account and is saved; readingFontSize, readingZoom and readingWpm apply to documents using the reading layout and markdown reading views. For a scale saved only for this browser window across content and sessions (new windows start at 100%), use kanvas.navigation.control with navigation:{action:zoom,scale:1.5}. Synchronization changes require owner authority. Settings do not grant access or trigger publication.',
         schema: z.strictObject({ sessionId: id, expectedRevision: revision.optional(), config, scope: z.enum(['session', 'account', 'team', 'organization']).default('session'), groupId: id.optional() }), idempotent: true,
         domain: "session",
         requiredScope: "publish",
         discovery: {"group":"sessions","hint":"Change requested settings for this session using configRevision as expectedRevision.","examples":[{"sessionId":"session-id","expectedRevision":3,"config":{"theme":"dark"}}]},
-        searchAliases: ["kanvas.config.update"]
+        searchAliases: ["kanvas.settings.update"]
     }
 ];

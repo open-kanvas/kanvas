@@ -49,7 +49,7 @@ describe('f1ffebf8 precise secret-safe validation recovery',()=>{
   it('offers only a nonempty schema-owned view example and never failed source data',()=>{
     const input={sessionId:'private-session',displayIds:['private-display'],requestId:'private-request',view:{version:1,template:'fact',data:{text:123,privateSecret:'private source text'}}};
     const parsed=viewSchema.safeParse(input.view);expect(parsed.success).toBe(false);if(parsed.success)return;
-    const error=new InputError(validationIssues(parsed.error,'view',input.view,false,viewSchema),'fact');const envelope=result(error,'kanvas.submit');
+    const error=new InputError(validationIssues(parsed.error,'view',input.view,false,viewSchema),'fact');const envelope=result(error,'kanvas.publish');
     expect(envelope.overview).toBe(pointer);expect(envelope.error.validateTool).toBe('kanvas_call');
     expect(envelope.error.validateArguments.operationId).toBe('kanvas.view.validate');
     expect(parseCanonicalArguments('kanvas.view.validate',envelope.error.validateArguments.arguments)).toBeDefined();

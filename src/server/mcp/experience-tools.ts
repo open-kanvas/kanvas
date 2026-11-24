@@ -119,11 +119,11 @@ export const experienceTools: readonly Definition[] = [
         searchAliases: ["kanvas.styles.list"]
     },
     {
-        name: "kanvas.preferences.get", summary: "Read account defaults and their revision when checking the settings that future sessions will inherit.", description: 'Read the account’s default session settings and revision. Requires account-level authorization, not a selected-session grant. New sessions copy these settings; existing sessions do not change.', schema: z.object({}).strict(), readOnly: true,
+        name: "kanvas.preferences.read", summary: "Read account defaults and their revision when checking the settings that future sessions will inherit.", description: 'Read the account’s default session settings and revision. Requires account-level authorization, not a selected-session grant. New sessions copy these settings; existing sessions do not change.', schema: z.object({}).strict(), readOnly: true,
         domain: "profile",
         requiredScope: "read" as const,
         discovery: {"group":"sessions","hint":"Read account defaults for new sessions, not the live configuration of an existing session.","examples":[{}]},
-        searchAliases: ["kanvas.preferences.get"]
+        searchAliases: ["kanvas.preferences.read"]
     },
     {
         name: "kanvas.preferences.update", summary: "Save account default settings when changing how future sessions start without modifying existing session settings.", description: 'Save explicitly requested account defaults with expectedRevision. Does not change existing sessions. Session-only OAuth grants cannot change account defaults.', schema: z.object({ expectedRevision: revision.optional(), config: configPatchSchema }).strict(),

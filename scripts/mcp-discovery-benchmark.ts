@@ -5,8 +5,8 @@ import { operationCatalog, templateCatalog, helpCatalog, discoveryToolDefinition
 import { LocalSearch, tokens } from '../src/server/mcp/local-search.js';
 const cases = [
   ['bring a saved tick list onto a different monitor', 'kanvas.checklist.show'],
-  ['enlarge the typography', 'kanvas.config.update'],
-  ['take a screenshot with native browser consent', 'kanvas.display.request.capture'],
+  ['enlarge the typography', 'kanvas.settings.update'],
+  ['take a screenshot with native browser consent', 'kanvas.display.capture.request'],
   ['undo to a previous retained screen', 'kanvas.display.navigate'],
   ['automatically advance my slideshow', 'kanvas.autoplay.control'],
   ['grant a colleague access with an invitation', 'kanvas.invite.create'],

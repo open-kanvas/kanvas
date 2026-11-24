@@ -34,7 +34,7 @@ it.each(['modern', 'legacy'] as const)('performs first publication and ordinary 
     expect(((inventory.content as {
         text: string;
     }[])[0]).text.split('\n').filter(line => line.includes(' — '))).toHaveLength(operationEntries().length);
-    const contract = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id: 'kanvas.submit' } });
+    const contract = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id: 'kanvas.publish' } });
     const definition = (contract.structuredContent as any).data.entry;
     expect(definition.requiredInputs).not.toContain('sessionId');
     expect(definition.inputSchema.properties).toHaveProperty('newSession');
@@ -45,7 +45,7 @@ it.each(['modern', 'legacy'] as const)('performs first publication and ordinary 
             viewerUrl: string;
             shortUrl: string;
         }[];
-    }>("kanvas_call", "kanvas.submit", {
+    }>("kanvas_call", "kanvas.publish", {
         requestId: 'first', view: JSON.stringify({ version: 1, template: 'presentation', data: { slides: [fact('First'), fact('Second')], index: 0 } }),
     });
     expect(receipt.status).toBe('accepted');
@@ -59,7 +59,7 @@ it.each(['modern', 'legacy'] as const)('performs first publication and ordinary 
     expect(read.id).toBe(moved.id);
     const current = await call("kanvas_call", "kanvas.display.current", { sessionId: receipt.sessionId, displayId: receipt.displayIds[0] });
     expect(current).toHaveProperty('view.data.index', 1);
-    const replay = await call<UpdateRecord>("kanvas_call", "kanvas.submit", { requestId: 'continued', targetRef: receipt.targetRef, view: fact('Same target.') });
+    const replay = await call<UpdateRecord>("kanvas_call", "kanvas.publish", { requestId: 'continued', targetRef: receipt.targetRef, view: fact('Same target.') });
     expect(replay.sessionId).toBe(receipt.sessionId);
     expect((await h.runtime.store.list('session'))).toHaveLength(2);
     expect((await h.runtime.store.get('display', home[0].id))).toEqual(home[0]);

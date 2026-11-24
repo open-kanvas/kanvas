@@ -10,4 +10,4 @@ Only deployment-configured service administrators (`KANVAS_SERVICE_ADMINS`, exis
 
 Global edits/deletions never alter imported copies or active guidance. Private edits never alter global suggestions. Selected-session grants cannot browse/import an account-wide personal library.
 
-Persistence is additive in the existing generic record store (`guidance-suggestion`); no SQL migration. Reverting hides catalog tools but preserves catalog data and personal imports. No automatic seeding writes, activation, model calls or external services.
+Persistence is additive in the existing generic record store (`guidance-suggestion`); no SQL migration. Reverting hides catalog operations but preserves catalog data and personal imports. No automatic seeding writes, activation, model calls or external services.

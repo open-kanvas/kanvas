@@ -12,7 +12,7 @@ import {id,requestId,name,revision,record,exactlyOne} from '../operation-fields.
 /** publish operation contracts. Domain services enforce current account, role and scope. */
 export const publishOperations: readonly Definition[] = [
 {
-        name: "kanvas.display.edit",
+        name: "kanvas.display.edit", summary: "Replace an editable view's complete data object when updating all template data rather than patching individual fields.",
         description: "Replace the COMPLETE data object of an editable current template. This is not a partial merge. Prefer kanvas_call with operationId:\"kanvas.view.patch\" and arguments:{\u2026} for individual fields or text appends. expectedRevision is an optional optimistic-concurrency guard; conflicts include currentRevision. The domain validates editable template fields.",
         schema: z.strictObject({ sessionId: id, displayId: id, expectedRevision: revision.optional(), data: record }),
         idempotent: true,
@@ -22,8 +22,8 @@ export const publishOperations: readonly Definition[] = [
         searchAliases: ["kanvas.display.edit"]
     },
 {
-        name: "kanvas.view.patch",
-        description: 'Patch current content without regeneration or resetting compatible poll/form/QA participation. Supply current expectedRevision and a stable requestId. Operations: set/remove/appendText at /data/...; checklist uses {op:"checklist",action:"add|remove|update|move",itemId,value?:{text,detail,checked},beforeId?}. checked sets one item; detail:null clears; add/move append unless beforeId. The final view is validated; no source-binding, server-counter, identity or permission changes. Read current state after a conflict. Returns a normal prepared update; check delivery separately.',
+        name: "kanvas.view.patch", summary: "Apply narrow validated content changes when editing selected fields or checklist items without regenerating the whole view.",
+        description: 'Patch current content without regeneration or resetting compatible poll/form/QA participation. Supply current expectedRevision and a stable requestId. Operations: set/remove/appendText at /data/...; checklist uses {op:"checklist",action:"add|remove|update|move",itemId,value?:{text,detail,checked},beforeId?}. checked sets one item; detail:null clears; add/move append unless beforeId. The final view is validated; no source-binding, server-counter, identity or permission changes. Read current state after a conflict. Waits briefly for genuine browser acknowledgement and returns per-display delivery outcomes. Applied delivery confirms that revision; inspect later only when unconfirmed. Top-level status is the historical update lifecycle, while delivery reports the current per-display observation.',
         schema: viewPatchSchema, idempotent: true,
         domain: "publish",
         requiredScope: "publish",
@@ -31,7 +31,7 @@ export const publishOperations: readonly Definition[] = [
         searchAliases: ["kanvas.view.patch"]
     },
 {
-        name: "kanvas.submit",
+        name: "kanvas.submit", summary: "Publish prepared views or supplied source content when showing information on selected displays or resolving a new target.",
         description: "View fields (not data): title, showTitle, showCaption, showControls, actions. Publish quietly with requestId and content; returns session/display, URLs, updateId and scoped targetRef. Continue with targetRef or sessionId+displayIds. newSession:true starts another topic; optional sessionName. Resolve needs_target with its resolution ref; nothing was published. contextId must be reliable host context, never a transport/account ID. Read existing displays/revisions; kanvas_discover catalog help action search for \"getting started\" explains policy and consented viewer context. Limits: 1\u201364 displays, intent 1000 characters, context 12000, title 500, 8 actions, prepared view 2 MiB. Preserve actual source data: coordinates, URLs, code, conditions and exact numeric text are not invented or fetched. Translation templates need supplied sourceText, targetText and language labels. Omit redundant titles; showTitle:true opts in. Reuse requestId only for identical retries. Explain failures; use kanvas_call with operationId:\"kanvas.error.report\" and arguments:{\u2026}.",
         schema: publishInputSchema, idempotent: true,
         domain: "publish",
@@ -40,7 +40,7 @@ export const publishOperations: readonly Definition[] = [
         searchAliases: ["kanvas.submit"]
     },
 {
-        name: "kanvas.update.status",
+        name: "kanvas.update.status", summary: "Read preparation and per-display delivery outcomes when checking whether a submitted update reached an acknowledging browser.",
         description: 'Read an update by exactly one of updateId or requestId in its session. Distinguishes accepted/rendering/prepared/applied/retained/superseded/failed/held. Per-display delivery reports pending/applied/failed/offline/timed_out/superseded after preparation; applied requires a real viewer acknowledgement. Failure codes/field issues distinguish source, view validation, media and delivery failures. Prepared without acknowledgement for 30 seconds is explicitly timed out, not applied.',
         schema: z.strictObject({ sessionId: id, updateId: id.optional(), requestId: requestId.optional() })
             .refine(value => (value.updateId === undefined) !== (value.requestId === undefined)),

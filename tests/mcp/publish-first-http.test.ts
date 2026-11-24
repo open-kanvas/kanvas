@@ -30,11 +30,11 @@ it.each(['modern', 'legacy'] as const)('performs first publication and ordinary 
     };
     const catalog = await client.listTools();
     expect(catalog.tools).toHaveLength(2);
-    const inventory = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'tools', action: 'list' } });
+    const inventory = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'operations', action: 'list' } });
     expect(((inventory.content as {
         text: string;
     }[])[0]).text.split('\n').filter(line => line.includes(' — '))).toHaveLength(operationEntries().length);
-    const contract = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id: 'kanvas.submit' } });
+    const contract = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id: 'kanvas.submit' } });
     const definition = (contract.structuredContent as any).data.entry;
     expect(definition.requiredInputs).not.toContain('sessionId');
     expect(definition.inputSchema.properties).toHaveProperty('newSession');

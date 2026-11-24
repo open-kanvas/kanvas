@@ -70,8 +70,11 @@ export interface Definition {
   discovery: import('./tool-discovery.js').ToolDiscoveryEntry;
   searchAliases: readonly string[];
   name: string;
+  /** Authored catalog sentence; detailed behavior stays in description. */
+  summary: string;
   description: string;
   schema: z.ZodType;
+  serviceAdminOnly?: boolean;
   readOnly?: boolean;
   destructive?: boolean;
   idempotent?: boolean;

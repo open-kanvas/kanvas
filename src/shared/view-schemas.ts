@@ -296,7 +296,7 @@ export const leafViewSchema = z.discriminatedUnion('template', [
   z.object({...base,template:z.literal('tool-inventory'),data:workSchemas['tool-inventory']}).strict(),
   z.object({...base,template:z.literal('tool-detail'),data:workSchemas['tool-detail']}).strict(),
   z.object({...base,template:z.literal('developer'),data:workSchemas['developer']}).strict(),
-  z.object({...base,template:z.literal('operations'),data:workSchemas['operations']}).strict(),
+  z.object({...base,template:z.literal('devops'),data:workSchemas['devops']}).strict(),
   z.object({...base,template:z.literal('code-workspace'),data:codeWorkspaceDataSchema}).strict(),
   z.object({...base,template:z.literal('traffic-demo'),data:trafficDemoSchema}).strict(),
   z.object({ ...base, template: z.literal('progress'), data: progressDataSchema }).strict(),

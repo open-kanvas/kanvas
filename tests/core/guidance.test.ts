@@ -305,7 +305,7 @@ describe("guidance coverage 7", () => {
             const owner = await h.account(), session = await owner.session(), p = await connect(owner, [session.id]);
             const index = await p.client.listTools();
             expect(index.tools.map(tool => tool.name)).toEqual(DISCOVERY_TOOL_NAMES);
-            const lookup = async (query: string) => (await p.client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id: query } })).structuredContent as any;
+            const lookup = async (query: string) => (await p.client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id: query } })).structuredContent as any;
             const submit = (await lookup('kanvas.submit')).data.entry, viewer = (await lookup('kanvas.viewers.read')).data.entry;
             expect(JSON.stringify(submit)).toMatch(/current displays and revisions/);
             expect(JSON.stringify(submit)).toContain('kanvas_call');

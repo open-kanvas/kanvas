@@ -54,7 +54,7 @@ describe('actual guide and protocol metadata delivery', () => {
             expect(published.tools.some(tool => tool.name === 'kanvas_discover')).toBe(true);
         }
         for (const { client } of [modern, legacy]) {
-            const result = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id: 'kanvas.submit' } });
+            const result = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id: 'kanvas.submit' } });
             expect((result.structuredContent as any).data.entry.description).toContain(VISUAL_INTENT_SUBMIT_HINT);
         }
         expect(server.service.calls).toHaveLength(0);

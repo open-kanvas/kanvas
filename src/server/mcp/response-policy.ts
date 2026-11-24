@@ -1,5 +1,4 @@
-import {DISCOVERY_ORIENTATION} from './discovery-guidance.js';
-import {AGENT_CONDUCT,AGENT_EXAMPLE,AGENT_RULES,RHYTHM_NUDGE} from '../../shared/philosophy.js';
+import {RHYTHM_NUDGE} from '../../shared/philosophy.js';
 
 /** Which repeated blocks a response carries. State decides, never a guess
  * about how capable the client model is: first contact, a change, an error, a
@@ -36,25 +35,16 @@ export interface ResponseContext {
   /** Opt-in message board notice: new public messages since the account last looked. */
   messageBoard?: { newMessages: number; note: string };
 }
-export const FIRST_CONTACT_HELP = { philosophy: 'kanvas.help.philosophy', manage: 'kanvas.help.manage', displays: 'kanvas.help.displays', policy: ['kanvas.help.policy-links', 'kanvas.help.policy-consent'], guidance: 'kanvas.help.agent-guidance' } as const;
-export function firstContactBlock(context: ResponseContext): Record<string, unknown> {
-  return {
-    purpose: AGENT_CONDUCT,
-    rules: AGENT_RULES,
-    example: AGENT_EXAMPLE,
-    ...(context.displayNameHint ? { displayName: context.displayNameHint } : {}),
-    ...(context.manage ? { manage: context.manage } : {}),
-    help: FIRST_CONTACT_HELP,
-    discovery: DISCOVERY_ORIENTATION,
-    sentOnce: 'This introduction is sent on first contact. Guidance repeats by default. To reduce only your own connection’s repetition, call kanvas.client.context.update with sessionId and clientDetails:{guidance:"concise"}; "full" restores repetition. Concise still sends changed guidance. Stateless clients must supply a unique Kanvas-Connection-Id header or kanvas/connectionId tool _meta value on each call. Saved guidance belongs to the person: change it only when they ask.',
-  };
-}
 const guidanceSignature = (guidance: unknown): string => {
   const levels = guidance && typeof guidance === 'object' && Array.isArray((guidance as { levels?: unknown }).levels) ? (guidance as { levels: { scope?: string; id?: string; revision?: number }[] }).levels : [];
   return `${levels.map(level => `${level.scope}:${level.id ?? ''}:${level.revision ?? 0}`).join('|')}`;
 };
-const PUBLISH_OPERATIONS = new Set(["kanvas.submit"]);
-const settled = (status: unknown) => typeof status === 'string' && ['accepted', 'prepared', 'applied', 'delivered', 'painted', 'published'].includes(status);
+const confirmed = (data: Record<string, unknown> | undefined): boolean => {
+    const delivery = data?.delivery;
+    if (!delivery || typeof delivery !== 'object') return false;
+    const outcomes = Object.values(delivery);
+    return outcomes.length > 0 && outcomes.every(value => value && typeof value === 'object' && value.status === 'applied');
+};
 /** Pure decision: returns the structured result to send. `structured` is the
  * tool's own result; it is never mutated. */
 export function applyResponsePolicy(structured: Record<string, unknown> | undefined, input: {
@@ -78,8 +68,6 @@ export function applyResponsePolicy(structured: Record<string, unknown> | undefi
         additions.agentGuidance = sendGuidance
             ? { ...(guidance as Record<string, unknown>), ...(changed && !state.first ? { changed: true } : {}) }
             : { unchanged: true, note: 'Same guidance as sent earlier on this connection.' };
-    if (state.first)
-        additions.firstContact = firstContactBlock(context);
     if (context.pointing && !input.isError)
         additions.pointing = context.pointing;
     // Opt-in only, and once per number: at the start of a conversation or when a session is created.
@@ -88,7 +76,7 @@ export function applyResponsePolicy(structured: Record<string, unknown> | undefi
         additions.messageBoard = context.messageBoard;
     }
     const data = structured?.data && typeof structured.data === 'object' ? structured.data as Record<string, unknown> : undefined;
-    if (!input.isError && input.operation && PUBLISH_OPERATIONS.has(input.operation) && input.sessionId && settled(data?.status) && !state.contact.rhythm.has(input.sessionId)) {
+    if (!input.isError && input.operation && input.sessionId && confirmed(data) && !state.contact.rhythm.has(input.sessionId)) {
         state.contact.rhythm.add(input.sessionId);
         additions.rhythm = RHYTHM_NUDGE;
     }

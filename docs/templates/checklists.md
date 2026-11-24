@@ -29,3 +29,21 @@ See the [template index](README.md) and running `/docs/` reference for current f
 Compatibility: before 0.37.0 `items` replaced the whole list. A caller that sent the complete list still gets the same items, but items it leaves out are now kept instead of deleted, and the order of existing items is not changed by a patch. Use `removeIds`, `index` or `mode: "replace"` for those effects. The response is now a compact change report instead of the whole document; read the checklist for its items.
 
 On screen the list keeps its scroll position when an update changes nothing that needs to move. The item an update is about (ticked, edited, added or highlighted, by an agent or by a tap) is brought to the middle when it is out of view or within the outer part of the list; while someone is scrolling by hand only a completely hidden item is fetched.
+
+
+## Held displays and durable updates
+
+`kanvas.checklist.update` saves the durable list even when a matching display is held.
+Only matching unheld displays receive the changed view and a new display revision.
+Held displays keep their complete stored snapshot, revision and previous delivery
+record; no display-change event is emitted for them. The result records
+`heldDisplayIds` separately from `displayRevisions` and reports `delivery[id].status:
+"held"` without a revision: the old applied revision is not proof of this update.
+Mixed targets can therefore report held and applied/offline/failed/timed_out together.
+
+An identical request-ID retry does not modify the list again or publish targets
+that were skipped. Its held outcome describes that original request, even after
+release or subsequent publication; genuinely published revisions are reobserved
+and can become superseded. Releasing hold alone does not replay skipped updates.
+After releasing it, use `kanvas.checklist.show` with a new request ID to show the latest
+saved list. A no-change update neither publishes nor implies browser application.

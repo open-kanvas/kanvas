@@ -43,7 +43,7 @@ describe('contextual discovery and first contact',()=>{
   const ids=helpCatalog().map(x=>x.id);expect(ids).toContain('kanvas.help.about');expect(ids).toContain('kanvas.help.what-is-kanvas');expect(ids).toContain('kanvas.help.submit');expect(ids).not.toContain('kanvas.help.publish');
   for(const query of ['about kanvas','what is kanvas']){const out=discoveryCatalog.query('help','search',{query,limit:5},context);expect(JSON.stringify(out.results)).toMatch(/kanvas.help.(about|what-is-kanvas)/);}
   expect(JSON.stringify(helpCatalog().find(x=>x.id==='kanvas.help.getting-started.steps')!.detail())).toContain('Human-facing first instruction');
-  expect(JSON.stringify(discoveryToolDefinitions())).toContain('kanvas.help.about');expect(profileInstructions('discovery')).toContain('kanvas.help.about');expect(FIRST_DISPLAY_LINK_GUIDANCE).toContain('prefer the returned shortUrl');expect(profileInstructions('discovery')).not.toContain('Show literal returned viewer URLs on first use');
+  expect(discoveryToolDefinitions()[0].description).toMatch(/^Start here. Once per conversation/);expect(profileInstructions('discovery')).toContain('no arguments');expect(FIRST_DISPLAY_LINK_GUIDANCE).toContain('prefer the returned shortUrl');expect(profileInstructions('discovery')).not.toContain('Show literal returned viewer URLs on first use');
  });});
 });
 
@@ -63,7 +63,7 @@ it.each(['modern','legacy'])('%s repeats authorized distinct guidance on catalog
  const token=await h.runtime.auth.issueToken(owner.user!.id,'Disposable guidance regression',['read','publish']),headers={Authorization:'Bearer '+token.value};
  if(era==='modern'){client=new Client({name:'guidance-current',version:'1'});await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',h.baseUrl),{requestInit:{headers}}));}
  else{client=new LegacyClient({name:'guidance-legacy',version:'1'});await client.connect(new LegacyTransport(new URL('/mcp',h.baseUrl),{requestInit:{headers}}));}
- for(const args of [{catalog:'tools',action:'list'},{catalog:'tools',action:'search',query:'guidance'},{catalog:'tools',action:'get',id:'kanvas.guidance.read'},{catalog:'tools',action:'get',id:'nonexistent'}]){
+ for(const args of [{catalog:'operations',action:'list'},{catalog:'operations',action:'search',query:'guidance'},{catalog:'operations',action:'get',id:'kanvas.guidance.read'},{catalog:'operations',action:'get',id:'nonexistent'}]){
   const result=await client.callTool({name:'kanvas_discover',arguments:args});expect(JSON.stringify(result)).toContain('agentGuidance');expect(JSON.stringify(result)).toContain('Show things when they are easier to see than to say');
  }
  for(const [sessionId,expected] of [[s.id,true],[foreign.id,false]] as const){const result=await client.callTool({name:'kanvas_call',arguments:{operationId:'kanvas.session.state',arguments:{sessionId}}});expect(JSON.stringify(result).includes('Only publish when I ask')).toBe(expected);expect(JSON.stringify(result)).not.toContain('PRIVATE FOREIGN GUIDANCE');expect(JSON.stringify(result)).toContain('Show things when they are easier to see than to say');}
@@ -85,13 +85,13 @@ describe("guidance coverage 3", () => {
             return owner;
         };
         const use = async (id: string, args: Record<string, unknown>) => { const result = await client!.callTool({ name: 'kanvas_call', arguments: { operationId: id, arguments: args } }); return { error: result.isError === true, body: result.structuredContent as Record<string, any> }; };
-        it('every new operation is discoverable by its id and callable; first contact is sent once', async () => {
+        it('every new operation is discoverable by its id and callable; legacy first-contact block stays absent', async () => {
             const owner = await connect(), session = await owner.session('Contract'), display = await owner.display(session.id);
             const exercised = new Set<string>();
             const first = await use('kanvas.session.state', { sessionId: session.id });
             exercised.add('state');
             expect(first.error).toBe(false);
-            expect(first.body.firstContact.purpose).toBe(AGENT_CONDUCT);
+            expect(first.body.firstContact).toBeUndefined();
             expect(first.body.agentGuidance.levels.length).toBeGreaterThan(0);
             expect(first.body.data).not.toHaveProperty('mode');
             expect(first.body.data.manage.displays.change).toContain('kanvas.display.register');
@@ -105,10 +105,10 @@ describe("guidance coverage 3", () => {
             await owner.raw(`/api/sessions/${session.id}/events?displayId=${display.id}&tabId=tv`, {}, { signal: controller.signal });
             const third = await use('kanvas.session.state', { sessionId: session.id });
             expect(third.body.orientation).toEqual({ guide: third.body.orientation.guide, help: 'kanvas.help.getting-started.steps' });
-            expect(JSON.stringify(third.body).length).toBeLessThan(firstBytes * .75);
+            expect(JSON.stringify(third.body).length).toBeLessThan(firstBytes);
             const published = await use('kanvas.submit', { requestId: 'contract-task-list', sessionId: session.id, displayIds: [display.id], view: { version: 1, template: 'task-list', data: { items: [{ title: 'One' }, { title: 'Two' }] } } });
             expect(published.error).toBe(false);
-            expect(published.body.rhythm).toBe(RHYTHM_NUDGE);
+            expect(published.body.rhythm).toBeUndefined(); // SSE connection alone is not a browser paint acknowledgment.
             expect((await use('kanvas.submit', { requestId: 'contract-fact', sessionId: session.id, displayIds: [display.id], view: { version: 1, template: 'fact', data: { text: 'Second' } } })).body.rhythm).toBeUndefined();
             const lists = await use('kanvas.tasklist.read', { sessionId: session.id });
             const taskListId = lists.body.data.taskLists[0].id;

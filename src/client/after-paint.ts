@@ -1,13 +1,24 @@
-/** Run after the next painted frame. Background tabs pause animation frames,
- * which previously left a rendered revision unacknowledged indefinitely. */
+/** A render acknowledgement must follow animation frames in a visible tab.
+ * A hidden tab or stalled compositor is not paint evidence. Resume when visible;
+ * the server's bounded publish wait reports unconfirmed rather than guessing. */
 export function afterPaint(callback: () => void): () => void {
-  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-    const timer = setTimeout(callback, 0);
-    return () => clearTimeout(timer);
-  }
-  let second = 0, done = false;
-  const fallback = setTimeout(() => { if (!done) { done = true; cancelAnimationFrame(first); cancelAnimationFrame(second); callback(); } }, 1000);
-  const first = requestAnimationFrame(() => { second = requestAnimationFrame(() => { if (!done) { done = true; clearTimeout(fallback); callback(); } }); });
-  return () => { done = true; clearTimeout(fallback); cancelAnimationFrame(first); cancelAnimationFrame(second); };
+  let first = 0, second = 0, done = false;
+  const visible = () => typeof document === 'undefined' || document.visibilityState !== 'hidden';
+  const cancelFrames = () => { cancelAnimationFrame(first); cancelAnimationFrame(second); };
+  const schedule = () => {
+    cancelFrames();
+    if (done || !visible()) return;
+    first = requestAnimationFrame(() => {
+      if (done || !visible()) return;
+      second = requestAnimationFrame(() => {
+        if (done || !visible()) return;
+        done = true;
+        document.removeEventListener('visibilitychange', schedule);
+        callback();
+      });
+    });
+  };
+  document.addEventListener('visibilitychange', schedule);
+  schedule();
+  return () => { done = true; cancelFrames(); document.removeEventListener('visibilitychange', schedule); };
 }
-

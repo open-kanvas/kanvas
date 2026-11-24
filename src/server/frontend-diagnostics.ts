@@ -8,7 +8,7 @@ import {KANVAS_VERSION} from '../shared/version.js';
 import type {Definition} from './mcp/canonical.js';
 const RETENTION=14*86400000;
 export const diagnosticTools: Definition[] = [{
-        name: "kanvas.diagnostics.read", schema: diagnosticReadSchema, readOnly: true, description: 'Read your bounded browser metadata timeline by supportRef (retained indefinitely). accountId requires service admin. No raw content/logs. Render acknowledgement is not proof a human saw it.',
+        name: "kanvas.diagnostics.read", summary: "Read a bounded browser metadata timeline by support reference when investigating delivery or frontend problems.", schema: diagnosticReadSchema, readOnly: true, description: 'Read your bounded browser metadata timeline by supportRef (retained indefinitely). accountId requires service admin. No raw content/logs. Render acknowledgement is not proof a human saw it.',
         domain: "diagnostics",
         requiredScope: "read",
         discovery: {"group":"displays","hint":"Retrieve a safe, account-scoped browser timeline using the support reference; no view bodies or raw errors.","examples":[{"supportRef":"00000000-0000-4000-8000-000000000000"}]},

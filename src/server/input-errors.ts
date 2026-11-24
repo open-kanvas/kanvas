@@ -6,8 +6,8 @@ import {COUNTDOWN_TARGET_TIME_RULE,timerValidationRule} from '../shared/timer.js
 
 export interface ValidationIssue { /** How many fields share this exact problem; path is the first of them. */ count?:number; alsoAt?:string[]; allowedFields?:string[]; hint?:string; expected?:string; received?:string; path: string; problem: string; maximum?: number; actual?: number; unit?: 'characters' | 'items' | 'bytes' }
 
-// Only schema-defined property names may reach a diagnostic. Dynamic record
-// keys, received values and Zod messages can contain private source material.
+// Schema-owned names and bounded strict-object near misses may reach a
+// diagnostic. Dynamic record keys and received values stay private.
 const publicFields = new Set(['arguments','operationId','source','requestId', 'sessionId', 'displayId', 'displayIds', 'context', 'intent', 'datasetId', 'assetIds', 'templateHint', 'view', 'config', 'expectedRevision', 'direction', 'revision', 'commandId', 'action', 'time', 'value', 'fullscreen', 'accessMode', 'topic']);
 function fields(value: unknown, names = publicFields): void {
   if (!value || typeof value !== 'object') return;
@@ -46,6 +46,36 @@ function relevantIssues(issues: readonly Issue[], depth = 0): Issue[] {
   });
   const wrongTypes = expanded.filter(issue => issue.code === 'invalid_type');
   return expanded.filter(issue => issue.code === 'invalid_type' || !wrongTypes.some(parent => parent.path.every((part, index) => part === issue.path[index])));
+}
+
+/** Match every discriminator, not merely the first catalog constant. */
+function schemaSelector(root: any) {
+  const deref = (node: any): any => typeof node?.$ref === 'string' && node.$ref.startsWith('#/$defs/') ? root.$defs?.[node.$ref.slice(8)] : node;
+  const branches = (node: any): any[] => { const resolved = deref(node); return (resolved?.oneOf ?? resolved?.anyOf)?.flatMap(branches) ?? [resolved]; };
+  const select = (node: any, value: any): any => {
+    const choices = branches(node);
+    if (choices.length === 1) return choices[0];
+    const compatible = choices.filter(choice => !choice?.type || (choice.type === 'object' ? value !== null && typeof value === 'object' && !Array.isArray(value) : choice.type === 'array' ? Array.isArray(value) : choice.type === 'null' ? value === null : choice.type === 'integer' ? Number.isInteger(value) : typeof value === choice.type));
+    const matches = compatible.filter(choice => Object.entries(choice?.properties ?? {}).every(([key, rule]: [string, any]) =>
+      value?.[key] === undefined && !choice.required?.includes(key) ? true : rule.const !== undefined ? value?.[key] === rule.const : Array.isArray(rule.enum) ? rule.enum.includes(value?.[key]) : true));
+    return matches.length === 1 ? matches[0] : undefined;
+  };
+  return { select, branches };
+}
+/** Identifier syntax alone cannot make a private string safe. Only short,
+ * unambiguous one-edit near misses of this strict object's fields qualify. */
+function nearestField(key: string, allowed: string[]): string | undefined {
+  if (!/^[a-zA-Z][a-zA-Z0-9]{1,31}$/.test(key) || /secret|token|password|credential|authorization|apikey/i.test(key)) return undefined;
+  const distance = (other: string): number => {
+    const a = key.toLowerCase(), b = other.toLowerCase();
+    if (Math.abs(a.length - b.length) > 1) return 2;
+    const row = Array.from({ length: b.length + 1 }, (_, index) => index);
+    for (let i = 1; i <= a.length; i++) { let diagonal = row[0]; row[0] = i; for (let j = 1; j <= b.length; j++) { const before = row[j]; row[j] = Math.min(row[j] + 1, row[j - 1] + 1, diagonal + (a[i - 1] === b[j - 1] ? 0 : 1)); diagonal = before; } }
+    if (row[b.length] === 2 && a.length === b.length) { const differences = [...a].flatMap((char, index) => char === b[index] ? [] : [index]); if (differences.length === 2 && differences[1] === differences[0] + 1 && a[differences[0]] === b[differences[1]] && a[differences[1]] === b[differences[0]]) return 1; }
+    return row[b.length];
+  };
+  const matches = allowed.map(field => ({ field, distance: distance(field) })).filter(match => match.distance <= 1).sort((a, b) => a.distance - b.distance);
+  return matches.length && (matches.length === 1 || matches[0].distance < matches[1].distance) ? matches[0].field : undefined;
 }
 
 const safeTypes = new Set(['record', 'array', 'object', 'string', 'number', 'boolean', 'int', 'null']);
@@ -91,11 +121,22 @@ export function validationIssues(error: z.ZodError, prefix = '', submitted?: unk
       // Schema-selected and explicitly retired public fields only; arbitrary record keys stay redacted.
       const selected=submitted&&typeof submitted==='object'&&'template' in submitted?leafViewSchema.options.find(option=>option.shape.template.value===submitted.template):undefined;
       const root=z.toJSONSchema(schema??selected??viewSchema,{unrepresentable:'any',io:'input'});
-      const select=(node:any,value:any):any=>{const expand=(n:any):any[]=>(n?.oneOf??n?.anyOf)?.flatMap(expand)??[n];const choices=expand(node);if(choices.length===1)return node;return select(choices.find((c:any)=>Object.entries(c.properties??{}).some(([k,v]:[string,any])=>v.const!==undefined&&value?.[k]===v.const))??choices.find((c:any)=>c.type==='object')??choices[0],value);};
-      let node:any=select(root,submitted),value:any=submitted;
-      for(const part of issue.path){node=select(node,value);node=typeof part==='number'?node?.items:node?.properties?.[part];value=value?.[part];}
+      const {select}=schemaSelector(root);
+      let node:any=select(root,submitted),value:any=submitted,staticPath=true;
+      for(const part of issue.path){
+        node=select(node,value);
+        if(typeof part==='number')node=node?.items;
+        else if(node?.properties && Object.hasOwn(node.properties,part))node=node.properties[part];
+        else {staticPath=false;node=node?.additionalProperties;}
+        value=value?.[part];
+      }
       node=select(node,value);const allowedFields=Object.keys(node?.properties??{});
-      return issue.keys.map(key=>{const known=names.has(key)||key==='showSource'||key==='source',field=known?key:'<record-key>',misplaced=path.endsWith('.data')&&['title','showTitle','showCaption','showControls','actions'].includes(key);return {path:`${path}.${field}`,problem:'Unsupported field.',received:value?.[key]===null?'null':Array.isArray(value?.[key])?'array':typeof value?.[key],...(allowedFields.length?{allowedFields}:{}),...(misplaced?{hint:`${key} belongs beside template/data in view, not inside data.`}:{})};});
+      return issue.keys.map(key=>{
+        const nearest=staticPath&&node?.additionalProperties===false?nearestField(key,allowedFields):undefined;
+        const known=staticPath&&(names.has(key)||key==='showSource'||key==='source'||!!nearest),field=known?key:'<record-key>';
+        const misplaced=staticPath&&path.endsWith('.data')&&['title','showTitle','showCaption','showControls','actions'].includes(key);
+        return {path:path+'.'+field,problem:'Unsupported field.',received:value?.[key]===null?'null':Array.isArray(value?.[key])?'array':typeof value?.[key],...(allowedFields.length?{allowedFields}:{}),...(misplaced?{hint:key+' belongs beside template/data in view, not inside data.'}:nearest?{hint:'Did you mean '+nearest+'?'}:{})};
+      });
     }
     return [{
     path,...(expected?{expected,received:received===undefined?'missing':received===null?'null':Array.isArray(received)?'array':typeof received}:{}),
@@ -136,15 +177,14 @@ function discriminatorRule(issue: Issue, schema: z.ZodType | undefined, submitte
   try {
     const selected = submitted && typeof submitted === 'object' && 'template' in submitted ? leafViewSchema.options.find(option => option.shape.template.value === (submitted as { template?: unknown }).template) : undefined;
     let node: any = z.toJSONSchema(schema ?? selected ?? viewSchema, { unrepresentable: 'any', io: 'input' });
-    const root = node, deref = (n: any): any => typeof n?.$ref === 'string' && n.$ref.startsWith('#/$defs/') ? root.$defs?.[n.$ref.slice(8)] : n;
-    const branches = (n: any): any[] => { const d = deref(n); return (d?.oneOf ?? d?.anyOf)?.flatMap(branches) ?? [d]; };
+    const { select, branches } = schemaSelector(node);
     let value: any = submitted;
     // The reported path may or may not end at the tag itself.
     const path = issue.path.at(-1) === key ? issue.path.slice(0, -1) : issue.path;
     for (const part of path) {
       const options = branches(node);
-      const chosen = options.find(o => Object.entries(o?.properties ?? {}).some(([k, v]: [string, any]) => v?.const !== undefined && value?.[k] === v.const)) ?? options.find(o => typeof part === 'number' ? o?.items : o?.properties?.[part as string]) ?? options[0];
-      node = typeof part === 'number' ? deref(chosen)?.items : deref(chosen)?.properties?.[part as string];
+      const chosen = select(node, value) ?? options.find(o => typeof part === 'number' ? o?.items : o?.properties?.[part as string]);
+      node = typeof part === 'number' ? chosen?.items : chosen?.properties?.[part as string];
       value = value?.[part as never];
     }
     const allowed = [...new Set(branches(node).flatMap(o => { const tag = o?.properties?.[key]; return typeof tag?.const === 'string' ? [tag.const] : Array.isArray(tag?.enum) ? tag.enum.filter((x: unknown) => typeof x === 'string') : []; }))];

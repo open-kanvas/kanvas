@@ -35,3 +35,28 @@ Use `kanvas.tasklist.update` with `expand:[7,"stable-id"]` or `collapse:[7]` to 
 Moving the highlight opens only the newly highlighted item and closes the previous item and any local expansions. Highlighting a subtask opens its parent. Within one update, highlight changes apply first, then `collapseAll`, `expand`, and `collapse`. Local title-button choices survive unrelated item edits, but a new agent expansion command takes precedence. Replaying the same request id does not reapply a command; use a fresh request id for a new spoken request.
 
 A published view can provide `expanded:["stable-id"]`; an empty array initially closes everything. When omitted, the highlighted item opens. Persisted disclosure fields require this version or newer for subsequent list mutations; software rollback must preserve those stored documents.
+
+
+## Held displays and durable updates
+
+`kanvas.tasklist.update` saves the durable list even when a matching display is held.
+Only matching unheld displays receive the changed view and a new display revision.
+Held displays keep their complete stored snapshot, revision and previous delivery
+record; no display-change event is emitted for them. The result records
+`heldDisplayIds` separately from `displayRevisions` and reports `delivery[id].status:
+"held"` without a revision: the old applied revision is not proof of this update.
+Mixed targets can therefore report held and applied/offline/failed/timed_out together.
+
+An identical request-ID retry does not modify the list again or publish targets
+that were skipped. Its held outcome describes that original request, even after
+release or subsequent publication; genuinely published revisions are reobserved
+and can become superseded. Releasing hold alone does not replay skipped updates.
+After releasing it, use `kanvas.tasklist.show` with a new request ID to show the latest
+saved list. A no-change update neither publishes nor implies browser application.
+
+Collapsed task details are served from the displayed document revision, not the
+latest mutable list. Before a held revision first diverges, its complete document
+is retained as a session-owned snapshot; repeated updates while it remains held
+do not duplicate it. This also keeps detail stable after release until an explicit
+show. No existing data is purged. Older pre-fix views without a retained detail
+snapshot return unavailable rather than silently showing newer detail.

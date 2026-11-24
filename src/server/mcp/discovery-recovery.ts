@@ -20,7 +20,7 @@ export function operationSuggestions(query: string) {
   return closestOperations(query).map(item=>{
     const detail=item.detail(), schema=detail.inputSchema as {properties?:object;required?:string[]};
     const example=(detail.examples as unknown[]).find(example=>Buffer.byteLength(JSON.stringify(example))<=1500);
-    return {operationId:item.id,description:item.summary,allowedFields:Object.keys(schema.properties??{}).slice(0,80),requiredFields:schema.required??[],...(example?{example}:{}),get:discoveryFallback('tools',item.id)};
+    return {operationId:item.id,description:item.summary,allowedFields:Object.keys(schema.properties??{}).slice(0,80),requiredFields:schema.required??[],...(example?{example}:{}),get:discoveryFallback('operations',item.id)};
   });
 }
 export function templateSuggestions(ids: string[]) {

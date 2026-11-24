@@ -26,12 +26,12 @@ describe("message board coverage 1", () => {
         it('d25aaee4: the board operations are discoverable by id, say PUBLIC, and run the consent step', async () => {
             await connect();
             for (const [canonical] of BOARD_MAPPING) {
-                const found = await client!.callTool({ name: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id: operationId(canonical) } });
+                const found = await client!.callTool({ name: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id: operationId(canonical) } });
                 expect(found.isError, `${canonical}: ${JSON.stringify(found.structuredContent ?? found.content).slice(0, 300)}`).not.toBe(true);
             }
             expect(operationId("kanvas.board.post")).toBe('kanvas.board.post');
             expect(operationId("kanvas.board.read")).toBe('kanvas.board.read');
-            const got = await client!.callTool({ name: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id: 'kanvas.board.post' } }), described = JSON.stringify([got.structuredContent, got.content]);
+            const got = await client!.callTool({ name: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id: 'kanvas.board.post' } }), described = JSON.stringify([got.structuredContent, got.content]);
             expect(described).toMatch(/PUBLIC/);
             expect(described).toMatch(/acknowledgePublic/);
             const first = await use('kanvas.board.post', { requestId: 'board-contract-1', text: 'Hello from the contract test', tags: ['question'] });
@@ -45,7 +45,7 @@ describe("message board coverage 1", () => {
             const overview = await use('kanvas.board.overview', {});
             expect(overview.body.data.view.template).toBe('message-board');
             expect((await use('kanvas.board.update', { notifications: true })).body.data).toMatchObject({ updated: true, notifications: true });
-            const search = await client!.callTool({ name: 'kanvas_discover', arguments: { catalog: 'tools', action: 'search', query: 'public message board post question' } });
+            const search = await client!.callTool({ name: 'kanvas_discover', arguments: { catalog: 'operations', action: 'search', query: 'public message board post question' } });
             expect(JSON.stringify(search.structuredContent ?? search.content)).toMatch(/kanvas\.board\.(post|read)/);
         });
     });

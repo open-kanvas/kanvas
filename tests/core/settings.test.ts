@@ -212,7 +212,7 @@ describe("settings coverage 3", () => {
             }).levels).toHaveLength(1);
             const start = Date.now(), idle = new ContactLedger();
             run(idle, {}, undefined, 'k', start);
-            expect(run(idle, {}, undefined, 'k', start + CONTACT_IDLE_MS + 1).firstContact).toBeTruthy();
+            expect(run(idle, {}, undefined, 'k', start + CONTACT_IDLE_MS + 1).firstContact).toBeUndefined();
             for (let i = 0; i < 5200; i++)
                 idle.observe(`k${i}`);
             expect(idle.observe('k0').first).toBe(true);
@@ -240,7 +240,7 @@ describe("settings coverage 3", () => {
             expect(serverWebsiteUrl(false)).toBeUndefined();
             expect(serverWebsiteUrl('http://insecure.example')).toBeUndefined();
             expect(serverWebsiteUrl('javascript:alert(1)')).toBeUndefined();
-            expect(KANVAS_VERSION).toBe('0.40.1');
+            expect(KANVAS_VERSION).toBe('0.42.0');
             // Public release identity must agree in server discovery, dependency manifests and the served HTML shell.
             const packageJson = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
             const packageLock = JSON.parse(readFileSync(new URL('../../package-lock.json', import.meta.url), 'utf8'));

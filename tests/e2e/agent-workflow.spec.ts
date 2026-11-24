@@ -24,7 +24,7 @@ test('core-tool workflow preserves exact content, actual painting, viewer input 
     try {
         const catalog = await client.listTools();
         expect(catalog.tools.map(tool => tool.name)).toEqual(DISCOVERY_TOOL_NAMES);
-        const index = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'tools', action: 'list' } });
+        const index = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'operations', action: 'list' } });
         expect((index.content[0] as {
             text: string;
         }).text.split('\n').filter(line => line.includes(' — '))).toHaveLength(operationEntries().length);
@@ -132,7 +132,7 @@ test('an agent can repair pairing and feedback inputs while the intended browser
         expect((badDecision.structuredContent as {
             error: unknown;
         }).error).toMatchObject({
-            code: 'INVALID_ARGUMENT', schemaTool: 'kanvas_discover', schemaArguments: { catalog: 'tools', action: 'get', id: 'kanvas.pairing.decide' }, topic: 'tools',
+            code: 'INVALID_ARGUMENT', schemaTool: 'kanvas_discover', schemaArguments: { catalog: 'operations', action: 'get', id: 'kanvas.pairing.decide' }, topic: 'tools',
             issues: [{ path: 'approve', problem: 'Required boolean (true or false); received missing.' }, { path: 'confirm', problem: expect.stringContaining('owner confirms') }],
         });
         const repair = (badDecision.structuredContent as {
@@ -146,7 +146,7 @@ test('an agent can repair pairing and feedback inputs while the intended browser
         expect((repaired.structuredContent as {
             data: unknown;
         }).data).toMatchObject({
-            catalog: 'tools', action: 'get', entry: { id: 'kanvas.pairing.decide', requiredInputs: expect.arrayContaining(['pairingId', 'approve', 'confirm']), inputSchema: { properties: { approve: { type: 'boolean' }, confirm: { const: true } } }, examples: expect.arrayContaining([expect.objectContaining({ tool: 'kanvas_call' })]) },
+            catalog: 'operations', action: 'get', entry: { id: 'kanvas.pairing.decide', requiredInputs: expect.arrayContaining(['pairingId', 'approve', 'confirm']), inputSchema: { properties: { approve: { type: 'boolean' }, confirm: { const: true } } }, examples: expect.arrayContaining([expect.objectContaining({ tool: 'kanvas_call' })]) },
         });
         expect(JSON.stringify(repaired.structuredContent)).toContain('examples never grant consent');
         expect(JSON.stringify(repaired.structuredContent)).toContain('kanvas_call');
@@ -211,7 +211,7 @@ test('JSON-encoded tool arguments still require consent and produce an acknowled
     try {
         await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', baseURL), { requestInit: { headers: { Authorization: `Bearer ${issued.data!.token}` } } }));
         const catalog = await client.listTools();
-        const pairing = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id: 'kanvas.pairing.decide' } });
+        const pairing = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id: 'kanvas.pairing.decide' } });
         expect((pairing.structuredContent as any).data.entry.inputSchema.properties.approve).toMatchObject({ type: 'boolean' });
         expect(catalog.tools.map(tool => tool.name)).toEqual(DISCOVERY_TOOL_NAMES);
         const display = await call<DisplayRecord>("kanvas_call", "kanvas.display.register", { sessionId, name: 'Confirmed receiving screen' });

@@ -119,7 +119,7 @@ describe('Explicit remote browser logout and native invitation email',()=>{
    await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',h.baseUrl),{requestInit:{headers:{Authorization:`Bearer ${token.value}`}}}));
    expect((await client.listTools()).tools.map(t=>t.name).sort()).toEqual(['kanvas_call','kanvas_discover']);
    for(const id of ['kanvas.browser.auth.list','kanvas.browser.auth.revoke','kanvas.invite.send']){
-    const result=await client.callTool({name:'kanvas_discover',arguments:{catalog:'tools',action:'get',id}});expect(result.isError).not.toBe(true);expect(JSON.stringify(result)).toContain(id);
+    const result=await client.callTool({name:'kanvas_discover',arguments:{catalog:'operations',action:'get',id}});expect(result.isError).not.toBe(true);expect(JSON.stringify(result)).toContain(id);
    }
    const call=async(operationId:string,args:Record<string,unknown>)=>{const result=await client.callTool({name:'kanvas_call',arguments:{operationId,arguments:args}});expect(result.isError,JSON.stringify(result.structuredContent)).not.toBe(true);return (result.structuredContent as {data:any}).data;};
    const i=await call('kanvas.invite.create',{requestId:'mcp-invite'});

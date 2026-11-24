@@ -8,28 +8,28 @@ import {name} from '../operation-fields.js';
 /** pins operation contracts. Domain services enforce current account, role and scope. */
 export const pinsOperations: readonly Definition[] = [
 {
-        name: "kanvas.pin.save", description: 'Pin current or retained source content with a label. Separately bounded snapshot; chronological history preserves forward views, and pins do not bypass the fixed 1000-publication session limit. No display content change. Max 40 pins / 6 MB per session.', schema: pinSaveSchema, idempotent: true,
+        name: "kanvas.pin.save", summary: "Save a labeled snapshot of current or retained content when bookmarking a view without changing the display.", description: 'Pin current or retained source content with a label. Separately bounded snapshot; chronological history preserves forward views, and pins do not bypass the fixed 1000-publication session limit. No display content change. Max 40 pins / 6 MB per session.', schema: pinSaveSchema, idempotent: true,
         domain: "pins",
         requiredScope: "publish",
         discovery: {"group":"controls","hint":"Bookmark current or retained view with a label without publishing.","examples":[{"sessionId":"session-id","displayId":"display-id","requestId":"pin-1","label":"Options to revisit"}]},
         searchAliases: ["kanvas.pin.save"]
     },
 {
-        name: "kanvas.pin.recall", description: 'Recall the named pinned view on its original display as a normal new history entry. Current revision and hold checks apply; no source regeneration. Same requestId retries do not duplicate the recall.', schema: pinRecallSchema, idempotent: true,
+        name: "kanvas.pin.recall", summary: "Republish a pinned view on its original display when returning to saved content without regenerating it.", description: 'Recall the named pinned view on its original display as a normal new history entry. Current revision and hold checks apply; no source regeneration. Same requestId retries do not duplicate the recall.', schema: pinRecallSchema, idempotent: true,
         domain: "pins",
         requiredScope: "publish",
         discovery: {"group":"controls","hint":"Return to pinned content via normal revision-safe history.","examples":[{"sessionId":"session-id","displayId":"display-id","pinId":"pin-id","requestId":"recall-1","expectedRevision":4}]},
         searchAliases: ["kanvas.pin.recall"]
     },
 {
-        name: "kanvas.pin.remove", description: 'Remove one bookmark without clearing the current or retained view.', schema: pinRemoveSchema, idempotent: true,
+        name: "kanvas.pin.remove", summary: "Remove a saved pin when retiring a bookmark without clearing its current or retained display content.", description: 'Remove one bookmark without clearing the current or retained view.', schema: pinRemoveSchema, idempotent: true,
         domain: "pins",
         requiredScope: "publish",
         discovery: {"group":"controls","hint":"Remove the bookmark, not the displayed content.","examples":[{"sessionId":"session-id","displayId":"display-id","pinId":"pin-id"}]},
         searchAliases: ["kanvas.pin.remove"]
     },
 {
-        name: "kanvas.pins.read", description: 'List labels, revisions and IDs for pinned views on a display, without publishing.', schema: navigationReadSchema.omit({ viewerId: true }), readOnly: true,
+        name: "kanvas.pins.read", summary: "List a display's pinned views with labels and revisions when choosing saved content to recall.", description: 'List labels, revisions and IDs for pinned views on a display, without publishing.', schema: navigationReadSchema.omit({ viewerId: true }), readOnly: true,
         domain: "pins",
         requiredScope: "read",
         discovery: {"group":"controls","hint":"Read pin IDs and labels for this display.","examples":[{"sessionId":"session-id","displayId":"display-id"}]},

@@ -115,7 +115,7 @@ describe('real guide, catalogue and MCP result integration', () => {
             const listed = await client.listTools();
             expect(listed.tools).toHaveLength(2);
             for (const tool of entryPoints) {
-                const found = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id: operationId(tool) } });
+                const found = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id: operationId(tool) } });
                 const detail = (found.structuredContent as any).data.entry;
                 expect(detail.description).toContain(publicGuidanceText(VIEWER_LINK_TOOL_GUIDANCE[tool], 'discovery'));
             }

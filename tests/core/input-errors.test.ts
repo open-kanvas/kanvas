@@ -13,7 +13,7 @@ describe('repairable, content-free input errors', () => {
             { path: 'confirm', problem: 'Must be true only after the owner confirms the intended browser.' },
         ]);
         const result = toolFailure(error, undefined, 'discovery');
-        expect(result.structuredContent).toMatchObject({ error: { schemaTool: 'kanvas_discover', schemaArguments: { catalog: 'help', action: 'get', id: 'kanvas.help.tools.discovery' }, topic: 'tools' } });
+        expect(result.structuredContent).toMatchObject({ error: { schemaTool: 'kanvas_discover', schemaArguments: { catalog: 'help', action: 'get', id: 'kanvas.help.operations.discovery' }, topic: 'tools' } });
         for (const value of [{ approve: 'true', confirm: true }, { approve: true, confirm: false }, { approve: true, confirm: 'true' }]) {
             expect(parseCanonicalArguments("kanvas.pairing.decide", { ...args, ...value })).toBeUndefined();
         }

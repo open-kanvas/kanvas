@@ -8,21 +8,21 @@ import {displayedLeaf,replaceLeaf} from './engagement.js';
 import type {Definition} from './mcp/canonical.js';
 export const flashcardTools: Definition[] = [
     {
-        name: "kanvas.flashcards.read", readOnly: true, schema: flashcardReadSchema, description: 'Read saved session decks or one deck/current card and revisions. Large decks return card windows with nextOffset. Voice: ask current prompt, then control answer with cardId and both revisions. Answers are reference data, not semantic grading.',
+        name: "kanvas.flashcards.read", summary: "Read saved decks, current cards, and revisions when preparing to resume or control a flashcard session.", readOnly: true, schema: flashcardReadSchema, description: 'Read saved session decks or one deck/current card and revisions. Large decks return card windows with nextOffset. Voice: ask current prompt, then control answer with cardId and both revisions. Answers are reference data, not semantic grading.',
         domain: "flashcards",
         requiredScope: "read",
         discovery: {"group":"content","hint":"Read saved deck and current card for voice learning or self-testing.","examples":[{"sessionId":"session-id","deckId":"deck-id"}]},
         searchAliases: ["kanvas.flashcards.read"]
     },
     {
-        name: "kanvas.flashcards.control", schema: flashcardControlSchema, idempotent: true, description: 'Control displayed deck: reveal/next/previous/answer/restart. Answer records spoken/typed response for current cardId. exact matches normalized answer/acceptedAnswers, NOT semantics; self needs explicit correct; none is ungraded. Answer reveals, next advances. Supply a stable requestId for safe retries. expectedRevision and expectedDeckRevision are independent optional stale-write guards. Include current cardId even for restart; restart resets the deck and may set mode, ignoring the card identity comparison.',
+        name: "kanvas.flashcards.control", summary: "Reveal, navigate, answer, or restart a displayed deck when conducting a flashcard exercise with recorded responses.", schema: flashcardControlSchema, idempotent: true, description: 'Control displayed deck: reveal/next/previous/answer/restart. Answer records spoken/typed response for current cardId. exact matches normalized answer/acceptedAnswers, NOT semantics; self needs explicit correct; none is ungraded. Answer reveals, next advances. Supply a stable requestId for safe retries. expectedRevision and expectedDeckRevision are independent optional stale-write guards. Include current cardId even for restart; restart resets the deck and may set mode, ignoring the card identity comparison.',
         domain: "flashcards",
         requiredScope: "publish",
         discovery: {"group": "controls", "hint": "Submit spoken/typed answer for the current card with deck and display revisions. Exact matching is not semantic grading.", "examples": [{"sessionId": "session-id", "displayId": "display-id", "deckId": "deck-id", "expectedRevision": 1, "expectedDeckRevision": 0, "requestId": "answer-1", "cardId": "hola", "action": "answer", "response": "hello", "grading": "exact"}, {"sessionId": "session-id", "displayId": "display-id", "deckId": "deck-id", "cardId": "hola", "action": "restart", "requestId": "restart-1"}]},
         searchAliases: ["kanvas.flashcards.control"]
     },
     {
-        name: "kanvas.flashcards.show", schema: flashcardShowSchema, idempotent: true, description: 'Restore latest deck on a same-session display at expectedRevision. Publishing flashcards auto-saves a deck; display replacement never erases it.',
+        name: "kanvas.flashcards.show", summary: "Restore a saved deck on a display in its session when resuming flashcards after other content.", schema: flashcardShowSchema, idempotent: true, description: 'Restore latest deck on a same-session display at expectedRevision. Publishing flashcards auto-saves a deck; display replacement never erases it.',
         domain: "flashcards",
         requiredScope: "publish",
         discovery: {"group":"content","hint":"Restore a saved deck after other content replaced it.","examples":[{"sessionId":"session-id","displayId":"display-id","deckId":"deck-id","expectedRevision":1,"requestId":"show-1"}]},

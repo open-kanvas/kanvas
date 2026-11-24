@@ -11,7 +11,7 @@ it('resolves five families against live schema, executes valid calls and never g
  const token=await h.runtime.auth.issueToken(p.userId,'intent test',['read','publish']);client=new Client({name:'intent-test',version:'1'});
  await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',h.baseUrl),{requestInit:{headers:{Authorization:'Bearer '+token.value}}}));
  let discovers=0,calls=0,invalid=0;
- const resolve=async(query:string,parameters:any={},context:any={sessionId:s.id,displayId:d.id})=>{discovers++;const r=await client.callTool({name:'kanvas_discover',arguments:{catalog:'tools',action:'resolve',query,parameters,...context}});expect(r.isError).not.toBe(true);return (r.structuredContent as any).data;};
+ const resolve=async(query:string,parameters:any={},context:any={sessionId:s.id,displayId:d.id})=>{discovers++;const r=await client.callTool({name:'kanvas_discover',arguments:{catalog:'operations',action:'resolve',query,parameters,...context}});expect(r.isError).not.toBe(true);return (r.structuredContent as any).data;};
  const execute=async(r:any)=>{expect(r.status).toBe('ready');expect(r.missingFields).toEqual([]);const validate=new Ajv({strict:false,validateFormats:false}).compile(r.inputSchema);expect(validate(r.arguments),JSON.stringify(validate.errors)).toBe(true);calls++;const result=await client.callTool({name:r.call.tool,arguments:r.call.arguments});if(result.isError)invalid++;expect(result.isError,JSON.stringify(result)).not.toBe(true);return result;};
  const before=(await h.runtime.store.list('update',s.id)).length;
  const filter=await resolve('show only errors in this log');expect(filter.operationId).toBe('kanvas.selection.set');expect(filter.fieldSources['selection.where.0.field']).toContain('verified source');
@@ -48,7 +48,7 @@ it('resolves five families against live schema, executes valid calls and never g
  await h.runtime.store.put('publish-target',{id:'review-bound-target',owner:p.userId+':grant:'+token.token.id,sessionId:s.id,displayIds:[d.id],createdAt:new Date().toISOString()});
  const bound=await resolve('inspect current screen',{}, {targetRef:'review-bound-target'});expect(bound.status).toBe('ready');expect(bound.arguments.displayId).toBe(d.id);
  const escaped=await resolve('inspect current screen',{}, {targetRef:'review-bound-target',displayId:outside.id});expect(escaped.status).toBe('needs_input');expect(escaped.call).toBeUndefined();
- const denied=await client.callTool({name:'kanvas_discover',arguments:{catalog:'tools',action:'resolve',query:'inspect current screen',sessionId:foreign.id,activeContext:{sessionId:s.id}}});expect(denied.isError).toBe(true);
+ const denied=await client.callTool({name:'kanvas_discover',arguments:{catalog:'operations',action:'resolve',query:'inspect current screen',sessionId:foreign.id,activeContext:{sessionId:s.id}}});expect(denied.isError).toBe(true);
  const override=await resolve('inspect current screen',{}, {sessionId:s.id,displayId:d.id,activeContext:{sessionId:s2.id}});expect(override.arguments.sessionId).toBe(s.id);
  console.log(JSON.stringify({measurement:'supported-five-families',discoveryCalls:5,executionCalls:5,invalidArgumentRetries:invalid}));
 },30000);

@@ -40,14 +40,14 @@ export const agentsReadSchema=z.strictObject({agentId:identifier.optional(),limi
 export const agentsRevokeSchema=z.strictObject({agentId:identifier,confirm:z.literal(true)});
 export const agentTools: Definition[] = [
     {
-        name: "kanvas.agents.read", schema: agentsReadSchema, readOnly: true, description: 'List this account\'s agents, recognised from the MCP client name and User-Agent: active now, last seen, sessions. agentId returns one agent\'s sessions and log.',
+        name: "kanvas.agents.read", summary: "List recognized account agents and their activity when checking connections, recent sessions, or one agent's history.", schema: agentsReadSchema, readOnly: true, description: 'List this account\'s agents, recognised from the MCP client name and User-Agent: active now, last seen, sessions. agentId returns one agent\'s sessions and log.',
         domain: "connections",
         requiredScope: "read",
         discovery: {"group":"access","hint":"Which agents are connected to this account, active now, last seen and on how many sessions; add agentId for one agent in full.","examples":[{}]},
         searchAliases: ["kanvas.agents.read"]
     },
     {
-        name: "kanvas.agents.revoke", schema: agentsRevokeSchema, description: 'Revoke one agent\'s access after the owner confirms it; not the connection making this call.',
+        name: "kanvas.agents.revoke", summary: "Revoke another agent's account access when the owner confirms that the selected agent should be disconnected.", schema: agentsRevokeSchema, description: 'Revoke one agent\'s access after the owner confirms it; not the connection making this call.',
         domain: "connections",
         requiredScope: "publish",
         discovery: {"group":"access","hint":"Remove one agent's access after the owner confirms it is not recognised.","examples":[{"agentId":"agent-id","confirm":true}]},

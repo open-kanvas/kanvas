@@ -265,7 +265,7 @@ describe("template contracts coverage 4", () => {
                 const tools = await client.listTools();
                 expect(tools.tools.map(tool => tool.name)).toEqual(DISCOVERY_TOOL_NAMES);
                 for (const name of ["kanvas.feedback.submit", "kanvas.error.report", "kanvas.display.snapshot", "kanvas.video.control", "kanvas.display.history"]) {
-                    const result = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id: operationId(name) } });
+                    const result = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id: operationId(name) } });
                     expect((result.structuredContent as any).data.entry.operationId).toBe(operationId(name));
                 }
                 const category = await client.callTool(operationRequest({

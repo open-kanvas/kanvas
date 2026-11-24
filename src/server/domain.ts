@@ -1,3 +1,5 @@
+import {waitForDelivery, deliveryForUpdate} from './publish-delivery.js';
+import {discoveryOverviewContext} from './discovery-context.js';
 import {KANVAS_VERSION} from '../shared/version.js';
 import {mapSplitViews} from '../shared/split-screen.js';
 import {limitError} from './limit-errors.js';
@@ -156,6 +158,8 @@ export class KanvasService implements McpService {
     readonly pickers: Pickers;
     readonly customTemplates = new CustomTemplates(this);
     readonly mediaLibrary = new MediaLibrary(this);
+    async discoveryOverview(p: AuthPrincipal) { return discoveryOverviewContext(this, p); }
+    async discoveryIsAdmin(p: AuthPrincipal) { try { await this.accounts.account(p); return await this.accounts.isServiceAdmin(p); } catch { return false; } }
     async customTemplateCatalog(p: AuthPrincipal) { return this.customTemplates.catalog(p); }
     readonly autoplay: Autoplay;
     readonly pointing: Pointing;
@@ -840,7 +844,7 @@ export class KanvasService implements McpService {
             const receipt = await this.devices.windows.present(principal, { deviceId: selected.deviceId, windowId: selected.id, sessionId: session.id, displayId: display.id, expectedVersion: selected.version, requestId: a.requestId });
             const result = { id: key, digest, sessionId: session.id, displayId: display.id, deviceId: selected.deviceId, windowId: selected.id, commandId: receipt.commandId };
             await this.store.put('start-request', result);
-            return { ...result, status: 'started', startUrl: `${this.publicUrl}/`, nextAction: 'Publish the requested content to this session/display. The blank display shows the Kanvas ready screen. Verify command paint before claiming it is visible; no URL needs to be read aloud.' };
+            return { ...result, status: 'started', startUrl: `${this.publicUrl}/`, nextAction: 'Publish the requested content to this session/display. The blank display shows the Kanvas ready screen. Publish responses briefly await browser acknowledgement per display; use inspect or update.status only when delivery is not confirmed. No URL needs to be read aloud.' };
         }));
     }
     async publishHome(principal: AuthPrincipal, sessionId: string, displayId: string) {
@@ -1486,21 +1490,33 @@ export class KanvasService implements McpService {
             return (await this.publicDisplay(display, principal));
         });
     }
-    async updateDelivery(update: UpdateRecord): Promise<Awaited<UpdateRecord>> {
-        if (!Object.keys(update.revisions).length)
-            return update;
-        const delivery: NonNullable<UpdateRecord['delivery']> = {};
-        for (const displayId of update.displayIds) {
-            const display = (await this.store.get<StoredDisplay>('display', displayId)), revision = update.revisions[displayId];
-            const waitedMs = Math.max(0, Date.now() - Date.parse(update.completedAt ?? update.createdAt));
-            delivery[displayId] = !display || display.revision !== revision ? { status: 'superseded', revision }
-                : display.appliedRevision === revision ? { status: 'applied', revision, ...((['iframe', 'website'].includes(displayedLeaf(display.view)?.template ?? '') || (displayedLeaf(display.view)?.template === 'web' && displayedLeaf(display.view)?.data.embed === true)) ? { message: 'The KANVAS frame container is rendered; remote website content remains unverified.' } : {}) }
-                    : display.delivery?.revision === revision && display.delivery.status === 'failed' ? { status: 'failed', revision, message: display.delivery.message, ...(display.delivery.code ? { code: display.delivery.code } : {}) }
-                        : !display.online ? { status: 'offline', revision, waitedMs, message: 'No viewer is connected. Open the authenticated display URL to apply this frame.' }
-                            : waitedMs >= 30000 ? { status: 'timed_out', revision, waitedMs, message: 'No browser render acknowledgement within 30 seconds. The tab may be backgrounded or its renderer failed; inspect the display or request a snapshot.' }
-                                : { status: 'pending', revision, waitedMs };
+    async updateDelivery(update: UpdateRecord): Promise<UpdateRecord> {
+        return { ...update, delivery: await deliveryForUpdate(this, update) };
+    }
+    /** Wait only after commit; holding a write lock would block the browser ack. */
+    async confirmPublication(result: unknown): Promise<unknown> {
+        if (!result || typeof result !== 'object') return result;
+        const value = result as Record<string, unknown>;
+        if (typeof value.sessionId !== 'string') return result;
+        if (Array.isArray(value.displayIds) && value.revisions && typeof value.id === 'string' && typeof value.status === 'string') {
+            return { ...value, ...await waitForDelivery(this, value as unknown as UpdateRecord) };
         }
-        return { ...update, delivery };
+        if (value.displayRevisions && typeof value.displayRevisions === 'object') {
+            const revisions = value.displayRevisions as Record<string, number>;
+            const update: UpdateRecord = { id: '', sessionId: value.sessionId, requestId: '', displayIds: Object.keys(revisions), revisions, status: 'prepared', createdAt: now() };
+            const observed = await waitForDelivery(this, update, false);
+            // These targets were skipped atomically with the durable-list mutation.
+            // Keep that outcome on retry, even after release or a later publication;
+            // there is no new revision to acknowledge and no old paint to borrow.
+            const heldDisplayIds = Array.isArray(value.heldDisplayIds) ? value.heldDisplayIds as string[] : [];
+            const held = await Promise.all(heldDisplayIds.map(async displayId => {
+                const display = await this.store.get<DisplayRecord>('display', displayId);
+                return [displayId, {status: 'held' as const, ...(display ? {displayName: display.name} : {}), waitedMs: 0,
+                    message: 'This request saved the list but skipped this held display; its content and revision were unchanged. Release hold and show the saved list with a new request to refresh it.'}] as const;
+            }));
+            return { ...value, delivery: {...observed.delivery, ...Object.fromEntries(held)} };
+        }
+        return result;
     }
     async displayHistory(principal: AuthPrincipal, sessionId: string, displayId: string) {
         (await this.fullAccount(principal));
@@ -1989,6 +2005,17 @@ export class KanvasService implements McpService {
         return error;
     }
     async execute(name: string, raw: unknown, principal: AuthPrincipal): Promise<unknown> {
+        const result = await this.executeOperation(name, raw, principal);
+        const definition = MCP_TOOLS.find(tool => tool.name === name);
+        if (!definition || definition.readOnly) return result;
+        const confirmed = await this.confirmPublication(result);
+        // Revocation may occur during the bounded wait. Do not return fresh
+        // display names or receipt metadata after the caller loses access.
+        if (confirmed && typeof confirmed === 'object' && 'sessionId' in confirmed && typeof confirmed.sessionId === 'string' && 'delivery' in confirmed)
+            await this.access(principal, confirmed.sessionId);
+        return confirmed;
+    }
+    private async executeOperation(name: string, raw: unknown, principal: AuthPrincipal): Promise<unknown> {
         attribute(principal);
         const event = eventContext.getStore();
         if (event) {
@@ -2227,7 +2254,10 @@ export class KanvasService implements McpService {
             case "kanvas.displays.identify": return (await this.identifyDisplays(principal, a.sessionId, a.displayIds, a.durationMs));
             case "kanvas.displays.sync": return (await this.displaySync.configure(principal, a));
             case "kanvas.displays.sync.read": return (await this.displaySync.read(principal, a));
-            case "kanvas.display.edit": return (await this.edit(principal, a.sessionId, a.displayId, a.expectedRevision, a.data));
+            case "kanvas.display.edit": {
+                const display = await this.edit(principal, a.sessionId, a.displayId, a.expectedRevision, a.data);
+                return { ...display, displayDelivery: display.delivery, displayRevisions: { [display.id]: display.revision } };
+            }
             case "kanvas.chat.append":
             case "kanvas.progress.append":
             case "kanvas.view.patch":

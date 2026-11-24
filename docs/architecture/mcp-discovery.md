@@ -4,11 +4,12 @@ Both supported MCP transports expose and accept exactly two tools:
 - `kanvas_discover`
 - `kanvas_call`
 
-## Discover → get → call
+## Overview → discover → get → call
 
 ```jsonl
-{"name":"kanvas_discover","arguments":{"catalog":"tools","action":"search","query":"bring back my saved checklist on another screen"}}
-{"name":"kanvas_discover","arguments":{"catalog":"tools","action":"get","id":"kanvas.checklist.show"}}
+{"name":"kanvas_discover","arguments":{}}
+{"name":"kanvas_discover","arguments":{"catalog":"operations","action":"search","query":"bring back my saved checklist on another screen"}}
+{"name":"kanvas_discover","arguments":{"catalog":"operations","action":"get","id":"kanvas.checklist.show"}}
 {"name":"kanvas_call","arguments":{"operationId":"kanvas.checklist.show","arguments":{"sessionId":"live-session","checklistId":"live-checklist","displayId":"live-display","expectedRevision":3,"requestId":"unique-request"}}}
 ```
 
@@ -16,7 +17,7 @@ Examples demonstrate routing, not permission or real source data. Get the operat
 
 ## One mental model
 
-The required `catalog` is `tools | templates | help`; `action` is `list | search | get`, or `resolve` for the tools catalog only. [Intent resolution](../intent-discovery.md) covers the bounded five-family read-only workflow.
+Call with no arguments (or `action:overview`) once per conversation. The overview is assembled from live registry summaries plus authorized current screens, recent named sessions and saved guidance; it never creates sessions. For other actions, `catalog` is `operations | templates | help`; `action` is `list | search | get`, or `resolve` for the operations catalog only. [Intent resolution](../intent-discovery.md) covers the bounded five-family read-only workflow.
 - **list** has no default pagination or count limit: return every visible ID and one-line description in flat plain text, not JSON. Optional `prefix` explicitly narrows IDs; optional `examples:true` adds minimal examples and may require safety-budget continuation.
 - **search** requires a bounded natural-language `query`; default `limit:5` (1–20). Return ranked ID/description summaries with bounded minimal examples when available, never full schemas or full help content. The result gives matching total, catalog total, returned count and explicit continuation for alternatives.
 - **get** requires exact `id`. Return an operation schema/annotations/examples, template schema/examples, or focused help content. Template get defaults to `expand:"own"`: nested view slots are named references, not the entire recursive template union; `expand:"full"` requests that union. Unknown and unavailable IDs have indistinguishable errors. No fuzzy fallback.
@@ -46,3 +47,13 @@ This is an intentional breaking release. Old seven-tool names and former flat/gr
 ## Verification
 
 Full clean typecheck/build, unit/integration tests, desktop/mobile browser suite and isolated PostgreSQL backup/restore are required. Test databases are isolated clusters/schemas, never the running dev database. Discovery contract tests cover plain-text completeness, lazy summaries, privacy, cursors, oversize errors and thousands-entry scaling. HTTP tests cover both protocol eras, scopes, unknown aliases, cancellation, rich content and mutation instrumentation. Production changes wait for owner approval.
+
+## Single-source descriptions and hard names
+
+Each operation definition owns its concise `summary` and detailed `description`; template concepts own their `summary` and use guidance. List and overview read those same summaries without character truncation. Administrator-only definitions are excluded before lookup/ranking for non-administrators. Account templates and context are fetched per call, never cached across accounts. The old catalog `tools` is rejected, and the former operations template is now `devops`, without an alias. Existing stored source is not rewritten. Retired operations-template source remains stored but requires an explicit republish using devops; there is no compatibility alias or background rewrite. Help subjects have descriptive IDs; intentional aliases expose `aliasOf`. Every non-overview discovery response and validation recovery points to the overview. The former first-contact block is removed.
+
+## Browser acknowledgement outcomes
+
+Publishing waits after the mutation transaction commits, for up to 1000 ms by default (`KANVAS_PUBLISH_ACK_WAIT_MS`, clamped 0–5000). This is a browser-observation budget, not a total execution deadline. All target displays share that budget. The returned delivery map reports applied, failed, offline, held, retained, superseded or timed_out per display. Offline/held results return immediately; mixed results preserve successful displays. Applied requires a genuine acknowledgement of the matching revision, not merely stored content or a server capture. The browser only acknowledges after visible animation frames; hidden tabs and timer expiry do not manufacture paint. Website/iframe acknowledgements cover the Kanvas container, not cross-origin content.
+
+Identical request-ID retries re-observe the original revision without republishing. A later acknowledgement can turn an unconfirmed receipt into applied; newer content supersedes it. Timeouts are not persisted as rendering failures. Submit, patch, full data edit and retained checklist/task-list updates/show use this boundary; navigation/video commands keep their own acknowledgement protocols. Inspect/status remains useful for unconfirmed outcomes and later checks, not a mandatory second call after applied.

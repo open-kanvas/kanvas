@@ -40,10 +40,12 @@ test('publish, patch and narrow task updates return actual browser acknowledgeme
   await call('kanvas.publish',{sessionId,displayIds:[displayId],requestId:'late-checklist-seed',view:{version:1,template:'checklist',data:{items:[{id:'late',text:'Late genuine receipt',checked:false}]}}});
   const checklists=await call('kanvas.checklist.read',{sessionId});
   let releaseAck!:()=>void;const heldAck=new Promise<void>(resolve=>{releaseAck=resolve;});let observedAck=false;
-  await viewer.route('**/applied',async route=>{observedAck=true;await heldAck;await route.continue();});
+  let ackContinued!:()=>void;const continuedAck=new Promise<void>(resolve=>{ackContinued=resolve;});
+  await viewer.route('**/applied',async route=>{observedAck=true;await heldAck;await route.continue();ackContinued();});
   const late=await call('kanvas.checklist.update',{sessionId,checklistId:checklists.data.checklists[0].id,requestId:'late-checklist',items:[{id:'late',checked:true}]});
   expect(observedAck).toBe(true);expect(late.data.delivery[displayId].status).toBe('unconfirmed');expect(late.data.updateId).toBeTruthy();
-  releaseAck();await viewer.unroute('**/applied');
+  // Finish the held handler before unroute; removing an active route can handle it twice.
+  releaseAck();await continuedAck;await viewer.unroute('**/applied');
   await expect.poll(async()=>{const status=await call('kanvas.update.status',{sessionId,requestId:'late-checklist'});expect(status.data.id).toBe(late.data.updateId);return status.data.delivery[displayId].status;}).toBe('applied');
   const log=await call('kanvas.session.log',{sessionId});
   expect(JSON.stringify(log.data)).toContain(late.data.updateId);expect(JSON.stringify(log.data)).toContain('late-checklist');expect(JSON.stringify(log.data)).toContain('viewer.acknowledged');

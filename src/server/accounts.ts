@@ -343,7 +343,7 @@ export class Accounts {
             offset = index + 1;
         }
         const entries = (await asyncMap(all.slice(offset, offset + a.limit), async (e) => ({ ...e, actorName: e.actorId ? (await this.service.auth.user(e.actorId))?.displayName : undefined, subjectName: e.subjectId ? (await this.service.auth.user(e.subjectId))?.displayName : undefined, sessionName: e.sessionId ? (await this.store.get<SessionRecord>('session', e.sessionId))?.name : undefined, groupName: e.groupId ? (await this.store.get<AccountGroup>('group', e.groupId))?.name : undefined })));
-        return { entries, ...(offset + entries.length < all.length ? { nextCursor: entries.at(-1)!.id } : {}), retention: { days: 365, maximumServiceEvents: 100000 }, coverage: "Activity is recorded from this feature\u2019s deployment onward. Earlier saved lifecycle logs remain available through kanvas_call with operationId:\"kanvas.session.log\" and arguments:{\u2026}; no historical events are fabricated." };
+        return { entries, ...(offset + entries.length < all.length ? { nextCursor: entries.at(-1)!.id } : {}), retention: { days: null, maximumServiceEvents: null, mode: 'indefinite', note: 'Recorded activity has no automatic age or event-count pruning in the current implementation; null means no enforced limit.' }, coverage: "Activity is recorded from this feature\u2019s deployment onward. Earlier saved lifecycle logs remain available through kanvas_call with operationId:\"kanvas.session.log\" and arguments:{\u2026}; no historical events are fabricated." };
     }
     async analytics(p: AuthPrincipal, raw: unknown) {
         const a = analyticsQuerySchema.parse(raw);

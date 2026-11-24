@@ -39,7 +39,7 @@ export const accountTools: readonly Definition[] = [
         searchAliases: ["kanvas.group.create"]
     },
     {
-        name: "kanvas.group.update", description: 'Administer an explicitly selected group name, description, linked organizations, appearance, reading and regional defaults or optional branding. Current group revision required. Branding logo is bounded raster bytes; null removes it. Does not change session access.', schema: groupUpdateSchema,
+        name: "kanvas.group.update", description: 'Administer an explicitly selected group name, description, linked organizations, appearance, reading and regional defaults or optional branding. Current group expectedRevision is an optional stale-write guard. Branding logo is bounded raster bytes; null removes it. Does not change session access.', schema: groupUpdateSchema,
         domain: "groups",
         requiredScope: "publish" as const,
         discovery: {"group":"sessions","hint":"Administer one group at the current revision, including optional branding.","examples":[{"groupId":"group-id","expectedRevision":0,"defaults":{"accent":"#38bdf8"}}]},
@@ -63,7 +63,7 @@ export const accountTools: readonly Definition[] = [
         name: "kanvas.group.access.set", description: 'Session owner explicitly grants/changes organization/team session access to viewer/editor, or revokes with role:null. Membership is evaluated at every request; does not populate individual memberships or broaden an OAuth session grant. Audit records actor, time and before/after roles.', schema: groupGrantSchema,
         domain: "groups",
         requiredScope: "publish" as const,
-        discovery: {"group":"access","hint":"Explicit owner grant/change/revocation of team/org session access. Current revision required.","examples":[{"sessionId":"session-id","groupId":"group-id","expectedRevision":0,"role":"viewer"}]},
+        discovery: {"group":"access","hint":"Explicit owner grant/change/revocation of team/org session access. expectedRevision is an optional stale-write guard.","examples":[{"sessionId":"session-id","groupId":"group-id","expectedRevision":0,"role":"viewer"}]},
         searchAliases: ["kanvas.group.access.set"]
     },
     {

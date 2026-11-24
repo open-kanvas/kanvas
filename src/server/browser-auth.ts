@@ -48,7 +48,7 @@ export const browserAuthTools: readonly Definition[] = [
         searchAliases: ["kanvas.browser.auth.list"]
     },
     {
-        name: "kanvas.browser.auth.revoke", description: 'Explicitly log out one full-account browserSessionId or all:true, including the current browser. Requires account-level publish authority, confirm:true and requestId. Does not revoke independent OAuth clients or view-only pairing grants.', schema: browserRevokeSchema, destructive: true, idempotent: true,
+        name: "kanvas.browser.auth.revoke", description: 'Explicitly log out one full-account browserSessionId or all:true, including the current browser. Requires account-level publish authority and confirm:true. A stable requestId deduplicates retries; omission generates a new ID each call. Does not revoke independent OAuth clients or view-only pairing grants.', schema: browserRevokeSchema, destructive: true, idempotent: true,
         domain: "account",
         requiredScope: "publish" as const,
         discovery: {"group":"access","hint":"Explicit logout of one management ID or all account browsers. OAuth/client grants and view-only pairings remain separate.","examples":[{"browserSessionId":"browser-management-id","confirm":true,"requestId":"logout-one"},{"all":true,"confirm":true,"requestId":"logout-all"}]},

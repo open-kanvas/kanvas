@@ -1,6 +1,6 @@
 {
-  "packageVersion": "0.41.0",
-  "lockfileSha256": "e6539b4e2d8b095c4e35addeeeb2c79e5519b86ef62a8c5bce58f99ca339c27b",
+  "packageVersion": "0.41.1",
+  "lockfileSha256": "9d0dc37ac21156f44a1db02517d6c04958bc34970beefbb39111f6ab84233cee",
   "packages": [
     {
       "path": "node_modules/@babel/code-frame",
@@ -7517,15 +7517,15 @@
     {
       "path": "node_modules/zod",
       "name": "zod",
-      "version": "4.5.4",
+      "version": "4.6.7",
       "license": "MIT",
       "scope": "runtime",
       "optional": false,
-      "integrity": "sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA==",
-      "source": "https://registry.npmjs.org/zod/-/zod-4.5.4.tgz",
+      "integrity": "sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==",
+      "source": "https://registry.npmjs.org/zod/-/zod-4.6.7.tgz",
       "installed": true,
       "notices": [
-        "docs/licenses/dependencies/zod@4.5.4--LICENSE"
+        "docs/licenses/dependencies/zod@4.6.7--LICENSE"
       ]
     },
     {

@@ -1,3 +1,4 @@
+import {DISCOVERY_ORIENTATION} from './discovery-guidance.js';
 import {TOUR_GUIDANCE} from '../../shared/help.js';
 import {DISPLAY_PRINCIPLE,TEMPLATE_DISPLAY_GUIDANCE} from '../../shared/display-guidance.js';
 import {REPORT_DESCRIPTION_MAX,REPORT_CREATE_BYTES,REPORT_REPRODUCTION_TEXT_MAX} from '../../shared/reports.js';
@@ -37,6 +38,7 @@ export function orientationFor(tool: string): Record<string, unknown> | undefine
         toolSelection: { tool: "kanvas.guide", topic: 'tools', hint: 'Capability groups, exact argument examples and publish/viewport/edit/patch distinctions.' },
         beforeDisplayDecisions: "Read current kanvas_call with operationId:\"kanvas.session.state\" and arguments:{\u2026} for displays, holds and revisions; these can change.",
         discover: "Templates: kanvas_discover catalog help action search for \"templates\" + kanvas_discover catalog templates action get by exact template ID. Viewer browser location/timezone/locale for weather/near-me: kanvas_call with operationId:\"kanvas.viewers.read\" and arguments:{\u2026}, with consent and freshness.",
+        discovery: DISCOVERY_ORIENTATION,
         feedback: FEEDBACK_OFFER,
         interaction: 'Show one glanceable visual beat. Keep routine mechanics/retries silent; give a natural outcome. Explain blocking problems or required consent. Technical narration is for explicitly requested debugging.',
         recovery: "server.version/profile/counts identify the running build. If the host hides an error, read kanvas_call with operationId:\"kanvas.session.state\" and arguments:{\u2026} recentDiagnostics for safe operation/field issues; do not guess that all permissions failed or weaken them.",

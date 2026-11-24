@@ -8,8 +8,6 @@ Car Kit3.1: https://kenney.nl/assets/car-kit ; Watercraft Kit2.1: https://kenney
 
 `public/scene-assets/manifest.json` records each source/archive/prepared SHA256, original path, PNG hash, byte size, triangles, original mesh-node names, normalized part bounds and license. `scripts/prepare-scene-assets.py SOURCE_ARCHIVE_DIRECTORY OUTPUT_DIRECTORY [CATALOG_TS]` embeds the original PNG into each existing GLB; geometry and node names are unchanged. It rejects unsupported changed source transforms. This is packaging/size curation, not invented retopology or segmentation. Total eight self-contained GLBs: **437,528 bytes**. No runtime external provider requests, live harvesting or account credentials.
 
-Stripe Directory skill was read first. CLI was absent; its current setup page was inspected, but no Directory results are claimed. Licensing/provenance evidence comes directly from the source pages and downloaded archives. Poly Haven's license was inspected only; no Poly Haven models, renders or API were used.
-
 ## Catalog and actual parts
 
 | Stable assetId | Actual model nodes |
@@ -44,8 +42,8 @@ When models are present, the **entire same scene**, including its primitives, us
 
 ## Dependencies and rollback
 
-Pinned three0.187.0 + @types/three0.187.0 (MIT; runtime notice shipped). DEV isolated install38MiB including transitive types; no shared dependency packages modified. Renderer is dynamically imported only for asset-containing scenes. Textures/models remain same-origin and GLB external resource URLs are blocked. Only these reviewed public assets are served; no existing private-media ACL or storage changes.
+Pinned three0.187.0 + @types/three0.187.0 (MIT; runtime notice shipped). Renderer is dynamically imported only for asset-containing scenes. Textures/models remain same-origin and GLB external resource URLs are blocked. Only these reviewed public assets are served; no existing private-media ACL or storage changes.
 
-Build `VITE_KANVAS_SCENE_ASSETS=false` to disable prepared model rendering independently; it shows an explicit notice and preserves stored scene/part state. `VITE_KANVAS_SCENE3D=false` disables the whole scene renderer. No database migrations. Revert I2 before I1; preserve stored documents. A capability-disabled build retains parsing/history and is preferable to deleting new scene data.
+Build `VITE_KANVAS_SCENE_ASSETS=false` to disable prepared model rendering independently; it shows an explicit notice and preserves stored scene/part state. `VITE_KANVAS_SCENE3D=false` disables the whole scene renderer. No database migrations. When downgrading, remove asset-renderer support before the base scene renderer; preserve stored documents. A capability-disabled build retains parsing/history and is preferable to deleting new scene data.
 
 Browser screenshots and automated load timing are feasibility evidence, not real mobile GPU acceptance. Owner review remains necessary for visual usefulness, part semantics and performance on actual devices. No physics, CAD editing, animations, exploded-view editor or broad asset manager is implied.

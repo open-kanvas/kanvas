@@ -81,7 +81,7 @@ Current connector authorization-code sign-in requires a functioning email mailer
 
 Build and test a separate release package. Back up PostgreSQL and verify the backup before switching. Stop the old service before the new process acquires the same database runtime lease. Serve the client from the same release as the backend. Check `/readyz`, `/healthz`, `/docs/index.json`, authenticated publication and browser delivery. If your release pipeline supplies `/version.json`, verify that metadata too.
 
-The 0.20.0 upgrade removes retired settings/records and normalizes historical game views. It uses a data-only ledger while retaining structural schema version 1 for 0.19.0 rollback compatibility. Keep the prior package and pre-upgrade backup; rollback restores software, while restoring deleted retired records requires the backup. Do not restore a database over new user writes without an explicit recovery decision.
+The 0.20.0 upgrade removes retired settings/records and normalizes historical game views. That historical change used a data-only ledger; current releases use structural schema version 2, and older schema-1 binaries cannot run against it. See [raw activity events](../raw-events.md) and verify downgrade compatibility rather than assuming 0.19.0 rollback is safe. Keep the prior package and pre-upgrade backup; rollback restores software, while restoring deleted retired records requires the backup. Do not restore a database over new user writes without an explicit recovery decision.
 
 Backups, service units, credentials, host-specific notes and production content belong outside the source checkout. See [PostgreSQL operations](postgresql.md).
 

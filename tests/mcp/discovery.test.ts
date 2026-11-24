@@ -1,3 +1,4 @@
+import { parseDiscoveryRequest } from '../../src/server/mcp/discovery.js';
 
 import { profileResultData } from '../../src/server/mcp/profile-guidance.js';
 import { interactionRoutes } from '../../src/server/mcp/profile-guidance.js';
@@ -188,8 +189,8 @@ describe("discovery coverage 1", () => {
                     return;
                 if (typeof value.tool === 'string' && value.arguments) {
                     examples++;
-                    if (value.tool === 'kanvas_discover')
-                        expect(() => parseDiscoveryInput(value.tool, value.arguments)).not.toThrow();
+                    if (value.tool === 'kanvas_discover' || (value.tool === 'kanvas_call' && value.arguments.operationId === 'kanvas.discover'))
+                        expect(() => parseDiscoveryRequest(value.tool, value.arguments)).not.toThrow();
                     else
                         expect(resolveToolCall('discovery', value.tool, value.arguments).error, JSON.stringify(value).slice(0, 200)).toBeUndefined();
                 }

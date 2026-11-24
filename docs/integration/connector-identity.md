@@ -8,7 +8,7 @@ What Kanvas publishes about itself to MCP clients, where each client is known to
 | --- | --- | --- |
 | MCP `initialize` → `serverInfo` | `name` | `kanvas` |
 | | `title` | `Kanvas` |
-| | `version` | the running release (`src/shared/version.ts`, same as `/version.json`); never a fixed number |
+| | `version` | the running release (`src/shared/version.ts` and `/readyz`); optional deployment-supplied `/version.json` must agree when present |
 | | `description` | the short product description |
 | | `websiteUrl` | `KANVAS_WEBSITE_URL`, default `https://open-kanvas.ai`; set it to an empty value to omit |
 | | `icons` | 48, 192 and 512 px PNG plus the SVG mark, each with `mimeType` and `sizes` |

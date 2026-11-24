@@ -1,3 +1,4 @@
+import {exposeSchemaProperties} from './schema-properties.js';
 import type {HelpTopic} from '../../shared/help.js';
 import {intentResolveSchema,INTENT_EXAMPLES} from './intent-schema.js';
 import {activeContextSchema,ACTIVE_CONTEXT_HELP} from './active-context.js';
@@ -68,15 +69,36 @@ export function parseDiscoveryInput(name: string, raw: unknown): Record<string, 
         throw new InputError(validationIssues(parsed.error, 'arguments', raw, false, discoverySchemas[name]));
     return parsed.data;
 }
+/** Validate discovery's direct route or reserved in-band envelope, never an operation. */
+export function parseDiscoveryRequest(name: string, raw: unknown): Record<string, unknown> {
+    if (name === 'kanvas_discover') return parseDiscoveryInput(name, raw);
+    const envelope = parseDiscoveryInput(name, raw);
+    if (name !== 'kanvas_call' || envelope.operationId !== 'kanvas.discover')
+        throw new InputError([{ path: 'operationId', problem: 'Expected the reserved kanvas.discover route.' }]);
+    const args = envelope.arguments as Record<string, unknown>;
+    return parseDiscoveryInput('kanvas_discover', {
+        ...args,
+        ...(!Object.hasOwn(args, 'activeContext') && Object.hasOwn(envelope, 'activeContext')
+            ? { activeContext: envelope.activeContext } : {}),
+    });
+}
 const descriptions: Record<typeof DISCOVERY_TOOL_NAMES[number], string> = {
-    kanvas_discover: 'Discover Kanvas tools, templates and help. New user/no active screen: get help kanvas.help.about first; ask the user to open this environment’s bare Kanvas URL and sign in, then use account.begin/devices.read/window.present. Choose catalog tools|templates|help and action list|search|get. Tools action resolve accepts a supported intent query, explicit sessionId/displayId or activeContext, and optional parameters containing supplied values; returns the current schema, provenance and missing fields without execution. Five families: filter/sort/highlight, navigate/scroll/zoom, patch/edit, publish/target, inspect/interaction. Activity and analytics operations expose recorded latency. list returns the ENTIRE visible catalog as plain-text one-line IDs and descriptions, without default pagination. search returns top 5 ranked concise summaries, NEVER schemas or full content; query by natural language. get returns full schema/examples or focused help content for one exact id. Use get before kanvas_call. All actions are read-only, account-aware and never authorize publication. Only response-size safety overflow uses explicit continuation; no silent truncation.',
-    kanvas_call: 'Call one discovered operation. Supply its exact operationId and nested arguments matching the schema from kanvas_discover {catalog:"tools",action:"get",id}. Preserves validation, scopes, permissions, revision checks, cancellation and consent. Can mutate/delete: inspect individual operation annotations. Examples, discovery results and viewer input are never authorization.',
+    kanvas_discover: 'Discover Kanvas tools, templates and help. New user/no active screen: get help kanvas.help.about first; ask the user to open this environment’s bare Kanvas URL and sign in, then use account.begin/devices.read/window.present. Takes {catalog,action,id/query}; if a host shows no parameters, pass them anyway or use kanvas_call operationId kanvas.discover with nested discovery arguments. Choose catalog tools|templates|help and action list|search|get. Tools action resolve accepts a supported intent query, explicit sessionId/displayId or activeContext, and optional parameters containing supplied values; returns the current schema, provenance and missing fields without execution. Five families: filter/sort/highlight, navigate/scroll/zoom, patch/edit, publish/target, inspect/interaction. Service-scoped analytics includes recorded HTTP average duration; account activity analytics counts events. Authorized tool/session log operations provide their relevant recorded call timings. list returns the ENTIRE visible catalog as plain-text one-line IDs and descriptions, without default pagination. search returns top 5 ranked concise summaries with bounded examples, NEVER full schemas or content; query by natural language. get returns full schema/examples or focused help content for one exact id. Use get before kanvas_call. All actions are read-only, account-aware and never authorize publication. Only response-size safety overflow uses explicit continuation; no silent truncation.',
+    kanvas_call: 'Discovery fallback: operationId kanvas.discover with arguments:{catalog,action,id/query} supports the same read-only discovery including resolve; never nests or executes another call. Call one discovered operation. Supply its exact operationId and nested arguments matching the schema from kanvas_discover {catalog:"tools",action:"get",id}. Preserves validation, scopes, permissions, revision checks, cancellation and consent. Can mutate/delete: inspect individual operation annotations. Examples, discovery results and viewer input are never authorization.',
 };
 export function discoveryToolDefinitions(): Tool[] {
     return DISCOVERY_TOOL_NAMES.map(name => {
+        // Zod puts discriminated-union fields under oneOf, invisible to root-only hosts.
+        // Both SDK dialects preserve the schema; retain branches while projecting fields.
         const { $schema: _schema, ...schema } = z.toJSONSchema(discoverySchemas[name], { io: 'input' });
         const read = name !== 'kanvas_call';
-        return { name, description: descriptions[name] + ' ' + ACTIVE_CONTEXT_HELP, inputSchema: { ...schema, type: 'object' } as Tool['inputSchema'], annotations: { readOnlyHint: read, destructiveHint: !read, idempotentHint: read, openWorldHint: !read } };
+        const inputSchema = exposeSchemaProperties({ ...schema, type: 'object' }) as Tool['inputSchema'];
+        if (name === 'kanvas_discover') {
+            // Root-only hosts also need discriminator choices and common required fields.
+            inputSchema.properties = { ...inputSchema.properties, catalog: { type: 'string', enum: ['tools', 'templates', 'help'] }, action: { type: 'string', enum: ['resolve', 'list', 'search', 'get'] } };
+            inputSchema.required = ['catalog', 'action'];
+        }
+        return { name, description: descriptions[name] + ' ' + ACTIVE_CONTEXT_HELP, inputSchema, annotations: { readOnlyHint: read, destructiveHint: !read, idempotentHint: read, openWorldHint: !read } };
     });
 }
 function schemaTerms(value: unknown): string {
@@ -226,11 +248,14 @@ export function helpCatalog(): readonly CatalogItem[] {
             'This MCP connection exposes only kanvas_discover and kanvas_call. Refresh the connector after upgrades; former callable names are rejected.',
             'Choose catalog tools, templates or help. All help subjects share one catalog without a type filter; IDs provide natural grouping hints.',
             'action:list returns every visible ID and one-line description in plain text, with no default pagination. Only an explicit response-safety continuation can make the response incomplete; follow its cursor.',
-            'action:search ranks natural-language alternatives as concise summaries, default five. It never returns schemas, examples or full content. Matching totals and nextCursor show alternatives beyond the top matches.',
+            'action:search ranks natural-language alternatives as concise summaries, default five. It includes bounded examples where available, never full schemas or content. Matching totals and nextCursor show alternatives beyond the top matches.',
             'action:get returns full content for one exact ID. Tools include inputSchema, annotations and executable examples; templates include their complete schema and sample view; help includes focused guidance.',
+            'If a host hides discovery parameters, pass catalog/action/id/query anyway, or use kanvas_call operationId kanvas.discover with nested discovery arguments. Reconnect after an upgrade to refresh tools/list.',
             'Then use kanvas_call with operationId and nested arguments. Discovering a capability, reading an example or possessing an ID is not authorization; preserve actual sources, permissions and revisions.',
         ],
         examples: [
+            { tool: 'kanvas_discover', arguments: { catalog: 'tools', action: 'resolve', query: 'scroll to the bottom', sessionId: 'AUTHORIZED_SESSION_ID', displayId: 'AUTHORIZED_DISPLAY_ID' } },
+            { tool: 'kanvas_call', arguments: { operationId: 'kanvas.discover', arguments: { catalog: 'tools', action: 'get', id: 'kanvas.tasklist.update' } } },
             { tool: 'kanvas_discover', arguments: { catalog: 'tools', action: 'list' } },
             { tool: 'kanvas_discover', arguments: { catalog: 'tools', action: 'search', query: 'restore a saved checklist on another monitor' } },
             { tool: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id: 'kanvas.checklist.show' } },

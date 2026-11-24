@@ -16,7 +16,7 @@ The additional kinds are `candlestick`, `ohlc`, `area`, `violin`, `radar`, `netw
 | `treemap` | IDs, parent IDs and nonnegative leaf values | Hierarchical slice-and-dice areas. Parent totals are derived from children, or checked against them when supplied; not counted twice. |
 | `sankey` | Nodes and positive weighted directed links | Acyclic flow graph, with ribbon thickness proportional to the supplied weights. In/out differences remain visible; no balancing links are invented. |
 | `bubble` | Numeric x/y and positive size | Circle **area**, not radius, encodes size. |
-| `choropleth` | Supplied Polygon/MultiPolygon boundaries and associated values | Fits supplied longitude/latitude geometry in an equirectangular display. No geocoding, boundary fetch, or invented region shapes. Explicit null means no data, not zero. |
+| `choropleth` | Exactly one supplied Polygon/MultiPolygon geometry or bundled countryCode per region, plus its value | Fits supplied or bundled boundaries in an equirectangular display. No place-name geocoding or live boundary fetch. Explicit null means no data, not zero. |
 | `pie` / `donut` | One nonnegative category/value series with a positive total | Exact category values stay in the key. The donut's compact derived total is marked `≈`. |
 | `gauge` | One value plus an explicit min/max range | Optional caller-supplied threshold labels/colors. No invented “safe” or “danger” thresholds. |
 | `funnel` | Ordered, nonnegative, non-increasing stage values | Stage width encodes the supplied value. Use bars for values that grow between stages. |
@@ -75,7 +75,7 @@ Gauge uses `gauge: {min, max, thresholds?: [{value, label?, color?}]}` and one p
 
 ### Supplied geography
 
-Choropleth uses `regions: [{id, label?, geometry, value}]`. `geometry` is standard GeoJSON **geometry**, not an entire FeatureCollection:
+Choropleth uses `regions: [{id, label?, geometry?, countryCode?, value}]`, with exactly one of geometry or countryCode per region. Built-in country/state geometry is bundled; supply geometry for unsupported or exact boundaries. `geometry` is standard GeoJSON **geometry**, not an entire FeatureCollection:
 
 ```json
 {
@@ -89,7 +89,7 @@ Choropleth uses `regions: [{id, label?, geometry, value}]`. `geometry` is standa
 }
 ```
 
-The rectangle above illustrates the contract; it is not a claimed real administrative boundary. Use actual supplied boundary coordinates for real regions. Coordinates are `[longitude, latitude]`, within ±180° / ±90°. Rings must be explicitly closed, nonzero-area and non-self-intersecting. Holes must be strictly inside the exterior, without crossings or overlap. MultiPolygon preserves separate parts and holes. Split antimeridian-crossing rings before supplying them; no automatic boundary repair, simplification, projection change or geometry lookup occurs.
+The rectangle above illustrates the contract; it is not a claimed real administrative boundary. Use actual supplied boundary coordinates for real regions. Coordinates are `[longitude, latitude]`, within ±180° / ±90°. Rings must be explicitly closed, nonzero-area and non-self-intersecting. Holes must be strictly inside the exterior, without crossings or overlap. MultiPolygon preserves separate parts and holes. Split antimeridian-crossing rings before supplying them; no automatic repair, simplification or place-name geocoding occurs. countryCode uses only the bundled boundary set.
 
 ## Dataset bindings
 
@@ -104,7 +104,7 @@ Stored datasets and inline `rows` / `csv` / lossless `json` use the same authori
 | `network`, `sankey` | `edges: {source, target, value?, sourceLabel?, targetLabel?}`. Optional explicit `aggregation: "sum"` or `"count"`; duplicate edge pairs otherwise fail. |
 | `treemap` | `hierarchy: {id, parent, value, label?}`. Null/empty parent cells indicate roots; null values only work on internal nodes. No aggregation/downsampling. |
 | `bubble` | `x`, `y: [oneColumn]`, `size`. No aggregation; explicit stride downsampling is available. |
-| `choropleth` | `geography: {id, value}` plus supplied `data.regions` geometry. Duplicate rows need explicit aggregation; no downsampling. |
+| `choropleth` | `geography: {id, value}` plus `data.regions` with supplied geometry or bundled countryCode. Duplicate rows need explicit aggregation; no downsampling. |
 | `pie`, `donut`, `funnel` | `x?`, `y: [oneColumn]`; explicit grouping/aggregation is available. Missing values are not silently zeroed. |
 | `gauge` | `y: [oneColumn]` and an explicit `row`, **or** explicit aggregation. Keep supplied `data.gauge` range. |
 | `waterfall` | `x?`, `y: [oneColumn]`, optional `total` column. Total markers must be booleans or exact CSV `"true"` / `"false"`. No grouped aggregation/downsampling. |
@@ -123,7 +123,7 @@ Example dataset-backed financial request data:
 }
 ```
 
-A bound choropleth joins every source ID to the exact supplied region geometry. An unmatched source row fails; a supplied region with no source row remains explicit null/no-data. Derived sums/means/counts never replace their raw contributing observations. A count is displayed as a count, not relabelled with the value of the single source cell it counted. Mapping choices, geometry, radar/gauge scales and directionality must match supplied source settings; a requested binding must match the selected chart contract.
+A bound choropleth joins every source ID to its supplied region definition (geometry or bundled countryCode). An unmatched source row fails; a supplied region with no source row remains explicit null/no-data. Derived sums/means/counts never replace their raw contributing observations. A count is displayed as a count, not relabelled with the value of the single source cell it counted. Mapping choices, geometry, radar/gauge scales and directionality must match supplied source settings; a requested binding must match the selected chart contract.
 
 ## Precision and source integrity
 
@@ -137,11 +137,11 @@ Source rows/cells remain authoritative. Use decimal strings, CSV or lossless JSO
 
 Exact decimal range checks prevent rounding from hiding invalid OHLC bounds, negative part-to-whole weights, growing funnel stages or out-of-range gauge/radar observations. Supplied exact-string waterfall/treemap totals are checked against exact source contributions/children. Those exact relation calculations are bounded by the 20,000-character source-cell budget; omit a redundant parent/total value or use a table if incompatible extreme decimal scales cannot be verified. Geometry and parent/total relations also receive ordinary finite-domain validation.
 
-The Data alternative includes exact raw observations and source row indexes; it does not silently sample or paginate away rows. The requested chart remains one plot, never a composite chart/data dashboard. Charts cannot recover precision that was already lost before the caller supplied a JavaScript number.
+In advanced-chart routes, the Data alternative includes exact raw observations and source row indexes; it does not silently sample or paginate away rows. The requested chart remains one plot, never a composite chart/data dashboard. Charts cannot recover precision that was already lost before the caller supplied a JavaScript number.
 
 ## Display behavior and limits
 
-`showControls: true` is an optional **top-level ViewSpec flag**, not a field inside `data`. Its default is false. It exposes the Chart/Data switch. Mark focus/hover inspection, full category/graph keys and axis ranges remain available as intrinsic chart meaning. Exact data is retained regardless of resting chrome. There is no `source` object and no `showSource` flag on a view (removed in 0.38.0): where data came from is something the person asks the agent.
+`showControls: true` is an optional **top-level ViewSpec flag**, not a field inside `data`. Its default is false. It exposes the Chart/Data switch only in advanced-chart routes. Ordinary/composable/distribution chart routes do not offer this switch; publish a separate table when exact tabular data is requested. Mark focus/hover inspection, full category/graph keys and axis ranges remain available as intrinsic chart meaning. Exact data is retained regardless of resting chrome. There is no `source` object and no `showSource` flag on a view (removed in 0.38.0): where data came from is something the person asks the agent.
 
 Measured CSS-pixel SVG sizing keeps text readable. Discrete long-label plots wrap complete labels and gain a scrollable extent instead of ellipsizing source identities or shrinking text. Continuous axes use spaced ticks without dropping observations; every supplied mark remains in the plot. Network/radar keys identify indexed marks with full names, and dense legends/long datasets can scroll within the chart.
 

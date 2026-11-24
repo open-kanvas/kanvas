@@ -1,9 +1,14 @@
 import { z } from 'zod';
 /** Host-owned, per-call context. Never persisted on an account or connection. */
 export const activeContextSchema = z.strictObject({ sessionId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/) }).nullable().optional();
-export const ACTIVE_CONTEXT_HELP = 'Optional activeContext:{sessionId} attaches authorized session guidance to this call only. Explicit operation sessionId/groupId takes precedence. Switch by supplying another ID; clear by null or omission. Context never fills operation arguments, grants access, or selects a browser window.';
+export const ACTIVE_CONTEXT_HELP = 'Optional activeContext:{sessionId} attaches authorized session guidance to this call only. Explicit operation sessionId/groupId takes precedence. Switch by supplying another ID; clear by null or omission. For ordinary calls, context only scopes guidance and never fills operation arguments. Resolve may use explicitly supplied authorized context to propose session arguments, but never executes a call. Context never grants access or selects a browser window.';
 export function guidanceContext(name: string, raw: unknown): unknown {
  const outer = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
+ // The fallback is the same discovery envelope, not a separate context source.
+ if (name === 'kanvas_call' && outer.operationId === 'kanvas.discover') {
+  const nested = outer.arguments && typeof outer.arguments === 'object' && !Array.isArray(outer.arguments) ? outer.arguments as Record<string, unknown> : {};
+  return guidanceContext('kanvas_discover', { ...nested, ...(!Object.hasOwn(nested, 'activeContext') && Object.hasOwn(outer, 'activeContext') ? { activeContext: outer.activeContext } : {}) });
+ }
  const rawArgs=name==='kanvas_call'?outer.arguments:name==='kanvas_discover'?outer.parameters:undefined;
  const args = rawArgs && typeof rawArgs === 'object' && !Array.isArray(rawArgs) ? rawArgs as Record<string, unknown> : {};
  // Even invalid explicit targets suppress fallback: never leak the other context.

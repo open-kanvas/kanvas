@@ -51,10 +51,13 @@ it.each(['modern', 'legacy'])('%s MCP exposes and executes every account/history
     const context = await call("kanvas_call", "kanvas.session.context.read", { sessionId: s.id });
     expect((await call("kanvas_call", "kanvas.session.context.set", { sessionId: s.id, expectedRevision: context.context.revision, teamId: group.id })).effective.theme).toBe('light');
     const activity = await call("kanvas_call", "kanvas.activity.read", { sessionId: s.id });
+    expect(activity.retention).toMatchObject({ days: null, maximumServiceEvents: null, mode: 'indefinite' });
     expect(activity.entries.some((e: any) => e.type === 'session.group-access.changed')).toBe(true);
     const analytics = await call("kanvas_call", "kanvas.analytics.read", { sessionId: s.id });
     expect(validateView(analytics.chart).template).toBe('chart');
     const topology = await call("kanvas_call", "kanvas.topology.read", { sessionId: s.id, includeLocation: true, expectedCountries: ['NO'] });
+    expect(topology.note).toContain('not a deletion guarantee');
+    expect(topology.note).not.toContain('512');
     expect(topology.counts.windows).toBe(0);
     expect(topology.displays[0].id).toBe(d.id);
     for (const template of ['json', 'session-topology', 'presentation']) {

@@ -5,7 +5,7 @@
 Kanvas is your agent's screen: a light visual surface with no intelligence inside. The [full philosophy statement](src/shared/philosophy.ts) is the measure for every change, including feedback items. Before accepting one, ask:
 
 1. Does it serve the surface rather than add an application?
-2. At which tempo (live, kept-up, static), and does it fit that tempo?
+2. Does its update behavior fit what the person asked for, without inventing a session mode or tempo setting?
 3. Does it reduce time to clarity for the agent or the person, or at least not increase it?
 4. Does it keep intelligence on the agent side?
 
@@ -31,7 +31,9 @@ Run heavy jobs sequentially on small hosts. Full Playwright coverage includes de
 
 Keep source contracts under `src/shared`, enforce authorization in domain operations, and preserve exact source values. New templates need validator, example, renderer and meaningful source/delivery tests. MCP changes must update the public operation table, discovery examples, guides and per-operation/HTTP contract tests without weakening response budgets. The only callable tools are `kanvas_discover` and `kanvas_call`; do not add profile aliases or a second operation registry. A prepared receipt is not a browser acknowledgement.
 
-When behaviour changes, review what describes it in the same change: the help entry (`src/shared/help.ts`), the tool description and discovery hint, the template guidance and example, and the page under `docs/`. `tests/core/documentation-current.test.ts` and the per-release feedback tests assert the statements most likely to drift; add an assertion for each statement you had to correct.
+When behaviour changes, review what describes it in the same change: the help entry (`src/shared/help.ts`), tool/operation description and discovery hint, template guidance/schema/example, reader pages under `docs/`, and public website claims where relevant. In the PR, list each affected surface as updated, checked unchanged, or deferred with a reason; do not equate a title inventory or schema-valid example with a visual/behavioral audit. Website changes have their own repository and release authority.
+
+For a lightweight documentation guard, run `npx vitest run tests/core/documentation-current.test.ts tests/core/public-documentation.test.ts --maxWorkers=1`. These checks need no database: they cover local links, current executable operation references, complete JSON examples and public reference generation. Extend the feature-named checks for corrected drift-prone statements; run affected schema/renderer/operation tests separately when behavior changes. The guard is not a full semantic or browser review.
 
 Use logical commits and document compatibility/migrations. Do not commit operational archives, local databases, credentials, generated releases or private reports. Run `git diff --check` and inspect all staged files before committing. Keep third-party notices with redistributed material; see [the licence index](docs/licenses/README.md).
 

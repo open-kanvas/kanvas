@@ -1,6 +1,6 @@
 # Molecules: schematic native 2D
 
-Publish `{version:1,template:"molecule",data:{libraryId:"ethanol-v1"}}` using ordinary submit/show. No HTML generation, external source calls, dependencies, chemistry computation or geometry inference. `template.get` for molecule returns the strict schema, available library IDs and complete prepared records including atom/bond IDs and provenance. `display.current` returns stored state/revision; resolve libraryId using that immutable library record.
+Publish `{version:1,template:"molecule",data:{libraryId:"ethanol-v1"}}` using ordinary submit/show. No HTML generation, external source calls, dependencies, chemistry computation or geometry inference. `kanvas_discover {catalog:"templates",action:"get",id:"kanvas.template.molecule"}` returns the strict schema and available library IDs, not complete prepared atom/bond records or provenance. `display.current` returns stored state/revision; do not assume discovery provides atom/bond records for a libraryId. Use a supplied structure when exact atom/bond records are required.
 
 ## Existing operations
 
@@ -19,7 +19,7 @@ Up to 500 atoms/1000 bonds per view; these are safety budgets, not a hard ceilin
 
 ## Prepared seed provenance and rights
 
-25 authored demonstration records/layouts, CC0-1.0; no third-party asset or database export copied. Names identify the neutral prepared form, not all stereoisomers/protonation states. These are **not independently chemically validated** and not authoritative identifiers. All coordinates are schematic, not measured distances or scientific 3D. Attached hydrogen counts are explicitly authored display data. Ethanol exposes the OH hydrogen as a separate atom for the acceptance example; other hydrogens generally use supplied count annotations. Benzene uses a declared alternating-bond schematic, not aromatic bond semantics. Provenance and accuracy are available from the metadata disclosure and schema response; no source identity substitution.
+25 authored demonstration records/layouts, CC0-1.0; no third-party asset or database export copied. Names identify the neutral prepared form, not all stereoisomers/protonation states. These are **not independently chemically validated** and not authoritative identifiers. All coordinates are schematic, not measured distances or scientific 3D. Attached hydrogen counts are explicitly authored display data. Ethanol exposes the OH hydrogen as a separate atom for the acceptance example; other hydrogens generally use supplied count annotations. Benzene uses a declared alternating-bond schematic, not aromatic bond semantics. Prepared provenance and accuracy are maintained with the bundled seed definitions; discovery returns the allowed IDs, not those complete records. Do not substitute source identity.
 
 ## Independent disable / persistence / rollback
 

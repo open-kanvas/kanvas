@@ -91,7 +91,7 @@ export const experienceTools: readonly Definition[] = [
         searchAliases: ["kanvas.progress.append"]
     },
     {
-        name: "kanvas.procedure.control", description: 'Advance a pre-staged procedure or recipe instantly directly. Use start/next/back/complete, or overview for the recipe overview. Requires editor access and the actual current expectedRevision. requestId retries are idempotent. Use this after the user says next while cooking, maintaining equipment or following instructions; never regenerate the remaining steps.', schema: z.object({ ...display, requestId, expectedRevision: revision.optional(), action: z.enum(PROCEDURE_ACTIONS) }).strict(), idempotent: true,
+        name: "kanvas.procedure.control", description: 'Advance a pre-staged procedure or recipe instantly directly. Use start/next/back/complete, or overview for the recipe overview. Editor access is required; expectedRevision is an optional stale-write guard. requestId retries are idempotent. Use this after the user says next while cooking, maintaining equipment or following instructions; never regenerate the remaining steps.', schema: z.object({ ...display, requestId, expectedRevision: revision.optional(), action: z.enum(PROCEDURE_ACTIONS) }).strict(), idempotent: true,
         domain: "procedure",
         requiredScope: "publish" as const,
         discovery: {"group":"controls","hint":"Advance the already staged procedure or recipe after a next-step request, without regenerating it.","examples":[{"sessionId":"session-id","displayId":"display-id","expectedRevision":3,"requestId":"step-1","action":"next"}]},
@@ -182,7 +182,7 @@ export const experienceTools: readonly Definition[] = [
         searchAliases: ["kanvas.display.inspect"]
     },
     {
-        name: "kanvas.session.overview", description: 'List retained views across session displays in chronological order, with original revisions, titles, current indicators and bounded previews. Publish template overview for a compact interactive list. Retention is bounded; old forward history may have been discarded after branching.', schema: z.object(session).strict(), readOnly: true,
+        name: "kanvas.session.overview", description: 'List retained views across session displays in chronological order, with original revisions, titles, current indicators and bounded previews. Publish template overview for a thumbnail grid by default, or layout:list for a compact list. Forward history is preserved; the fixed 1000-publication session limit refuses new publication rather than discarding earlier views.', schema: z.object(session).strict(), readOnly: true,
         domain: "session-gallery",
         requiredScope: "read" as const,
         discovery: {"group":"sessions","hint":"To SHOW this session's content gallery (views published in THIS session, not the account session history from kanvas_call with operationId:\"kanvas.sessions.list\" and arguments:{…}), publish template overview, default order oldest. This read returns metadata and a publish recipe, not a display.","examples":[{"sessionId":"session-id"}]},

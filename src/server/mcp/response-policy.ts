@@ -1,3 +1,4 @@
+import {DISCOVERY_ORIENTATION} from './discovery-guidance.js';
 import {AGENT_CONDUCT,AGENT_EXAMPLE,AGENT_RULES,RHYTHM_NUDGE} from '../../shared/philosophy.js';
 
 /** Which repeated blocks a response carries. State decides, never a guess
@@ -44,6 +45,7 @@ export function firstContactBlock(context: ResponseContext): Record<string, unkn
     ...(context.displayNameHint ? { displayName: context.displayNameHint } : {}),
     ...(context.manage ? { manage: context.manage } : {}),
     help: FIRST_CONTACT_HELP,
+    discovery: DISCOVERY_ORIENTATION,
     sentOnce: 'This introduction is sent on first contact. Guidance repeats by default. To reduce only your own connection’s repetition, call kanvas.client.context.update with sessionId and clientDetails:{guidance:"concise"}; "full" restores repetition. Concise still sends changed guidance. Stateless clients must supply a unique Kanvas-Connection-Id header or kanvas/connectionId tool _meta value on each call. Saved guidance belongs to the person: change it only when they ask.',
   };
 }

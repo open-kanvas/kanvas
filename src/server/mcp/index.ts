@@ -273,8 +273,8 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
                     catch (error) {
                         status = 'failed';
                         const failure = toolFailure(error, undefined, 'discovery');
-                        const structuredContent = {...failure.structuredContent, overviewPointer: OVERVIEW_POINTER};
-                        return decorate({...failure, structuredContent, content: [{type: 'text', text: JSON.stringify(structuredContent)}]});
+                        const structuredContent = {...(failure.structuredContent as Record<string, unknown>), overviewPointer: OVERVIEW_POINTER};
+                        return decorate({...failure, structuredContent, content: [{type: 'text' as const, text: JSON.stringify(structuredContent)}]});
                     }
                     finally {
                         try {

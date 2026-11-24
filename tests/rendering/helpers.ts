@@ -41,7 +41,7 @@ export const cases: {template:TemplateId;data:Record<string, unknown>}[] = [
   {template:'tool-inventory',data:{groups:[{name:'Source integration',tools:[{name:'source.read',description:'Read the supplied record.'}]}]}},
   {template:'tool-detail',data:{name:'source.read',parameters:[{name:'id',type:'string',required:true,description:'The source record ID.'}]}},
   {template:'developer',data:{kind:'pipeline',stages:[{id:'build',name:'Build',status:'Passed',jobs:[{id:'test',name:'Tests',status:'Passed'}]}]}},
-  {template:'operations',data:{kind:'cost',period:'September',items:[{id:'service',name:'Source service',fields:{Amount:'123.4500',Currency:'NOK'}}]}},
+  {template:'devops',data:{kind:'cost',period:'September',items:[{id:'service',name:'Source service',fields:{Amount:'123.4500',Currency:'NOK'}}]}},
   {template:'code-workspace',data:{files:[{path:'src/main.ts',kind:'file'}],activePath:'src/main.ts',excerpt:{kind:'code',code:'const exact = "123.4500";',language:'typescript'}}},
   {template:'progress',data:{task:'Source verification',events:[{id:'source',title:'Source received',timestamp:'2026-09-16T12:00:00Z',status:'completed'}]}},
   {template:'log',data:{entries:[{line:21,level:'error',message:'Exact log 9007199254740993.001',flagged:true,annotation:'Needs investigation'},{line:22,message:'Original surrounding context'}]}},

@@ -3,7 +3,7 @@
 Both MCP tools accept an optional top-level `activeContext: {sessionId}`. This is a host-owned **per-call guidance context**, not account or transport state. It does not fill operation arguments or authorize an operation.
 
 ```json
-{"name":"kanvas_discover","arguments":{"catalog":"tools","action":"search","query":"guidance","activeContext":{"sessionId":"authorized-session-id"}}}
+{"name":"kanvas_discover","arguments":{"catalog":"operations","action":"search","query":"guidance","activeContext":{"sessionId":"authorized-session-id"}}}
 ```
 
 ```json

@@ -2,7 +2,7 @@ import type {ViewSpec} from './types.js';
 import type {WORK_TEMPLATE_IDS} from './work-views.js';
 type Id=typeof WORK_TEMPLATE_IDS[number];
 const sample=(template:Id,data:Record<string,unknown>):ViewSpec=>({version:1,template,data});
-export const workNames:Record<Id,string>={email:'Email reader',inbox:'Inbox',chat:'Chat thread',cards:'Cards','record-detail':'Record detail',bookmarks:'Web bookmarks','tool-inventory':'Tool inventory','tool-detail':'Tool detail','code-workspace':'Code workspace',developer:'Developer workflow',operations:'Operations'};
+export const workNames:Record<Id,string>={email:'Email reader',inbox:'Inbox',chat:'Chat thread',cards:'Cards','record-detail':'Record detail',bookmarks:'Web bookmarks','tool-inventory':'Tool inventory','tool-detail':'Tool detail','code-workspace':'Code workspace',developer:'Developer workflow',devops:'Operations'};
 export const workExamples:Record<Id,ViewSpec>={
   email:sample('email',{messages:[{id:'mail-1',from:'Alex',to:['Sam'],subject:'Design review',timestamp:'2026-09-17T10:00:00Z',body:'The updated sketches are ready.\n\nPlease review the navigation before Friday.'}]}),
   inbox:sample('inbox',{items:[{id:'mail-1',from:'Alex',subject:'Design review',snippet:'The updated sketches are ready.',timestamp:'10:00',unread:true},{id:'mail-2',from:'Jordan',subject:'Meeting notes',snippet:'Decisions from yesterday’s workshop.',timestamp:'Yesterday',unread:false}]}),
@@ -14,7 +14,7 @@ export const workExamples:Record<Id,ViewSpec>={
   'tool-detail':sample('tool-detail',{name:'pull_requests.read',integration:'Example repository integration',parameters:[{name:'repository',type:'string',required:true,description:'The repository identifier.'},{name:'number',type:'integer',required:true,description:'The pull request number.'}],returns:'Pull request title, description, files and checks.'}),
   'code-workspace':sample('code-workspace',{files:[{path:'src/app.ts',kind:'file',status:'modified'},{path:'src/styles.css',kind:'file'}],activePath:'src/app.ts',excerpt:{kind:'code',path:'src/app.ts',language:'typescript',code:'export function welcome(name: string) {\n  return `Hello, ${name}`;\n}',highlightLines:[2]}}),
   developer:sample('developer',{kind:'pull-request',title:'Improve keyboard navigation',status:'Open',author:'Alex',base:'main',head:'keyboard-navigation',description:'Keep every control reachable with the keyboard.',files:[{path:'src/navigation.ts',status:'modified',additions:24,deletions:8}],checks:[{id:'check-1',name:'Browser checks',status:'Passed'}],approvals:[{id:'review-1',name:'Sam',status:'Approved'}]}),
-  operations:sample('operations',{kind:'environments',items:[{id:'prod',name:'Production',status:'Healthy',fields:{Version:'v1.8.2',Uptime:'99.98%'}},{id:'stage',name:'Staging',status:'Deploying',fields:{Version:'v1.9.0-rc1'}}]}),
+  devops:sample('devops',{kind:'environments',items:[{id:'prod',name:'Production',status:'Healthy',fields:{Version:'v1.8.2',Uptime:'99.98%'}},{id:'stage',name:'Staging',status:'Deploying',fields:{Version:'v1.9.0-rc1'}}]}),
 };
 export const workDescriptions: Record<Id, string> = {
     email: 'Read exact supplied messages with From, To, Cc, subject, time and body. Multiple messages form a thread. Snippets are explicitly labelled. No email sending.',
@@ -27,5 +27,5 @@ export const workDescriptions: Record<Id, string> = {
     'tool-detail': 'One supplied tool’s name, integration, description and parameter name/type/required/description. Optional return description. Required means an input field, not an approval requirement.',
     'code-workspace': 'A supplied file tree plus activePath and exact code/diff excerpt, with relevant line highlights. Side by side on wide screens and stacked on phones. No editor chrome or repository access.',
     developer: 'kind pull-request for summary/files/checks/approvals; pipeline for stages/jobs; commits for commit log and supplied parent links; review for code-line threads. Use cards for issues. Source statuses are free-form; no repository writes.',
-    operations: 'kind environments (health/version/uptime), alerts (severity/service/state), access (roles/review), cost (source values/period), or rollout (canary/blue-green stages). Use source-defined fields. No monitoring, billing query or access grant occurs.',
+    devops: 'kind environments (health/version/uptime), alerts (severity/service/state), access (roles/review), cost (source values/period), or rollout (canary/blue-green stages). Use source-defined fields. No monitoring, billing query or access grant occurs.',
 };

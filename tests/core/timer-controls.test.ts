@@ -321,7 +321,7 @@ describe.each(['modern', 'legacy'] as const)('%s MCP timer control integration',
         const { h, account, session, display, client, call, interpret } = await protocolSetup(protocol);
         const discovery = await client.listTools();
         expect(discovery.tools.some(tool => tool.name === 'kanvas_call')).toBe(true);
-        const found = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id: 'kanvas.timer.control' } });
+        const found = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id: 'kanvas.timer.control' } });
         expect((found.structuredContent as any).data.entry.operationId).toBe('kanvas.timer.control');
         await account.submit(session.id, [display.id], timer({ endsAt: iso(Date.now() + 120000), completeText: 'Finished' }));
         const before = (await account.detail(session.id)).displays[0];

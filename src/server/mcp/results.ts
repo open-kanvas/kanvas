@@ -129,7 +129,7 @@ export function safeError(error: unknown): SafeError {
         return { code: error.code, message: error.message, currentRevision: error.currentRevision as number, expectedRevision: error.currentRevision as number };
     if (error instanceof InputError || error instanceof z.ZodError)
         return {
-            layer: error instanceof InputError && error.template ? 'template' : 'operation-envelope', validateTool: 'kanvas.view.validate',
+            layer: error instanceof InputError && error.template ? 'template' : 'operation-envelope',
             ...(error instanceof InputError && error.template && Object.hasOwn(samples, error.template) ? { example: samples[error.template as TemplateId] } : {}),
             code: 'INVALID_ARGUMENT', message: (error instanceof InputError ? error.message : new InputError(validationIssues(error)).message).slice(0, 700),
             issues: error instanceof InputError ? error.issues : validationIssues(error),
@@ -145,7 +145,7 @@ export function safeError(error: unknown): SafeError {
     // before rendering. They are not server crashes.
     if (error instanceof RenderingError)
         return {
-            layer: 'template', validateTool: 'kanvas.view.validate',
+            layer: 'template',
             code: Object.hasOwn(renderingMessages, error.code) ? error.code : 'INVALID_ARGUMENT',
             message: renderingMessages[error.code] ?? 'The supplied content or source binding could not be validated. Check the exact template/source contract.',
             ...(error.issues?.length ? { issues: error.issues.map(issue => ({ path: issue.path.slice(0, 160), problem: (issue.rule ?? issue.code).slice(0, 300) })) } : {}),
@@ -171,6 +171,8 @@ export function safeError(error: unknown): SafeError {
     }
     return { code, message: messages[code] };
 }
+const OVERVIEW_POINTER = 'If you have not loaded the overview in this conversation, call discover with no arguments once to get every operation and template name.';
+
 export function toolFailure(error: unknown, diagnosticId?: string, profile: McpProfile = "discovery", canonicalName?: string): CallToolResult {
     const failure = { ...safeError(error), ...(diagnosticId ? { diagnosticId } : {}) };
     const operation = canonicalName ? operationCatalog().find(item => item.id === operationId(canonicalName)) : undefined;
@@ -178,9 +180,16 @@ export function toolFailure(error: unknown, diagnosticId?: string, profile: McpP
     const templateIds = failure.issues?.flatMap(issue => (issue.hint?.match(/Closest valid template IDs: ([a-z0-9, -]+)\./)?.[1] ?? '').split(', ').filter(Boolean)) ?? [];
     const suggestions = templateSuggestions(templateIds);
     const extraRecovery = error instanceof InputError && 'discoveryRecovery' in error ? error.discoveryRecovery : undefined;
-    const recovery = failure.code === 'INVALID_ARGUMENT' && operation ? { operationId: operation.id, allowedFields: Object.keys(operationSchema?.properties ?? {}).slice(0,80), requiredFields: operationSchema?.required ?? [], fallback: discoveryFallback('tools', operation.id), ...(suggestions.length ? { suggestions } : {}), get: { tool: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id: operation.id } }, ...(operation.id === 'kanvas.submit' ? { shape: SUBMIT_SHAPE } : {}), ...(failure.template ? { template: { tool: 'kanvas_discover', arguments: { catalog: 'templates', action: 'get', id: `kanvas.template.${failure.template}` } } } : {}), examples: ((operation.detail().examples ?? []) as unknown[]).filter(example => JSON.stringify(example).length < 2500).slice(0, 1), note: 'Examples are syntax only and never grant consent. Substitute authorized IDs, preserve source data, and obtain any missing explicit approval rather than copying confirm:true. Validation made no change; do not retry unchanged.' } : failure.code === 'INVALID_ARGUMENT' ? extraRecovery ?? { discovery: DISCOVERY_ORIENTATION } : undefined;
+    const recovery = failure.code === 'INVALID_ARGUMENT' && operation ? { operationId: operation.id, allowedFields: Object.keys(operationSchema?.properties ?? {}).slice(0,80), requiredFields: operationSchema?.required ?? [], fallback: discoveryFallback('operations', operation.id), ...(suggestions.length ? { suggestions } : {}), get: { tool: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id: operation.id } }, ...(operation.id === 'kanvas.submit' ? { shape: SUBMIT_SHAPE } : {}), ...(failure.template ? { template: { tool: 'kanvas_discover', arguments: { catalog: 'templates', action: 'get', id: `kanvas.template.${failure.template}` } } } : {}), examples: ((operation.detail().examples ?? []) as unknown[]).filter(example => JSON.stringify(example).length < 2500).slice(0, 1), note: 'Examples are syntax only and never grant consent. Substitute authorized IDs, preserve source data, and obtain any missing explicit approval rather than copying confirm:true. Validation made no change; do not retry unchanged.' } : failure.code === 'INVALID_ARGUMENT' ? extraRecovery ?? { discovery: DISCOVERY_ORIENTATION } : undefined;
     const projected = trustedGuidance(failure) as typeof failure;
-    const result = { error: { ...projected, ...(operation && failure.code === 'INVALID_ARGUMENT' ? { allowedFields: Object.keys(operationSchema?.properties ?? {}).slice(0,80), schemaTool: 'kanvas_discover', schemaArguments: { catalog: failure.template ? 'templates' : 'tools', action: 'get', id: failure.template ? 'kanvas.template.' + failure.template : operation.id } } : {}) }, ...(recovery ? { recovery } : {}), server: mcpServerInfo(profile), docs: { path: '/docs/recovery', help: { tool: 'kanvas_discover', arguments: { catalog: 'help', action: 'get', id: 'kanvas.help.recovery' } } } };
+    // Never echo failed source data. Offer a schema-owned view example only
+    // for template failures, with explicit authorized-session substitution.
+    const validate = failure.layer === 'template' && failure.template && failure.example ? {
+        validateTool: 'kanvas_call', validateArguments: { operationId: 'kanvas.view.validate', arguments: { sessionId: 'session-id', view: failure.example } },
+        validateNote: 'Syntax example only: substitute the authorized sessionId and your complete prepared view. This does not validate the failed input automatically.',
+    } : {};
+    const validationFailure = failure.code === 'INVALID_ARGUMENT' || failure.layer === 'template';
+    const result = { error: { ...projected, ...validate, ...(operation && failure.code === 'INVALID_ARGUMENT' ? { allowedFields: Object.keys(operationSchema?.properties ?? {}).slice(0,80), schemaTool: 'kanvas_discover', schemaArguments: { catalog: failure.template ? 'templates' : 'operations', action: 'get', id: failure.template ? 'kanvas.template.' + failure.template : operation.id } } : {}) }, ...(recovery ? { recovery } : {}), ...(validationFailure ? { overview: OVERVIEW_POINTER } : {}), server: mcpServerInfo(profile), docs: { path: '/docs/recovery', help: { tool: 'kanvas_discover', arguments: { catalog: 'help', action: 'get', id: 'kanvas.help.recovery' } } } };
     const detail = { type: 'text' as const, text: JSON.stringify(result) };
     const headline = `${result.error.code}: ${result.error.message}${diagnosticId ? ` Diagnostic: ${diagnosticId}. Read recentDiagnostics with ${'kanvas_call {operationId:"kanvas.session.state",arguments:{sessionId}}'} if your host hides error details.` : ''}`;
     // Standard MCP text is readable without structured-content support. Preserve
@@ -230,7 +239,7 @@ export function toolSuccess(value: unknown, sessionId?: unknown, operation = '',
     } | undefined;
     const template = operation === "kanvas.submit" ? submittedView?.template : undefined;
     const relatedOperations = template ? workflowIds(template).flatMap(id => { const item = operationCatalog().find(entry => entry.id === id); return item ? [{ id, description: item.summary }] : []; }) : [];
-    const workflow = relatedOperations.length ? { relatedOperations, instruction: WORKFLOW_NOTE, get: { tool: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id: relatedOperations[0].id } } } : undefined;
+    const workflow = relatedOperations.length ? { relatedOperations, instruction: WORKFLOW_NOTE, get: { tool: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id: relatedOperations[0].id } } } : undefined;
     const commitmentBoundary = operation === "kanvas.planner.finalize" || template === 'planner' && submittedView?.data?.status === 'committed' ? PLANNER_BOUNDARY : undefined;
     let result: Record<string, unknown> = { ...(workflow ? { workflow } : {}), ...(commitmentBoundary ? { commitmentBoundary } : {}), data: data ?? null, server, ...(orientation ? { orientation } : {}), ...routing };
     let text = JSON.stringify(result);

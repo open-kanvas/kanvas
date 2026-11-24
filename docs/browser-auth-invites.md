@@ -1,6 +1,6 @@
 # Browser sign-ins and explicitly requested invitation email
 
-The advertised MCP tools remain `kanvas_discover` and `kanvas_call`. Get the exact schemas with `kanvas_discover {catalog:"tools",action:"get",id:"kanvas.browser.auth.list"}` (or the other operation ID), then use `kanvas_call {operationId,arguments}`.
+The advertised MCP tools remain `kanvas_discover` and `kanvas_call`. Get the exact schemas with `kanvas_discover {catalog:"operations",action:"get",id:"kanvas.browser.auth.list"}` (or the other operation ID), then use `kanvas_call {operationId,arguments}`.
 
 ## Remote full-account browser logout
 

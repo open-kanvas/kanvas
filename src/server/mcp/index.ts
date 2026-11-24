@@ -1,3 +1,4 @@
+import {OVERVIEW_POINTER} from './overview.js';
 import {guidanceConnectionId} from './connection-identity.js';
 import { MCP_MAX_BODY_BYTES, mcpRequestLimit } from './request-limits.js';
 import {parseDiscoveryRequest} from './discovery.js';
@@ -244,7 +245,7 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
                 });
                 // Keep existing structured/text JSON mirrors consistent. Plain-text
                 // catalog lists retain every original line and gain a separate block.
-                const extra = decided.extra ?? (structuredContent && !mirrored ? Object.fromEntries(['agentGuidance', 'firstContact', 'rhythm'].filter(key => structuredContent[key] !== undefined).map(key => [key, structuredContent[key]])) : undefined);
+                const extra = decided.extra ?? (structuredContent && !mirrored ? Object.fromEntries(['agentGuidance', 'rhythm'].filter(key => structuredContent[key] !== undefined).map(key => [key, structuredContent[key]])) : undefined);
                 if (!mirrored && extra && Object.keys(extra).length)
                     content.push({ type: 'text', text: JSON.stringify(extra) });
                 friction(result, content, operation, connectionId);
@@ -261,14 +262,19 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
                             const input = raw;
                             if (!service.resolveIntent)
                                 throw new Error('Intent resolution unavailable.');
-                            const data = await service.resolveIntent(current().principal, input), result = { data };
+                            const data = await service.resolveIntent(current().principal, input), result = { data, overviewPointer: OVERVIEW_POINTER };
                             return decorate({ content: [{ type: 'text' as const, text: JSON.stringify(result) }], structuredContent: result });
                         }
-                        return decorate(discoveryResult('kanvas_discover', raw, { principal: current().principal, signal: extra.mcpReq.signal, privateTemplates: await service.customTemplateCatalog?.(current().principal) }));
+                        const principal = current().principal;
+                        const [privateTemplates, serviceAdmin, overviewContext] = await Promise.all([service.customTemplateCatalog?.(principal), service.discoveryIsAdmin?.(principal), raw.action === 'overview' ? service.discoveryOverview?.(principal) : undefined]);
+                        const result = discoveryResult('kanvas_discover', raw, {principal, signal: extra.mcpReq.signal, privateTemplates, serviceAdmin, overviewContext});
+                        return raw.action === 'overview' ? result : decorate(result);
                     }
                     catch (error) {
                         status = 'failed';
-                        return decorate(toolFailure(error, undefined, 'discovery'));
+                        const failure = toolFailure(error, undefined, 'discovery');
+                        const structuredContent = {...failure.structuredContent, overviewPointer: OVERVIEW_POINTER};
+                        return decorate({...failure, structuredContent, content: [{type: 'text', text: JSON.stringify(structuredContent)}]});
                     }
                     finally {
                         try {

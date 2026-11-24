@@ -8,7 +8,7 @@ import {name} from '../operation-fields.js';
 /** session-history operation contracts. Domain services enforce current account, role and scope. */
 export const sessionHistoryOperations: readonly Definition[] = [
 {
-        name: "kanvas.sessions.list",
+        name: "kanvas.sessions.list", summary: "List accessible sessions when finding deliberate continuation candidates rather than creating a new workspace immediately.",
         description: "Find an accessible session for showing something on screen. Then read kanvas_call with operationId:\"kanvas.session.state\" and arguments:{\u2026} for current displays and revisions before publishing; kanvas_discover catalog help action search for \"getting started\" introduces templates, viewer location and quiet operation. IDs locate content, never authorize access.",
         schema: z.strictObject({}), readOnly: true,
         domain: "session-history",

@@ -35,7 +35,7 @@ export function resolveToolCall(_profile: McpProfile, name: string, raw: unknown
     }
     const operation = operationTable().get(String(input.operationId));
     if (!operation)
-        return { error: Object.assign(new InputError([{ path: 'operationId', problem: 'Unknown operation ID. Choose a suggested operation and inspect its schema; discovery also works through kanvas_call operationId kanvas.discover.' }]), { discoveryRecovery: { suggestions: operationSuggestions(String(input.operationId)), search: { tool: 'kanvas_call', arguments: { operationId: 'kanvas.discover', arguments: { catalog: 'tools', action: 'search', query: 'describe the intended action' } } } } }) };
+        return { error: Object.assign(new InputError([{ path: 'operationId', problem: 'Unknown operation ID. Choose a suggested operation and inspect its schema; discovery also works through kanvas_call operationId kanvas.discover.' }]), { discoveryRecovery: { suggestions: operationSuggestions(String(input.operationId)), search: { tool: 'kanvas_call', arguments: { operationId: 'kanvas.discover', arguments: { catalog: 'operations', action: 'search', query: 'describe the intended action' } } } } }) };
     const canonicalName = operation.id, reference: ToolReference = { tool: 'kanvas_call', operation: operation.id };
     let args: unknown;
     try {

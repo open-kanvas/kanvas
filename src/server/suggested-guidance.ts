@@ -12,28 +12,28 @@ const remove=save.pick({suggestionId:true,expectedRevision:true,requestId:true})
 const copy=remove.extend({promptId:id,name:z.string().trim().min(1).max(100).optional()});
 export const suggestedGuidanceTools: Definition[] = [
     {
-        name: "kanvas.guidance.suggestions.list", schema: list, readOnly: true, description: 'Browse the separate global suggested guidance catalog, including exact text/revision. Not your private library. Browsing never saves or activates guidance; import explicitly, then activate separately.',
+        name: "kanvas.guidance.suggestions.list", summary: "Browse the global suggested guidance catalog when looking for reusable prompts without importing or activating them.", schema: list, readOnly: true, description: 'Browse the separate global suggested guidance catalog, including exact text/revision. Not your private library. Browsing never saves or activates guidance; import explicitly, then activate separately.',
         domain: "guidance-suggestions",
         requiredScope: "read",
         discovery: {"group":"guidance","hint":"Browse optional global suggestions, separate from my personal prompts.","examples":[{}]},
         searchAliases: ["kanvas.guidance.suggestions.list"]
     },
     {
-        name: "kanvas.guidance.suggestions.save", schema: save, idempotent: true, description: 'Service administrators only: create or edit global suggested guidance. Omit expectedRevision to use current state; explicit0 requires a new suggestion, and explicit stale revisions fail. Editorial content only; never extract private prompts. Existing personal copies remain unchanged.',
+        name: "kanvas.guidance.suggestions.save", serviceAdminOnly: true, summary: "Create or edit a global guidance suggestion when a service administrator maintains the shared editorial catalog.", schema: save, idempotent: true, description: 'Service administrators only: create or edit global suggested guidance. Omit expectedRevision to use current state; explicit0 requires a new suggestion, and explicit stale revisions fail. Editorial content only; never extract private prompts. Existing personal copies remain unchanged.',
         domain: "guidance-suggestions",
         requiredScope: "publish",
         discovery: {"group":"guidance","hint":"Service admin curates global suggestions; never extracts private prompts.","examples":[{"suggestionId":"concise","name":"Concise","text":"Keep commentary brief.","expectedRevision":0,"requestId":"suggestion-save"}]},
         searchAliases: ["kanvas.guidance.suggestions.save"]
     },
     {
-        name: "kanvas.guidance.suggestions.delete", schema: remove, idempotent: true, description: 'Service administrators only: remove a global suggestion. Omit expectedRevision to use current state; an explicit revision guards the removal. Existing imported personal copies and active guidance remain unchanged.',
+        name: "kanvas.guidance.suggestions.delete", serviceAdminOnly: true, summary: "Remove a global guidance suggestion when a service administrator retires it without changing existing personal copies.", schema: remove, idempotent: true, description: 'Service administrators only: remove a global suggestion. Omit expectedRevision to use current state; an explicit revision guards the removal. Existing imported personal copies and active guidance remain unchanged.',
         domain: "guidance-suggestions",
         requiredScope: "publish",
         discovery: {"group":"guidance","hint":"Service admin removes a suggestion; personal copies remain.","examples":[{"suggestionId":"concise","expectedRevision":1,"requestId":"suggestion-delete"}]},
         searchAliases: ["kanvas.guidance.suggestions.delete"]
     },
     {
-        name: "kanvas.guidance.suggestions.import", schema: copy, idempotent: true, description: "Explicitly copy a selected global suggestion into a NEW private promptId. Omit expectedRevision to copy current content; provide the previewed revision to reject intervening edits. Never overwrites a personal prompt or activates guidance. The copy is independently editable; activate separately with kanvas_call with operationId:\"kanvas.guidance.library.activate\" and arguments:{\u2026}.",
+        name: "kanvas.guidance.suggestions.import", summary: "Copy a global suggestion into a new private prompt when adopting editable guidance without activating it.", schema: copy, idempotent: true, description: "Explicitly copy a selected global suggestion into a NEW private promptId. Omit expectedRevision to copy current content; provide the previewed revision to reject intervening edits. Never overwrites a personal prompt or activates guidance. The copy is independently editable; activate separately with kanvas_call with operationId:\"kanvas.guidance.library.activate\" and arguments:{\u2026}.",
         domain: "guidance-suggestions",
         requiredScope: "publish",
         discovery: {"group":"guidance","hint":"Explicitly copy a suggestion to a new personal prompt, without activation.","examples":[{"suggestionId":"passive","expectedRevision":1,"promptId":"my-passive","requestId":"suggestion-import"}]},

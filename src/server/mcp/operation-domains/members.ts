@@ -8,7 +8,7 @@ import {id,name} from '../operation-fields.js';
 /** members operation contracts. Domain services enforce current account, role and scope. */
 export const membersOperations: readonly Definition[] = [
 {
-        name: "kanvas.member.add",
+        name: "kanvas.member.add", summary: "Grant an existing account session viewer or editor access when the owner adds a named participant.",
         description: 'As session owner, grant an existing account viewer or editor access. Viewer login remains separate from MCP authorization; sharing a URL alone grants nothing.',
         schema: z.strictObject({ sessionId: id, username: z.string().min(1).max(160), role: z.enum(['viewer', 'editor']) }),
         idempotent: true,
@@ -18,7 +18,7 @@ export const membersOperations: readonly Definition[] = [
         searchAliases: ["kanvas.member.add"]
     },
 {
-        name: "kanvas.member.remove",
+        name: "kanvas.member.remove", summary: "Revoke an account's session membership when the owner removes a participant's access to content and updates.",
         description: 'As session owner, revoke a participant account from this session. Subsequent reads, edits, and subscription delivery must be re-authorized.',
         schema: z.strictObject({ sessionId: id, userId: id }), destructive: true, idempotent: true,
         domain: "members",

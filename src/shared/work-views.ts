@@ -34,8 +34,8 @@ export const developerDataSchema=z.discriminatedUnion('kind',[
   z.object({kind:z.literal('review'),path:label,code:z.string().max(100_000).optional(),startLine:z.number().int().positive().default(1),threads:z.array(z.object({id,line:z.number().int().positive(),status:label.optional(),comments:z.array(chatMessageSchema).min(1).max(100)}).strict()).max(200)}).strict(),
 ]);
 export const operationsDataSchema=z.object({kind:z.enum(['environments','alerts','access','cost','rollout']),title:label.optional(),period:label.optional(),items:z.array(statusItem).max(1000).refine(unique,'Record IDs must be unique.'),stages:z.array(statusItem).max(100).optional()}).strict();
-export const WORK_TEMPLATE_IDS=['email','inbox','chat','cards','record-detail','bookmarks','tool-inventory','tool-detail','developer','operations','code-workspace'] as const;
-export const workSchemas={email:emailDataSchema,inbox:inboxDataSchema,chat:chatDataSchema,cards:cardsDataSchema,'record-detail':recordDetailDataSchema,bookmarks:bookmarksDataSchema,'tool-inventory':toolInventoryDataSchema,'tool-detail':toolDetailDataSchema,developer:developerDataSchema,operations:operationsDataSchema};
+export const WORK_TEMPLATE_IDS=['email','inbox','chat','cards','record-detail','bookmarks','tool-inventory','tool-detail','developer','devops','code-workspace'] as const;
+export const workSchemas={email:emailDataSchema,inbox:inboxDataSchema,chat:chatDataSchema,cards:cardsDataSchema,'record-detail':recordDetailDataSchema,bookmarks:bookmarksDataSchema,'tool-inventory':toolInventoryDataSchema,'tool-detail':toolDetailDataSchema,developer:developerDataSchema,devops:operationsDataSchema};
 export type EmailData=z.infer<typeof emailDataSchema>;
 export type InboxData=z.infer<typeof inboxDataSchema>;
 export type ChatData=z.infer<typeof chatDataSchema>;

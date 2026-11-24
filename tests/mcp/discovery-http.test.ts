@@ -26,7 +26,7 @@ describe('two-tool authenticated HTTP contract', () => {
             const tools = (await client.listTools()).tools;
             expect(tools.map(tool => tool.name)).toEqual(DISCOVERY_TOOL_NAMES);
             const count = h.service.calls.length;
-            for (const catalog of ['tools', 'templates', 'help']) {
+            for (const catalog of ['operations', 'templates', 'help']) {
                 const listed = await client.callTool({ name: 'kanvas_discover', arguments: { catalog, action: 'list' } });
                 expect(listed.isError).not.toBe(true);
                 expect(listed.structuredContent).toBeUndefined();
@@ -48,7 +48,7 @@ describe('two-tool authenticated HTTP contract', () => {
                 expect(event).toMatchObject({ tool: 'kanvas_discover', rawOnly: true, status: 'completed' });
             }
             record.mockClear();
-            const invalid = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id: '', unexpected: true } });
+            const invalid = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id: '', unexpected: true } });
             expect(invalid.isError).toBe(true);
             expect(h.service.calls.length).toBe(count);
             expect(record).toHaveBeenCalledOnce();
@@ -143,7 +143,7 @@ describe('two-tool authenticated HTTP contract', () => {
         const scoped = await connect(['read', 'publish'], [session.id]);
         expect((await use(scoped, 'kanvas.session.create', { name: 'Must not escape scope' })).isError).toBe(true);
         expect((await use(scoped, 'kanvas.account.details')).isError).toBe(true);
-        expect(data(await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id: 'kanvas.checklist.show' } })).entry.id).toBe('kanvas.checklist.show');
+        expect(data(await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id: 'kanvas.checklist.show' } })).entry.id).toBe('kanvas.checklist.show');
         // Static built-in contracts are safe for selected-session readers; no account content is read.
         const inventory = await readOnly.callTool({ name: 'kanvas_discover', arguments: { catalog: 'templates', action: 'list' } });
         expect(((inventory.content as {

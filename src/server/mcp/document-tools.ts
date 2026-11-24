@@ -4,7 +4,7 @@ import type {Definition} from './canonical.js';
 /** Server-held drafting: the drafting display's view is the authoritative draft. */
 export const documentTools: Definition[] = [
     {
-        name: "kanvas.draft.read", readOnly: true, schema: draftReadSchema,
+        name: "kanvas.draft.read", summary: "Read draft text, suggestions, attribution, and versions when reviewing a drafting display or comparing earlier revisions.", readOnly: true, schema: draftReadSchema,
         description: 'DRAFT READ: includes authenticated author/activity attribution; the authoritative server-held draft of a drafting display: exact text (windowed), suggestions with their original text, focus, status, retained versions and optionally a word diff from an earlier revision (compareToRevision). Read-only.',
         domain: "draft",
         requiredScope: "read",
@@ -12,7 +12,7 @@ export const documentTools: Definition[] = [
         searchAliases: ["kanvas.draft.read"]
     },
     {
-        name: "kanvas.draft.edit", schema: draftEditSchema,
+        name: "kanvas.draft.edit", summary: "Edit draft text, purpose, focus, or status when changing the document while preserving unaffected suggestion anchors.", schema: draftEditSchema,
         description: 'DRAFT EDIT: change the draft text in place with expectedRevision CAS and a stable requestId: replace a range, find-replace (occurrence or all), append or set-text; also draftStatus, purpose and focus. Untouched suggestions are re-anchored; suggestions an edit overlaps are dropped and reported.',
         domain: "draft",
         requiredScope: "publish",
@@ -20,7 +20,7 @@ export const documentTools: Definition[] = [
         searchAliases: ["kanvas.draft.edit"]
     },
     {
-        name: "kanvas.draft.suggest", schema: draftSuggestSchema,
+        name: "kanvas.draft.suggest", summary: "Propose anchored text replacements when reviewing a draft without changing its current text before acceptance.", schema: draftSuggestSchema,
         description: 'DRAFT SUGGEST: actor attributed automatically; propose replacements without changing the text, anchored by start/end or by find (+occurrence). They render inline as struck-through original plus proposed text with the reason. Suggestions must not overlap; reusing an id replaces that suggestion.',
         domain: "draft",
         requiredScope: "publish",
@@ -28,7 +28,7 @@ export const documentTools: Definition[] = [
         searchAliases: ["kanvas.draft.suggest"]
     },
     {
-        name: "kanvas.draft.review", schema: draftReviewSchema,
+        name: "kanvas.draft.review", summary: "Accept or reject draft suggestions when resolving proposed changes and optionally updating the document's status.", schema: draftReviewSchema,
         description: 'DRAFT REVIEW: accept (apply to the text) or reject suggestions by id, or all remaining ones; other suggestions are re-anchored. Optionally set draftStatus, for example ready.',
         domain: "draft",
         requiredScope: "publish",
@@ -40,7 +40,7 @@ export const documentTools: Definition[] = [
 /** Server-held schedule planning: the planner display's view is the authoritative plan. */
 export const plannerTools: Definition[] = [
     {
-        name: "kanvas.planner.read", readOnly: true, schema: plannerReadSchema,
+        name: "kanvas.planner.read", summary: "Read plan items, conflicts, proposals, and status when reviewing a planner or exporting committed iCalendar text.", readOnly: true, schema: plannerReadSchema,
         description: 'PLANNER READ (not read-only calendar): the authoritative plan of a planner display: items, conflicts (overlaps and missed declared wishes), pending proposals with before/after placement and warnings, status and revision. includeIcs returns iCalendar text for a committed plan. Read-only.',
         domain: "planner",
         requiredScope: "read",
@@ -48,7 +48,7 @@ export const plannerTools: Definition[] = [
         searchAliases: ["kanvas.planner.read"]
     },
     {
-        name: "kanvas.planner.edit", schema: plannerEditSchema,
+        name: "kanvas.planner.edit", summary: "Change plan items and presentation settings when editing a planner directly rather than proposing changes for review.", schema: plannerEditSchema,
         description: 'PLANNER EDIT: add or replace items (upsertItems; same id replaces), remove items, change plannerView/anchorDate/categories, or discard pending proposals. Proposals that no longer apply are dropped and reported; item changes reopen a committed plan.',
         domain: "planner",
         requiredScope: "publish",
@@ -56,7 +56,7 @@ export const plannerTools: Definition[] = [
         searchAliases: ["kanvas.planner.edit"]
     },
     {
-        name: "kanvas.planner.propose", schema: plannerProposeSchema,
+        name: "kanvas.planner.propose", summary: "Suggest adding, moving, or removing plan items when changes should remain pending until explicitly accepted.", schema: plannerProposeSchema,
         description: 'PLANNER PROPOSE: suggest moving (changed fields), adding (new itemId) or removing an item, each with a reason. Items change only when a proposal is accepted; one pending proposal per item, and reusing a proposal id replaces it.',
         domain: "planner",
         requiredScope: "publish",
@@ -64,7 +64,7 @@ export const plannerTools: Definition[] = [
         searchAliases: ["kanvas.planner.propose"]
     },
     {
-        name: "kanvas.planner.review", schema: plannerReviewSchema,
+        name: "kanvas.planner.review", summary: "Accept or reject pending plan proposals when resolving suggested changes and recalculating the planner's conflicts.", schema: plannerReviewSchema,
         description: 'PLANNER REVIEW: accept (apply) or reject proposals by id, or all remaining ones; conflicts are recomputed. Viewers can also decide on the display.',
         domain: "planner",
         requiredScope: "publish",
@@ -72,7 +72,7 @@ export const plannerTools: Definition[] = [
         searchAliases: ["kanvas.planner.review"]
     },
     {
-        name: "kanvas.planner.finalize", schema: plannerFinalizeSchema,
+        name: "kanvas.planner.finalize", summary: "Mark a plan committed after proposals are resolved when preparing exportable results without writing external calendars.", schema: plannerFinalizeSchema,
         description: "PLANNER FINALIZE: commit the plan once no proposals are pending; remaining conflicts are reported, not blocked. Kanvas never writes to calendars: read kanvas_call with operationId:\"kanvas.planner.read\" and arguments:{\u2026} with includeIcs and hand the iCalendar text to a calendar tool.",
         domain: "planner",
         requiredScope: "publish",

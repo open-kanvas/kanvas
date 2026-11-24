@@ -35,7 +35,7 @@ it.each(['modern', 'legacy'])('%s MCP exposes and executes every account/history
     const catalog = await client.listTools();
     expect(catalog.tools).toHaveLength(2);
     for (const [canonical] of ACCOUNT_MAPPING) {
-        const found = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'tools', action: 'get', id: operationId(canonical) } });
+        const found = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id: operationId(canonical) } });
         expect((found.structuredContent as any).data.entry.operationId).toBe(operationId(canonical));
     }
     const profile = await call("kanvas_call", "kanvas.profile.read");

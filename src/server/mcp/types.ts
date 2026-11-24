@@ -25,6 +25,8 @@ export interface ToolInvocation {
 }
 /** The domain owns account, role, scope, revision, and session checks. */
 export interface McpService {
+    discoveryOverview?(principal: Principal): Promise<import('./overview.js').OverviewContext>;
+    discoveryIsAdmin?(principal: Principal): Promise<boolean>;
     argumentError?(name: string, args: Record<string, unknown>, principal: Principal, error: unknown): Promise<unknown>;
     customTemplateCatalog?(principal: Principal): Promise<import('./discovery.js').CatalogItem[]>;
     resolveIntent?(principal: Principal, args: unknown): Promise<unknown>;

@@ -64,14 +64,14 @@ export const iconsSearchSchema=z.strictObject({query:z.string().trim().min(1).ma
 export const fontsListSchema=z.strictObject({category:z.enum(['sans','serif','mono','display','handwriting']).optional(),family:fontIdSchema.optional()});
 export const pickerTools: Definition[] = [
     {
-        name: "kanvas.icons.search", schema: iconsSearchSchema, readOnly: true, description: 'Find icons by concept in open-source sets (Lucide, Heroicons, Phosphor, Tabler, Material Symbols; iconify where configured). Returns exact ids and a ready icon-picker view.',
+        name: "kanvas.icons.search", summary: "Find icons by concept across supported open-source sets when selecting exact identifiers for visual content.", schema: iconsSearchSchema, readOnly: true, description: 'Find icons by concept in open-source sets (Lucide, Heroicons, Phosphor, Tabler, Material Symbols; iconify where configured). Returns exact ids and a ready icon-picker view.',
         domain: "template",
         requiredScope: "read",
         discovery: {"group":"guidance","hint":"Find icons by concept across open-source sets; returns exact set:name ids and a ready icon-picker view.","examples":[{"query":"settings","limit":8}]},
         searchAliases: ["kanvas.icons.search"]
     },
     {
-        name: "kanvas.fonts.list", schema: fontsListSchema, readOnly: true, description: 'List curated open-licence font families with ids and weights for the font-picker template, or check one family id.',
+        name: "kanvas.fonts.list", summary: "Browse curated open-licence fonts and weights when choosing typography or checking a known font family.", schema: fontsListSchema, readOnly: true, description: 'List curated open-licence font families with ids and weights for the font-picker template, or check one family id.',
         domain: "template",
         requiredScope: "read",
         discovery: {"group":"guidance","hint":"Curated open-licence font families with ids and weights for the font-picker template.","examples":[{"category":"serif"}]},

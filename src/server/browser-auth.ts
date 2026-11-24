@@ -41,14 +41,14 @@ export class BrowserAuth {
 }
 export const browserAuthTools: readonly Definition[] = [
     {
-        name: "kanvas.browser.auth.list", description: 'List your actual full-account browser sign-ins (not view-only pairings or OAuth clients). Requires account-level publish authority. Returns management IDs, never cookies or CSRF secrets.', schema: browserListSchema, readOnly: true,
+        name: "kanvas.browser.auth.list", summary: "List full-account browser sign-ins when reviewing account access separately from guest pairings and OAuth clients.", description: 'List your actual full-account browser sign-ins (not view-only pairings or OAuth clients). Requires account-level publish authority. Returns management IDs, never cookies or CSRF secrets.', schema: browserListSchema, readOnly: true,
         domain: "account",
         requiredScope: "read" as const,
         discovery: {"group":"access","hint":"List full-account browser sign-ins; excludes view-only pairings and independent OAuth grants. Account publish authority required.","examples":[{}]},
         searchAliases: ["kanvas.browser.auth.list"]
     },
     {
-        name: "kanvas.browser.auth.revoke", description: 'Explicitly log out one full-account browserSessionId or all:true, including the current browser. Requires account-level publish authority and confirm:true. A stable requestId deduplicates retries; omission generates a new ID each call. Does not revoke independent OAuth clients or view-only pairing grants.', schema: browserRevokeSchema, destructive: true, idempotent: true,
+        name: "kanvas.browser.auth.revoke", summary: "Log out selected or all full-account browser sessions when confirmed account sign-ins need their access revoked.", description: 'Explicitly log out one full-account browserSessionId or all:true, including the current browser. Requires account-level publish authority and confirm:true. A stable requestId deduplicates retries; omission generates a new ID each call. Does not revoke independent OAuth clients or view-only pairing grants.', schema: browserRevokeSchema, destructive: true, idempotent: true,
         domain: "account",
         requiredScope: "publish" as const,
         discovery: {"group":"access","hint":"Explicit logout of one management ID or all account browsers. OAuth/client grants and view-only pairings remain separate.","examples":[{"browserSessionId":"browser-management-id","confirm":true,"requestId":"logout-one"},{"all":true,"confirm":true,"requestId":"logout-all"}]},

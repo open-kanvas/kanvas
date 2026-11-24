@@ -19,9 +19,9 @@ it.each(['legacy','modern-header','modern-meta'])('%s isolates repetition betwee
   return async(operationId:string,args:Record<string,unknown>={sessionId:s.id})=>{const r=await c.callTool({name:'kanvas_call',arguments:{operationId,arguments:args},...(era==='modern-meta'?{_meta:{'kanvas/connectionId':id}}:{})});expect(r.isError,JSON.stringify(r)).not.toBe(true);return r as any;};};
  const a=await make(),b=await make();
  const state=(call:Awaited<ReturnType<typeof make>>,sessionId=s.id)=>call('kanvas.session.state',{sessionId});
- const first=await state(a),second=await state(a);expect(first.structuredContent.firstContact).toBeDefined();expect(second.structuredContent.firstContact).toBeUndefined();
+ const first=await state(a),second=await state(a);expect(first.structuredContent.firstContact).toBeUndefined();expect(second.structuredContent.firstContact).toBeUndefined();
  expect(second.structuredContent.agentGuidance.levels[0].text).toBe(DEFAULT_AGENT_GUIDANCE);expect(second.structuredContent.data).not.toHaveProperty('mode');
- expect((await state(b)).structuredContent.firstContact).toBeDefined();
+ expect((await state(b)).structuredContent.firstContact).toBeUndefined();
  const saved=await h.runtime.service.guidance.read(p,{scope:'user'});
  await a('kanvas.client.context.update',{sessionId:s.id,clientDetails:{guidance:'concise'}});
  const reduced=await state(a);expect(reduced.structuredContent.agentGuidance).toMatchObject({unchanged:true});

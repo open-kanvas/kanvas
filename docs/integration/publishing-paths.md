@@ -4,7 +4,7 @@ Prefer a prepared view when the shape is known. Otherwise provide an explicit `t
 
 `context` can carry literal source text. `intent` describes the desired action but never replaces missing source. A prepared view is validated directly, with the same source-access and delivery checks. No backend generation or translation occurs.
 
-The following complete examples are exercised against the current publishing recipes. Replace locator IDs with actual returned targets. Execute these publication recipes with `kanvas_call`, `operationId:"kanvas.submit"` and the recipe fields nested inside `arguments`. Use `kanvas_discover` with `{catalog:"tools",action:"get",id:"kanvas.submit"}` for the full executable contract.
+The following complete examples are exercised against the current publishing recipes. Replace locator IDs with actual returned targets. Execute these publication recipes with `kanvas_call`, `operationId:"kanvas.submit"` and the recipe fields nested inside `arguments`. Use `kanvas_discover` with `{catalog:"operations",action:"get",id:"kanvas.submit"}` for the full executable contract.
 
 ```json
 {

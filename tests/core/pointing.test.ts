@@ -112,22 +112,22 @@ describe("pointing coverage 1", () => {
         const orientation = { guide: { tool: "kanvas.guide" }, viewerLink: 'how to connect a receiver', toolSelection: 'x', recovery: 'y' };
         const guidance = { boundary: 'b', levels: [{ scope: 'user', id: 'user:1', text: 'be proactive', revision: 3 }] };
         const run = (ledger: ContactLedger, overrides: Partial<Parameters<typeof applyResponsePolicy>[1]> = {}, structured: Record<string, unknown> = { data: { status: 'accepted', sessionId: 's1' }, orientation }, key = 'conn', at = Date.now()) => applyResponsePolicy(structured, { state: ledger.observe(key, at), context: { displayConnected: true }, guidance, isError: false, operation: "kanvas.submit", sessionId: 's1', ...overrides }).structured!;
-        it('first contact carries the purpose, full guidance and full orientation; later calls repeat guidance', () => {
+        it('first call retains guidance and orientation without the removed first-contact block', () => {
             const ledger = new ContactLedger(), first = run(ledger);
-            expect(first.firstContact).toMatchObject({ purpose: AGENT_CONDUCT, rules: expect.any(Array), help: expect.objectContaining({ philosophy: 'kanvas.help.philosophy' }) });
+            expect(first.firstContact).toBeUndefined();
             expect((first.agentGuidance as {
                 levels: unknown[];
             }).levels).toHaveLength(1);
             expect(first.orientation).toEqual(orientation);
-            expect(first.rhythm).toBe(RHYTHM_NUDGE);
+            expect(first.rhythm).toBeUndefined();
             const second = run(ledger);
             expect(second.firstContact).toBeUndefined();
             expect(second.agentGuidance).toEqual(guidance);
             expect(second.orientation).toEqual({ guide: orientation.guide, help: 'kanvas.help.getting-started.steps' });
             expect(second.rhythm).toBeUndefined();
-            expect(JSON.stringify(second).length).toBeLessThan(JSON.stringify(first).length / 2);
+            expect(JSON.stringify(second).length).toBeLessThan(JSON.stringify(first).length);
             // The rhythm line is said once per session, again for another session.
-            expect(run(ledger, { sessionId: 's2' }, { data: { status: 'accepted', sessionId: 's2' }, orientation }).rhythm).toBe(RHYTHM_NUDGE);
+            expect(run(ledger, { sessionId: 's2' }, { data: { status: 'applied', sessionId: 's2', delivery: {display: {status:'applied'}} }, orientation }).rhythm).toBe(RHYTHM_NUDGE);
         });
     });
 });

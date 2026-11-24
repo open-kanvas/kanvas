@@ -39,21 +39,21 @@ export const taskListUpdateSchema=z.strictObject({sessionId:sessionKey,taskListI
 export const taskListShowSchema=z.strictObject({sessionId:sessionKey,taskListId:identifier,displayId:sessionKey,expectedRevision:revision.optional(),requestId:identifier});
 export const taskListTools: Definition[] = [
     {
-        name: "kanvas.tasklist.read", readOnly: true, schema: taskListReadSchema, description: 'Read a saved task list: rows filtered and sorted by the server, or ONE item (number or id) in full with its detail and source. Omit taskListId to list them.',
+        name: "kanvas.tasklist.read", summary: "List saved task lists or inspect filtered rows and item details when reviewing session work.", readOnly: true, schema: taskListReadSchema, description: 'Read a saved task list: rows filtered and sorted by the server, or ONE item (number or id) in full with its detail and source. Omit taskListId to list them.',
         domain: "checklist",
         requiredScope: "read",
         discovery: {"group":"content","hint":"Rows of a saved task list filtered and sorted by the server, or one item in full with its stored detail.","examples":[{"sessionId":"session-id","taskListId":"task-list-id","item":7}]},
         searchAliases: ["kanvas.tasklist.read"]
     },
     {
-        name: "kanvas.tasklist.update", idempotent: true, schema: taskListUpdateSchema, description: 'Change a saved task list by item (add, items, check, uncheck, remove, highlight, expand, collapse, collapseAll, sort, filter, columns, showNumber, showReference). Position additions/edited items with add[].index or items[].index. subtasks:[{item,add,items,check,uncheck,remove,highlight}] addresses stable subtask ids within a parent; unnamed items stay untouched and numbers never change. expand/collapse accept item ids or numbers; collapseAll closes every item. A changed highlight opens only its new item; explicit expansion in the same update is applied afterward. Create one by publishing a task-list view.',
+        name: "kanvas.tasklist.update", summary: "Change tasks, subtasks, expansion, sorting, or filters when maintaining a saved task list by stable identity.", idempotent: true, schema: taskListUpdateSchema, description: 'Change a saved task list by item (add, items, check, uncheck, remove, highlight, expand, collapse, collapseAll, sort, filter, columns, showNumber, showReference). Position additions/edited items with add[].index or items[].index. subtasks:[{item,add,items,check,uncheck,remove,highlight}] addresses stable subtask ids within a parent; unnamed items stay untouched and numbers never change. expand/collapse accept item ids or numbers; collapseAll closes every item. A changed highlight opens only its new item; explicit expansion in the same update is applied afterward. Create one by publishing a task-list view.',
         domain: "checklist",
         requiredScope: "publish",
         discovery: {"group":"content","hint":"Change single items of a saved task list: add, edit fields, check, uncheck, remove, highlight, sort, filter. Never republish the list.","examples":[{"sessionId":"session-id","taskListId":"task-list-id","requestId":"check-7","check":[7],"highlight":8}]},
         searchAliases: ["kanvas.tasklist.update"]
     },
     {
-        name: "kanvas.tasklist.show", idempotent: true, schema: taskListShowSchema, description: 'Show a saved task list on a display of the same session without resupplying items.',
+        name: "kanvas.tasklist.show", summary: "Restore a saved task list on a display in its session when returning to existing work.", idempotent: true, schema: taskListShowSchema, description: 'Show a saved task list on a display of the same session without resupplying items.',
         domain: "checklist",
         requiredScope: "publish",
         discovery: {"group":"content","hint":"Put a saved task list on a display of the same session without resupplying items.","examples":[{"sessionId":"session-id","taskListId":"task-list-id","displayId":"display-id","requestId":"show-tasks"}]},
@@ -189,6 +189,7 @@ export class TaskLists{
    const ignoredColumns=(a.columns??[]).filter(column=>isBuiltinTaskColumn(column.key)).map(column=>column.key);
    const title=a.title??list.title,unchanged=JSON.stringify([title,data])===before;
    const next:TaskList=unchanged?list:{...list,title,data,nextNumber,revision:list.revision+1,updatedAt:now()};
+   const displayRevisions:Record<string,number>={};
    if(!unchanged){
     await this.store.put('task-list',next);
     const view=this.view(next);
@@ -197,12 +198,13 @@ export class TaskLists{
      display.navigationRoot??=display.revision;display.zoomRoot??=display.revision;
      display.view={...display.view,...structuredClone(view),...(display.view.showTitle!==undefined?{showTitle:display.view.showTitle}:{})} as ViewSpec;display.revision++;display.updatedAt=now();
      display.delivery={revision:display.revision,status:'pending',updatedAt:display.updatedAt};
+     displayRevisions[display.id]=display.revision;
      await this.store.put('display',display);
      this.store.afterCommit(()=>this.service.emit({type:'display',sessionId:a.sessionId,displayId:display.id,revision:display.revision}));
     }
    }
    const final=next.data.items as Stored[];
-   const result={id:next.id,sessionId:next.sessionId,revision:next.revision,previousRevision:list.revision,title:next.title,changes,expanded:next.data.expanded,
+   const result={displayRevisions,id:next.id,sessionId:next.sessionId,revision:next.revision,previousRevision:list.revision,title:next.title,changes,expanded:next.data.expanded,
     counts:{total:final.length,open:final.filter(item=>!item.checked).length,done:final.filter(item=>item.checked).length},
     ...(next.data.highlight?{highlight:{id:next.data.highlight,number:final.find(item=>item.id===next.data.highlight)!.number}}:{}),...(unchanged?{unchanged:true}:{}),...(ignoredColumns.length?{ignoredColumns,columnsNote:'Use showNumber/showReference for built-in number/reference visibility. columns is only for your own extra columns, filled from each item\'s fields.'}:{}),updatedAt:next.updatedAt,
     note:unchanged?'Nothing differed from the saved list; revision unchanged.':'Saved. Items not listed in changes are exactly as before; item numbers never change.'};

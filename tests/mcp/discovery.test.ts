@@ -96,7 +96,7 @@ describe("discovery coverage 1", () => {
             }
         });
         it('returns default top five summaries without materializing detail; get alone returns full detail', () => {
-            const input = parseDiscoveryInput('kanvas_discover', { catalog: 'tools', action: 'search', query: 'display' });
+            const input = parseDiscoveryInput('kanvas_discover', { catalog: 'operations', action: 'search', query: 'display' });
             const response = discoveryCatalog.query('tool', 'search', input, context);
             expect(response.returned).toBe(5);
             expect(response).toEqual(discoveryCatalog.query('tool', 'search', input, context));
@@ -130,7 +130,7 @@ describe("discovery coverage 1", () => {
             expect(search.search('actual browser screen capture')[0].document.id).toBe('kanvas.display.request.capture');
         });
         it('lists every entry as concise plain text by default, with no structured JSON duplication', () => {
-            for (const [catalog, kind] of [['tools', 'tool'], ['help', 'help'], ['templates', 'template']] as const) {
+            for (const [catalog, kind] of [['operations', 'tool'], ['help', 'help'], ['templates', 'template']] as const) {
                 const result = discoveryResult('kanvas_discover', { catalog, action: 'list' }, context);
                 expect(result.structuredContent).toBeUndefined();
                 const text = (result.content[0] as {
@@ -145,10 +145,10 @@ describe("discovery coverage 1", () => {
         });
         it('rejects invalid action fields, facets, aliases and unsafe dispatcher inputs', () => {
             for (const raw of [
-                { catalog: 'tools', action: 'search', query: '' }, { catalog: 'tools', action: 'search', query: 'x', limit: 21 },
-                { catalog: 'tools', action: 'search', query: 'x', injected: true }, { catalog: 'tools', action: 'search', query: 'x'.repeat(501) },
+                { catalog: 'operations', action: 'search', query: '' }, { catalog: 'operations', action: 'search', query: 'x', limit: 21 },
+                { catalog: 'operations', action: 'search', query: 'x', injected: true }, { catalog: 'operations', action: 'search', query: 'x'.repeat(501) },
                 { catalog: 'help', action: 'list', type: 'guide' }, { catalog: 'help', action: 'list', limit: 1 },
-                { catalog: 'schema', action: 'list' }, { catalog: 'tools', action: 'get', id: 'kanvas.submit', query: 'x' },
+                { catalog: 'schema', action: 'list' }, { catalog: 'operations', action: 'get', id: 'kanvas.submit', query: 'x' },
             ])
                 expect(() => parseDiscoveryInput('kanvas_discover', raw)).toThrow();
             for (const operationId of ['__proto__', 'constructor', '../kanvas.session.state', 'kanvas.execute', 'kanvas.session.state;eval', 'kanvas.guide', 'kanvas.help', 'kanvas.template.get'])
@@ -178,7 +178,7 @@ describe("discovery coverage 1", () => {
             const ids = helpCatalog().map(item => item.id);
             for (const topic of HELP_TOPICS)
                 expect(ids.some(id => id.startsWith(`kanvas.help.${topic}`)), topic).toBe(true);
-            for (const topic of GUIDE_TOPICS)
+            for (const topic of GUIDE_TOPICS.map(topic => topic === "tools" ? "operations" : topic))
                 expect(ids.some(id => id === `kanvas.help.${topic}` || id.startsWith(`kanvas.help.${topic}.`)), topic).toBe(true);
             const result = discoveryCatalog.query('help', 'search', { query: 'kanvas.help.recovery', limit: 5 }, context);
             expect(result.returned).toBe(1);

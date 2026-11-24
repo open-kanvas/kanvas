@@ -32,21 +32,21 @@ export const checklistUpdateSchema=z.strictObject({...target,expectedRevision:re
 export const checklistShowSchema=z.strictObject({...target,displayId:identifier,expectedRevision:revision.optional(),requestId:identifier});
 export const checklistTools: Definition[] = [
     {
-        name: "kanvas.checklist.read", readOnly: true, schema: checklistReadSchema, description: 'Read saved SESSION checklists; they survive replacing or clearing displays. Omit checklistId to list them; include it for exact items and revision; revision reads a kept revision. Large records return item windows (nextOffset).',
+        name: "kanvas.checklist.read", summary: "Read saved session checklists and item windows when inspecting current items or a retained checklist revision.", readOnly: true, schema: checklistReadSchema, description: 'Read saved SESSION checklists; they survive replacing or clearing displays. Omit checklistId to list them; include it for exact items and revision; revision reads a kept revision. Large records return item windows (nextOffset).',
         domain: "checklist",
         requiredScope: "read",
         discovery: {"group":"content","hint":"Read persistent session checklists after other content replaces the screen. Omit ID to list; include ID for exact state. Large records return item windows with nextOffset.","examples":[{"sessionId":"session-id"},{"sessionId":"session-id","checklistId":"checklist-id"}]},
         searchAliases: ["kanvas.checklist.read"]
     },
     {
-        name: "kanvas.checklist.update", schema: checklistUpdateSchema, idempotent: true, description: 'Change saved checklist items BY ID; items you do not name stay exactly as they are. Tick one: items:[{id,checked:true}]. New id + text adds; removeIds deletes; highlightId marks the current item; restoreRevision reverts. Returns added/changed/removed ids.',
+        name: "kanvas.checklist.update", summary: "Update named checklist items or restore a revision when maintaining a saved checklist without replacing untouched items.", schema: checklistUpdateSchema, idempotent: true, description: 'Change saved checklist items BY ID; items you do not name stay exactly as they are. Tick one: items:[{id,checked:true}]. New id + text adds; removeIds deletes; highlightId marks the current item; restoreRevision reverts. Returns added/changed/removed ids.',
         domain: "checklist",
         requiredScope: "publish",
         discovery: {"group":"content","hint":"Change saved items by id; unnamed items are untouched and nothing is deleted by omission. removeIds deletes; highlightId marks the current item.","examples":[{"sessionId":"session-id","checklistId":"checklist-id","expectedRevision":0,"requestId":"tick-task","items":[{"id":"task","checked":true}]}]},
         searchAliases: ["kanvas.checklist.update"]
     },
     {
-        name: "kanvas.checklist.show", schema: checklistShowSchema, idempotent: true, description: 'Bring a saved checklist back on ANY display in the SAME session without resupplying its items. Uses latest document state; expectedRevision is the destination display revision. Honors hold/access and requestId retries. Zoom belongs to each receiving device window, not the checklist. Re-showing the same checklist in place preserves local scroll; showing different content resets position.',
+        name: "kanvas.checklist.show", summary: "Restore a saved checklist on a display in its session when returning to its latest items.", schema: checklistShowSchema, idempotent: true, description: 'Bring a saved checklist back on ANY display in the SAME session without resupplying its items. Uses latest document state; expectedRevision is the destination display revision. Honors hold/access and requestId retries. Zoom belongs to each receiving device window, not the checklist. Re-showing the same checklist in place preserves local scroll; showing different content resets position.',
         domain: "checklist",
         requiredScope: "publish",
         discovery: {"group":"content","hint":"Restore latest saved checklist on any same-session display without resupplying items.","examples":[{"sessionId":"session-id","checklistId":"checklist-id","displayId":"display-id","expectedRevision":1,"requestId":"checklist-show"}]},
@@ -288,6 +288,7 @@ export class Checklists {
             const view = await this.capture(a.sessionId, { ...record.view, ...(title !== undefined ? { title } : {}), data: { ...rest, items, ...(highlight ? { highlight } : {}) } });
             const stored = required(await this.store.get<Checklist>('checklist', String(view.data.checklistId)));
             const unchanged = stored.revision === record.revision;
+            const displayRevisions: Record<string, number> = {};
             if (!unchanged)
                 for (const display of await this.store.list<DisplayRecord>('display', a.sessionId)) {
                     if (display.view?.template !== 'checklist' || display.view.data.checklistId !== a.checklistId)
@@ -298,11 +299,12 @@ export class Checklists {
                     display.revision++;
                     display.updatedAt = now();
                     display.delivery = { revision: display.revision, status: 'pending', updatedAt: display.updatedAt };
+                    displayRevisions[display.id] = display.revision;
                     await this.store.put('display', display);
                     this.store.afterCommit(() => this.service.emit({ type: 'display', sessionId: a.sessionId, displayId: display.id, revision: display.revision }));
                 }
             const final = stored.view.data.items as Item[];
-            const result: ChecklistUpdateResult = { id: stored.id, sessionId: stored.sessionId, revision: stored.revision, previousRevision: record.revision, title: stored.view.title,
+            const result: ChecklistUpdateResult = { displayRevisions, id: stored.id, sessionId: stored.sessionId, revision: stored.revision, previousRevision: record.revision, title: stored.view.title,
                 itemCount: final.length, checkedCount: final.filter(item => item.checked).length, ...(stored.view.data.highlight ? { highlightId: stored.view.data.highlight } : {}),
                 changes, counts: { added: changes.added.length, changed: changes.changed.length, removed: changes.removed.length, moved: changes.moved.length, untouched: final.length - changes.added.length - changes.changed.length },
                 ...(notFound.length ? { notFound, notFoundNote: 'These removeIds matched no saved item; nothing was deleted for them.' } : {}),

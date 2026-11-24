@@ -18,10 +18,10 @@ The discover validator is a strict Zod discriminated union. z.toJSONSchema emits
 
 Reconnect after upgrades to refresh cached schemas. Fallback through kanvas_call:
 
-    {"operationId":"kanvas.discover","arguments":{"catalog":"tools","action":"get","id":"kanvas.tasklist.update"}}
+    {"operationId":"kanvas.discover","arguments":{"catalog":"operations","action":"get","id":"kanvas.tasklist.update"}}
 
 The adapter validates the outer call, then uses the same authenticated discovery path, private-template filtering and resolver as kanvas_discover; never recursive dispatch. Resolve preserves existing authorization/hold/revision rules and never executes its returned call. Scroll example:
 
-    {"catalog":"tools","action":"resolve","query":"scroll to the bottom","sessionId":"AUTHORIZED_SESSION_ID","displayId":"AUTHORIZED_DISPLAY_ID"}
+    {"catalog":"operations","action":"resolve","query":"scroll to the bottom","sessionId":"AUTHORIZED_SESSION_ID","displayId":"AUTHORIZED_DISPLAY_ID"}
 
 Errors return at most three public operation/template suggestions with bounded examples, allowed top-level fields and a fallback schema lookup, not full schemas on every failure. Unknown submitted values and private catalog entries are not copied into suggestions. Template get exposes related narrow operations; kanvas.template.task-list includes read/update/show and navigation. Subtask checking already exists: subtasks:[{item:1,check:["SUBTASK_ID"]}] belongs to kanvas.tasklist.update; top-level check addresses parent items. Examples are syntax, not consent, live targets or authorization.

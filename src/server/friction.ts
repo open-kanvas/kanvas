@@ -23,7 +23,7 @@ export const frictionReadSchema=z.strictObject({
 });
 export const frictionTools: Definition[] = [
     {
-        name: "kanvas.friction.read", schema: frictionReadSchema, readOnly: true, description: 'Service administrators only. Daily aggregates of where agents stumble: schema misses by field path, retries, discovery calls, resolve outcomes and response weight per template or operation and client. Shapes only.',
+        name: "kanvas.friction.read", serviceAdminOnly: true, summary: "Read aggregate agent failure and retry patterns when a service administrator investigates integration friction and response costs.", schema: frictionReadSchema, readOnly: true, description: 'Service administrators only. Daily aggregates of where agents stumble: schema misses by field path, retries, discovery calls, resolve outcomes and response weight per template or operation and client. Shapes only.',
         domain: "diagnostics",
         requiredScope: "read",
         discovery: {"group":"feedback","hint":"Service administrators: ranked aggregates of schema misses, retries, discovery calls, resolve outcomes and response weight. Shapes only, never content.","examples":[{"kind":"validation","days":7,"limit":20}]},

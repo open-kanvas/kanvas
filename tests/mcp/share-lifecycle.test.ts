@@ -11,7 +11,7 @@ describe('public share lifecycle operations', () => {
     client=new Client({name:'share-lifecycle',version:'1'});
     await client.connect(new StreamableHTTPClientTransport(new URL('/mcp',h.baseUrl),{requestInit:{headers:{Authorization:`Bearer ${issued.value}`}}}));
     const call=async(operationId:string,args:Record<string,unknown>)=>{const result=await client!.callTool({name:'kanvas_call',arguments:{operationId,arguments:args}});expect(result.isError,JSON.stringify(result.structuredContent)).not.toBe(true);return (result.structuredContent as any).data;};
-    for(const id of ['kanvas.shares.read','kanvas.share.revoke'])expect((await client.callTool({name:'kanvas_discover',arguments:{catalog:'tools',action:'get',id}})).isError).not.toBe(true);
+    for(const id of ['kanvas.shares.read','kanvas.share.revoke'])expect((await client.callTool({name:'kanvas_discover',arguments:{catalog:'operations',action:'get',id}})).isError).not.toBe(true);
     const created=await call('kanvas.share.create',{sessionId,displayId}),second=await call('kanvas.share.create',{sessionId,displayId});
     const listed=await call('kanvas.shares.read',{sessionId});
     expect(listed.total).toBe(2);expect(listed.shares.map((s:any)=>s.id).sort()).toEqual([created.id,second.id].sort());

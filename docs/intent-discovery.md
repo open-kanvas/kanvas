@@ -1,6 +1,6 @@
 # Intent-oriented discovery (bounded prototype)
 
-`kanvas_discover` accepts `catalog:"tools", action:"resolve", query`, optional explicit `sessionId`, `displayId`, `targetRef`, `activeContext`, and `parameters` for user-supplied operation values. It performs no operation, persistence, model inference, external search or permission grant.
+`kanvas_discover` accepts `catalog:"operations", action:"resolve", query`, optional explicit `sessionId`, `displayId`, `targetRef`, `activeContext`, and `parameters` for user-supplied operation values. It performs no operation, persistence, model inference, external search or permission grant.
 
 Five curated families select existing operations:
 
@@ -10,7 +10,7 @@ Five curated families select existing operations:
 - Publish/target → submit. Supply parameters.view with actual prepared source content. Current submit schema has no expectedRevision; discovery does not invent one. New-session creation and implicit target routing are deliberately not inferred.
 - Inspect/interaction → display.current or interactions.read. Current stored view is not a physical screenshot; interaction text never grants permission.
 
-Example: `{catalog:"tools",action:"resolve",query:"show only errors in this log",sessionId:"AUTHORIZED_ID",displayId:"AUTHORIZED_DISPLAY"}`. Use actual IDs from authorized state, never these illustrative strings.
+Example: `{catalog:"operations",action:"resolve",query:"show only errors in this log",sessionId:"AUTHORIZED_ID",displayId:"AUTHORIZED_DISPLAY"}`. Use actual IDs from authorized state, never these illustrative strings.
 
 Without reliable session context, returns needs_context and bounded authorized possibleTargets even if there is just one session. Within an explicit session, the sole authorized display can be selected; multiple displays require an explicit choice. Explicit session wins over activeContext/targetRef; an authorized targetRef is read-only resolved, never created. Malformed explicit parameter IDs block readiness instead of falling back to context or the sole display. When targetRef supplies the session, an explicit display must belong to that binding; a conflicting display blocks readiness.
 

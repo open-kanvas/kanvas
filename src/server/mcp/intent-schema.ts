@@ -2,7 +2,7 @@ import {z} from 'zod';
 import {activeContextSchema} from './active-context.js';
 const id=z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 export const intentResolveSchema=z.strictObject({
- catalog:z.literal('tools'),action:z.literal('resolve'),query:z.string().trim().min(1).max(500),
+ catalog:z.literal('operations'),action:z.literal('resolve'),query:z.string().trim().min(1).max(500),
  activeContext:activeContextSchema,sessionId:id.optional(),displayId:id.optional(),targetRef:id.optional(),
  parameters:z.record(z.string(),z.unknown()).optional(),
 });

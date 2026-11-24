@@ -8,7 +8,7 @@ import {id,name} from '../operation-fields.js';
 /** data-delete operation contracts. Domain services enforce current account, role and scope. */
 export const dataDeleteOperations: readonly Definition[] = [
 {
-        name: "kanvas.dataset.delete",
+        name: "kanvas.dataset.delete", summary: "Delete a retained session dataset when removing stored source data rather than merely clearing a display.",
         description: 'Delete a dataset from the specified session with domain authorization. This is not a display-only clear.',
         schema: z.strictObject({ sessionId: id, datasetId: id }), destructive: true, idempotent: true,
         domain: "data-delete",
@@ -17,7 +17,7 @@ export const dataDeleteOperations: readonly Definition[] = [
         searchAliases: ["kanvas.dataset.delete"]
     },
 {
-        name: "kanvas.asset.delete",
+        name: "kanvas.asset.delete", summary: "Delete a scoped session asset when removing stored media that existing content references may still require.",
         description: 'Delete a scoped asset with domain authorization; existing references may become unavailable.',
         schema: z.strictObject({ sessionId: id, assetId: id }), destructive: true, idempotent: true,
         domain: "data-delete",

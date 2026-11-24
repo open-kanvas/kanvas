@@ -31,7 +31,7 @@ describe("pointing coverage 1", () => {
             const bad = resolveToolCall('discovery', 'kanvas_call', { operationId: 'kanvas.submit', arguments: { displayId: 'PRIVATE_SCREEN_SECRET', template: 'table', data: { title: 'PRIVATE_TITLE_SECRET' } } });
             const failed = toolFailure(bad.error, undefined, 'discovery', bad.canonicalName);
             expect(failed.isError).toBe(true);
-            expect(failed.structuredContent).toMatchObject({ error: { schemaTool: 'kanvas_discover', schemaArguments: { catalog: 'tools', action: 'get', id: 'kanvas.submit' } } });
+            expect(failed.structuredContent).toMatchObject({ error: { schemaTool: 'kanvas_discover', schemaArguments: { catalog: 'operations', action: 'get', id: 'kanvas.submit' } } });
             expect(failed.structuredContent).toMatchObject({ recovery: { operationId: 'kanvas.submit', shape: expect.stringContaining('title belongs beside') } });
             expect(JSON.stringify(failed)).not.toMatch(/PRIVATE_SCREEN_SECRET|PRIVATE_TITLE_SECRET/);
             expect(toolFailure(new InputError([{ path: 'view.data', problem: 'Unsupported fields' }], 'table'), undefined, 'discovery', "kanvas.submit").structuredContent).toMatchObject({ recovery: { template: { arguments: { id: 'kanvas.template.table' } } } });

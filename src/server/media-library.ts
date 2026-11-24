@@ -9,21 +9,21 @@ export const mediaUploadSchema=z.object({name:z.string().min(1).max(200),mimeTyp
 export interface LibraryMedia {id:string;sessionId:string;ownerId:string;name:string;mimeType:string;size:number;tags:string[];url:string;createdAt:string}
 export const mediaTools: Definition[] = [
     {
-        name: "kanvas.media.import", schema: z.object({ sessionId: key, assetId: key, tags: z.array(z.string().max(80)).max(20).default([]) }).strict(), description: 'Save an existing authorized session image asset as a separate private reusable account-library item. Full account publishing access required. Supports PNG/JPEG/WebP/GIF; session asset remains unchanged. Returns a new mediaId and stable /api/media/ID URL; reuse it across future sessions. Browser upload: /admin?account=media.',
+        name: "kanvas.media.import", summary: "Copy a session image into your private media library when it needs reuse across future sessions.", schema: z.object({ sessionId: key, assetId: key, tags: z.array(z.string().max(80)).max(20).default([]) }).strict(), description: 'Save an existing authorized session image asset as a separate private reusable account-library item. Full account publishing access required. Supports PNG/JPEG/WebP/GIF; session asset remains unchanged. Returns a new mediaId and stable /api/media/ID URL; reuse it across future sessions. Browser upload: /admin?account=media.',
         domain: "import",
         requiredScope: "publish",
         discovery: {"group":"content","hint":"Save a session image to your reusable private account library.","examples":[{"sessionId":"session-id","assetId":"asset-id","tags":["lunch"]}]},
         searchAliases: ["kanvas.media.import"]
     },
     {
-        name: "kanvas.media.list", schema: z.object({ query: z.string().max(200).optional(), tag: z.string().max(80).optional(), offset: z.number().int().min(0).max(200).default(0), limit: z.number().int().min(1).max(50).default(50) }).strict(), readOnly: true, description: "List/search your private reusable uploaded image library by filename or tag. User uploads using file/photo/camera picker in Account \u2192 Media library at /admin?account=media; no agent file tool required. Session kanvas_call with operationId:\"kanvas.asset.import\" and arguments:{\u2026} is separate: copy an existing asset with kanvas_call with operationId:\"kanvas.media.import\" and arguments:{\u2026} to make it account-reusable. The returned stable /api/media/ID URL works in every image URL field. Publication grants viewing of that image only to the selected session; listing stays private.",
+        name: "kanvas.media.list", summary: "Search your private image library by filename or tag when choosing reusable media for display content.", schema: z.object({ query: z.string().max(200).optional(), tag: z.string().max(80).optional(), offset: z.number().int().min(0).max(200).default(0), limit: z.number().int().min(1).max(50).default(50) }).strict(), readOnly: true, description: "List/search your private reusable uploaded image library by filename or tag. User uploads using file/photo/camera picker in Account \u2192 Media library at /admin?account=media; no agent file tool required. Session kanvas_call with operationId:\"kanvas.asset.import\" and arguments:{\u2026} is separate: copy an existing asset with kanvas_call with operationId:\"kanvas.media.import\" and arguments:{\u2026} to make it account-reusable. The returned stable /api/media/ID URL works in every image URL field. Publication grants viewing of that image only to the selected session; listing stays private.",
         domain: "account",
         requiredScope: "read",
         discovery: {"group":"content","hint":"List/search authorized stored asset metadata; this does not upload or publish.","examples":[{"query":"lunch"}]},
         searchAliases: ["kanvas.media.list"]
     },
     {
-        name: "kanvas.media.get", schema: z.object({ mediaId: key }).strict(), readOnly: true, description: 'Get one of your uploaded media items and its stable protected image URL.',
+        name: "kanvas.media.get", summary: "Retrieve one private library image and its protected URL when reusing a known media item.", schema: z.object({ mediaId: key }).strict(), readOnly: true, description: 'Get one of your uploaded media items and its stable protected image URL.',
         domain: "account",
         requiredScope: "read",
         discovery: {"group":"content","hint":"Read one authorized stored asset by mediaId; this does not upload or publish.","examples":[{"mediaId":"media-id"}]},

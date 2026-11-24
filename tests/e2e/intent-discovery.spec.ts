@@ -21,11 +21,11 @@ test('intent discovery reduces measured filter round trips and paints the correc
    await dismissNotices();
    const start=performance.now();let execution:any;
    if(mode==='resolve'){
-    const resolved=await call('kanvas_discover',{catalog:'tools',action:'resolve',query:'show only errors in this log',activeContext:{sessionId},displayId:d.id});
+    const resolved=await call('kanvas_discover',{catalog:'operations',action:'resolve',query:'show only errors in this log',activeContext:{sessionId},displayId:d.id});
     expect(resolved.status).toBe('ready');expect(resolved.operationId).toBe('kanvas.selection.set');execution=await call(resolved.call.tool,resolved.call.arguments);
    }else{
-    const found=await call('kanvas_discover',{catalog:'tools',action:'search',query:'filter log errors'});expect(found.results.some((r:any)=>r.id==='kanvas.selection.set')).toBe(true);
-    await call('kanvas_discover',{catalog:'tools',action:'get',id:'kanvas.selection.set'});
+    const found=await call('kanvas_discover',{catalog:'operations',action:'search',query:'filter log errors'});expect(found.results.some((r:any)=>r.id==='kanvas.selection.set')).toBe(true);
+    await call('kanvas_discover',{catalog:'operations',action:'get',id:'kanvas.selection.set'});
     const current=await call('kanvas_call',{operationId:'kanvas.display.current',arguments:{sessionId,displayId:d.id}});
     execution=await call('kanvas_call',{operationId:'kanvas.selection.set',arguments:{sessionId,displayId:d.id,expectedRevision:current.display?.revision??current.revision,requestId:randomUUID(),selection:{where:[{field:'level',op:'eq',value:'error'}]}}});
    }
@@ -38,14 +38,14 @@ test('intent discovery reduces measured filter round trips and paints the correc
    measurements.push({mode,discoveryCalls,executionCalls,validationFailures,acceptedMs,paintedMs,correctOperation:true,visibleErrorRow:true,hiddenInfoRow:true});
   }
   await dismissNotices();await page.screenshot({path:info.outputPath('resolved-filter.png')});
-  const zoom=await client.callTool({name:'kanvas_discover',arguments:{catalog:'tools',action:'resolve',query:'zoom in',sessionId,displayId:d.id}});
+  const zoom=await client.callTool({name:'kanvas_discover',arguments:{catalog:'operations',action:'resolve',query:'zoom in',sessionId,displayId:d.id}});
   const resolvedZoom=(zoom.structuredContent as any).data;expect(resolvedZoom.status).toBe('ready');expect(resolvedZoom.arguments.viewerId).toBeTruthy();
   const appliedZoom=await client.callTool({name:resolvedZoom.call.tool,arguments:resolvedZoom.call.arguments});expect(appliedZoom.isError).not.toBe(true);
   await expect.poll(()=>page.locator('.render-surface').first().evaluate(el=>Number(getComputedStyle(el).zoom))).toBeGreaterThan(1);
   const sibling=await page.context().newPage();
   try{
    await sibling.goto(page.url());await expect(sibling.locator('.viewer-candidate')).toContainText('ERROR_SOURCE_ROW');
-   await expect.poll(async()=>{const r=await client.callTool({name:'kanvas_discover',arguments:{catalog:'tools',action:'resolve',query:'zoom in',sessionId,displayId:d.id}});return (r.structuredContent as any).data.status;}).toBe('needs_input');
+   await expect.poll(async()=>{const r=await client.callTool({name:'kanvas_discover',arguments:{catalog:'operations',action:'resolve',query:'zoom in',sessionId,displayId:d.id}});return (r.structuredContent as any).data.status;}).toBe('needs_input');
   }finally{await sibling.close();}
   await writeFile(info.outputPath('discovery-measurements.json'),JSON.stringify({project:info.project.name,measurements,note:'Single local sample per workflow; DOM verification plus two animation frames, not physical display measurement or statistical speed claim.'},null,2));
  }finally{await client.close();}

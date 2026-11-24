@@ -30,6 +30,6 @@ describe("template contracts contracts",()=>{
   expect(loose.error).toBe(false);expect(loose.body.data.status).toBe('needs_template');expect(loose.body.data.candidates).toHaveLength(3);
   const search=await client!.callTool({name:'kanvas_discover',arguments:{catalog:'templates',action:'search',query:'who sits where at the wedding dinner'}});
   const hits=(search.structuredContent as {data:{results:{id:string;example?:unknown}[]}}).data.results;expect(hits[0].id).toBe('kanvas.template.seat-map');expect(hits[0].example).toBeTruthy();
-  const listed=await client!.callTool({name:'kanvas_discover',arguments:{catalog:'tools',action:'list',prefix:'kanvas.display.'}});expect(JSON.stringify(listed.content)).toContain('kanvas.display.register');
+  const listed=await client!.callTool({name:'kanvas_discover',arguments:{catalog:'operations',action:'list',prefix:'kanvas.display.'}});expect(JSON.stringify(listed.content)).toContain('kanvas.display.register');
  },30000);});
 });

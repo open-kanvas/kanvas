@@ -173,7 +173,7 @@ describe("reports coverage 3", () => {
             (await h.runtime.store.put('update', { ...update, completedAt: new Date(Date.now() - 31000).toISOString() }));
             let status = (await owner.detail(sessionId)).updates[0];
             expect(status.status).toBe('prepared');
-            expect(status.delivery?.[displayId].status).toBe('timed_out');
+            expect(status.delivery?.[displayId].status).toBe('unconfirmed');
             const display = await current();
             success(await owner.request('POST', `${path()}/delivery`, { revision: display.revision, status: 'failed', lastGoodRevision: 0 }));
             status = (await owner.detail(sessionId)).updates[0];

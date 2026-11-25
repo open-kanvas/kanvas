@@ -45,7 +45,7 @@ describe('real MCP SDK against persisted publisher authorization', () => {
         const forbiddenWrite = await connection.client.callTool(operationRequest({
             name: "kanvas_call",
             arguments: {
-                operationId: "kanvas.submit",
+                operationId: "kanvas.publish",
                 arguments: {
                     sessionId: a.id, requestId: 'read-only', displayIds: [display.id], view: fact('Not authorized')
                 }
@@ -86,7 +86,7 @@ describe('real MCP SDK against persisted publisher authorization', () => {
         const b = await connect(h, owner, [session.id], ['read', 'publish'], 'Agent B');
         connections.push(b);
         const view: ViewSpec = { ...fact('Choose the next comparison.'), actions: [{ id: 'pick', kind: 'choice', label: 'Next', options: ['A', 'B'] }] };
-        await call<UpdateRecord>(a.client, "kanvas.submit", { sessionId: session.id, requestId: 'agent-a-question', displayIds: [display.id], view });
+        await call<UpdateRecord>(a.client, "kanvas.publish", { sessionId: session.id, requestId: 'agent-a-question', displayIds: [display.id], view });
         const prepared = await owner.settle(session.id, 'agent-a-question');
         const clicked = success(await owner.request<InteractionRecord>('POST', `/api/sessions/${session.id}/interactions`, { displayId: display.id, revision: prepared.detail.displays[0].revision, actionId: 'pick', value: 'A', requestId: 'click' }));
         expect(clicked.targetAgentId).toEqual(expect.any(String));

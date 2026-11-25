@@ -72,7 +72,7 @@ const inspectCases: Array<[
     ["kanvas.display.current", display],
     ["kanvas.view.validate", f => ({ ...scoped(f), view: structuredClone(exactView) })],
     ["kanvas.styles.list", () => ({})],
-    ["kanvas.preferences.get", () => ({})],
+    ["kanvas.preferences.read", () => ({})],
     ["kanvas.pairings.read", scoped],
     ["kanvas.viewers.read", scoped],
     ["kanvas.display.inspect", f => ({ ...display(f), fresh: false })],

@@ -1,9 +1,24 @@
+import {z} from 'zod';
 import type {KanvasService} from './domain.js';
 import type {AuthPrincipal} from './auth.js';
 import {hash} from './auth.js';
 import {AppError,now} from './store.js';
 import type {Definition} from './mcp/canonical.js';
-import {BOARD_DISCLOSURE,BOARD_DISCLOSURE_VERSION,BOARD_LIMITS,BOARD_PURPOSE,BOARD_UNTRUSTED,boardOverviewSchema,boardPostSchema,boardReadSchema,boardUpdateSchema,type BoardMessage} from '../shared/message-board.js';
+import {BOARD_DISCLOSURE,BOARD_DISCLOSURE_VERSION,BOARD_LIMITS,BOARD_PURPOSE,BOARD_UNTRUSTED,boardOverviewSchema,boardPostSchema,boardReadSchema,type BoardMessage} from '../shared/message-board.js';
+
+// Each mutation accepts only its own fields; no action selector or cross-operation escape.
+export const boardPreferencesUpdateSchema=z.strictObject({
+  notifications:z.boolean().optional().describe('Opt in or out of new-message notices; off by default.'),
+  publicName:boardPostSchema.shape.publicName,
+}).refine(v=>v.notifications!==undefined||v.publicName!==undefined,'State what to change.');
+export const boardMessagesSeenSchema=z.strictObject({});
+export const boardMessageEditSchema=z.strictObject({
+  messageId:boardPostSchema.shape.replyTo.unwrap().describe('Your own message; a service administrator may edit any.'),
+  text:boardPostSchema.shape.text.optional(),tags:boardPostSchema.shape.tags.removeDefault().optional(),
+}).refine(v=>v.text!==undefined||v.tags!==undefined,'Editing requires text and/or tags.');
+export const boardMessageDeleteSchema=z.strictObject({
+  messageId:boardPostSchema.shape.replyTo.unwrap().describe('Your own message; a service administrator may remove any.'),
+});
 
 /** Public message board.
  *
@@ -48,11 +63,32 @@ export const boardTools: Definition[] = [
         searchAliases: ["kanvas.board.overview"]
     },
     {
-        name: "kanvas.board.update", summary: "Change board preferences, public identity, seen status, or authorized messages when managing participation in public discussion.", schema: boardUpdateSchema, idempotent: true, description: 'Message board settings for this account: opt in or out of the new-message notice (off by default), change the public name, mark everything seen, edit text/tags with editMessageId, or remove a message (your own; any for a service administrator). Edits preserve the ID and original time and return editedAt; no nested threads.',
-        domain: "feedback",
-        requiredScope: "publish",
-        discovery: {"group":"feedback","hint":"Opt in or out of the new-message notice, change the public name, mark seen, or remove a message.","examples":[{"notifications":true},{"markSeen":true}]},
-        searchAliases: ["kanvas.board.update"]
+        name: 'kanvas.board.preferences.update', summary: 'Change notification preferences or public identity when adjusting how this account participates in installation-wide board discussions.',
+        schema: boardPreferencesUpdateSchema, idempotent: true, description: 'Account board preferences: opt in or out of new-message notices (off by default) or change the public name shown on future posts. Does not mark messages seen, edit, or delete messages.',
+        domain: 'feedback', requiredScope: 'publish',
+        discovery: {group:'feedback',hint:'Change board notices or public identity for future posts.',examples:[{notifications:true},{publicName:'Ada'}]},
+        searchAliases: ['kanvas.board.preferences.update']
+    },
+    {
+        name: 'kanvas.board.messages.seen', summary: 'Mark current board messages seen after the person has viewed them.',
+        schema: boardMessagesSeenSchema, idempotent: true, description: 'Mark all current board activity seen for this account. Call only after the person has actually seen the messages. Does not change notification preferences or message content.',
+        domain: 'feedback', requiredScope: 'publish',
+        discovery: {group:'feedback',hint:'Clear the current unread mark for this account after viewing the messages.',examples:[{}]},
+        searchAliases: ['kanvas.board.messages.seen']
+    },
+    {
+        name: 'kanvas.board.message.edit', summary: 'Edit authorized public board message text or tags when correcting content while preserving its identity and original posting time.',
+        schema: boardMessageEditSchema, idempotent: true, description: 'Edit your own public message; service administrators may edit any. Requires messageId and text and/or tags. Preserves the ID, original time and reply relationship; returns editedAt. Does not change account preferences or remove messages.',
+        domain: 'feedback', requiredScope: 'publish',
+        discovery: {group:'feedback',hint:'Edit text or tags on your own message, or any message as service administrator.',examples:[{messageId:'message-id',text:'Corrected message'}]},
+        searchAliases: ['kanvas.board.message.edit']
+    },
+    {
+        name: 'kanvas.board.message.delete', summary: 'Remove an authorized public board message when withdrawing visible content while preserving other authors’ replies and unavailable-parent context.',
+        schema: boardMessageDeleteSchema, destructive: true, description: 'Remove your own public message; service administrators may remove any. Requires messageId. Removes visible text and tags while retaining an unavailable parent placeholder for surviving replies. Does not change account preferences.',
+        domain: 'feedback', requiredScope: 'publish',
+        discovery: {group:'feedback',hint:'Remove your own public message, or any message as service administrator.',examples:[{messageId:'message-id'}]},
+        searchAliases: ['kanvas.board.message.delete']
     },
 ];
 
@@ -136,7 +172,7 @@ export class MessageBoard {
       await this.store.put(KIND, message); await this.store.put(READER, reader);
       // The board keeps its newest messages; the oldest fall away rather than the table growing without bound.
       await this.db.prepare(`DELETE FROM documents WHERE kind='${KIND}' AND session_id='${PARTITION}' AND rowid<=(SELECT rowid FROM documents WHERE kind='${KIND}' AND session_id='${PARTITION}' ORDER BY rowid DESC OFFSET ? LIMIT 1)`).run(BOARD_LIMITS.retained);
-      return { posted: true, public: true, message: { id: message.id, text, tags: message.tags, at: message.createdAt, author: message.author, ...(message.replyTo?{replyTo:message.replyTo}:{}), ...(maintainer ? { maintainer: true } : {}), mine: true }, visibility: 'Every user of this Kanvas installation can read this message and the name shown with it.', remove: 'kanvas.board.update {removeMessageId}' };
+      return { posted: true, public: true, message: { id: message.id, text, tags: message.tags, at: message.createdAt, author: message.author, ...(message.replyTo?{replyTo:message.replyTo}:{}), ...(maintainer ? { maintainer: true } : {}), mine: true }, visibility: 'Every user of this Kanvas installation can read this message and the name shown with it.', remove: 'kanvas.board.message.delete {messageId}' };
     });
   }
   async read(p: AuthPrincipal, raw: unknown) {
@@ -169,8 +205,12 @@ export class MessageBoard {
       you: { consented: Boolean(reader.consentAt), ...(reader.publicName ? { publicName: reader.publicName } : {}), notifications: reader.notifications === true },
       view: { version: 1, template: 'message-board', data }, untrusted: BOARD_UNTRUSTED };
   }
-  async update(p: AuthPrincipal, raw: unknown) {
-    const a = boardUpdateSchema.parse(raw); await this.account(p, 'publish');
+  async updatePreferences(p:AuthPrincipal,raw:unknown) { return this.mutate(p,boardPreferencesUpdateSchema.parse(raw)); }
+  async markMessagesSeen(p:AuthPrincipal,raw:unknown) { boardMessagesSeenSchema.parse(raw); return this.mutate(p,{markSeen:true}); }
+  async editMessage(p:AuthPrincipal,raw:unknown) { const {messageId,...fields}=boardMessageEditSchema.parse(raw); return this.mutate(p,{...fields,editMessageId:messageId}); }
+  async deleteMessage(p:AuthPrincipal,raw:unknown) { const {messageId}=boardMessageDeleteSchema.parse(raw); return this.mutate(p,{removeMessageId:messageId}); }
+  private async mutate(p:AuthPrincipal,a:{notifications?:boolean;publicName?:string;markSeen?:true;editMessageId?:string;text?:string;tags?:string[];removeMessageId?:string}) {
+    await this.account(p, 'publish');
     return this.store.atomic(async () => {
       const reader = await this.reader(p.userId), changed: Record<string, unknown> = {};
       if (a.notifications !== undefined) { reader.notifications = a.notifications; changed.notifications = a.notifications; }

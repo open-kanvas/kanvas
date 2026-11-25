@@ -82,7 +82,7 @@ describe('bounded host session-continuity guidance', () => {
             expect(advice).toContain(SESSION_CONTINUITY_TOOL_GUIDANCE[tool]);
             expect(advice.length).toBeLessThanOrEqual(MAX_SESSION_CONTINUITY_GUIDANCE_CHARACTERS);
         }
-        for (const name of ["kanvas.submit", "kanvas.session.end", 'session_create', '__proto__', 'constructor', '', 'KANVAS_SESSIONS_LIST'])
+        for (const name of ["kanvas.publish", "kanvas.session.end", 'session_create', '__proto__', 'constructor', '', 'KANVAS_SESSIONS_LIST'])
             expect(sessionContinuityGuidanceFor(name)).toBeUndefined();
         expect(Object.isFrozen(SESSION_CONTINUITY_TOOL_GUIDANCE)).toBe(true);
         expect(Object.isFrozen(SESSION_CONTINUITY_RECIPE)).toBe(true);
@@ -106,7 +106,7 @@ describe('guide, catalogue and result integration', () => {
             expect(orientationFor(tool)?.sessionContinuity).toBe(sessionContinuityGuidanceFor(tool));
             expect(definition.annotations?.readOnlyHint).toBe(tool !== "kanvas.session.create");
         }
-        expect(orientationFor("kanvas.submit")?.sessionContinuity).toBeUndefined();
+        expect(orientationFor("kanvas.publish")?.sessionContinuity).toBeUndefined();
         expect(orientationFor("kanvas.session.end")).toBeUndefined();
     });
     it('does not rank, rename, match or insert conversation IDs into returned source records', () => {
@@ -247,7 +247,7 @@ describe('unchanged real selected-session and account authority', () => {
         const continued = envelope<UpdateRecord>(await client.callTool(operationRequest({
             name: "kanvas_call",
             arguments: {
-                operationId: "kanvas.submit",
+                operationId: "kanvas.publish",
                 arguments: {
                     sessionId: old.id, displayIds: [display.id], requestId: 'explicit-analytics-continuation', view: fact('Next supplied analytics view.')
                 }

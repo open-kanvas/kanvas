@@ -32,7 +32,7 @@ describe("formatting coverage 1", () => {
     const render = (template: string, data: unknown) => renderToStaticMarkup(<Renderer view={validateView({ version: 1, template, data })}/>);
     describe("formatting contracts", () => {
         it('accepts formatting overrides through the public submit operation', () => {
-            const result = resolveToolCall('discovery', 'kanvas_call', { operationId: 'kanvas.submit', arguments: { sessionId: 's', displayIds: ['d'], requestId: 'r', view: { version: 1, template: 'inbox', format: { timeFormat: '12h' }, data: { items: [] } } } });
+            const result = resolveToolCall('discovery', 'kanvas_call', { operationId: 'kanvas.publish', arguments: { sessionId: 's', displayIds: ['d'], requestId: 'r', view: { version: 1, template: 'inbox', format: { timeFormat: '12h' }, data: { items: [] } } } });
             expect(result.error).toBeUndefined();
         });
     });

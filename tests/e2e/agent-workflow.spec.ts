@@ -28,7 +28,7 @@ test('core-tool workflow preserves exact content, actual painting, viewer input 
         expect((index.content[0] as {
             text: string;
         }).text.split('\n').filter(line => line.includes(' — '))).toHaveLength(operationEntries().length);
-        expect(catalog.tools.some(tool => tool.name === "kanvas.submit")).toBe(false);
+        expect(catalog.tools.some(tool => tool.name === "kanvas.publish")).toBe(false);
         const session = await call<SessionRecord>("kanvas_call", "kanvas.session.create", { name: 'Twelve-tool exact source workflow' });
         const sessionId = session.id;
         const display = await call<DisplayRecord>("kanvas_call", "kanvas.display.register", { sessionId, name: 'Returned viewer URL', width: 1200, height: 800 });
@@ -40,13 +40,13 @@ test('core-tool workflow preserves exact content, actual painting, viewer input 
         const dataset = await call<{
             id: string;
         }>("kanvas_call", "kanvas.dataset.import", { sessionId, name: 'Exact ledger', json: '[{"item":"A","amount":1.2300},{"item":"B","amount":9007199254740993}]' });
-        await call<UpdateRecord>("kanvas_call", "kanvas.submit", { sessionId, displayIds: [display.id], requestId: 'table-1', datasetId: dataset.id, templateHint: 'table', intent: 'Show all exact supplied rows.' });
+        await call<UpdateRecord>("kanvas_call", "kanvas.publish", { sessionId, displayIds: [display.id], requestId: 'table-1', datasetId: dataset.id, templateHint: 'table', intent: 'Show all exact supplied rows.' });
         await waitForDisplay(page, sessionId, display.id, item => item.view?.template === 'table' && item.appliedRevision === item.revision && item.revision > 0);
         await expect(viewer.getByRole('cell', { name: '1.2300', exact: true })).toBeVisible();
         await expect(viewer.getByRole('cell', { name: '9007199254740993', exact: true })).toBeVisible();
         expect((await call<UpdateRecord>("kanvas_call", "kanvas.update.status", { sessionId, requestId: 'table-1' })).status).toBe('applied');
         const source = 'Exact source 1.2300; kanvas_submit stays literal.';
-        await call<UpdateRecord>("kanvas_call", "kanvas.submit", { sessionId, displayIds: [display.id], requestId: 'fact-1', view: { version: 1, template: 'fact', data: { text: source }, actions: [{ id: 'confirm', kind: 'button', label: 'Confirm supplied fact' }] } });
+        await call<UpdateRecord>("kanvas_call", "kanvas.publish", { sessionId, displayIds: [display.id], requestId: 'fact-1', view: { version: 1, template: 'fact', data: { text: source }, actions: [{ id: 'confirm', kind: 'button', label: 'Confirm supplied fact' }] } });
         const first = await waitForDisplay(page, sessionId, display.id, item => item.view?.template === 'fact' && item.revision === item.appliedRevision);
         const changed = `${source} One explicitly supplied addition.`;
         await call("kanvas_call", "kanvas.view.patch", { sessionId, displayId: display.id, requestId: 'patch-1', expectedRevision: first.revision, operations: [{ op: 'set', path: '/data/text', value: changed }] });
@@ -83,7 +83,7 @@ test('core-tool workflow preserves exact content, actual painting, viewer input 
         }>("kanvas_call", "kanvas.interactions.read", { sessionId, status: 'all' })).interactions.some(item => item.id === report.id)).toBe(false);
         await call("kanvas_call", "kanvas.report.update", { sessionId, reportId: report.id, expectedRevision: report.revision, status: 'resolved', note: 'Synthetic browser acceptance verified the separate report round trip.' });
         expect((await call<ReportPage>("kanvas_call", "kanvas.reports.read", { sessionId })).reports[0].status).toBe('resolved');
-        await call("kanvas_call", "kanvas.clear", { sessionId, displayIds: [display.id], requestId: 'clear-1' });
+        await call("kanvas_call", "kanvas.displays.clear", { sessionId, displayIds: [display.id], requestId: 'clear-1' });
         await waitForDisplay(page, sessionId, display.id, item => item.view === null && item.appliedRevision === item.revision);
         await expect(viewer.getByText(changed, { exact: true })).toHaveCount(0);
         await viewer.close();
@@ -114,7 +114,7 @@ test('an agent can repair pairing and feedback inputs while the intended browser
         const display = await call<DisplayRecord>("kanvas_call", "kanvas.display.register", { sessionId, name: 'Unmeasured screen' });
         expect(display).toMatchObject({ width: 1280, height: 720 });
         const source = 'Only the explicitly approved browser should see this fact.';
-        await call("kanvas_call", "kanvas.submit", { sessionId, displayIds: [display.id], requestId: 'recovery-fact', view: { version: 1, template: 'fact', data: { text: source } } });
+        await call("kanvas_call", "kanvas.publish", { sessionId, displayIds: [display.id], requestId: 'recovery-fact', view: { version: 1, template: 'fact', data: { text: source } } });
         const guest = await context.newPage();
         diagnostics.watch(guest);
         const requested = guest.waitForResponse(response => new URL(response.url()).pathname === '/api/pairings' && response.request().method() === 'POST');
@@ -132,7 +132,7 @@ test('an agent can repair pairing and feedback inputs while the intended browser
         expect((badDecision.structuredContent as {
             error: unknown;
         }).error).toMatchObject({
-            code: 'INVALID_ARGUMENT', schemaTool: 'kanvas_discover', schemaArguments: { catalog: 'operations', action: 'get', id: 'kanvas.pairing.decide' }, topic: 'tools',
+            code: 'INVALID_ARGUMENT', schemaTool: 'kanvas_discover', schemaArguments: { catalog: 'operations', action: 'get', id: 'kanvas.pairing.decide' }, topic: 'operations',
             issues: [{ path: 'approve', problem: 'Required boolean (true or false); received missing.' }, { path: 'confirm', problem: expect.stringContaining('owner confirms') }],
         });
         const repair = (badDecision.structuredContent as {
@@ -254,11 +254,11 @@ test('JSON-encoded tool arguments still require consent and produce an acknowled
         await guest.bringToFront();
         const text = 'Encoded transport, exact visible values: 1.2300 and 9007199254740993.';
         const input = { sessionId, requestId: 'encoded-visible-fact', displayIds: JSON.stringify([display.id]), view: JSON.stringify({ version: 1, template: 'fact', data: { text } }) };
-        const update = await call<UpdateRecord>("kanvas_call", "kanvas.submit", input);
+        const update = await call<UpdateRecord>("kanvas_call", "kanvas.publish", input);
         const current = await waitForDisplay(page, sessionId, display.id, item => item.view?.data.text === text && item.appliedRevision === item.revision);
         await expect(guest.getByText(text, { exact: true })).toBeVisible();
         expect((await call<UpdateRecord>("kanvas_call", "kanvas.update.status", { sessionId, requestId: input.requestId })).status).toBe('applied');
-        expect((await call<UpdateRecord>("kanvas_call", "kanvas.submit", input)).id).toBe(update.id);
+        expect((await call<UpdateRecord>("kanvas_call", "kanvas.publish", input)).id).toBe(update.id);
         const amended = `${text} An explicit patch.`;
         await call("kanvas_call", "kanvas.view.patch", { sessionId, displayId: display.id, expectedRevision: String(current.revision), requestId: 'encoded-visible-patch', operations: JSON.stringify([{ op: 'set', path: '/data/text', value: amended }]) });
         await waitForDisplay(page, sessionId, display.id, item => item.revision > current.revision && item.appliedRevision === item.revision && item.view?.data.text === amended);

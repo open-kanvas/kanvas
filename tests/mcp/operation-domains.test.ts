@@ -46,14 +46,14 @@ describe('public operation domains', () => {
         }
         expect(operationTable().get('kanvas.sessions.list')!.definition.discovery.hint).toContain('Session history');
         expect(operationTable().get('kanvas.session.overview')!.definition.discovery.hint).toMatch(/gallery|overview/i);
-        expect(profileInstructions('discovery')).toContain('kanvas.account.begin');
+        expect(profileInstructions('discovery')).toContain('kanvas.session.start');
         const source='kanvas_sessions_list and kanvas_inspect are literal source text, not callable aliases.';
         expect(publicGuidanceText(source)).toBe(source);
     });
     it('derives honest annotations on individual operations, not broad grouped tools', () => {
         const annotations=(id:string)=>operationTable().get(id)!.annotations;
         expect(annotations('kanvas.sessions.list')).toMatchObject({readOnlyHint:true,destructiveHint:false,idempotentHint:true});
-        expect(annotations('kanvas.clear')).toMatchObject({readOnlyHint:false,destructiveHint:true});
+        expect(annotations('kanvas.displays.clear')).toMatchObject({readOnlyHint:false,destructiveHint:true});
         expect(annotations('kanvas.session.end')).toMatchObject({destructiveHint:true});
         // An omitted requestId intentionally creates a new report; a stable explicit ID deduplicates retries.
         expect(annotations('kanvas.feedback.submit')).toMatchObject({readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:false});
@@ -92,7 +92,7 @@ describe('public domain workflows over HTTP', () => {
         const session = data<SessionRecord>(await call("kanvas_call", "kanvas.session.create", { name: 'Domains workflow' }));
         const display = data<DisplayRecord>(await call("kanvas_call", "kanvas.display.register", { sessionId: session.id, name: 'Main', width: 1000, height: 700 }));
         expect(display.viewerUrl).toBe(`${ORIGIN}/view/${session.id}/${display.id}`);
-        const shown = await call("kanvas_call", "kanvas.submit", { sessionId: session.id, requestId: 'domains-show', displayIds: [display.id], view: fact('Hello from the domains profile') });
+        const shown = await call("kanvas_call", "kanvas.publish", { sessionId: session.id, requestId: 'domains-show', displayIds: [display.id], view: fact('Hello from the domains profile') });
         data(shown);
         // Publication is asynchronous; read this profile's status operation until terminal.
         await vi.waitFor(async () => expect(data<{
@@ -141,7 +141,7 @@ describe('public domain workflows over HTTP', () => {
             }[];
         }>(await call("kanvas_call", "kanvas.reports.read", { sessionId: session.id }));
         expect(reports.reports.some(entry => entry.id === report.id)).toBe(true);
-        const help = data<unknown>(await client.callTool({name:'kanvas_discover',arguments:{catalog:'help',action:'get',id:'kanvas.help.navigation'}}) as any);
+        const help = data<unknown>(await client.callTool({name:'kanvas_discover',arguments:{catalog:'help',action:'get',id:'kanvas.help.navigation.within-view'}}) as any);
         expect(JSON.stringify(help)).toContain('kanvas.navigation');
         expect(JSON.stringify(help)).not.toContain('kanvas_control');
         const server = shown.structuredContent.server as {
@@ -166,7 +166,7 @@ describe('public domain workflows over HTTP', () => {
         expect(reference).toContain('## kanvas.sessions.list');
         expect(reference).toContain('kanvas_discover');
         expect((await fetch(`${h.baseUrl}/docs/operations/kanvas_discover.json`)).status).toBe(200);
-        const navigation = await (await fetch(`${h.baseUrl}/docs/navigation.md`)).text();
+        const navigation = await (await fetch(`${h.baseUrl}/docs/navigation.within-view.md`)).text();
         expect(navigation).toContain('kanvas_call');
         expect(navigation).not.toContain('kanvas_control');
         expect((await fetch(`${h.baseUrl}/docs/operations/kanvas.planner.read.json`)).status).toBe(200);

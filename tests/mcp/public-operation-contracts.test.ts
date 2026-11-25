@@ -11,7 +11,7 @@ const json = new Ajv2020({ strict: false, allErrors: true, validateFormats: fals
 it('advertises only the two wire tools and refuses obsolete callable names', () => {
   expect(listToolDefinitions().map(tool => tool.name)).toEqual(['kanvas_discover', 'kanvas_call']);
   expect([...registry.keys()].sort()).toEqual([...catalog.keys()].sort());
-  for (const name of ['kanvas_submit', 'kanvas_inspect', 'kanvas_publish', 'kanvas_session', 'kanvas.submit']) {
+  for (const name of ['kanvas_submit', 'kanvas_inspect', 'kanvas_publish', 'kanvas_session', 'kanvas.publish']) {
     expect(resolveToolCall('discovery', name, {}).error?.issues).toEqual(expect.arrayContaining([expect.objectContaining({ path: 'tool' })]));
   }
   expect(resolveToolCall('discovery', 'kanvas_call', { operationId: 'kanvas.not.registered', arguments: {} }).error?.issues).toEqual(expect.arrayContaining([expect.objectContaining({ path: 'operationId' })]));

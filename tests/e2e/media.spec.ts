@@ -134,7 +134,7 @@ async function fit(v:Page){
 test('reusable imported media paints in image renderer; failures surface to MCP',async({page,baseURL,diagnostics},info)=>{
  const a=await setup(page,baseURL!);try{
  const asset=await a.call('kanvas.asset.import',{sessionId:a.sessionId,name:'Reusable.png',mimeType:'image/png',base64:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6Ot8AAAAASUVORK5CYII='});
- const media=await a.call('kanvas.media.import',{sessionId:a.sessionId,assetId:asset.id,tags:['reuse']});expect((await a.call('kanvas.media.list',{query:'Reusable'})).media).toHaveLength(1);
+ const media=await a.call('kanvas.media.copy.from.asset',{sessionId:a.sessionId,assetId:asset.id,tags:['reuse']});expect((await a.call('kanvas.media.list',{query:'Reusable'})).media).toHaveLength(1);
  for(const url of [asset.url,media.url]){await a.show('image',{images:[{url,alt:'Uploaded image'}]});await expect.poll(()=>a.viewer.locator('.image-frame img').evaluate((el:HTMLImageElement)=>el.naturalWidth)).toBe(1);}
  await page.goto('/admin?account=media');await expect(page.getByRole('heading',{name:'Your media library'})).toBeVisible();await photo(a.viewer,info,'image-library');
  diagnostics.allowHttp(a.viewer,asset.url,404);

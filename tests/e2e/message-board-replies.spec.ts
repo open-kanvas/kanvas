@@ -9,7 +9,7 @@ test('board overview shows one-level replies under their parent and preserves or
   try{
     const parent=await call('kanvas.board.post',{requestId:'board-parent',text:'Which view should I use?',acknowledgePublic:true,publicName:'Reader'});
     const reply=await call('kanvas.board.post',{requestId:'board-reply',replyTo:parent.message.id,text:'Use a document.',tags:['tips']});
-    const edited=await call('kanvas.board.update',{editMessageId:reply.message.id,text:'Use Markdown for composed text.',tags:['markdown']});
+    const edited=await call('kanvas.board.message.edit',{messageId:reply.message.id,text:'Use Markdown for composed text.',tags:['markdown']});
     const overview=await call('kanvas.board.overview',{});await publishPrepared(page,s,[d.id],overview.view);
     const shown=viewer.locator(`.message-board-latest > li[data-board-message-id="${parent.message.id}"]`);await expect(shown).toHaveCount(1);
     const child=shown.locator(`.message-board-replies > li[data-board-message-id="${reply.message.id}"]`);await expect(child).toHaveCount(1);await expect(child.locator('.message-text')).toHaveText('Use Markdown for composed text.');

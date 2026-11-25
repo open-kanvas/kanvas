@@ -1,6 +1,6 @@
 # Supplied game and puzzle positions
 
-`game-board` is a visual template (distinct from the retired historical `game` format), not a rules/game/network service. Publish a complete explicitly supplied position through `kanvas_call` with operationId `kanvas.submit`; read `kanvas.display.current`; mutate with `kanvas.view.patch`. Discover each exact operation schema before calling. Complete 15-preset catalog: chess, checkers, backgammon, go, reversi, poker, blackjack, solitaire, tic-tac-toe, connect-four, battleship, sudoku, crossword, word-search, sliding-tile. Presets initialize empty unless the agent supplies objects; the schema/sample catalog exposes an illustrative chess position, not a generated legal game.
+`game-board` is a visual template (distinct from the retired historical `game` format), not a rules/game/network service. Publish a complete explicitly supplied position through `kanvas_call` with operationId `kanvas.publish`; read `kanvas.display.current`; mutate with `kanvas.view.patch`. Discover each exact operation schema before calling. Complete 15-preset catalog: chess, checkers, backgammon, go, reversi, poker, blackjack, solitaire, tic-tac-toe, connect-four, battleship, sudoku, crossword, word-search, sliding-tile. Presets initialize empty unless the agent supplies objects; the schema/sample catalog exposes an illustrative chess position, not a generated legal game.
 
 ## Stable state and patch
 

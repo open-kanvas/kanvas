@@ -90,7 +90,7 @@ describe('discovery visibility and bounded recovery regression',()=>{
   expect(invalid.isError).toBe(true);expect((invalid.structuredContent as any).error.allowedFields).toContain('subtasks');
   expect((invalid.structuredContent as any).recovery.fallback.arguments.operationId).toBe('kanvas.discover');
   expect(JSON.stringify((invalid.structuredContent as any).recovery)).not.toContain('inputSchema');
-  const wrong=await client.callTool({name:'kanvas_call',arguments:{operationId:'kanvas.submit',arguments:{requestId:'wrong',view:{version:1,template:'tasklist',data:{}}}}});
+  const wrong=await client.callTool({name:'kanvas_call',arguments:{operationId:'kanvas.publish',arguments:{requestId:'wrong',view:{version:1,template:'tasklist',data:{}}}}});
   expect(wrong.isError).toBe(true);const suggestions=(wrong.structuredContent as any).recovery.suggestions;
   expect(suggestions.map((x:any)=>x.id)).toContain('kanvas.template.task-list');
   expect(suggestions.find((x:any)=>x.id==='kanvas.template.task-list').example.template).toBe('task-list');

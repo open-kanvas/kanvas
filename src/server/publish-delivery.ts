@@ -3,7 +3,7 @@ import type {KanvasService} from './domain.js';
 import {displayedLeaf} from './engagement.js';
 
 /** One budget for the entire fan-out, never one timeout per screen. */
-export const PUBLISH_ACK_WAIT_MS = 1000;
+export const PUBLISH_ACK_WAIT_MS = 2000;
 /** Optional operator tuning, bounded independently of untrusted tool input. */
 export function publishAckWaitMs(): number {
     const raw = process.env.KANVAS_PUBLISH_ACK_WAIT_MS;
@@ -14,20 +14,20 @@ export function publishAckWaitMs(): number {
 type Receipt = NonNullable<UpdateRecord['delivery']>[string];
 
 export async function deliveryForUpdate(service: KanvasService, update: UpdateRecord): Promise<NonNullable<UpdateRecord['delivery']>> {
-    const entries = await Promise.all(update.displayIds.map(async displayId => {
+    const entries = await Promise.all([...new Set([...update.displayIds, ...(update.heldDisplayIds ?? [])])].map(async displayId => {
         const display = await service.store.get<DisplayRecord>('display', displayId), revision = update.revisions[displayId];
         const base = {...(revision === undefined ? {} : {revision}), ...(display ? {displayName:display.name} : {})};
         let receipt: Receipt;
         if (update.status === 'failed') receipt = {...base, status:'failed', message:update.error ?? 'The view could not be prepared; previous content is retained.'};
-        else if (update.status === 'held') receipt = {...base, status:'held', message:'Publication was held; no new view was applied. Release the display hold before publishing.'};
+        else if (update.status === 'held' || update.heldDisplayIds?.includes(displayId)) receipt = {...base, status:'held', message:update.heldDisplayIds?.includes(displayId) ? 'This request saved the list but skipped this held display; its content and revision were unchanged. Release hold and show the saved list with a new request to refresh it.' : 'Publication was held; no new view was applied. Release the display hold before publishing.'};
         else if (update.status === 'superseded' || !display || revision !== undefined && display.revision !== revision) receipt = {...base, status:'superseded', message:'A newer display revision replaced this request; this is not confirmation of the new content.'};
-        else if (update.status === 'retained') receipt = {...base, status:'retained', message:'Previous content retained; no new view was published.'};
+        else if (update.status === 'retained') receipt = {...base, status:'unconfirmed', message:'Previous content retained; no new view was published.'};
         else if (revision !== undefined && display.appliedRevision === revision) {
             const leaf = displayedLeaf(display.view);
             receipt = {...base, status:'applied', message: ['iframe','website'].includes(leaf?.template ?? '') || leaf?.template === 'web' && leaf.data.embed === true ? 'The KANVAS frame container is rendered; remote website content remains unverified.' : 'Browser acknowledged this display revision.'};
         } else if (revision !== undefined && display.delivery?.revision === revision && display.delivery.status === 'failed') receipt = {...base, status:'failed', message:display.delivery.message, ...(display.delivery.code ? {code:display.delivery.code} : {})};
         else if (!display.online) receipt = {...base, status:'offline', message:'No browser is connected to this display. The request is saved, not confirmed on screen.'};
-        else if (Date.now() - Date.parse(update.completedAt ?? update.createdAt) >= 30000) receipt = {...base, status:'timed_out', message:'No browser acknowledgement has arrived within 30 seconds. Inspect the display; do not assume it is visible.'};
+        else if (Date.now() - Date.parse(update.completedAt ?? update.createdAt) >= 30000) receipt = {...base, status:'unconfirmed', message:'No browser acknowledgement has arrived within 30 seconds. Inspect the display; do not assume it is visible.'};
         else receipt = {...base, status:'pending', message:revision === undefined ? 'Preparing content; browser acknowledgement is not yet available.' : 'Awaiting browser acknowledgement.'};
         return [displayId, receipt] as const;
     }));
@@ -51,8 +51,8 @@ export async function waitForDelivery(service: KanvasService, initial: UpdateRec
             const elapsed = Math.round(performance.now() - started);
             if (!pending || performance.now() >= deadline) {
                 for (const receipt of Object.values(delivery)) {
-                    receipt.waitedMs = elapsed;
-                    if (receipt.status === 'pending') { receipt.status = 'timed_out'; receipt.message = 'Browser acknowledgement was not confirmed within the bounded wait. Use update.status or display.inspect for a later check; do not republish just to check.'; }
+                    receipt.waitedMs = receipt.status === 'held' ? 0 : elapsed;
+                    if (receipt.status === 'pending') { receipt.status = 'unconfirmed'; receipt.message = 'Browser acknowledgement was not confirmed within the bounded wait. Use update.status or display.inspect for a later check; do not republish just to check.'; }
                 }
                 return {...update, delivery};
             }

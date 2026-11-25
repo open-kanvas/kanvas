@@ -151,3 +151,31 @@ describe('two-tool authenticated HTTP contract', () => {
         }[])[0]).text.split('\n').filter(line => line.includes(' — '))).toHaveLength(TEMPLATE_IDS.length);
     }, 30000);
 });
+
+it.each(['modern','legacy'] as const)('%s exposes only the renamed operation contracts and rejects retired names without execution',async era=>{
+ const h=await harness({profile:'discovery'});fixtureServers.push(h);
+ const {client}=await h[era](h.service.issue('owner'));
+ const replacements=['kanvas.publish','kanvas.session.start','kanvas.display.capture.request','kanvas.device.update','kanvas.displays.clear','kanvas.preferences.read','kanvas.settings.update','kanvas.media.copy.from.asset','kanvas.archive.create','kanvas.archive.restore','kanvas.archive.delete.request','kanvas.archive.delete.confirm','kanvas.board.preferences.update','kanvas.board.messages.seen','kanvas.board.message.edit','kanvas.board.message.delete'];
+ const retired=['kanvas.'+'submit','kanvas.account.'+'begin','kanvas.display.request.'+'capture','kanvas.device.'+'rename','kanvas.'+'clear','kanvas.preferences.'+'get','kanvas.config.'+'update','kanvas.media.'+'import','kanvas.archive.'+'manage','kanvas.board.'+'update'];
+ const listed=JSON.stringify(await client.callTool({name:'kanvas_discover',arguments:{catalog:'operations',action:'list'}}));
+ for(const id of replacements){
+  expect(listed).toContain(id);
+  const entry=data(await client.callTool({name:'kanvas_discover',arguments:{catalog:'operations',action:'get',id}})).entry;
+  expect(entry.operationId).toBe(id);expect(entry.inputSchema.type).toBe('object');
+  const wrapped=data(await client.callTool({name:'kanvas_call',arguments:{operationId:'kanvas.discover',arguments:{catalog:'operations',action:'get',id}}})).entry;
+  expect(wrapped).toEqual(entry);
+ }
+ const count=h.service.calls.length;
+ for(const operationId of retired){
+  expect(listed).not.toContain(operationId+' —');
+  const result=await use(client,operationId,{});expect(result.isError).toBe(true);
+  expect(result.structuredContent.error.topic).toBe('operations');
+  expect((await client.callTool({name:'kanvas_discover',arguments:{catalog:'operations',action:'get',id:operationId}})).isError).toBe(true);
+ }
+ expect(h.service.calls.length).toBe(count);
+ const malformed=await use(client,'kanvas.session.log',{sesionId:'alpha',unsupported:true});
+ expect(malformed.isError).toBe(true);expect(malformed.structuredContent.error.topic).toBe('operations');
+ const overview=JSON.stringify(await client.callTool({name:'kanvas_discover',arguments:{}}));
+ expect(overview).toContain('kanvas.publish');
+ for(const id of retired)expect(overview).not.toContain(id);
+});

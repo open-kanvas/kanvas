@@ -106,7 +106,7 @@ export class Friction {
                     this.failures.delete(this.failures.keys().next().value!);
                 return;
             }
-            if (call.operation === "kanvas.submit" && call.template) {
+            if (call.operation === "kanvas.publish" && call.template) {
                 const prior = this.failures.get(family), attempts = 1 + (prior && now - prior.at < RETRY_WINDOW_MS ? prior.count : 0);
                 this.failures.delete(family);
                 this.add('retries', subject, `attempts:${Math.min(attempts, 10)}`, client, attempts);

@@ -17,10 +17,10 @@ test('live registry catalogs fit without controls and device metadata stays read
  await register(page);const s=await createSession(page,'Registry and devices'),d=await createDisplay(page,s,'Catalog');
  const result=await sessionApi<any>(page,`/api/sessions/${s}/catalog`,'POST',{displayIds:[d.id],requestId:crypto.randomUUID(),catalog:'operations'});expect(result.status).toBe(200);
  await page.goto(`/view/${s}/${d.id}`);
- // 187 established public operations plus active-share read and share revoke.
- const labels=page.locator('.viewer-candidate .catalog-list span');await expect(labels).toHaveCount(189);
+ // The hard operation splits add six callable entries; no legacy aliases.
+ const labels=page.locator('.viewer-candidate .catalog-list span');await expect(labels).toHaveCount(195);
  const catalogView=(await sessionDetail(page,s)).displays.find(x=>x.id===d.id)!.view!;
- expect(catalogView.template).toBe('catalog-list');expect(catalogView.data.items).toHaveLength(189);
+ expect(catalogView.template).toBe('catalog-list');expect(catalogView.data.items).toHaveLength(195);
  expect(catalogView.data.items).toEqual(expect.arrayContaining(['window.viewport','guidance.suggestions.list','guidance.suggestions.save','guidance.suggestions.delete','guidance.suggestions.import','satisfaction.read','device.lock','device.unlock','display.lockdown','shares.read','share.revoke']));
  await expect(labels).toHaveText(catalogView.data.items as string[]);
  const bounds=await page.locator('.viewer-candidate .catalog-list').evaluate(root=>{const r=root.getBoundingClientRect();return [...root.querySelectorAll('span')].every(el=>{const b=el.getBoundingClientRect();return b.right<=r.right+1&&b.bottom<=r.bottom+1;});});expect(bounds).toBe(true);await expect(page.locator('.catalog-list button,.catalog-list a,.catalog-list input')).toHaveCount(0);

@@ -76,7 +76,7 @@ describe("video coverage 1", () => {
             }[])[0].text)).toBeLessThanOrEqual(384 * 1024);
             expect(catalog.tools.some(t => t.name === 'kanvas_games')).toBe(false);
             expect(operationEntries().some(entry => /^kanvas\.games?(?:\.|$)/.test(entry.operation))).toBe(false);
-            await call("kanvas_call", "kanvas.submit", { sessionId: s, displayIds: [d], requestId: 'progress-seed', view: { version: 1, template: 'progress', data: { task: 'Verify exact source', events: [] } } });
+            await call("kanvas_call", "kanvas.publish", { sessionId: s, displayIds: [d], requestId: 'progress-seed', view: { version: 1, template: 'progress', data: { task: 'Verify exact source', events: [] } } });
             await owner.settle(s, 'progress-seed');
             await call("kanvas_call", "kanvas.progress.append", { sessionId: s, displayId: d, expectedRevision: 1, requestId: 'append-1', event: { id: 'source', title: 'Source checked', description: '9007199254740993.001', status: 'completed' } });
             expect((await owner.detail(s)).displays[0].revision).toBe(2);

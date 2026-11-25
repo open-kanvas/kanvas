@@ -38,12 +38,12 @@ describe.each(['modern', 'legacy'] as const)('%s MCP publication contracts and p
         expect(display.viewerUrl).toBe(`${ORIGIN}/view/${session.id}/${display.id}`);
         const marker = randomUUID();
         const requestsBefore = (await h.runtime.store.db.prepare('SELECT count(*) AS n FROM requests').get())?.n;
-        const rejected = await p.call("kanvas.submit", { sessionId: session.id, displayIds: [display.id], requestId: 'invalid-fact', view: { version: 1, template: 'fact', data: { body: marker } } });
+        const rejected = await p.call("kanvas.publish", { sessionId: session.id, displayIds: [display.id], requestId: 'invalid-fact', view: { version: 1, template: 'fact', data: { body: marker } } });
         const error = failure(rejected, 'INVALID_ARGUMENT');
         expect(error.issues?.some(issue => issue.path === 'view.data.text')).toBe(true);
         expect(typeof error.diagnosticId).toBe('string');
         const diagnostic = (await h.runtime.store.get<DiagnosticRecord>('diagnostic', error.diagnosticId!));
-        expect(diagnostic).toMatchObject({ operation: "kanvas.submit", phase: 'validation', code: 'INVALID_ARGUMENT', template: 'fact' });
+        expect(diagnostic).toMatchObject({ operation: "kanvas.publish", phase: 'validation', code: 'INVALID_ARGUMENT', template: 'fact' });
         expect(JSON.stringify([rejected, diagnostic]).includes(marker)).toBe(false);
         expect((await owner.detail(session.id)).updates).toHaveLength(0);
         expect((await h.runtime.store.db.prepare('SELECT count(*) AS n FROM requests').get())?.n).toBe(requestsBefore);
@@ -66,7 +66,7 @@ describe.each(['modern', 'legacy'] as const)('%s MCP publication contracts and p
                 expect(contract.note).toContain('Complete view schema');
             }
         }
-        const accepted = value<UpdateRecord>(await p.call("kanvas.submit", { sessionId: session.id, displayIds: [display.id], requestId: 'repaired-fact', view: fact('Contract recovered') }));
+        const accepted = value<UpdateRecord>(await p.call("kanvas.publish", { sessionId: session.id, displayIds: [display.id], requestId: 'repaired-fact', view: fact('Contract recovered') }));
         expect(accepted.status).toBe('accepted');
         const prepared = await owner.settle(session.id, 'repaired-fact');
         expect(prepared.update.status).toBe('prepared');
@@ -86,14 +86,14 @@ describe.each(['modern', 'legacy'] as const)('%s MCP publication contracts and p
             { view: { version: 1, template: 'fact', data: { text: 'No unsafe provenance' }, source: { url: 'javascript:alert(1)' } } },
         ];
         for (const [index, attempt] of attempts.entries())
-            failure(await p.call("kanvas.submit", { sessionId: session.id, displayIds: [display.id], requestId: randomUUID(), ...attempt }), index === 0 ? 'INVALID_DATASET' : 'INVALID_ARGUMENT');
+            failure(await p.call("kanvas.publish", { sessionId: session.id, displayIds: [display.id], requestId: randomUUID(), ...attempt }), index === 0 ? 'INVALID_DATASET' : 'INVALID_ARGUMENT');
         const current = await owner.detail(session.id);
         expect(current.updates).toHaveLength(1);
         expect(current.displays[0].view?.data.text).toBe('Preserve this');
     });
     it('links diagnostics and durable review history, deduplicates retries, and keeps reports separate from updates/actions', async () => {
         const owner = await h.account(), session = await owner.session(), display = await owner.display(session.id), p = await publisher(owner, [session.id]);
-        const rejected = failure(await p.call("kanvas.submit", { sessionId: session.id, displayIds: [display.id], requestId: 'rejected', view: { version: 1, template: 'fact', data: {} } }), 'INVALID_ARGUMENT');
+        const rejected = failure(await p.call("kanvas.publish", { sessionId: session.id, displayIds: [display.id], requestId: 'rejected', view: { version: 1, template: 'fact', data: {} } }), 'INVALID_ARGUMENT');
         const input = { sessionId: session.id, requestId: 'report-bug', title: 'Fact publication failed', description: 'A fact-card field was not discoverable.', displayId: display.id, client: 'claude', diagnosticId: rejected.diagnosticId, steps: ['Register a display', 'Submit a fact'], expected: 'A clear input error', actual: 'The earlier client saw a generic error' };
         const report = value<ReportRecord>(await p.call("kanvas.error.report", input));
         expect(report).toMatchObject({ kind: 'error', status: 'open', revision: 0, authorId: owner.user!.id, diagnosticId: rejected.diagnosticId });
@@ -133,7 +133,7 @@ describe.each(['modern', 'legacy'] as const)('%s MCP publication contracts and p
         failure(await p.call("kanvas.feedback.submit", { ...input, requestId: 'spoof', authorId: other.user!.id }), 'INVALID_ARGUMENT');
         const foreignDisplay = await other.display(foreign.id);
         failure(await p.call("kanvas.error.report", { ...input, requestId: 'foreign-link', displayId: foreignDisplay.id }), 'NOT_FOUND');
-        const rejected = failure(await outsider.call("kanvas.submit", { sessionId: foreign.id, displayIds: [foreignDisplay.id], requestId: 'invalid', view: { version: 1, template: 'fact', data: {} } }), 'INVALID_ARGUMENT');
+        const rejected = failure(await outsider.call("kanvas.publish", { sessionId: foreign.id, displayIds: [foreignDisplay.id], requestId: 'invalid', view: { version: 1, template: 'fact', data: {} } }), 'INVALID_ARGUMENT');
         failure(await p.call("kanvas.error.report", { ...input, requestId: 'foreign-diagnostic', diagnosticId: rejected.diagnosticId }), 'NOT_FOUND');
         success(await owner.request('POST', `/api/sessions/${session.id}/members`, { username: other.user!.username, role: 'editor' }));
         const editor = await publisher(other, [session.id]);
@@ -241,7 +241,7 @@ describe.each(['modern', 'legacy'] as const)('%s MCP publication contracts and p
         const marker = randomUUID();
         h = await startHarness({ interpreter: { interpret: async () => { throw new RenderingError('INVALID_SOURCE_CONTENT', marker); } } });
         const owner = await h.account(), session = await owner.session(), display = await owner.display(session.id), p = await publisher(owner, [session.id]);
-        value(await p.call("kanvas.submit", { sessionId: session.id, displayIds: [display.id], requestId: 'invalid-source-diagnostic', context: 'A supplied fact', templateHint: 'fact' }));
+        value(await p.call("kanvas.publish", { sessionId: session.id, displayIds: [display.id], requestId: 'invalid-source-diagnostic', context: 'A supplied fact', templateHint: 'fact' }));
         const { update } = await owner.settle(session.id, 'invalid-source-diagnostic');
         expect(update.status).toBe('failed');
         expect(update.errorCode).toBe('INVALID_SOURCE_CONTENT');

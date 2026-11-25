@@ -4,7 +4,7 @@ import { operationTable } from '../../src/server/mcp/operations.js';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import ts from 'typescript';
-import { operationCatalog } from '../../src/server/mcp/discovery.js';
+import { operationCatalog, helpCatalog, templateCatalog } from '../../src/server/mcp/discovery.js';
 
 const catalogOnly = ['kanvas.help', 'kanvas.guide', 'kanvas.template.get'];
 const definitionPaths = [
@@ -41,16 +41,16 @@ describe('authored operation summaries', () => {
     expect(detail.description).toContain('inspect later only when unconfirmed');
     expect(detail.description).not.toContain('check delivery separately');
   });
-  it('covers all 189 callable operations and three catalog-only definitions', () => {
-    expect(CANONICAL_TOOLS).toHaveLength(192);
-    expect(operationTable().size).toBe(189);
+  it('covers all 195 callable operations and three catalog-only definitions', () => {
+    expect(CANONICAL_TOOLS).toHaveLength(198);
+    expect(operationTable().size).toBe(195);
     expect(CANONICAL_TOOLS.filter(tool => !operationTable().has(tool.name)).map(tool => tool.name).sort()).toEqual([...catalogOnly].sort());
-    expect(new Set(CANONICAL_TOOLS.map(tool => tool.name)).size).toBe(192);
+    expect(new Set(CANONICAL_TOOLS.map(tool => tool.name)).size).toBe(198);
   });
 
   it('stores a literal summary beside every owning schema instead of generating excerpts', () => {
     const authored = authoredDefinitions();
-    expect(authored).toHaveLength(192);
+    expect(authored).toHaveLength(198);
     expect(authored.map(item => item.name).sort()).toEqual(CANONICAL_TOOLS.map(tool => tool.name).sort());
     for (const tool of CANONICAL_TOOLS) {
       const matches = authored.filter(item => item.name === tool.name);
@@ -62,7 +62,7 @@ describe('authored operation summaries', () => {
 
   it('keeps summaries distinct, concise, complete, and separate from detailed contracts', () => {
     const summaries = CANONICAL_TOOLS.map(tool => tool.summary);
-    expect(new Set(summaries.map(summary => summary.toLowerCase())).size).toBe(192);
+    expect(new Set(summaries.map(summary => summary.toLowerCase())).size).toBe(198);
     for (const tool of CANONICAL_TOOLS) {
       const summary = tool.summary;
       expect(summary, tool.name).toBe(summary.trim());
@@ -86,7 +86,7 @@ describe('authored operation summaries', () => {
     expect(summary('kanvas.display.current')).toContain('stored');
     expect(summary('kanvas.display.inspect')).toContain('receiving-browser');
     expect(summary('kanvas.display.snapshot')).toContain('isolated server browser');
-    expect(summary('kanvas.display.request.capture')).toContain('locally choose');
+    expect(summary('kanvas.display.capture.request')).toContain('locally choose');
     expect(summary('kanvas.display.edit')).toContain('complete data object');
     expect(summary('kanvas.view.patch')).toContain('narrow');
     expect(summary('kanvas.invite.create')).toContain('without sending');
@@ -96,3 +96,11 @@ describe('authored operation summaries', () => {
     expect(summary('kanvas.guidance.library.activate')).toContain('one owned session');
   });
 });
+
+
+it('uses only current operation names across every active registry detail and help payload',()=>{
+ const retired=['kanvas.'+'submit','kanvas.account.'+'begin','kanvas.display.request.'+'capture','kanvas.device.'+'rename','kanvas.'+'clear','kanvas.preferences.'+'get','kanvas.config.'+'update','kanvas.media.'+'import','kanvas.archive.'+'manage','kanvas.board.'+'update'];
+ const payload=JSON.stringify([...operationCatalog(),...helpCatalog(),...templateCatalog()].map(entry=>({id:entry.id,title:entry.title,summary:entry.summary,detail:entry.detail()})));
+ for(const id of retired){expect(payload).not.toContain(id);if(id.includes('.',7))expect(payload).not.toContain(id.slice(7));}
+ // Includes every composite template schema; a complete cold traversal exceeds the ordinary test budget.
+},60000);

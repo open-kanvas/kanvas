@@ -94,7 +94,7 @@ describe("charts coverage 2", () => {
         it('explicit import copies an asset into private account storage without losing session scope', async () => {
             const asset = success(await o.request<any>('POST', `/api/sessions/${s}/assets`, { name: 'reuse.png', mimeType: 'image/png', base64: PNG }));
             const p = { userId: o.user!.id };
-            const media: any = await h.runtime.service.execute("kanvas.media.import", { sessionId: s, assetId: asset.id, tags: ['reuse'] }, p);
+            const media: any = await h.runtime.service.execute("kanvas.media.copy.from.asset", { sessionId: s, assetId: asset.id, tags: ['reuse'] }, p);
             expect(media.id).not.toBe(asset.id);
             expect(media.url).toBe('/api/media/' + media.id);
             expect((await h.runtime.service.mediaLibrary.list(p, 'reuse'))).toHaveLength(1);

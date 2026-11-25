@@ -199,7 +199,7 @@ describe("template contracts coverage 3", () => {
             expect(needsTemplate({ context: prose, templateHint: 'fact' })).toBe(false);
             expect(needsTemplate({ context: 'Short sentence.' })).toBe(false);
             const before = (await o.detail(s)).displays[0].revision;
-            const result = await call("kanvas.submit", { requestId: randomUUID(), sessionId: s, displayIds: [d], intent: 'four phases as a left to right flow diagram', context: prose });
+            const result = await call("kanvas.publish", { requestId: randomUUID(), sessionId: s, displayIds: [d], intent: 'four phases as a left to right flow diagram', context: prose });
             expect(result).toMatchObject({ status: 'needs_template', published: false });
             expect(result.candidates).toHaveLength(3);
             expect(result.candidates.map((c: {
@@ -210,7 +210,7 @@ describe("template contracts coverage 3", () => {
             const after = (await o.detail(s)).displays[0];
             expect(after.revision).toBe(before);
             expect(after.view).toBeNull();
-            const short = await call("kanvas.submit", { requestId: randomUUID(), sessionId: s, displayIds: [d], context: 'Kanvas is your agent\'s screen.' });
+            const short = await call("kanvas.publish", { requestId: randomUUID(), sessionId: s, displayIds: [d], context: 'Kanvas is your agent\'s screen.' });
             expect(short.status).not.toBe('needs_template');
         });
     });
@@ -282,7 +282,7 @@ describe("template contracts coverage 4", () => {
                 const long = await client.callTool(operationRequest({
                     name: "kanvas_call",
                     arguments: {
-                        operationId: "kanvas.submit",
+                        operationId: "kanvas.publish",
                         arguments: {
                             sessionId, displayIds: [displayId], requestId: randomUUID(), intent: 'x'.repeat(1001)
                         }

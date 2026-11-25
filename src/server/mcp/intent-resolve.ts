@@ -15,7 +15,7 @@ export async function resolveIntent(service: KanvasService, p: AuthPrincipal, ra
         { name: "kanvas.selection.set", family: 'filter/sort/highlight', match: /\b(filter|sort|highlight|only errors|only warnings)\b/.test(query) },
         { name: "kanvas.navigation.control", family: 'navigate/scroll/zoom', match: /\b(navigate|scroll|zoom|next page|previous page)\b/.test(query) },
         { name: "kanvas.view.patch", family: 'patch/edit', match: /\b(patch|edit|append|replace)\b/.test(query) },
-        { name: "kanvas.submit", family: 'publish/target', match: /\b(publish|show supplied|send supplied)\b/.test(query) },
+        { name: "kanvas.publish", family: 'publish/target', match: /\b(publish|show supplied|send supplied)\b/.test(query) },
         { name: /\b(interaction|interactions|clicks|feedback)\b/.test(query) ? "kanvas.interactions.read" : "kanvas.display.current", family: 'inspect/interaction', match: /\b(inspect|current screen|interactions|clicks|feedback)\b/.test(query) },
     ].filter(x => x.match);
     await service.fullAccount(p);
@@ -30,7 +30,7 @@ export async function resolveIntent(service: KanvasService, p: AuthPrincipal, ra
     const contextSession = input.sessionId ?? input.activeContext?.sessionId;
     // Explicit operation/session target always wins over contextual binding.
     let sessionId = input.sessionId ?? (typeof args.sessionId === 'string' ? args.sessionId : undefined) ?? contextSession;
-    let displayId = input.displayId ?? (typeof args.displayId === 'string' ? args.displayId : undefined) ?? (choice.name === "kanvas.submit" && Array.isArray(args.displayIds) && args.displayIds.length === 1 && typeof args.displayIds[0] === 'string' ? args.displayIds[0] : undefined);
+    let displayId = input.displayId ?? (typeof args.displayId === 'string' ? args.displayId : undefined) ?? (choice.name === "kanvas.publish" && Array.isArray(args.displayIds) && args.displayIds.length === 1 && typeof args.displayIds[0] === 'string' ? args.displayIds[0] : undefined);
     let targetDisplays: string[] | undefined;
     if (input.targetRef && !input.sessionId && !args.sessionId) {
         const binding = await service.publication.resolveTarget(p, input.targetRef);
@@ -71,7 +71,7 @@ export async function resolveIntent(service: KanvasService, p: AuthPrincipal, ra
     if (!definition.readOnly) {
         if (args.requestId === undefined)
             set('requestId', randomUUID(), 'generated unique retry ID; retain for identical retry');
-        if (display && choice.name !== "kanvas.submit") {
+        if (display && choice.name !== "kanvas.publish") {
             if (args.expectedRevision !== undefined && args.expectedRevision !== display.revision) {
                 missing.add('expectedRevision (supplied revision is stale or invalid; review edits against current state)');
                 uncertainty.push('Current authorized display revision: ' + display.revision);
@@ -132,7 +132,7 @@ export async function resolveIntent(service: KanvasService, p: AuthPrincipal, ra
     }
     if (choice.name === "kanvas.view.patch" && args.operations === undefined)
         missing.add('operations (supply exact edits; content is never invented)');
-    if (choice.name === "kanvas.submit") {
+    if (choice.name === "kanvas.publish") {
         delete args.displayId;
         delete sources.displayId;
         if (args.displayIds !== undefined && (!Array.isArray(args.displayIds) || args.displayIds.length !== 1 || args.displayIds[0] !== displayId))

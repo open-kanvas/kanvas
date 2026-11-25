@@ -61,7 +61,7 @@ describe("publishing coverage 2", () => {
         it('omitted display targets the stable primary instead of blocking or broadcasting', async () => {
             h = await startHarness();
             const owner = await h.account(), p = await principal(owner), s = await owner.session(), first = await owner.display(s.id), second = await owner.display(s.id);
-            const r: any = await h.runtime.service.execute("kanvas.submit", { sessionId: s.id, requestId: 'primary', view: fact('First screen only') }, p);
+            const r: any = await h.runtime.service.execute("kanvas.publish", { sessionId: s.id, requestId: 'primary', view: fact('First screen only') }, p);
             expect(r.status).not.toBe('needs_target');
             expect(r.targets.map((x: any) => x.displayId)).toEqual([first.id]);
             expect((await h.runtime.service.display(p, s.id, second.id)).view).toBeNull();

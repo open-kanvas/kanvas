@@ -83,10 +83,10 @@ test.describe("settings coverage 1", () => {
             await expect.poll(async () => { const d = (await a.call("kanvas_call", "kanvas.devices.read")).devices; return d.filter((x: any) => [pcDevice.id, tvDevice.id].includes(x.id) && x.command?.status === 'applied').length; }).toBe(2);
             const participants = await a.call("kanvas_call", "kanvas.participants.read", { sessionId: a.s });
             expect(participants.registeredDevices.map((d: any) => d.id)).toEqual(expect.arrayContaining([pcDevice.id, tvDevice.id]));
-            const preferences = await a.call("kanvas_call", "kanvas.preferences.get");
+            const preferences = await a.call("kanvas_call", "kanvas.preferences.read");
             await a.call("kanvas_call", "kanvas.preferences.update", { expectedRevision: preferences.revision, config: { theme: 'system' } });
             const detail = await sessionDetail(page, a.s);
-            await a.call("kanvas_call", "kanvas.config.update", { sessionId: a.s, expectedRevision: detail.session.configRevision, config: { theme: 'system' } });
+            await a.call("kanvas_call", "kanvas.settings.update", { sessionId: a.s, expectedRevision: detail.session.configRevision, config: { theme: 'system' } });
             await pc.emulateMedia({ colorScheme: 'dark' });
             await tv.emulateMedia({ colorScheme: 'light' });
             await expect(pc.locator('.viewer-shell')).toHaveClass(/theme-dark/);

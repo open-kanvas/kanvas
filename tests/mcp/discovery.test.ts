@@ -115,8 +115,8 @@ describe("discovery coverage 1", () => {
             const search = new LocalSearch(operationCatalog());
             const cases = [
                 ['bring a saved tick list onto a different monitor', 'kanvas.checklist.show'],
-                ['enlarge the typography', 'kanvas.config.update'],
-                ['take a screenshot with native browser consent', 'kanvas.display.request.capture'],
+                ['enlarge the typography', 'kanvas.settings.update'],
+                ['take a screenshot with native browser consent', 'kanvas.display.capture.request'],
                 ['undo to a previous retained screen', 'kanvas.display.navigate'],
                 ['automatically advance my slideshow', 'kanvas.autoplay.control'],
                 ['grant a colleague access with an invitation', 'kanvas.invite.create'],
@@ -127,7 +127,7 @@ describe("discovery coverage 1", () => {
             ];
             for (const [query, expected] of cases)
                 expect(search.search(query).slice(0, 5).map(row => row.document.id), query).toContain(expected);
-            expect(search.search('actual browser screen capture')[0].document.id).toBe('kanvas.display.request.capture');
+            expect(search.search('actual browser screen capture')[0].document.id).toBe('kanvas.display.capture.request');
         });
         it('lists every entry as concise plain text by default, with no structured JSON duplication', () => {
             for (const [catalog, kind] of [['operations', 'tool'], ['help', 'help'], ['templates', 'template']] as const) {
@@ -148,13 +148,13 @@ describe("discovery coverage 1", () => {
                 { catalog: 'operations', action: 'search', query: '' }, { catalog: 'operations', action: 'search', query: 'x', limit: 21 },
                 { catalog: 'operations', action: 'search', query: 'x', injected: true }, { catalog: 'operations', action: 'search', query: 'x'.repeat(501) },
                 { catalog: 'help', action: 'list', type: 'guide' }, { catalog: 'help', action: 'list', limit: 1 },
-                { catalog: 'schema', action: 'list' }, { catalog: 'operations', action: 'get', id: 'kanvas.submit', query: 'x' },
+                { catalog: 'schema', action: 'list' }, { catalog: 'operations', action: 'get', id: 'kanvas.publish', query: 'x' },
             ])
                 expect(() => parseDiscoveryInput('kanvas_discover', raw)).toThrow();
             for (const operationId of ['__proto__', 'constructor', '../kanvas.session.state', 'kanvas.execute', 'kanvas.session.state;eval', 'kanvas.guide', 'kanvas.help', 'kanvas.template.get'])
                 expect(resolveToolCall('discovery', 'kanvas_call', { operationId, arguments: {} }).error).toBeDefined();
             expect(resolveToolCall('discovery', 'kanvas_call', { operationId: 'kanvas.session.state', arguments: { sessionId: 'x', extra: true } }).error).toBeDefined();
-            for (const name of ['kanvas_arbitrary_eval', 'kanvas_tool_use', 'kanvas_tool_search', 'kanvas_help_index', "kanvas.submit", 'kanvas_publish'])
+            for (const name of ['kanvas_arbitrary_eval', 'kanvas_tool_use', 'kanvas_tool_search', 'kanvas_help_index', "kanvas.publish", 'kanvas_publish'])
                 expect(resolveToolCall('discovery', name, {}).error).toBeDefined();
         });
         it('covers all actual built-in templates with full schema, valid view examples and executable publication wrappers', () => {
@@ -260,14 +260,14 @@ describe("discovery coverage 1", () => {
             const recipe = {
                 tool: "kanvas_call",
                 arguments: {
-                    operationId: "kanvas.submit",
+                    operationId: "kanvas.publish",
                     arguments: {
                         requestId: 'x', view: { version: 1, template: 'fact', data: { text: 'kanvas_session_state is literal source text' } }
                     }
                 }
             };
             const transformed = publicExample(recipe, 'discovery') as any;
-            expect(transformed.arguments.operationId).toBe('kanvas.submit');
+            expect(transformed.arguments.operationId).toBe('kanvas.publish');
             expect(transformed.arguments.arguments.view.data).toEqual(recipe.arguments.arguments.view.data);
             expect(publicGuidanceText('Read kanvas_call with operationId:"kanvas.session.state" and arguments:{…}.', 'discovery')).toContain('operationId:"kanvas.session.state"');
             const user = { question: 'kanvas_submit is literal user prose', context: { name: "kanvas.session.state" }, steps: ['Read kanvas_call with operationId:kanvas.session.state.'] };

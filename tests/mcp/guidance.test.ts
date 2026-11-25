@@ -39,8 +39,8 @@ describe('contextual discovery and first contact',()=>{
  // Presentation builds the full composite catalog (10.101s with two workers).
  // Keep every workflow assertion and leave ordinary template budgets unchanged.
  },template==='presentation'?30_000:10_000);
- it('first-contact queries find front-door help and submit is the canonical topic identity',()=>{
-  const ids=helpCatalog().map(x=>x.id);expect(ids).toContain('kanvas.help.about');expect(ids).toContain('kanvas.help.what-is-kanvas');expect(ids).toContain('kanvas.help.submit');expect(ids).not.toContain('kanvas.help.publish');
+ it('first-contact queries find front-door help and publish is the canonical topic identity',()=>{
+  const ids=helpCatalog().map(x=>x.id);expect(ids).toContain('kanvas.help.about');expect(ids).toContain('kanvas.help.what-is-kanvas');expect(ids).toContain('kanvas.help.publish');expect(ids).not.toContain('kanvas.help.'+'submit');
   for(const query of ['about kanvas','what is kanvas']){const out=discoveryCatalog.query('help','search',{query,limit:5},context);expect(JSON.stringify(out.results)).toMatch(/kanvas.help.(about|what-is-kanvas)/);}
   expect(JSON.stringify(helpCatalog().find(x=>x.id==='kanvas.help.getting-started.steps')!.detail())).toContain('Human-facing first instruction');
   expect(discoveryToolDefinitions()[0].description).toMatch(/^Start here. Once per conversation/);expect(profileInstructions('discovery')).toContain('no arguments');expect(FIRST_DISPLAY_LINK_GUIDANCE).toContain('prefer the returned shortUrl');expect(profileInstructions('discovery')).not.toContain('Show literal returned viewer URLs on first use');
@@ -106,10 +106,10 @@ describe("guidance coverage 3", () => {
             const third = await use('kanvas.session.state', { sessionId: session.id });
             expect(third.body.orientation).toEqual({ guide: third.body.orientation.guide, help: 'kanvas.help.getting-started.steps' });
             expect(JSON.stringify(third.body).length).toBeLessThan(firstBytes);
-            const published = await use('kanvas.submit', { requestId: 'contract-task-list', sessionId: session.id, displayIds: [display.id], view: { version: 1, template: 'task-list', data: { items: [{ title: 'One' }, { title: 'Two' }] } } });
+            const published = await use('kanvas.publish', { requestId: 'contract-task-list', sessionId: session.id, displayIds: [display.id], view: { version: 1, template: 'task-list', data: { items: [{ title: 'One' }, { title: 'Two' }] } } });
             expect(published.error).toBe(false);
             expect(published.body.rhythm).toBeUndefined(); // SSE connection alone is not a browser paint acknowledgment.
-            expect((await use('kanvas.submit', { requestId: 'contract-fact', sessionId: session.id, displayIds: [display.id], view: { version: 1, template: 'fact', data: { text: 'Second' } } })).body.rhythm).toBeUndefined();
+            expect((await use('kanvas.publish', { requestId: 'contract-fact', sessionId: session.id, displayIds: [display.id], view: { version: 1, template: 'fact', data: { text: 'Second' } } })).body.rhythm).toBeUndefined();
             const lists = await use('kanvas.tasklist.read', { sessionId: session.id });
             const taskListId = lists.body.data.taskLists[0].id;
             const calls: Record<string, Record<string, unknown>> = {

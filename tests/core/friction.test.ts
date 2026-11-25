@@ -79,10 +79,10 @@ describe("friction coverage 1", () => {
             expect(problemClass('Expected ISO 8601 date-time with a UTC offset, e.g. x.')).toBe('format');
             expect(problemClass('op must be one of: set, remove.')).toBe('enum-mismatch');
             const friction = h.runtime.service.friction, client = { name: 'Anthropic/ClaudeAI', version: '1.0.0' }, secret = 'PRIVATE-VALUE-7731';
-            friction.record({ operation: "kanvas.submit", template: 'list', client, connection: 'c1', ok: false, issues: [{ path: 'view.data.items[0].title', problem: 'Unsupported field.' }, { path: 'view.data.items[1].title', problem: 'Unsupported field.' }], status: 'INVALID_ARGUMENT', responseBytes: 900 });
+            friction.record({ operation: "kanvas.publish", template: 'list', client, connection: 'c1', ok: false, issues: [{ path: 'view.data.items[0].title', problem: 'Unsupported field.' }, { path: 'view.data.items[1].title', problem: 'Unsupported field.' }], status: 'INVALID_ARGUMENT', responseBytes: 900 });
             friction.record({ operation: 'kanvas_discover', client, connection: 'c1', ok: true, discovery: 'search' });
             friction.record({ operation: 'kanvas_discover', client, connection: 'c1', ok: true, discovery: 'get' });
-            friction.record({ operation: "kanvas.submit", template: 'list', client, connection: 'c1', ok: true, status: 'accepted', responseBytes: 70000 });
+            friction.record({ operation: "kanvas.publish", template: 'list', client, connection: 'c1', ok: true, status: 'accepted', responseBytes: 70000 });
             friction.record({ client, connection: 'c1', ok: true, discovery: 'resolve', resolveStatus: 'unsupported' });
             friction.record({ operation: `kanvas_${secret}`, template: secret, client: { name: secret }, connection: 'c2', ok: false, issues: [{ path: `items[0].${secret}`, problem: secret }] });
             await expect(call("kanvas.friction.read", { kind: 'validation' })).rejects.toMatchObject({ code: 'FORBIDDEN' });
@@ -94,7 +94,7 @@ describe("friction coverage 1", () => {
             expect((await call("kanvas.friction.read", { kind: 'resolve', days: 1 })).entries[0]).toMatchObject({ outcome: 'unsupported', count: 1 });
             const weight = (await call("kanvas.friction.read", { kind: 'weight', days: 1 })).entries.find((e: {
                 subject: string;
-            }) => e.subject === 'operation:kanvas.submit');
+            }) => e.subject === 'operation:kanvas.publish');
             expect(weight.p95Bytes).toBe(131072);
             expect(weight.maxBytes).toBe(70000);
             // Only names, classes and numbers are stored: day, kind, subject, detail, client, count, sum, max.

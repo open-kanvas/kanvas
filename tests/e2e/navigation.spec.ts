@@ -91,7 +91,7 @@ test.describe("navigation coverage 1", () => {
             const held = await reader.evaluate(el => el.scrollTop);
             await expect.poll(async () => Math.abs(await reader.evaluate(el => new Promise<number>(resolve => setTimeout(() => resolve(el.scrollTop), 400))) - held)).toBeLessThan(3);
             await s.nav({ action: 'reading', command: 'configure', fontSize: 32, wpm: 190, zoom: 1.1, saveDefaults: true });
-            const pref = await s.call("kanvas_call", "kanvas.preferences.get");
+            const pref = await s.call("kanvas_call", "kanvas.preferences.read");
             expect(pref.config).toMatchObject({ readingFontSize: 32, readingWpm: 190, readingZoom: 1.1 });
             expect((await s.current()).view).toEqual(original.view);
             expect((await s.current()).revision).toBe(original.revision);

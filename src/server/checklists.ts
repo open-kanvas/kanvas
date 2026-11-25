@@ -39,14 +39,14 @@ export const checklistTools: Definition[] = [
         searchAliases: ["kanvas.checklist.read"]
     },
     {
-        name: "kanvas.checklist.update", summary: "Update named checklist items or restore a revision when maintaining a saved checklist without replacing untouched items.", schema: checklistUpdateSchema, idempotent: true, description: 'Saves the durable checklist and refreshes matching unheld displays only. Held displays keep their content and revision; release hold and call checklist.show to catch up. Identical retries never publish skipped displays. Change saved checklist items BY ID; items you do not name stay exactly as they are. Tick one: items:[{id,checked:true}]. New id + text adds; removeIds deletes; highlightId marks the current item; restoreRevision reverts. Returns added/changed/removed ids.',
+        name: "kanvas.checklist.update", summary: "Update named checklist items or restore a revision when maintaining a saved checklist without replacing untouched items.", schema: checklistUpdateSchema, idempotent: true, description: 'Saves the durable checklist and refreshes matching unheld displays only. Held displays keep their content and revision; release hold and call checklist.show to catch up. Identical retries never publish skipped displays. Returns durable updateId/requestId receipts; delivery waits up to the configurable 2-second default, and late acknowledgements remain recoverable through kanvas.update.status. Change saved checklist items BY ID; items you do not name stay exactly as they are. Tick one: items:[{id,checked:true}]. New id + text adds; removeIds deletes; highlightId marks the current item; restoreRevision reverts. Returns added/changed/removed ids.',
         domain: "checklist",
         requiredScope: "publish",
         discovery: {"group":"content","hint":"Change saved items by id; unnamed items are untouched and nothing is deleted by omission. removeIds deletes; highlightId marks the current item.","examples":[{"sessionId":"session-id","checklistId":"checklist-id","expectedRevision":0,"requestId":"tick-task","items":[{"id":"task","checked":true}]}]},
         searchAliases: ["kanvas.checklist.update"]
     },
     {
-        name: "kanvas.checklist.show", summary: "Restore a saved checklist on a display in its session when returning to its latest items.", schema: checklistShowSchema, idempotent: true, description: 'Bring a saved checklist back on ANY display in the SAME session without resupplying its items. Uses latest document state; expectedRevision is the destination display revision. Honors hold/access and requestId retries. Zoom belongs to each receiving device window, not the checklist. Re-showing the same checklist in place preserves local scroll; showing different content resets position.',
+        name: "kanvas.checklist.show", summary: "Restore a saved checklist on a display in its session when returning to its latest items.", schema: checklistShowSchema, idempotent: true, description: 'Bring a saved checklist back on ANY display in the SAME session without resupplying its items. Uses latest document state; expectedRevision is the destination display revision. Honors hold/access and requestId retries. Returns durable updateId/requestId and bounded browser delivery; use kanvas.update.status for a later unconfirmed outcome. Zoom belongs to each receiving device window, not the checklist. Re-showing the same checklist in place preserves local scroll; showing different content resets position.',
         domain: "checklist",
         requiredScope: "publish",
         discovery: {"group":"content","hint":"Restore latest saved checklist on any same-session display without resupplying items.","examples":[{"sessionId":"session-id","checklistId":"checklist-id","displayId":"display-id","expectedRevision":1,"requestId":"checklist-show"}]},
@@ -250,6 +250,7 @@ export class Checklists {
                     throw new AppError('REQUEST_ID_CONFLICT', 'This request ID refers to a different checklist update.', 409);
                 return prior.result;
             }
+            await this.service.assertUnusedUpdateRequest(p, a.sessionId, a.requestId);
             const record = await this.get(a.sessionId, a.checklistId);
             this.service.assertRevision(a.expectedRevision, record.revision);
             const saved = record.view.data.items as Item[];
@@ -312,6 +313,8 @@ export class Checklists {
                 ...(notFound.length ? { notFound, notFoundNote: 'These removeIds matched no saved item; nothing was deleted for them.' } : {}),
                 ...(unchanged ? { unchanged: true } : {}), updatedAt: stored.updatedAt,
                 note: unchanged ? 'Nothing differed from the saved checklist; revision unchanged.' : `Saved as revision ${stored.revision}. Items not listed in changes are exactly as before. Held displays retain their snapshot; release hold and show the saved checklist to refresh them. Undo with restoreRevision:${record.revision}.` };
+            const update = await this.service.recordNarrowUpdate(p, a, 'checklist-update', displayRevisions, heldDisplayIds);
+            Object.assign(result, {updateId:update.id, requestId:a.requestId});
             await this.store.put('checklist-request', { id: key, sessionId: a.sessionId, digest, result });
             return result;
         }));

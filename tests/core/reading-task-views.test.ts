@@ -63,7 +63,7 @@ describe('exact task views and personal reading state', () => {
         expect(paused.state.reading?.playing).toBe(false);
         expect((await owner.detail(s)).displays[0].view).toEqual(before.view);
         expect(await call("kanvas.display.history", { sessionId: s, displayId: d })).toEqual(history);
-        const preferences = await call("kanvas.preferences.get", {}) as {
+        const preferences = await call("kanvas.preferences.read", {}) as {
             config: Record<string, unknown>;
         };
         expect(preferences.config).toMatchObject({ readingFontSize: 28, readingWpm: 160 });
@@ -84,9 +84,9 @@ describe('exact task views and personal reading state', () => {
         guest.csrf = success(await guest.request<{
             csrfToken: string;
         }>('GET', '/api/auth/me')).csrfToken;
-        const before = await call("kanvas.preferences.get", {});
+        const before = await call("kanvas.preferences.read", {});
         denied(await move({ action: 'reading', fontSize: 32, saveDefaults: true }, 1, guest));
-        expect(await call("kanvas.preferences.get", {})).toEqual(before);
+        expect(await call("kanvas.preferences.read", {})).toEqual(before);
         expect(success(await move({ action: 'reading', command: 'start', wpm: 190 }, 1, guest)).state.reading?.wpm).toBe(190);
         denied(await move({ action: 'reading', wpm: 800 }, 1, guest), [400]);
     });

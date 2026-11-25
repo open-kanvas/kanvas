@@ -24,7 +24,7 @@ export interface ToolDiscoveryEntry {
 export const TOOL_EXAMPLE_NOTICE = 'Examples show syntax with inert placeholders, not authorization or live facts. Replace IDs/revisions from authorized current state.';
 export const MAX_DISCOVERY_HINT_CHARACTERS = 1536;
 export const TOOL_SELECTION_GUIDANCE = {
-    publish: "kanvas_call with operationId:\"kanvas.submit\" and arguments:{\u2026} publishes/replaces content on named displays. Supply exact source context/data with intent/templateHint, or a complete prepared view. Fact and transcription argument examples are inline.",
+    publish: "kanvas_call with operationId:\"kanvas.publish\" and arguments:{\u2026} publishes/replaces content on named displays. Supply exact source context/data with intent/templateHint, or a complete prepared view. Fact and transcription argument examples are inline.",
     viewport: "kanvas_call with operationId:\"kanvas.display.update\" and arguments:{\u2026} changes viewport dimensions or held state, never view content. Hold changes require the current expectedRevision.",
     completeData: "kanvas_call with operationId:\"kanvas.display.edit\" and arguments:{\u2026} replaces the COMPLETE data object of an editable current template; omitted required fields cause validation errors. It is not a partial merge.",
     patch: "kanvas_call with operationId:\"kanvas.view.patch\" and arguments:{\u2026} applies narrow /data/... field changes or text appends atomically with expectedRevision and requestId. Read current state before a new action; exact retries reuse the original input.",

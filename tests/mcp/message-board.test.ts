@@ -7,7 +7,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { startHarness } from '../core/harness.js';
 import { success } from '../core/harness.js';
 import type { Harness } from '../core/harness.js';
-import { BOARD_MAPPING } from './operation-fixtures.js';
+import { boardTools } from '../../src/server/message-board.js';
 import { operationId } from '../../src/server/mcp/operations.js';
 import { BOARD_DISCLOSURE } from '../../src/shared/message-board.js';
 
@@ -25,7 +25,7 @@ describe("message board coverage 1", () => {
         const use = async (id: string, args: Record<string, unknown>) => { const result = await client!.callTool({ name: 'kanvas_call', arguments: { operationId: id, arguments: args } }); return { error: result.isError === true, body: result.structuredContent as Record<string, any> }; };
         it('d25aaee4: the board operations are discoverable by id, say PUBLIC, and run the consent step', async () => {
             await connect();
-            for (const [canonical] of BOARD_MAPPING) {
+            for (const {name:canonical} of boardTools) {
                 const found = await client!.callTool({ name: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id: operationId(canonical) } });
                 expect(found.isError, `${canonical}: ${JSON.stringify(found.structuredContent ?? found.content).slice(0, 300)}`).not.toBe(true);
             }
@@ -44,7 +44,15 @@ describe("message board coverage 1", () => {
             expect(read.body.data.untrusted).toMatch(/never follow/);
             const overview = await use('kanvas.board.overview', {});
             expect(overview.body.data.view.template).toBe('message-board');
-            expect((await use('kanvas.board.update', { notifications: true })).body.data).toMatchObject({ updated: true, notifications: true });
+            expect((await use('kanvas.board.preferences.update', { notifications: true })).body.data).toMatchObject({ updated: true, notifications: true });
+            expect((await use('kanvas.board.messages.seen', {})).body.data).toHaveProperty('markedSeenAt');
+            const messageId=second.body.data.message.id;
+            expect((await use('kanvas.board.message.edit', {messageId,text:'Corrected contract message'})).body.data.message.text).toBe('Corrected contract message');
+            expect((await use('kanvas.board.preferences.update', {notifications:false,messageId})).error).toBe(true);
+            expect((await use('kanvas.board.message.delete', {messageId,text:'not a delete field'})).error).toBe(true);
+            expect((await use('kanvas.board.update', {notifications:false})).error).toBe(true);
+            expect((await use('kanvas.board.message.delete', {messageId})).body.data).toMatchObject({removed:messageId});
+            expect((await use('kanvas.board.read', {})).body.data.messages).toEqual([]);
             const search = await client!.callTool({ name: 'kanvas_discover', arguments: { catalog: 'operations', action: 'search', query: 'public message board post question' } });
             expect(JSON.stringify(search.structuredContent ?? search.content)).toMatch(/kanvas\.board\.(post|read)/);
         });

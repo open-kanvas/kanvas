@@ -30,7 +30,7 @@ describe('composed Markdown and plain-text source boundaries',()=>{
   });
   it('publishes ordinary help as Markdown with inline operation names and accurate text-size/grid guidance',()=>{
     const help=visualHelp({topic:'text-size'});
-    expect(help.view.template).toBe('markdown');expect(help.view.data.text).toContain('`kanvas.config.update`');
+    expect(help.view.template).toBe('markdown');expect(help.view.data.text).toContain('`kanvas.settings.update`');
     expect(validateView(help.view).template).toBe('markdown');
     const text=HELP_PAGES['text-size'].steps.join(' '),split=HELP_PAGES['split-screen'].steps.join(' ');
     expect(text).toMatch(/50.*250/);expect(text).toMatch(/session/i);expect(text).toMatch(/window/i);
@@ -40,8 +40,8 @@ describe('composed Markdown and plain-text source boundaries',()=>{
   it('names retired showSource without accepting it or echoing unrelated private record keys',()=>{
     const view={version:1,template:'fact',data:{text:'Exact source'},showSource:true,'private-field-secret':'private-value-secret'};
     const args={sessionId:'session',displayIds:['display'],requestId:'source-check',view};
-    expect(parseCanonicalArguments('kanvas.submit',args)).toBeUndefined();
-    const error=canonicalArgumentError('kanvas.submit',args)!;
+    expect(parseCanonicalArguments('kanvas.publish',args)).toBeUndefined();
+    const error=canonicalArgumentError('kanvas.publish',args)!;
     expect(error.issues).toEqual(expect.arrayContaining([expect.objectContaining({path:'view.showSource',problem:'Unsupported field.'})]));
     expect(JSON.stringify(error.issues)).not.toMatch(/private-field-secret|private-value-secret|Exact source/);
     expect(error.issues.some(issue=>issue.path.includes('<record-key>'))).toBe(true);

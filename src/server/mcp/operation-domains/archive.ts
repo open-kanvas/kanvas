@@ -1,9 +1,8 @@
 
 
-import {archiveSchema,archiveListSchema} from '../../archive.js';
+import {archiveCreateSchema,archiveRestoreSchema,archiveDeleteRequestSchema,archiveDeleteConfirmSchema,archiveListSchema} from '../../archive.js';
 
 import type {Definition} from '../canonical.js';
-import {name} from '../operation-fields.js';
 
 /** archive operation contracts. Domain services enforce current account, role and scope. */
 export const archiveOperations: readonly Definition[] = [
@@ -15,10 +14,31 @@ export const archiveOperations: readonly Definition[] = [
         searchAliases: ["kanvas.archive.list"]
     },
 {
-        name: "kanvas.archive.manage", summary: "Archive, restore, or request confirmed permanent deletion when managing retained sessions, displays, and historical views.", description: 'Owner-only archive (default) or restore of a session, display or retained view ID from display history. Archive is reversible. Permanent removal requires request-delete: show a warning and three random phonetic words on the current confirmationSessionId/confirmationDisplayId for 120 seconds. Batch views use targetIds (1–100 distinct IDs in one session), with one exact-target-bound confirmation. Then confirm-delete with challengeId and words explicitly supplied by the human. Never read/guess the words or infer approval. Shared items are deleted for everyone.', schema: archiveSchema, destructive: true,
-        domain: "archive",
-        requiredScope: "publish",
-        discovery: {"group":"sessions","hint":"Archive by default, restore explicitly. Batch retained views use targetIds in one owned session. Permanent deletion requires a current-screen, 120-second human phonetic confirmation. Words are never returned to the agent.","examples":[{"sessionId":"session-id","resource":"session","action":"archive"}]},
-        searchAliases: ["kanvas.archive.manage"]
+        name: 'kanvas.archive.create', summary: 'Reversibly archive owned sessions, displays, or retained views when hiding content from normal browsing without permanently deleting it.',
+        description: 'Owner-only reversible archive. Retained indefinitely; still counts toward storage limits. Batch retained views use targetIds (1–100 distinct IDs in one session). Restore with kanvas.archive.restore; permanent deletion is a separate human-confirmed process.',
+        schema: archiveCreateSchema, destructive: true, domain: 'archive', requiredScope: 'publish',
+        discovery: {group:'sessions',hint:'Hide owned sessions, displays or retained views without permanent deletion.',examples:[{sessionId:'session-id',resource:'session'}]},
+        searchAliases: ['kanvas.archive.create']
+    },
+    {
+        name: 'kanvas.archive.restore', summary: 'Restore archived sessions, displays, or retained views when returning recoverable content to normal browsing with its existing identity.',
+        description: 'Owner-only restore of a session, display or retained view. Restoring a session uses a session slot again. Batch retained views use targetIds (1–100 distinct IDs in one session).',
+        schema: archiveRestoreSchema, domain: 'archive', requiredScope: 'publish',
+        discovery: {group:'sessions',hint:'Restore recoverable archived content.',examples:[{sessionId:'session-id',resource:'session'}]},
+        searchAliases: ['kanvas.archive.restore']
+    },
+    {
+        name: 'kanvas.archive.delete.request', summary: 'Request a visual human confirmation before permanently deleting owned sessions, displays, or retained views.',
+        description: 'Owner-only deletion request. Show a warning and three random phonetic words on the current confirmationSessionId/confirmationDisplayId for 120 seconds. Batch views use targetIds (1–100 distinct IDs in one session), with one exact-target-bound confirmation. No deletion occurs yet. Words are never returned to the agent. Ask the human to read them; never retrieve, guess or infer approval. Shared items will be deleted for everyone.',
+        schema: archiveDeleteRequestSchema, domain: 'archive', requiredScope: 'publish',
+        discovery: {group:'sessions',hint:'Show a current-screen 120-second deletion warning; then use kanvas.archive.delete.confirm only with words explicitly supplied by the human.',examples:[{sessionId:'session-id',resource:'view',targetId:'view-id',confirmationDisplayId:'display-id'}]},
+        searchAliases: ['kanvas.archive.delete.request']
+    },
+    {
+        name: 'kanvas.archive.delete.confirm', summary: 'Permanently delete the exact requested archive targets after the human supplies the visual confirmation words.',
+        description: 'Owner-only irreversible deletion. Requires the fresh challengeId from kanvas.archive.delete.request, the exact same target selection, and words explicitly supplied by the human within 120 seconds. Never read or guess the words or infer approval. The challenge is single-use, expires, and is invalidated after three incorrect attempts. Shared items are deleted for everyone.',
+        schema: archiveDeleteConfirmSchema, destructive: true, domain: 'archive', requiredScope: 'publish',
+        discovery: {group:'sessions',hint:'Irreversible deletion using a fresh exact-target-bound human confirmation; never invent words.',examples:[{sessionId:'session-id',resource:'view',targetId:'view-id',challengeId:'challenge-id',words:'words supplied by human'}]},
+        searchAliases: ['kanvas.archive.delete.confirm']
     }
 ];

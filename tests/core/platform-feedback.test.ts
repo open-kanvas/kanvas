@@ -13,12 +13,12 @@ const principal = async (a: Browser) => { const s = await h.runtime.auth.issueBr
 describe('platform feedback safeguards', () => {
     it('renders branded multipart sign-in and signup without unescaped link markup', () => { const mail = authEmail('https://example.test/#email-signin=test&x="<'); expect(mail.subject).toBe('Sign in to KANVAS'); expect(mail.html).toContain('&amp;x=&quot;&lt;'); expect(mail.text).toContain('10 minutes'); expect(authEmail('https://example.test/', true).html).toContain('Create your account'); });
     it('generates fresh omitted request IDs without inventing authorization or revisions', () => {
-      const call = () => resolveToolCall('discovery', 'kanvas_call', { operationId: 'kanvas.clear', arguments: { sessionId: 's', displayIds: ['d'] } });
+      const call = () => resolveToolCall('discovery', 'kanvas_call', { operationId: 'kanvas.displays.clear', arguments: { sessionId: 's', displayIds: ['d'] } });
       const one = call(), two = call();
       expect(one.error).toBeUndefined();
       expect(one.args?.requestId).toEqual(expect.any(String));
       expect(one.args?.requestId).not.toBe(two.args?.requestId);
-      const optional = resolveToolCall('discovery', 'kanvas_call', { operationId: 'kanvas.config.update', arguments: { sessionId: 's', config: { theme: 'light' } } });
+      const optional = resolveToolCall('discovery', 'kanvas_call', { operationId: 'kanvas.settings.update', arguments: { sessionId: 's', config: { theme: 'light' } } });
       expect(optional.error).toBeUndefined(); expect(optional.args?.expectedRevision).toBeUndefined();
     });
     it('audits every effectful requestId field without changing read selectors', () => {
@@ -39,20 +39,20 @@ describe('platform feedback safeguards', () => {
         await owner.submit(s.id, [d.id], fact('Synthetic retained view'));
         const frame = (await h.runtime.service.history.list(await h.runtime.service.display(p, s.id, d.id))).entries.find(e => e.template === 'fact')!;
         expect(frame.id).toBeTruthy();
-        await expect(h.runtime.service.archive.manage(outsider, { resource: 'session', sessionId: s.id })).rejects.toMatchObject({ code: 'NOT_FOUND' });
+        await expect(h.runtime.service.archive.create(outsider, { resource: 'session', sessionId: s.id })).rejects.toMatchObject({ code: 'NOT_FOUND' });
         const restricted = await h.runtime.auth.issueToken(p.userId, 'Restricted synthetic grant', ['read', 'publish'], ['different-session']);
-        await expect(h.runtime.service.archive.manage({ userId: p.userId, tokenId: restricted.token.id }, { resource: 'session', sessionId: s.id })).rejects.toMatchObject({ code: 'FORBIDDEN' });
-        await h.runtime.service.archive.manage(p, { resource: 'view', sessionId: s.id, targetId: frame.id });
+        await expect(h.runtime.service.archive.create({ userId: p.userId, tokenId: restricted.token.id }, { resource: 'session', sessionId: s.id })).rejects.toMatchObject({ code: 'FORBIDDEN' });
+        await h.runtime.service.archive.create(p, { resource: 'view', sessionId: s.id, targetId: frame.id });
         expect((await h.runtime.service.history.list(await h.runtime.service.display(p, s.id, d.id))).entries.some(e => e.id === frame.id)).toBe(false);
-        await h.runtime.service.archive.manage(p, { action: 'restore', resource: 'view', sessionId: s.id, targetId: frame.id });
+        await h.runtime.service.archive.restore(p, { resource: 'view', sessionId: s.id, targetId: frame.id });
         expect((await h.runtime.service.archive.list(p, {})).items).toHaveLength(0);
-        await h.runtime.service.archive.manage(p, { resource: 'display', sessionId: s.id, targetId: d.id });
+        await h.runtime.service.archive.create(p, { resource: 'display', sessionId: s.id, targetId: d.id });
         await expect(h.runtime.service.display(p, s.id, d.id)).rejects.toMatchObject({ code: 'NOT_FOUND' });
-        await h.runtime.service.archive.manage(p, { action: 'restore', resource: 'display', sessionId: s.id, targetId: d.id });
-        await h.runtime.service.archive.manage(p, { resource: 'session', sessionId: s.id });
+        await h.runtime.service.archive.restore(p, { resource: 'display', sessionId: s.id, targetId: d.id });
+        await h.runtime.service.archive.create(p, { resource: 'session', sessionId: s.id });
         expect((await h.runtime.service.sessions(p)).some(x => x.id === s.id)).toBe(false);
         expect((await h.runtime.service.archive.list(p, {})).items).toHaveLength(1);
-        await h.runtime.service.archive.manage(p, { action: 'restore', resource: 'session', sessionId: s.id });
+        await h.runtime.service.archive.restore(p, { resource: 'session', sessionId: s.id });
         expect((await h.runtime.service.sessions(p)).some(x => x.id === s.id)).toBe(true);
     });
     it('archives the currently navigated historical view without destroying forward history', async () => {
@@ -67,12 +67,12 @@ describe('platform feedback safeguards', () => {
         display = await h.runtime.service.display(p, s.id, d.id);
         expect(display.view?.data.text).toBe('B');
         expect(display.revision).not.toBe(b.revision);
-        await h.runtime.service.archive.manage(p, { resource: 'view', sessionId: s.id, targetId: b.id });
+        await h.runtime.service.archive.create(p, { resource: 'view', sessionId: s.id, targetId: b.id });
         expect((await h.runtime.service.display(p, s.id, d.id)).view).toBeNull();
         expect(await h.runtime.store.get('display-history', c.id, true)).toMatchObject({ view: { data: { text: 'C' } } });
         expect((await h.runtime.store.get<any>('display-history', c.id, true)).archivedAt).toBeUndefined();
         expect((await h.runtime.service.archive.list(p, {})).items.map(x => x.targetId)).toEqual(expect.arrayContaining([b.id]));
-        await h.runtime.service.archive.manage(p, { action: 'restore', resource: 'view', sessionId: s.id, targetId: b.id });
+        await h.runtime.service.archive.restore(p, { resource: 'view', sessionId: s.id, targetId: b.id });
         expect((await h.runtime.service.history.list(await h.runtime.service.display(p, s.id, d.id))).entries.some(e => e.id === c.id)).toBe(true);
     });
     it.each(['display', 'session'] as const)('archives a current retained view beneath an archived %s', async (parent) => {
@@ -80,9 +80,9 @@ describe('platform feedback safeguards', () => {
         const owner = await h.account(), p = await principal(owner), s = await owner.session(), d = await owner.display(s.id);
         await owner.submit(s.id, [d.id], fact('Retained content'));
         const frame = (await h.runtime.service.history.list(await h.runtime.service.display(p, s.id, d.id))).entries.find(e => e.template === 'fact')!;
-        await h.runtime.service.archive.manage(p, { resource: parent, sessionId: s.id, ...(parent === 'display' ? { targetId: d.id } : {}) });
-        await h.runtime.service.archive.manage(p, { resource: 'view', sessionId: s.id, targetId: frame.id });
-        await h.runtime.service.archive.manage(p, { action: 'restore', resource: parent, sessionId: s.id, ...(parent === 'display' ? { targetId: d.id } : {}) });
+        await h.runtime.service.archive.create(p, { resource: parent, sessionId: s.id, ...(parent === 'display' ? { targetId: d.id } : {}) });
+        await h.runtime.service.archive.create(p, { resource: 'view', sessionId: s.id, targetId: frame.id });
+        await h.runtime.service.archive.restore(p, { resource: parent, sessionId: s.id, ...(parent === 'display' ? { targetId: d.id } : {}) });
         expect((await h.runtime.service.display(p, s.id, d.id)).view).toBeNull();
         expect(await h.runtime.store.get('display-history', frame.id, true)).toMatchObject({ view: { data: { text: 'Retained content' } }, archivedAt: expect.any(String) });
     });
@@ -109,24 +109,25 @@ describe('platform feedback safeguards', () => {
         h = await startHarness();
         const owner = await h.account(), p = await principal(owner), s = await owner.session(), d = await owner.display(s.id);
         const input = { resource: 'display', sessionId: s.id, targetId: d.id, confirmationDisplayId: d.id } as const;
-        const challenge: any = await h.runtime.service.archive.manage(p, { ...input, action: 'request-delete' });
+        const { confirmationDisplayId: _confirmationDisplayId, ...target } = input;
+        const challenge: any = await h.runtime.service.archive.requestDelete(p, { ...input });
         expect(challenge.words).toBeUndefined();
         const row: any = await h.runtime.store.get('delete-challenge', challenge.challengeId);
         const toast: any = await h.runtime.store.get('toast', row.toastId);
         expect(toast.text).toContain('cannot be undone');
         expect(toast.ownerId).toBe(p.userId);
         const words = toast.confirmationWords;
-        const wrong: any = await h.runtime.service.archive.manage(p, { ...input, action: 'confirm-delete', challengeId: challenge.challengeId, words: 'wrong words' });
+        const wrong: any = await h.runtime.service.archive.confirmDelete(p, { ...target, challengeId: challenge.challengeId, words: 'wrong words' });
         expect(wrong.deleted).toBe(false);
         row.expiresAt = Date.now() - 1;
         await h.runtime.store.put('delete-challenge', row);
-        await expect(h.runtime.service.archive.manage(p, { ...input, action: 'confirm-delete', challengeId: challenge.challengeId, words })).rejects.toMatchObject({ code: 'CONFIRMATION_EXPIRED' });
-        const fresh: any = await h.runtime.service.archive.manage(p, { ...input, action: 'request-delete' });
+        await expect(h.runtime.service.archive.confirmDelete(p, { ...target, challengeId: challenge.challengeId, words })).rejects.toMatchObject({ code: 'CONFIRMATION_EXPIRED' });
+        const fresh: any = await h.runtime.service.archive.requestDelete(p, { ...input });
         const r: any = await h.runtime.store.get('delete-challenge', fresh.challengeId), t: any = await h.runtime.store.get('toast', r.toastId);
         const code = t.confirmationWords;
-        expect(await h.runtime.service.archive.manage(p, { ...input, action: 'confirm-delete', challengeId: fresh.challengeId, words: code })).toMatchObject({ deleted: true, recoverable: false });
+        expect(await h.runtime.service.archive.confirmDelete(p, { ...target, challengeId: fresh.challengeId, words: code })).toMatchObject({ deleted: true, recoverable: false });
         expect(await h.runtime.store.get('display', d.id, true)).toBeUndefined();
-        await expect(h.runtime.service.archive.manage(p, { ...input, action: 'confirm-delete', challengeId: fresh.challengeId, words: code })).rejects.toBeDefined();
+        await expect(h.runtime.service.archive.confirmDelete(p, { ...target, challengeId: fresh.challengeId, words: code })).rejects.toBeDefined();
     });
     it('enforces configurable session creation limits but ignores retired view-limit overrides', async () => {
         h = await startHarness();

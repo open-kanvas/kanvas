@@ -44,7 +44,7 @@ for(const mode of ['success','denied','unsupported'] as const)test(`client captu
   try {
     let delivered!:()=>void; const armed=new Promise<void>(resolve=>{delivered=resolve;});
     s.viewer.on('response',async response=>{if(response.url().includes('/client-capture?')){const data=await response.json().catch(()=>null);if(data?.data?.captureId)delivered();}});
-    const q=await s.call('kanvas.display.request.capture');expect(q.status).toBe('awaiting-user-gesture');
+    const q=await s.call('kanvas.display.capture.request');expect(q.status).toBe('awaiting-user-gesture');
     await armed;
     expect(await s.viewer.evaluate(()=>(window as any).__capture.calls)).toBe(0);
     if(mode!=='unsupported'){
@@ -97,7 +97,7 @@ for (const limit of ['network-timeout','request-expiry'] as const) test(`client 
       await route.fulfill({response,json:body});
     });
     const armed=s.viewer.waitForResponse(async response=>response.url().includes('/client-capture?')&&Boolean((await response.json().catch(()=>null))?.data?.captureId));
-    const request=await s.call('kanvas.display.request.capture');await armed;
+    const request=await s.call('kanvas.display.capture.request');await armed;
     await s.viewer.locator('.viewer-shell').click({position:{x:20,y:20}});
     await expect.poll(()=>s.viewer.evaluate(()=>(window as any).__capture.calls)).toBe(1);
     await expect.poll(()=>s.viewer.evaluate(()=>(window as any).__capture.stopped),{timeout:limit==='request-expiry'?4000:12000}).toBe(1);

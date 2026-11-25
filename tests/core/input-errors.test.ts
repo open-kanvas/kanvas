@@ -13,7 +13,7 @@ describe('repairable, content-free input errors', () => {
             { path: 'confirm', problem: 'Must be true only after the owner confirms the intended browser.' },
         ]);
         const result = toolFailure(error, undefined, 'discovery');
-        expect(result.structuredContent).toMatchObject({ error: { schemaTool: 'kanvas_discover', schemaArguments: { catalog: 'help', action: 'get', id: 'kanvas.help.operations.discovery' }, topic: 'tools' } });
+        expect(result.structuredContent).toMatchObject({ error: { schemaTool: 'kanvas_discover', schemaArguments: { catalog: 'help', action: 'get', id: 'kanvas.help.operations.discovery' }, topic: 'operations' } });
         for (const value of [{ approve: 'true', confirm: true }, { approve: true, confirm: false }, { approve: true, confirm: 'true' }]) {
             expect(parseCanonicalArguments("kanvas.pairing.decide", { ...args, ...value })).toBeUndefined();
         }
@@ -22,10 +22,10 @@ describe('repairable, content-free input errors', () => {
         expect(JSON.stringify(toolFailure(rejected, undefined, 'discovery'))).not.toMatch(/private-unrecognized-field|private input/);
     });
     it('reports the expected type instead of applying an array size limit to a string', () => {
-        const error = canonicalArgumentError("kanvas.submit", { sessionId: 'session-id', requestId: 'show-1', displayIds: 'private display source'.repeat(8) })!;
+        const error = canonicalArgumentError("kanvas.publish", { sessionId: 'session-id', requestId: 'show-1', displayIds: 'private display source'.repeat(8) })!;
         expect(error.issues).toEqual([{ path: 'displayIds', problem: 'Expected array; received string.', expected: 'array', received: 'string' }]);
         expect(JSON.stringify(error.issues)).not.toContain('private');
-        expect(error.guidance).toEqual({ schemaTool: "kanvas.guide", topic: 'tools' });
+        expect(error.guidance).toEqual({ schemaTool: "kanvas.guide", topic: 'operations' });
     });
     it('keeps reproduction prose and list bounds distinct, including repeated boundary validation', () => {
         const prose = '1. Open the display.\n2. Confirm the intended screen.\n'.repeat(12);

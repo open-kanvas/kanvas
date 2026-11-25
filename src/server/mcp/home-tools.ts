@@ -14,11 +14,11 @@ export const homeTools: Definition[] = [
         searchAliases: ["kanvas.account.details"]
     },
     {
-        name: "kanvas.account.begin", summary: "Start a session on a chosen owned window when beginning new work with an available receiving screen.", description: 'Start a requested Kanvas session on one connected owned window. With multiple windows choose deviceId/windowId; never broadcast. With none, an actively opted-in returning account can get a ready session and queued push (only with no explicit target); otherwise returns needs_display and bare startUrl to open before retry. A notification is not delivery or paint: publish to returned IDs and verify. requestId retries are safe. Selected-session grants cannot create sessions.', schema: z.strictObject({ clientDetails: clientDetailsSchema.optional(), requestId: z.string().min(1).max(128), name: z.string().trim().min(1).max(160).default('Kanvas session'), deviceId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/).optional(), windowId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/).optional() }), idempotent: true,
+        name: "kanvas.session.start", summary: "Start a session on a chosen owned window when beginning new work with an available receiving screen.", description: 'Start a requested Kanvas session on one connected owned window. With multiple windows choose deviceId/windowId; never broadcast. With none, an actively opted-in returning account can get a ready session and queued push (only with no explicit target); otherwise returns needs_display and bare startUrl to open before retry. A notification is not delivery or paint: publish to returned IDs and verify. requestId retries are safe. Selected-session grants cannot create sessions.', schema: z.strictObject({ clientDetails: clientDetailsSchema.optional(), requestId: z.string().min(1).max(128), name: z.string().trim().min(1).max(160).default('Kanvas session'), deviceId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/).optional(), windowId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/).optional() }), idempotent: true,
         domain: "account",
         requiredScope: "publish",
         discovery: {"group":"sessions","hint":"User asks to start Kanvas with no active session: begin checks connected windows and active notification opt-in before asking them to open the bare startUrl. Never read a session URL aloud.","examples":[{"requestId":"start-session","name":"Planning"}]},
-        searchAliases: ["kanvas.account.begin"]
+        searchAliases: ["kanvas.session.start"]
     },
     {
         name: "kanvas.account.inventory", summary: "Inventory accessible sessions, displays, devices, windows, and groups when surveying account resources and their management operations.", readOnly: true, schema: accountInventorySchema,

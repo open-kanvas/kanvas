@@ -4,7 +4,10 @@
 /** Independent operation inventories used by HTTP contract scenarios. */
 export const ACCOUNT_MAPPING = [
     ["kanvas.archive.list", "kanvas_call", "kanvas.archive.list"],
-    ["kanvas.archive.manage", "kanvas_call", "kanvas.archive.manage"],
+    ["kanvas.archive.create", "kanvas_call", "kanvas.archive.create"],
+    ["kanvas.archive.restore", "kanvas_call", "kanvas.archive.restore"],
+    ["kanvas.archive.delete.request", "kanvas_call", "kanvas.archive.delete.request"],
+    ["kanvas.archive.delete.confirm", "kanvas_call", "kanvas.archive.delete.confirm"],
     ["kanvas.profile.read", "kanvas_call", "kanvas.profile.read"],
     ["kanvas.profile.update", "kanvas_call", "kanvas.profile.update"],
     ["kanvas.groups.list", "kanvas_call", "kanvas.groups.list"],
@@ -44,7 +47,7 @@ export const CURRENT_MAPPING = [
     ["kanvas.client.context.update", "kanvas_call", "kanvas.client.context.update"],
     ["kanvas.screen.read", "kanvas_call", "kanvas.screen.read"],
     ["kanvas.screen.decide", "kanvas_call", "kanvas.screen.decide"],
-    ["kanvas.media.import", "kanvas_call", "kanvas.media.import"],
+    ["kanvas.media.copy.from.asset", "kanvas_call", "kanvas.media.copy.from.asset"],
     ["kanvas.seat.map.update", "kanvas_call", "kanvas.seat.map.update"],
     ["kanvas.menu.update", "kanvas_call", "kanvas.menu.update"],
     ["kanvas.kanban.update", "kanvas_call", "kanvas.kanban.update"],
@@ -71,9 +74,9 @@ export const CURRENT_MAPPING = [
     ["kanvas.checklist.read", "kanvas_call", "kanvas.checklist.read"],
     ["kanvas.checklist.update", "kanvas_call", "kanvas.checklist.update"],
     ["kanvas.checklist.show", "kanvas_call", "kanvas.checklist.show"],
-    ["kanvas.display.request.capture", "kanvas_call", "kanvas.display.request.capture"],
+    ["kanvas.display.capture.request", "kanvas_call", "kanvas.display.capture.request"],
     ["kanvas.display.capture.status", "kanvas_call", "kanvas.display.capture.status"],
-    ["kanvas.account.begin", "kanvas_call", "kanvas.account.begin"],
+    ["kanvas.session.start", "kanvas_call", "kanvas.session.start"],
     ["kanvas.asset.export", "kanvas_call", "kanvas.asset.export"],
     ["kanvas.report.patch", "kanvas_call", "kanvas.report.patch"],
     ["kanvas.pointing.read", "kanvas_call", "kanvas.pointing.read"],
@@ -129,7 +132,10 @@ export const BOARD_MAPPING = [
     ["kanvas.board.read", "kanvas_call", "kanvas.board.read"],
     ["kanvas.board.overview", "kanvas_call", "kanvas.board.overview"],
     ["kanvas.board.post", "kanvas_call", "kanvas.board.post"],
-    ["kanvas.board.update", "kanvas_call", "kanvas.board.update"],
+    ["kanvas.board.preferences.update", "kanvas_call", "kanvas.board.preferences.update"],
+    ["kanvas.board.messages.seen", "kanvas_call", "kanvas.board.messages.seen"],
+    ["kanvas.board.message.edit", "kanvas_call", "kanvas.board.message.edit"],
+    ["kanvas.board.message.delete", "kanvas_call", "kanvas.board.message.delete"],
 ] as const;
 
 export const EXPERIENCE_MAPPING = [
@@ -152,5 +158,5 @@ export const DEVICE_MAPPING = [
     ["kanvas.devices.read", "kanvas_call", "kanvas.devices.read"],
     ["kanvas.participants.read", "kanvas_call", "kanvas.participants.read"],
     ["kanvas.device.present", "kanvas_call", "kanvas.device.present"],
-    ["kanvas.device.rename", "kanvas_call", "kanvas.device.rename"],
+    ["kanvas.device.update", "kanvas_call", "kanvas.device.update"],
 ] as const;

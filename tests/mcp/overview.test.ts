@@ -24,7 +24,7 @@ describe('conversation overview',()=>{
   expect(validate({catalog:'tools',action:'list'})).toBe(false);
  });
  it('assembles all registry entries in order without truncation, and validates the publish recipe',()=>{
-  parseCanonicalArguments('kanvas.submit',PUBLISH_RECIPE.arguments.arguments);
+  parseCanonicalArguments('kanvas.publish',PUBLISH_RECIPE.arguments.arguments);
   const result=data(discoveryResult('kanvas_discover',{}, {principal:{userId:'owner'},serviceAdmin:true}));
   expect(Object.keys(result)).toEqual(['orientation','publishRecipe','rules','operations','templates','screens','recentSessions','savedGuidance','serverVersion','reminder']);
   expect(result.operations.map((x:any)=>x.id)).toEqual(operationCatalog().map(x=>x.id).sort((a,b)=>a.localeCompare(b,'en')));
@@ -44,7 +44,7 @@ describe('conversation overview',()=>{
  });
  it('finds the primary publish operation for everyday display wording',()=>{
   const result=new DiscoveryCatalog().query('tool','search',{query:'publish a view to a display',limit:5},{principal:{userId:'owner'}});
-  expect((result.results as {id:string}[]).map(row=>row.id)).toContain('kanvas.submit');
+  expect((result.results as {id:string}[]).map(row=>row.id)).toContain('kanvas.publish');
  });
  it('filters administrator-only operations before listing, search and exact retrieval',()=>{
   const catalog=new DiscoveryCatalog(),regular={principal:{userId:'owner'}},admin={...regular,serviceAdmin:true};

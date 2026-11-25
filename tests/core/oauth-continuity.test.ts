@@ -162,13 +162,13 @@ describe('OAuth refresh continuity and explicit account consent', () => {
             await sdk.connect(transport);
             const legacySessionId = transport.sessionId;
             const submission = { sessionId: session.id, displayIds: [display.id], requestId: 'renewal-idempotency', view: { ...fact('Continue this conversation'), actions: [{ id: 'next', kind: 'button', label: 'Next' }] } };
-            const first = data<UpdateRecord>(await sdk.callTool(operationRequest({ name: "kanvas.submit", arguments: submission })));
+            const first = data<UpdateRecord>(await sdk.callTool(operationRequest({ name: "kanvas.publish", arguments: submission })));
             const settled = await owner.settle(session.id, submission.requestId);
             const clicked = success(await owner.request<InteractionRecord>('POST', `/api/sessions/${session.id}/interactions`, {
                 displayId: display.id, revision: settled.detail.displays[0].revision, actionId: 'next', value: true, requestId: 'before-refresh-click',
             }));
             const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 65 * 60000);
-            const retried = data<UpdateRecord>(await sdk.callTool(operationRequest({ name: "kanvas.submit", arguments: submission })));
+            const retried = data<UpdateRecord>(await sdk.callTool(operationRequest({ name: "kanvas.publish", arguments: submission })));
             expect(retried.id).toBe(first.id);
             const inbox = data<{
                 interactions: InteractionRecord[];

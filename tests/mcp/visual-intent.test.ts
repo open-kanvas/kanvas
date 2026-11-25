@@ -17,11 +17,11 @@ describe('actual guide and protocol metadata delivery', () => {
         expect(GUIDE_TOPICS).toContain('visual-intent');
         expect(guideFor('visual-intent')).toMatchObject({ description: VISUAL_INTENT_DESCRIPTION, guidance: VISUAL_INTENT_GUIDANCE, entry: VISUAL_INTENT_ENTRY, examples: VISUAL_INTENT_EXAMPLES });
         expect(guideFor('getting-started')).toMatchObject({ orientation: KANVAS_DESCRIPTION });
-        const submit = canonicalToolDefinitions().find(tool => tool.name === "kanvas.submit")!;
+        const submit = canonicalToolDefinitions().find(tool => tool.name === "kanvas.publish")!;
         expect(submit.description).toContain(VISUAL_INTENT_SUBMIT_HINT);
         expect(submit.description).toContain(PUBLISHING_DESCRIPTION);
         // The wire exposes this operation detail, not the internal metadata with inline examples appended.
-        const publicDetail = operationCatalog().find(entry => entry.id === 'kanvas.submit')!.detail() as { description: string };
+        const publicDetail = operationCatalog().find(entry => entry.id === 'kanvas.publish')!.detail() as { description: string };
         expect(publicDetail.description.length).toBeLessThanOrEqual(4096);
         expect(submit.description!.split('Example arguments JSON:')).toHaveLength(2);
         expect(submit.inputSchema.examples).toHaveLength(4);
@@ -54,7 +54,7 @@ describe('actual guide and protocol metadata delivery', () => {
             expect(published.tools.some(tool => tool.name === 'kanvas_discover')).toBe(true);
         }
         for (const { client } of [modern, legacy]) {
-            const result = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id: 'kanvas.submit' } });
+            const result = await client.callTool({ name: 'kanvas_discover', arguments: { catalog: 'operations', action: 'get', id: 'kanvas.publish' } });
             expect((result.structuredContent as any).data.entry.description).toContain(VISUAL_INTENT_SUBMIT_HINT);
         }
         expect(server.service.calls).toHaveLength(0);

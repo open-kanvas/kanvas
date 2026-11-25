@@ -1,3 +1,4 @@
+import {templateNames} from '../../src/shared/template-examples.js';
 import {describe, expect, it} from 'vitest';
 import {TEMPLATE_IDS, type TemplateId} from '../../src/shared/types.js';
 import {TEMPLATE_CONCEPTS, templateConcept} from '../../src/shared/template-concepts.js';
@@ -57,4 +58,9 @@ describe('authored template summary audit', () => {
     expect(templateConcept('product')!.when).toContain('choose comparison for distinct products');
     expect(templateConcept('vocabulary')!.when).toContain('Use flashcards for language practice');
   });
+});
+
+
+it('publishes the approved display labels without changing template IDs',()=>{
+ expect(templateNames).toMatchObject({vocabulary:'Kanvas glossary','device-preview':'Responsive viewport preview',transcription:'Transcript',translation:'Bilingual text',countdown:'Timer','now-playing':'Now-playing information',qa:'Audience responses',overview:'Content and session overview'});
 });

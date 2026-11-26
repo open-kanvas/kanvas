@@ -23,6 +23,20 @@ Registration can be disabled with `KANVAS_ALLOW_REGISTRATION=false`; provision a
 
 `KANVAS_MCP_PROFILE=discovery` is the default. All accepted former profile settings also expose only the same two tools, `kanvas_discover` and `kanvas_call`; obsolete callable aliases are rejected, not retained as alternate catalogs. Clients connect to `/mcp` and follow OAuth discovery and consent. Keep proxy forwarding and origin settings consistent; do not make a viewer URL public merely to bypass authentication.
 
+## MCP connection limits
+
+The default per-principal limit is 32 legacy MCP connections and, independently,
+32 modern `subscriptions/listen` streams. Both use the `mountMcp` option
+`maxSessionsPerPrincipal`; an explicit override still takes precedence. A principal
+is keyed by user, agent, token and scopes, not by account alone. This transport
+limit is separate from the account quota for saved Kanvas sessions.
+
+The global legacy connection cap remains 256; legacy connections expire after
+30 minutes idle. Bearer authorization, resource permissions and periodic
+authorization rechecks are unchanged. Reuse connections and send MCP `DELETE`
+on legacy teardown (or close a modern subscription stream) to release capacity
+promptly; increasing the default does not fix clients that leak connections.
+
 ## First account and first view
 
 Start from a new checkout (Git is required):

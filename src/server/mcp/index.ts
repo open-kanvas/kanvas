@@ -119,7 +119,7 @@ export function mountMcp(app: Express, service: McpService, options: McpOptions 
     const icons = typeof metadataUrl === 'string' ? serverIcons(metadataUrl) : undefined;
     const websiteUrl = serverWebsiteUrl(options.websiteUrl ?? app.locals.mcpWebsiteUrl ?? process.env.KANVAS_WEBSITE_URL);
     const maxLegacySessions = options.maxLegacySessions ?? 256;
-    const maxPerPrincipal = options.maxSessionsPerPrincipal ?? 16;
+    const maxPerPrincipal = options.maxSessionsPerPrincipal ?? 32;
     const idleMs = options.legacySessionIdleMs ?? 30 * 60 * 1000;
     const authRecheckMs = options.authRecheckMs ?? 30000;
     const requests = new AsyncLocalStorage<RequestContext>();

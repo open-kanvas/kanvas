@@ -440,6 +440,66 @@ describe('authenticated MCP HTTP using published SDK clients', () => {
             text: string;
         }).text).config.theme).toBe('dark');
     });
+    it('accepts 32 legacy connections by default, rejects the 33rd, isolates principals, and reclaims a deleted slot', async () => {
+        server = await harness();
+        const bearer = server.service.issue('owner');
+        const connections = [];
+        for (let i = 0; i < 32; i++)
+            connections.push(await server.legacy(bearer));
+        expect(new Set(connections.map(connection => connection.transport.sessionId)).size).toBe(32);
+        const initialize = () => fetch(server!.url, {
+            method: 'POST', headers: server!.headers(bearer),
+            body: JSON.stringify({ jsonrpc: '2.0', id: 33, method: 'initialize', params: {
+                protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'capacity-test', version: '1' },
+            } }),
+        });
+        const rejected = await initialize();
+        expect(rejected.status).toBe(429);
+        expect(await rejected.json()).toEqual({ jsonrpc: '2.0', id: 33, error: { code: -32600, message: 'MCP connection limit reached.' } });
+        // The key is the authorized principal, not just the account: a second
+        // credential for this account and a different account are independent.
+        for (const token of [server.service.issue('owner'), server.service.issue('other')]) {
+            const isolated = await server.legacy(token);
+            expect((await isolated.client.listTools()).tools.map(tool => tool.name)).toEqual(DISCOVERY_TOOL_NAMES);
+        }
+        const deletedId = connections[0].transport.sessionId;
+        await connections[0].transport.terminateSession();
+        const replacement = await server.legacy(bearer);
+        expect(replacement.transport.sessionId).not.toBe(deletedId);
+        expect((await replacement.client.listTools()).tools.map(tool => tool.name)).toEqual(DISCOVERY_TOOL_NAMES);
+        const fullAgain = await initialize();
+        expect(fullAgain.status).toBe(429);
+        await fullAgain.text();
+    });
+    it('uses the default 32 independently for modern subscriptions and frees a closed stream slot', async () => {
+        server = await harness();
+        const bearer = server.service.issue('owner');
+        const { client } = await server.modern(bearer);
+        const subscriptions = [];
+        for (let i = 0; i < 32; i++)
+            subscriptions.push(await client.listen({ resourceSubscriptions: ['kanvas://sessions/alpha/config'] }));
+        expect(subscriptions).toHaveLength(32);
+        await expect(client.listen({ resourceSubscriptions: ['kanvas://sessions/alpha/config'] })).rejects.toMatchObject({ status: 429 });
+        const other = await server.modern(server.service.issue('other'));
+        const isolated = await other.client.listen({ resourceSubscriptions: ['kanvas://sessions/beta/config'] });
+        // The two protocol eras share the limit value but not their counters.
+        const legacy = await server.legacy(bearer);
+        expect((await legacy.client.listTools()).tools.map(tool => tool.name)).toEqual(DISCOVERY_TOOL_NAMES);
+        await subscriptions[0].close();
+        await vi.waitFor(() => { expect(server!.service.listeners.size).toBe(33); });
+        const replacement = await client.listen({ resourceSubscriptions: ['kanvas://sessions/alpha/config'] });
+        await expect(client.listen({ resourceSubscriptions: ['kanvas://sessions/alpha/config'] })).rejects.toMatchObject({ status: 429 });
+        await Promise.all([...subscriptions, replacement, isolated].map(subscription => subscription.close()));
+    });
+    it('preserves an explicit global legacy connection limit across independent principals', async () => {
+        server = await harness({ maxLegacySessions: 2 });
+        const first = await server.legacy(server.service.issue('owner'));
+        await server.legacy(server.service.issue('other'));
+        const next = server.service.issue('owner');
+        await expect(server.legacy(next)).rejects.toMatchObject({ code: 429 });
+        await first.transport.terminateSession();
+        expect((await server.legacy(next)).transport.sessionId).toBeTruthy();
+    });
     it('enforces connection/subscription bounds even during concurrent initialization', async () => {
         server = await harness({ maxSessionsPerPrincipal: 1 });
         const bearer = server.service.issue('owner');
